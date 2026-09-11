@@ -1,0 +1,62 @@
+# ---------------------------------------------------------------------------
+# Secrets / environment
+# ---------------------------------------------------------------------------
+# Root `.env` IS committed — its header documents it as non-secret compose
+# defaults only. `backend/.env` holds real OPENROUTER / QDRANT keys.
+backend/.env
+frontend/.env.local
+frontend/.env.*.local
+*.pem
+!wheels/**/*.pem
+
+# iter-13.128 — Corporate CA bundle for droid CLI (org-specific, not for git).
+# See docker-compose.yml LAMA_CORP_CA_HOST env-var for override.
+certs/
+corp-ca.pem
+
+# ---------------------------------------------------------------------------
+# Python
+# ---------------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.so
+.venv/
+venv/
+backend/venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# ---------------------------------------------------------------------------
+# Node / frontend
+# NOTE: ./wheels IS tracked — docker-compose bind-mounts it to seed /wheels.
+# ---------------------------------------------------------------------------
+node_modules/
+frontend/build/
+.eslintcache
+yarn-error.log
+npm-debug.log*
+
+# ---------------------------------------------------------------------------
+# Caches / scratch
+# ---------------------------------------------------------------------------
+hf_cache/
+.lama-git-cache/
+.claude/worktrees/
+
+# ---------------------------------------------------------------------------
+# Editor / OS
+# ---------------------------------------------------------------------------
+.DS_Store
+.idea/
+*.swp
+
+# ---------------------------------------------------------------------------
+# Project backups (skip-pattern parity with kb/parsers.py)
+# ---------------------------------------------------------------------------
+*.bak
+*.save
+*_bkp
+*_old
+*_backup

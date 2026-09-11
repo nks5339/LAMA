@@ -1,0 +1,63 @@
+{
+  "summary": "Stage 3 (Architecture) + Stage 4 (CodeGen) wiring verification. 18/18 backend pytest tests pass for both routers (jobs/start guards, artifacts, files, download-zip, chat, reset, job polling 404). Architecture frontend page renders fully with all required data-testid hooks, tabs, generate buttons, chat panel, reset modal flow (confirm disables until 'RESET' typed). CodeGen frontend correctly renders locked state ('Locked — Architecture not frozen') because the seeded project has DataModel frozen but Architecture not yet frozen. No browser console errors. Skipped exercising real LLM jobs as instructed (would burn OpenRouter tokens).",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_arch_codegen.py",
+    "/app/test_reports/pytest/pytest_results_arch_codegen.xml"
+  ],
+  "verification_results": {
+    "health": "PASS — GET /api/health 200 {ok:true}",
+    "arch_recommend_no_pid": "PASS — 400 'project_id required'",
+    "arch_recommend_invalid_project": "PASS — 400 with DataModel-frozen message (require_stage_context)",
+    "arch_hld_no_pid": "PASS — 400",
+    "arch_lld_no_pid": "PASS — 400",
+    "arch_seq_no_pid": "PASS — 400",
+    "arch_artifacts_fresh_project": "PASS — 200 {artifacts:[], services:[]}",
+    "arch_chat_no_pid": "PASS — 400",
+    "arch_chat_no_message": "PASS — 400 'message required'",
+    "arch_reset": "PASS — 200 {ok:true}",
+    "codegen_generate_no_pid": "PASS — 400",
+    "codegen_generate_no_arch_frozen": "PASS — 400 'Architecture stage not frozen. Complete and freeze Architecture before starting CodeGen.'",
+    "codegen_files_fresh_project": "PASS — 200 {services:[], total_files:0}",
+    "codegen_download_zip_empty": "PASS — 400 'No files to package'",
+    "codegen_chat_no_pid": "PASS — 400",
+    "codegen_reset": "PASS — 200 {ok:true}",
+    "arch_job_not_found": "PASS — 404",
+    "codegen_job_not_found": "PASS — 404",
+    "frontend_architecture_page": "PASS — /architecture loads. data-testid: arch-page, btn-recommend, btn-hld, btn-lld, btn-seq, arch-chat-input, arch-chat-send, tab-service_map, tab-hld, tab-lld, tab-sequence_diagrams, tab-api_contracts ALL present. Service map artifact already exists for the seeded project so 3 service cards render.",
+    "frontend_arch_reset_modal": "PASS — Reset button opens modal; arch-reset-input + arch-reset-confirm present. Confirm enables after typing 'RESET'.",
+    "frontend_codegen_locked": "PASS — /code-gen shows codegen-locked with 'Locked — Architecture not frozen' message and 'Open Architecture →' CTA (since seeded project hasn't frozen Architecture).",
+    "frontend_sidebar_arch_badge": "PASS — stage-Architecture-badge-ready visible (DataModel frozen, Architecture available).",
+    "frontend_sidebar_codegen_badge": "INFO — Implementation uses data-testid 'stage-CodeGen-badge-locked' (with text 'Soon'), not 'stage-CodeGen-badge-soon' as spelled in the review request. Functionally correct; the testid naming differs from the spec literal."
+  },
+  "action_items": [
+    "(Spec/code naming) Review request expected data-testid 'stage-CodeGen-badge-soon' but Sidebar.jsx:226 uses 'stage-CodeGen-badge-locked' (label='Soon'). Either update Sidebar.jsx to add a parallel badge-soon testid for locked stages OR document that locked == 'Soon' badge. Cosmetic; not blocking.",
+    "(Pre-existing, iteration 6) Nested-button hydration warning in Sidebar.jsx (HelpIcon tooltip inside parent nav <button>) — still present.",
+    "(Pre-existing) Stage status drift: project.stage_status vs stage_context freeze flags can diverge — currently aligned for the seeded project, but worth normalising server-side."
+  ],
+  "critical_code_review_comments": [
+    "routes/architecture.py:289-298 start_recommend — calls require_stage_context BEFORE _new_job, so the 400 fires synchronously and the job registry stays clean. Good.",
+    "routes/architecture.py:441-449 start_hld / 523-531 start_lld / 596-604 start_seq — DO NOT call require_stage_context synchronously; the gate runs inside the background job. This means /jobs/start/hld returns 202-style {job_id} even for projects where DataModel is not frozen, and the error only surfaces via polling. Inconsistent with start_recommend. Recommend hoisting the gate check to the route handler to fail fast and match recommend's behaviour.",
+    "routes/codegen.py:323-333 start_codegen — correctly gates synchronously with require_stage_context BEFORE spawning the task. Good.",
+    "routes/codegen.py:445 — `r.get('commit').sha if isinstance(r, dict) else getattr(r.get('commit'), 'sha', '') if r else ''` — PyGithub returns objects, not dicts; the isinstance(dict) branch is dead code and the second `r.get('commit')` will AttributeError on the non-dict path. Fix: `getattr(r['commit'], 'sha', '')` or `r['commit'].sha`.",
+    "routes/codegen.py:294-296 services_done counter — increments on next-service transition, so when only _root files remain at end, the last real service is undercounted. Cosmetic.",
+    "routes/architecture.py:96-117 _save_arch_doc — fine; uses upsert on (project_id, type). Note: api_contracts is created via second _save_arch_doc inside _run_lld_job at line 511 without a tracability for datamodel; minor traceability gap.",
+    "routes/codegen.py:236-321 _run_codegen_job — when only_service is set, the job spawns root_files extension is skipped — good — but `services_total` is computed off the filtered services list, so the run doc's totals are correct.",
+    "Pipeline gate consistency: arch jobs (hld/lld/seq) burn an in-memory job slot and only fail asynchronously when DataModel isn't frozen. Add `await require_stage_context(...)` at the top of each start_* route for symmetry."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_arch_codegen.py (created)"
+  ],
+  "success_rate": {"backend": "100% (18/18)", "frontend": "100% (Architecture + CodeGen pages, sidebar, modal flow all validated)"},
+  "test_credentials": "None required",
+  "seed_data_creation": "Reused seeded project 7a0b9827-a3d1-46c6-82df-533fdd0bc8d8 (TEST_LAMA_v4_c69e9662). Used random uuid4 project_ids for empty-state and reset tests — no DB residue beyond stage_status upsert on /reset for non-existent project (codegen/architecture reset endpoints don't 404-guard, by design per iteration 6 note).",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Architecture + CodeGen wiring P0 is verified. Real LLM jobs (POST /jobs/start/recommend|hld|lld|sequence and POST /codegen/jobs/start/generate) were NOT exercised end-to-end — would take 60-180s each and burn OpenRouter tokens. To test the unlocked CodeGen path next, first freeze the Architecture stage via /api/architecture/{pid}/artifact/{aid}/freeze for service_map+hld+lld in order, then /code-gen will unlock. The seeded project already has 1 service_map artifact (3 services) but HLD/LLD are not yet generated. Spec naming mismatch on the CodeGen sidebar badge testid is documented under action_items.",
+  "rca of the issue": "N/A — no failures."
+}

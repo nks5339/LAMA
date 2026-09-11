@@ -1,0 +1,38 @@
+{
+  "summary": "Console (Model Fabric + Agent Fabric + Prompt Engineering) tested end-to-end. Backend: 18/19 pytest cases pass on /api/console/* (providers auto-detect openrouter/anthropic/groq, masked keys, routing/key update, delete-last-active guard, fake-key /test endpoint, agents grouping, get/put/reset-budget, usage summary shape, prompt preview success+404, github token-only fix). Frontend: /console page, three tabs, Quick Setup flow, Agents expansion with complexity/status/override/test, Prompts list + editor all render correctly. Sidebar Console nav above Prompt Library confirmed. MiniConsole NOT rendering on Architecture/CodeGen because pages have early-return gate (locked) and MiniConsole sits inside the unlocked branch.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "/api/console/agents", "issue": "Seed produces 21 agents, spec/test expects 22. Counts per stage: Discovery 1+3, DataModel 1+4, Architecture 1+5, CodeGen 1+4, Living 1+0 = 21. AGENT_COMPLEXITY map references srs.diff & arch.decompose that are not seeded. Either add one missing agent (e.g., srs.diff or codegen.docs.api or living.monitor) or update spec from 22→21."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Architecture.jsx", "issue": "MiniConsole not rendered when stage is locked (early return at line 374). Spec says MiniConsole must float bottom-right of Architecture page always.", "selector": "[data-testid='mini-console-collapsed']", "priority": "MEDIUM"},
+      {"component": "CodeGen.jsx", "issue": "Likely same locked-state early-return prevents MiniConsole render; verified MiniConsole element absent on /code-gen when stage locked.", "selector": "[data-testid='mini-console-collapsed']", "priority": "MEDIUM"}
+    ],
+    "integration_issues": [],
+    "design_issues": []
+  },
+  "test_report_links": ["/app/backend/tests/test_console.py", "/app/test_reports/pytest/console.xml"],
+  "action_items": [
+    "Add the 22nd seeded agent in /app/backend/seed.py::seed_agents() (e.g., add srs.diff under Discovery, or living.monitor under Living, or codegen.tests under CodeGen) to match spec total of 22.",
+    "In Architecture.jsx and CodeGen.jsx, move <MiniConsole .../> out of the unlocked-only return path so it floats on the locked-state view as well — wrap with a Fragment containing both the locked card and <MiniConsole/>.",
+    "Pre-existing failures in test_lama_v4 (total==8 vs 9) and test_arch_codegen (two 400-vs-200 expectations) are unrelated to Console feature — they reflect data/state drift; main agent should reconcile."
+  ],
+  "critical_code_review_comments": [
+    "fabric_chat in /app/backend/fabric/model_fabric.py: usage logging happens in finally{} block — if RuntimeError is raised earlier (HTTP non-200/timeout) usage dict is zeros which is correct, but error_msg is currently set only on httpx.TimeoutException; HTTP non-200 path raises but never persists call_status='error' to the log row's status field is fine because it was set before raise. Confirm by inspection — OK.",
+    "fabric_chat 'replaced' status code path is missing: only 'disabled' short-circuits and 'wrapped' modifies messages, but agent_configs supports status='replaced' with replaced_template. The route /agents/{key}/test does handle it; the generic fabric_chat path does not. Document/decide if replaced means 'use replaced_template as system prompt' globally.",
+    "console.py /providers/setup always inserts a new doc — repeatedly posting the same key yields duplicate providers. Consider upsert-on-(provider_type, api_key) or warn UI.",
+    "console.py /providers/{id}/test: when model_id empty returns {ok:false,error:...} with no latency_ms — minor consistency gap.",
+    "models.py masking is done only in console route — make sure no other endpoint returns raw api_key (e.g., /agents which embeds resolved_provider but not key — OK)."
+  ],
+  "updated_files": ["/app/backend/tests/test_console.py"],
+  "success_rate": {"backend": "95% (18/19 console + github tests pass; 1 fails on agent count)", "frontend": "90% (all Console UI testids pass; MiniConsole missing in locked stage view)"},
+  "test_credentials": "n/a — no auth on these endpoints",
+  "seed_data_creation": "Test used existing seeded projects; provider docs TEST_OR/TEST_ANT/TEST_GRQ created and cleaned by test_delete_last_active_provider_fails (only one survives by design).",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=$(grep REACT_APP_BACKEND_URL /app/frontend/.env|cut -d= -f2) pytest backend/tests/test_console.py -v. The agent-count assertion will pass once seed_agents is updated to 22. To re-verify MiniConsole in locked state, hit /architecture or /code-gen on a fresh project (DataModel not frozen) and assert [data-testid='mini-console-collapsed'] exists.",
+  "rca of the issue": "Agent count: seed_agents() in /app/backend/seed.py inserts exactly 21 entries (1 Living orchestrator, no Living tasks; CodeGen has only 4 tasks). The AGENT_COMPLEXITY map in fabric/model_fabric.py declares srs.diff and arch.decompose that are never seeded. Fix: append one missing task to the SEED list. MiniConsole: Architecture.jsx line 374 `if (isLocked) return (<LockedCard/>)` returns before reaching line 583 where MiniConsole is rendered. Fix: replace `return (<LockedCard/>)` with `return (<><LockedCard/><MiniConsole stage='Architecture' projectId={projectId}/></>)` and apply same change to CodeGen.jsx."
+}

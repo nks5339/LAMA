@@ -1,0 +1,42 @@
+{
+  "summary": "Backend-only testing of MigrationOS Stage 1 (Discovery + SRS). All 21 pytest tests passed in ~29s covering projects, prompts (8 seeded), KB upload/build/status/toon/glossary, chat with real OpenRouter LLM call, SRS generate (real LLM)/get/section-edit/freeze/unfreeze/PDF export, GitHub push stub, and audit log. Pilot project auto-seeds correctly and stage_status.Discovery transitions active->frozen->active as expected.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/projects", "issue": "Returns 200 instead of 201 for create (per REST convention); functional but inconsistent. response_model is Project."},
+      {"endpoint": "POST /api/kb/build", "issue": "Uses raw `dict` instead of a Pydantic model for project_id — weaker validation; works but no schema validation."},
+      {"endpoint": "POST /api/srs/generate, /freeze, /unfreeze", "issue": "Accept `dict` instead of Pydantic models — no automatic validation of required fields."},
+      {"endpoint": "GET /api/srs/{project_id}", "issue": "When no SRS exists, returns a synthetic empty doc (200) instead of 404 — may mask 'not generated yet' state on the frontend."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_migrationos.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "(Optional) Replace `payload: dict` with Pydantic request models in /api/kb/build, /api/srs/generate, /api/srs/freeze, /api/srs/unfreeze for input validation and OpenAPI accuracy.",
+    "(Optional) Return 201 on project create.",
+    "(Optional) Consider returning 404 from GET /api/srs/{id} when no SRS exists, or add an explicit `exists` flag.",
+    "Stages 2-5 still placeholders by design — no action needed for pilot scope."
+  ],
+  "critical_code_review_comments": [
+    "FastAPI uses deprecated `@app.on_event('startup'/'shutdown')` — migrate to lifespan context manager (warning only, still functional).",
+    "Seed runs on every startup but is idempotent for prompts; project seed checks `count_documents({}) > 0` which prevents re-seed in shared DBs after first project is created (acceptable for pilot).",
+    "kb/build accepts dict payload — should use Pydantic model (BuildKBRequest).",
+    "Chat endpoint loads history with .to_list(40) but only keeps last 20 per docstring — limit mismatch (cosmetic).",
+    "SRS get-empty path returns version 0 with empty sections instead of 404 — frontend cannot distinguish 'never generated' vs 'empty after wipe'.",
+    "No rate limiting / auth on any endpoint (acceptable for pilot but worth flagging)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_migrationos.py",
+    "/app/backend/tests/__init__.py"
+  ],
+  "success_rate": {"backend": "100%", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "None required (no auth)",
+  "seed_data_creation": "Tests upload synthetic PHP (UserController.php with 2 classes/5 methods) and SQL (schema.sql with 3 tables and FK relationships) to the pilot project. A TEST_Project_* is also created via POST /api/projects.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Pilot project is auto-seeded. The KB for pilot now contains 2 PHP + 1 SQL file from prior runs (uploads are additive — kb/build clears entities but kb_files persist). SRS document exists (version may keep incrementing on each /generate). Real OpenRouter LLM calls take 5-15s each; total suite ~30s. To rerun: `cd /app && python -m pytest backend/tests/test_migrationos.py -v`.",
+  "rca of the issue": "No issues — all functional tests passed."
+}

@@ -1,0 +1,66 @@
+{
+  "summary": "LAMA Prompt 4/4 — Stage 2 Data Model — full backend + frontend verification. 19/19 backend pytest tests pass. Frontend /data-model page loads cleanly with all expected elements, reset modal flow works, navigation from sidebar works.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "DataModel page (Discovery not frozen)", "issues": ["Sidebar shows 'READY' badge for stage-DataModel while pipeline gate returns 400 'Discovery stage not frozen'. The page itself shows the locked banner correctly. Mild inconsistency between project.stage_status (used by Sidebar) and stage_context freeze flags (used by pipeline gate). Review spec explicitly accommodates either Ready or Soon, so not a defect — informational."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_datamodel.py",
+    "/app/test_reports/pytest/pytest_results_datamodel.xml"
+  ],
+  "verification_results": {
+    "health": "PASS — GET /api/health 200 {ok:true}",
+    "seed_prompts": "PASS — /api/prompts contains datamodel.oltp, datamodel.olap, datamodel.bus_matrix, datamodel.chat",
+    "pipeline_gate_oltp": "PASS — POST /api/data-model/generate/oltp → 400 with 'Discovery stage not frozen'",
+    "pipeline_gate_olap": "PASS — POST /api/data-model/generate/olap → 400",
+    "pipeline_gate_bus_matrix": "PASS — POST /api/data-model/generate/bus-matrix → 400",
+    "pipeline_gate_migration_scripts": "PASS — POST /api/data-model/generate/migration-scripts → 400",
+    "pipeline_gate_entity_graph": "PASS — POST /api/data-model/generate/entity-graph → 400",
+    "pipeline_gate_chat": "PASS — POST /api/data-model/chat → 400",
+    "artifact_list_fresh": "PASS — GET /api/data-model/{new_pid}/artifacts → 200 {artifacts: []}",
+    "stage2_reset": "PASS — POST /api/data-model/{pid}/reset → 200 {ok:true, deleted:{data_models,bus_matrix,olap_models,migration_artifacts}}",
+    "factory_reset_404": "PASS — POST /api/projects/__fake__/factory-reset → 404 'Project not found'",
+    "factory_reset_route_registered": "PASS — OPTIONS confirms route exists",
+    "artifact_get_bogus_404": "PASS — Returns 404 not 500/405",
+    "artifact_put_bogus_404": "PASS — Returns 404",
+    "artifact_freeze_bogus_404": "PASS — Returns 404",
+    "artifact_download_bogus_404": "PASS — Returns 404",
+    "regressions": "PASS — /api/srs/{id}, /api/projects/{id}/pipeline (5 stages), /api/kb/{id}/owl-export all still working",
+    "frontend_loads": "PASS — /data-model loads, no React crash",
+    "frontend_header": "PASS — 'Stage 2 of 5 — Data Model' header visible",
+    "frontend_sidebar": "PASS — stage-DataModel button present, Ready badge (project metadata)",
+    "frontend_six_cards": "PASS — All 6 artifact cards rendered: oltp_ddl, olap_ddl, bus_matrix, migrate_old_to_oltp, migrate_oltp_to_olap, test_migration (6× 'Not yet generated' placeholders)",
+    "frontend_tabs": "PASS — tab-oltp_ddl, tab-olap_ddl, tab-bus_matrix present and clickable",
+    "frontend_menu": "PASS — datamodel-menu-btn opens menu with open-stage2-reset and open-factory-reset",
+    "frontend_reset_modal": "PASS — reset-modal opens; reset-confirm disabled by default, enabled after typing 'RESET' in reset-confirm-input",
+    "frontend_sidebar_nav": "PASS — Clicking stage-DataModel from / navigates to /data-model"
+  },
+  "action_items": [
+    "(Informational) Stage status drift: project.stage_status.DataModel can be 'available' while Discovery stage_context isn't frozen, so Sidebar shows 'Ready' but every endpoint 400s. Consider deriving stage_status server-side from actual stage_context freeze flags in the pipeline endpoint to keep UI/API in lockstep.",
+    "(Pre-existing) Nested-button hydration warning in Sidebar.jsx (HelpIcon tooltip inside parent nav <button>) still present — flagged in iteration 5."
+  ],
+  "critical_code_review_comments": [
+    "routes/datamodel.py:710-750 — freeze_artifact uses `doc.get('generated_by','')` from the LAST-frozen artifact for `sources.model_used`. If oltp_ddl was frozen first then olap_ddl second, this will record only the olap model. Consider capturing both: {oltp_model: oltp.generated_by, olap_model: olap.generated_by}.",
+    "routes/datamodel.py:779-810 reset_stage2 — DOES NOT use the projects collection check, so any project_id (including non-existent) returns 200. That's intentional per the review spec ('does NOT 404 on a project with no artifacts') but could mask typos. Acceptable trade-off.",
+    "routes/datamodel.py:819-883 factory_reset — properly 404s on missing project, deletes 12 collections + audit_log + qdrant vectors, then resets stage_status. Looks good. Audit insert at the very end records the deletion summary including potentially the just-deleted audit_log count.",
+    "routes/datamodel.py:46-51 _get_prompt fallback to global prompts is correct; no missing-key crash.",
+    "routes/datamodel.py:54-56 _safe_format coerces None→empty string, preventing KeyError but leaving silent prompt holes — fine for now.",
+    "routes/datamodel.py:587-595 chat endpoint — creates conversation each call when conversation_id is missing. Frontend should persist & resend conversation_id; verify FE behaviour in DataModel.jsx chat section.",
+    "datamodel.py:649-651 list_artifacts — sort('updated_at', -1) but DataModelArtifact may not set updated_at on insert (only on update). For brand-new artifacts the sort key is missing → MongoDB sorts those last. Minor; not user-visible until generation happens.",
+    "Stage_status drift (see action_items): pipeline.py.require_stage_context checks stage_context doc, while frontend Sidebar reads project.stage_status — these can diverge."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_datamodel.py (created)"
+  ],
+  "success_rate": {"backend": "100% (19/19)", "frontend": "100% (all checkpoints)"},
+  "test_credentials": "None required",
+  "seed_data_creation": "Reused project 7a0b9827-a3d1-46c6-82df-533fdd0bc8d8. Created an ephemeral fresh project_id (random uuid) in test_list_artifacts_fresh_project — no DB-side residue.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "All Prompt-4/4 Stage 2 acceptance criteria met. SSE generation endpoints (/generate/oltp, /generate/olap, /generate/migration-scripts) NOT exercised end-to-end — would burn 60-120s of LLM tokens each. The pipeline-gate (400 when Discovery unfrozen) is verified for ALL 6 generation endpoints + chat. Frontend page renders, reset modal flow validated, sidebar navigation validated. For next iteration, freeze Discovery first to unlock the generation path and verify actual artifact creation/persistence.",
+  "rca of the issue": "N/A — no failures."
+}

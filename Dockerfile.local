@@ -1,0 +1,40 @@
+# Dockerfile.local — thin derivation of mishramesh/lama:latest that adds
+# `git` + `dulwich` for the /api/kb/{pid}/clone-git endpoint.
+#
+# The upstream image on Docker Hub is older than iter-13.90 (which added
+# git + openssh-client + dulwich to the base Dockerfile). Rebuilding the
+# base image from scratch requires reaching MongoDB's GPG endpoint, which
+# fails behind a corporate SSL-intercepting proxy. This derivation only
+# hits Debian's own apt mirrors (usually whitelisted) and PyPI.
+#
+# Build:   docker build -f Dockerfile.local -t lama:local .
+# Run:     LAMA_IMAGE=lama:local docker compose up -d
+FROM mishramesh/lama:latest
+
+USER root
+
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends git openssh-client; \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip install --no-cache-dir "dulwich>=1.2.5,<2.0"
+
+# Sanity-check at build time so a broken layer fails fast rather than
+# silently shipping an image that still lacks git.
+RUN git --version && python -c "import dulwich, sys; print('dulwich', dulwich.__version__)"
+
+# iter-15.62 — The Tester agent's real native-build phase (iter-15.44 /
+# 15.61) needs `mvn` on PATH to compile Maven-target projects; the
+# published mishramesh/lama:latest this image is derived FROM predates
+# that Dockerfile fix (which lives in the repo's main Dockerfile, only
+# takes effect on the next Hub image rebuild/publish). Add it here too
+# — via Debian's own apt mirrors only (same proxy-safe rule as above) —
+# so local `lama:local` dev builds get a working `mvn clean install`
+# without needing the base image republished first.
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends default-jdk maven; \
+    rm -rf /var/lib/apt/lists/*
+
+RUN mvn -v

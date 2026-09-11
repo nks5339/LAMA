@@ -1,0 +1,46 @@
+{
+  "summary": "Backend-only LAMA iteration-2 testing. 20 pytest tests across 6 classes: service rename, KB folder scan (incl. SKIP_DIRS + SKIP_FILE_PATTERNS), chat intent + auto-SRS-trigger, TOON pruning non-crash, GitHub config/test/push, regression. 19/20 passed (95%). 1 failure surfaces a real contract bug in scan-folder skip reporting (see backend_issues.critical).",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "POST /api/kb/scan-folder",
+        "issue": "SKIP_FILE_PATTERNS (.bak, .save, .php_*, _old/_bkp/_backup) are effectively unreachable when the file's extension is NOT in ALLOWED_EXTS. In routes/kb.py the extension check runs FIRST and `continue`s silently, so files like `old.bak`, `notes.save`, `Legacy.php_03Mar2025` are filtered out without ever being added to `skipped_files`. The review request explicitly states these should appear in the skipped list. Fix: run `_should_skip_file(f)` BEFORE the `ext not in ALLOWED_EXTS` filter, OR also append unknown-extension files matching skip patterns to `skipped`.",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {"endpoint": "POST /api/kb/scan-folder", "issue": "Accepts raw dict payload — no Pydantic model; weaker validation and missing OpenAPI schema."},
+      {"endpoint": "POST /api/github/config", "issue": "Token is stored in plaintext on the project document (acknowledged in code comment). Acceptable for pilot, but flag for production."},
+      {"endpoint": "POST /api/chat", "issue": "When intent='srs.generate' the auto-trigger silently swallows ALL exceptions and just sets srs_triggered=false — no error surfaced to client. Hard to debug failed auto-generation."},
+      {"endpoint": "POST /api/github/push", "issue": "Returns 200 with status='error' for all failure cases (no repo/token, no SRS, push failure). Inconsistent with REST norms; clients must inspect body."},
+      {"endpoint": "GET /api/github/config/{id}", "issue": "token_preview is `token[:6] + '…'` — for a real PAT (ghp_xxxx...) this leaks the first 6 chars; consider showing last 4 instead."}
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/test_lama_v2.py",
+    "/app/backend/tests/test_migrationos.py",
+    "/app/test_reports/pytest/pytest_results_v2.xml"
+  ],
+  "action_items": [
+    "FIX (HIGH): /app/backend/routes/kb.py scan-folder — reorder checks so SKIP_FILE_PATTERNS are evaluated before the ALLOWED_EXTS filter, so .bak/.save/.php_*/_old/_bkp/_backup files placed in source folder are reported in `skipped_files`. Current behavior silently drops them.",
+    "(Optional) Use Pydantic request models for /api/kb/scan-folder, /api/kb/build (still dict).",
+    "(Optional) Surface a meaningful error message in chat response when srs.generate auto-trigger fails (currently silently set to false).",
+    "(Optional) Consider returning 4xx codes from /api/github/push error paths instead of 200+status=error."
+  ],
+  "critical_code_review_comments": [
+    "kb.py:30-103 — scan-folder order of checks is the root cause of the skip-reporting bug. Move `_should_skip_file(f)` above the extension filter.",
+    "github.py:147-162 — bare `except Exception` around create_file path swallows all errors and may mask non-404 GitHub failures as 'create'. Differentiate 404 (file missing) from other exceptions.",
+    "chat.py:188-195 — auto SRS-generate silently swallows exceptions; should at least log to audit_log or return error detail.",
+    "github.py:64-69 — token_preview leaks first 6 chars; show last 4 (e.g., '…abcd') for safer UX.",
+    "kb.py:55-93 — large file content read into memory + insert_many without batching; for very large folders this may OOM. Add streaming/batching."
+  ],
+  "updated_files": ["/app/backend/tests/test_lama_v2.py"],
+  "success_rate": {"backend": "95% (19/20)", "frontend": "not tested (backend-only request)"},
+  "test_credentials": "None required (no auth). Used fake GitHub token `ghp_invalid_for_test_xxxxxxxxxxxxxxxxxxxx` for /github/test as instructed.",
+  "seed_data_creation": "Created TEST_LAMA_v2_<uuid> project per session. Wrote temp folder /tmp/lama_test_src_<rand> with 2 .php + 1 .sql (valid) and 5 skip-pattern files (.bak, .save, .php_*, _old, _bkp) + node_modules/.git subdirs containing ignored files. Folder is cleaned up via fixture teardown.",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "To rerun: `cd /app && python -m pytest backend/tests/test_lama_v2.py -v`. Suite takes ~50s due to 3 real OpenRouter LLM calls (chat gap_question, chat srs.generate which auto-triggers SRS generate, TOON pruning chat). Pilot SRS doc version increments on each `test_srs_generate_intent_triggers` run. Scratch TEST_LAMA_v2_* projects accumulate — safe to ignore. After the HIGH-priority kb.py fix, only `TestKBScanFolder::test_scan_valid_folder_ingests_and_skips` should be rerun.",
+  "rca of the issue": "Bug: scan-folder skipped_files omits .bak/.save/.php_* files. RCA: In /app/backend/routes/kb.py the loop checks `ext not in ALLOWED_EXTS` first (`continue` without recording) before `_should_skip_file(f)`. Since .bak/.save/.php_03Mar2025 have extensions NOT in ALLOWED_EXTS, they are dropped silently — never reaching the skip-pattern branch that would append to `skipped`. Reproduction: POST /api/kb/scan-folder with a folder containing `old.bak` and `notes.save` — response shows skipped count missing those files. Mitigation: swap the order — evaluate `_should_skip_file(f)` first; if match, `skipped.append(f); continue`. Then apply extension filter."
+}

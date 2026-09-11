@@ -1,0 +1,321 @@
+# docker-compose.yml
+# LAMA — Legacy Application Modernisation AI Studio
+#
+# Hostinger Docker Manager usage:
+#   1. Create an .env file in the same directory (copy from .env.example).
+#   2. Click "Deploy" / "docker compose up -d" in Hostinger Docker Manager.
+#
+# Local usage:
+#   docker compose pull
+#   docker compose up -d
+#   docker compose logs -f lama
+#
+# Persisted state: MongoDB data lives in the `lama_mongo_data` named volume
+# (survives image upgrades). External services (Qdrant) are reached via env-vars.
+
+services:
+  lama:
+    image: ${LAMA_IMAGE:-mishramesh/lama:latest}
+    container_name: lama
+    restart: unless-stopped
+    pull_policy: ${LAMA_PULL_POLICY:-always}           # set LAMA_PULL_POLICY=missing in .env to use a local image
+    ports:
+      - "8382:8382"
+    # iter-13.112 — Linux Docker doesn't auto-resolve host.docker.internal
+    # unless we map it to the host gateway. Mac & Windows Docker Desktop
+    # provide it automatically; this line is a harmless no-op there.
+    # Required so the bundled "Add Ollama (local)" Console button reaches
+    # the Ollama daemon running on the operator's HOST machine instead of
+    # the container's loopback.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - lama_mongo_data:/data/db
+      # Local UI override — mounts the freshly-built React bundle over the
+      # one baked into the image, so frontend code changes can be tested
+      # without a full image rebuild. Remove this line to use the image's
+      # built-in UI.
+      - ./frontend/build:/usr/share/nginx/html:ro
+      # Local backend override — mounts your working backend tree over the
+      # one baked into the image so Python edits take effect with just
+      # `docker compose restart lama` (or `supervisorctl restart backend`
+      # inside the container). NOT read-only: entrypoint.sh writes a runtime
+      # /app/backend/.env from the compose `environment:` block on boot.
+      # Remove this line in production to use the image's built-in backend.
+      - ./backend:/app/backend
+      # Override nginx config too (adds no-store cache headers on index.html
+      # so the SPA shell is never stale after a bundle rebuild).
+      - ./docker/nginx.conf:/etc/nginx/nginx.conf:ro
+      # iter-14.27 — HF encoder cache lives in a NAMED VOLUME so it
+      # survives `docker compose down` / container recreates without
+      # needing a re-download from huggingface.co (which is blocked
+      # by the corporate MITM proxy anyway). On first boot the wrapper
+      # entrypoint seeds the volume from the read-only host bind at
+      # /seed/hf_cache. On subsequent boots the seed copy is skipped.
+      - lama_hf_cache:/root/.cache/huggingface
+      - ./hf_cache:/seed/hf_cache:ro
+      # iter-14.27 — LangGraph / LangChain-core wheels also live in a
+      # named volume, seeded on first boot from ./wheels on the host.
+      # See docker/entrypoint-with-wheels.sh — it pip-installs from
+      # /wheels after seeding, so the modules are available before
+      # supervisord starts uvicorn.
+      - lama_wheels:/wheels
+      - ./wheels:/seed/wheels:ro
+      # iter-14.26 — Wrapper entrypoint that seeds the volumes above,
+      # pip-installs langgraph from /wheels, then execs /entrypoint.sh.
+      - ./docker/entrypoint-with-wheels.sh:/entrypoint-with-wheels.sh:ro
+      # iter-13.125 — Factory.ai CLI passthrough.
+      # The Console "Test" probe runs `shutil.which("droid")` INSIDE this
+      # container, so the host's $HOME/.local/bin/droid is invisible by
+      # default. We bind-mount the host binary into /usr/local/bin/droid
+      # (so it's on PATH) and the host's ~/.factory config dir into
+      # /root/.factory (so the in-container droid inherits your login,
+      # selected Computer, history, etc.).
+      #
+      # IMPORTANT: the LAMA container is linux/amd64. Your HOST droid
+      # binary MUST also be linux/amd64 — a macOS arm64 mach-o won't
+      # execute and you'll see "Exec format error". On Mac, install the
+      # linux droid binary into a SEPARATE host dir (so it doesn't clash
+      # with the macOS one in ~/.local/bin) and point
+      # LAMA_DROID_BIN_HOST at it. Quickstart:
+      #   docker compose exec lama bash -lc 'curl -fsSL https://app.factory.ai/cli | sh && cp /root/.factory/bin/droid /droid-host/droid'
+      # (the /droid-host bind-mount below puts the host dir on the right
+      # side so the in-container installer can drop the freshly-downloaded
+      # linux binary back onto the host for reuse across rebuilds).
+      #
+      # Override the host paths in .env if your droid lives elsewhere:
+      #   LAMA_DROID_BIN_HOST=/Users/me/.local/bin-linux/droid
+      #   LAMA_FACTORY_CONFIG_HOST=/Users/me/.factory
+      - ${LAMA_DROID_BIN_HOST:-${HOME}/.local/bin-linux/droid}:/usr/local/bin/droid:ro
+      - ${LAMA_FACTORY_CONFIG_HOST:-${HOME}/.factory}:/root/.factory
+      # Writable bind for the one-shot installer (see comment above) to
+      # drop the freshly-pulled linux droid binary back onto the host.
+      - ${LAMA_DROID_BIN_HOST_DIR:-${HOME}/.local/bin-linux}:/droid-host
+      # iter-13.128 — Corporate CA bundle passthrough for Droid CLI.
+      # Droid runs on Node.js and doesn't honour LAMA_CA_BUNDLE (that's
+      # a Python-only knob for httpx). If a corporate SSL-intercepting
+      # proxy (Zscaler / Netskope / …) is between the container and
+      # Anthropic's API, every `droid exec` call fails with
+      # `unable to get local issuer certificate`, which factory_cli
+      # collapses to a routing failure and llm.py surfaces as the
+      # (misleading) "OPENROUTER_API_KEY not configured".
+      #
+      # Fix: drop the corporate root PEM at `./certs/corp-ca.pem` on
+      # the host (or set LAMA_CORP_CA_HOST to any absolute path). The
+      # bind-mount below exposes it inside the container and
+      # NODE_EXTRA_CA_CERTS makes Node trust it. See docs section
+      # "Behind a corporate proxy" in AGENTS.md.
+      - ${LAMA_CORP_CA_HOST:-./certs/corp-ca.pem}:/usr/local/share/ca-certificates/corp-ca.crt:ro
+      # iter-13.111 — Disk-export target.
+      # CodeGen → "Export to Disk" writes the generated frontend + backend
+      # trees here. We mount the HOST's parent-of-lama-main into the
+      # container at /lama-export so exports land as a sibling of the
+      # `lama-main` folder on your Mac (e.g.
+      # /Users/you/projects/Aarogyasri-TJHS-App/). Override by setting
+      # LAMA_EXPORT_HOST_DIR in .env to any absolute host path.
+      - ${LAMA_EXPORT_HOST_DIR:-..}:/lama-export
+      # iter-14.4 — Optional git-clone cache on the HOST filesystem.
+      # By default LAMA clones legacy repos to /tmp/lama-git INSIDE the
+      # container (fast on Mac's VM ext4). If you want the clones to
+      # land on the Mac filesystem instead (so you can inspect them in
+      # Finder, reuse pack files across container rebuilds, or pre-clone
+      # on the host with native git speed and hand off to LAMA), set
+      # LAMA_GIT_CACHE_HOST=/absolute/host/path in your .env — the
+      # backend will then honour LAMA_GIT_CLONE_ROOT=/lama-git-cache.
+      # Empty default falls back to a scratch dir under the compose
+      # project (harmless if unused because LAMA_GIT_CLONE_ROOT is only
+      # set when LAMA_GIT_CACHE_HOST is explicit).
+      - ${LAMA_GIT_CACHE_HOST:-./.lama-git-cache}:/lama-git-cache
+    environment:
+      # ---- iter-13.111 — point disk_exporter at the bind-mount above.
+      # The container path MUST match the right-hand side of the volume.
+      LAMA_EXPORT_ROOT: ${LAMA_EXPORT_ROOT:-/lama-export}
+
+      # iter-14.4 — Where `Ingest KB from git URL` clones legacy repos.
+      # Only exported when the operator explicitly set LAMA_GIT_CACHE_HOST
+      # in .env — otherwise leave EMPTY so the backend's default
+      # (/tmp/lama-git inside the container, fast on the VM ext4) wins.
+      # Set to /lama-git-cache to route clones through the host bind-
+      # mount above (visible in Finder, survives container rebuilds).
+      LAMA_GIT_CLONE_ROOT: ${LAMA_GIT_CLONE_ROOT:-}
+      # iter-14.4 — Hard timeout on the git subprocess (default 300s).
+      # Raise for very large / very slow corporate repos:
+      #   LAMA_GIT_CLONE_TIMEOUT=1800 docker compose up -d
+      LAMA_GIT_CLONE_TIMEOUT: ${LAMA_GIT_CLONE_TIMEOUT:-300}
+      # iter-14.4 — Forward the host's HTTP(S) proxy settings so
+      # git-clone / KB fetches take the SAME network path the operator's
+      # host shell would. Only exported when set on the host at
+      # `docker compose up` time — empty values are harmless.
+      HTTP_PROXY:   ${HTTP_PROXY:-}
+      HTTPS_PROXY:  ${HTTPS_PROXY:-}
+      NO_PROXY:     ${NO_PROXY:-}
+      http_proxy:   ${http_proxy:-}
+      https_proxy:  ${https_proxy:-}
+      no_proxy:     ${no_proxy:-}
+
+      # iter-13.125 — Factory.ai CLI defaults inside the container.
+      # The droid binary is bind-mounted from the host (see volumes
+      # above) at /usr/local/bin/droid, so it's already on PATH. We
+      # set the explicit env-var anyway so the Console "Test" probe
+      # in non-CLI mode (which checks `cli_binary_available()` against
+      # the env default) also resolves correctly. Override in .env
+      # only if you re-mount the binary to a different container path.
+      LAMA_FACTORY_CLI_BIN: ${LAMA_FACTORY_CLI_BIN:-/usr/local/bin/droid}
+
+      # iter-14.10 — Token-spend guardrails. The iter-14.9 code fixes for
+      # slim-mode prompts + OpenRouter fallback kill-switch existed in
+      # backend/ but were unreachable because these env-vars were never
+      # passed through to the container. Defaults are now ON so a fresh
+      # deploy is token-safe out of the box; set to 0 in .env to opt out.
+      #
+      #  * LAMA_FACTORY_CLI_SLIM              — strip fat KB/TOON blocks from
+      #    every droid prompt; droid reads them from ./.lama/ on its cwd
+      #    (materialised at Build KB time). Saves ~200-300K chars/call.
+      #  * LAMA_DISABLE_OPENROUTER_FALLBACK   — when droid fails, DO NOT
+      #    silently re-run the same fat prompt against env-var OpenRouter.
+      #    Surface the droid error instead. This was the stealth token drain.
+      #  * LAMA_FACTORY_MODE                  — mark this deploy as CLI-first
+      #    so the disable-fallback branch fires even before per-project
+      #    orchestrator config is read.
+      #  * LAMA_FACTORY_CLI_DUMP_PROMPT       — write the exact prompt sent
+      #    to droid under /tmp/droid-debug for post-mortem.
+      LAMA_FACTORY_CLI_SLIM:            ${LAMA_FACTORY_CLI_SLIM:-1}
+      LAMA_DISABLE_OPENROUTER_FALLBACK: ${LAMA_DISABLE_OPENROUTER_FALLBACK:-1}
+      LAMA_FACTORY_MODE:                ${LAMA_FACTORY_MODE:-cli}
+      LAMA_FACTORY_CLI_DUMP_PROMPT:     ${LAMA_FACTORY_CLI_DUMP_PROMPT:-}
+      LAMA_FACTORY_CLI_TIMEOUT_SEC:     ${LAMA_FACTORY_CLI_TIMEOUT_SEC:-}
+
+      # ---- LLM provider (required for the pipeline) ----
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
+      OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
+      LAMA_DEFAULT_MODEL:  ${LAMA_DEFAULT_MODEL:-deepseek/deepseek-chat}
+
+      # ---- TLS knobs ----
+      # Set LAMA_DISABLE_SSL_VERIFY=true in .env when you're behind a
+      # corporate MITM proxy (Zscaler / Netskope / etc.) and SRS generation
+      # fails with "CERTIFICATE_VERIFY_FAILED". DEV/ENTERPRISE ONLY — never
+      # enable in production. Prefer LAMA_CA_BUNDLE pointing at your
+      # corporate root CA when possible.
+      LAMA_DISABLE_SSL_VERIFY: ${LAMA_DISABLE_SSL_VERIFY:-}
+      LAMA_CA_BUNDLE:          ${LAMA_CA_BUNDLE:-}
+      # iter-13.128 — Point Node (droid CLI) at the corporate CA bundle
+      # bind-mounted above so `droid exec` succeeds behind Zscaler /
+      # Netskope / any TLS-intercepting proxy. Leave empty to fall
+      # through to the system trust store.
+      NODE_EXTRA_CA_CERTS:     ${NODE_EXTRA_CA_CERTS:-/usr/local/share/ca-certificates/corp-ca.crt}
+
+      # ---- Qdrant vector DB (required for KB-RAG chat) ----
+      QDRANT_URL:     ${QDRANT_URL:-}
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-}
+
+      # ---- Database (defaults are fine — Mongo runs inside the container) ----
+      DB_NAME:   ${DB_NAME:-lama}
+      MONGO_URL: ${MONGO_URL:-mongodb://127.0.0.1:27017}
+
+      # ---- iter-13.19 — Graphified KB (property-graph subgraph injection
+      # into SRS / Architecture / CodeGen prompts). Off by default; set to
+      # 1 / true / yes / on to enable. The graph itself is always built
+      # during Build KB regardless of this flag.
+      LAMA_USE_GRAPH_KB: ${LAMA_USE_GRAPH_KB:-}
+
+      # ---- iter-14.14/15 — LangGraph + HuggingFace confidence engine.
+      # Three values:
+      #   * `langgraph`       — force LangGraph + HF for ALL confidence
+      #                          scoring (SRS, pipeline popover, Living
+      #                          drift). Strict-HF auto-on: no fabric
+      #                          fallback, no Factory-CLI grading tokens.
+      #   * `fabric`          — force legacy multi-model fabric evaluator.
+      #   * (empty) / `auto`  — iter-14.29: auto-fallback. When Factory.ai
+      #                          droid is NOT enabled (LAMA_FACTORY_MODE
+      #                          != cli) or the droid binary is NOT
+      #                          resolvable, LAMA transparently switches
+      #                          to the LangGraph + HF engine so
+      #                          confidence still works offline / without
+      #                          Factory access. When Factory IS reachable,
+      #                          the legacy fabric path is used.
+      # The graph asks two cheap HF encoders (bge-small-en-v1.5 for
+      # coverage, nli-deberta-v3-base for contradictions) whether the LLM
+      # evaluator even needs to be invoked. Well-covered sections
+      # short-circuit with score 96 without any LLM call at all.
+      # Optional tuning knobs — sensible defaults are baked into
+      # confidence_langgraph.py:
+      #   LAMA_HF_COVERAGE_ACCEPT           default 0.90
+      #   LAMA_HF_COVERAGE_FLOOR            default 0.40
+      #   LAMA_HF_CONTRADICTION_HARD_STOP   default 2
+      #   LAMA_HF_ACCEPT_SCORE              default 96.0
+      #   LAMA_HF_REJECT_SCORE              default 55.0
+      LAMA_CONFIDENCE_ENGINE:              ${LAMA_CONFIDENCE_ENGINE:-}
+      LAMA_HF_COVERAGE_ACCEPT:             ${LAMA_HF_COVERAGE_ACCEPT:-}
+      LAMA_HF_COVERAGE_FLOOR:              ${LAMA_HF_COVERAGE_FLOOR:-}
+      LAMA_HF_CONTRADICTION_HARD_STOP:     ${LAMA_HF_CONTRADICTION_HARD_STOP:-}
+      LAMA_HF_ACCEPT_SCORE:                ${LAMA_HF_ACCEPT_SCORE:-}
+      LAMA_HF_REJECT_SCORE:                ${LAMA_HF_REJECT_SCORE:-}
+      LAMA_HF_EMBEDDING_MODEL:             ${LAMA_HF_EMBEDDING_MODEL:-}
+      LAMA_HF_NLI_MODEL:                   ${LAMA_HF_NLI_MODEL:-}
+
+      # iter-14.25 — Force HuggingFace Hub OFFLINE. Combined with the
+      # `./hf_cache:/root/.cache/huggingface:ro` bind-mount above, this
+      # makes SentenceTransformer / CrossEncoder load the pre-downloaded
+      # BAAI/bge-small-en-v1.5 + cross-encoder/nli-deberta-v3-base weights
+      # straight from disk with zero network round-trip. Fixes the
+      # corporate-proxy TLS interception that was routing every section
+      # through the `hf_reject` floor at 55%.
+      HF_HUB_OFFLINE:                      "1"
+      TRANSFORMERS_OFFLINE:                "1"
+
+      # ---- iter-14.19 — HF-only confidence scoring (no droid).
+      # Default: middle-band coverage (between COVERAGE_FLOOR and
+      # COVERAGE_ACCEPT) is treated as `hf_reject` with an interpolated
+      # score, so the improve loop regenerates below-threshold sections
+      # WITHOUT ever calling the Factory-CLI droid or OpenRouter for
+      # confidence grading. Set LAMA_HF_ALLOW_LLM_FALLBACK=1 to restore
+      # the iter-14.14 behaviour (middle band → LLM node → fabric_call).
+      LAMA_HF_ALLOW_LLM_FALLBACK:          ${LAMA_HF_ALLOW_LLM_FALLBACK:-}
+      LAMA_CONFIDENCE_STAGE_CONCURRENCY:   ${LAMA_CONFIDENCE_STAGE_CONCURRENCY:-}
+      # iter-14.21 — Hard guard: block the fabric_call → Factory-CLI
+      # fallback in ALL confidence scoring paths (srs.py::_score_section_now,
+      # routes/pipeline.py::compute_stage_confidence, routes/living.py
+      # accuracy report). Auto-ON whenever LAMA_CONFIDENCE_ENGINE=langgraph;
+      # set to "0" to allow fabric fallback when the HF engine explodes.
+      LAMA_CONFIDENCE_STRICT_HF:           ${LAMA_CONFIDENCE_STRICT_HF:-}
+
+      # ---- iter-14.17.2 — corporate-CA SSL bundle for HuggingFace Hub.
+      # SentenceTransformer / CrossEncoder use httpx under the hood; httpx
+      # honours SSL_CERT_FILE, and `requests` honours REQUESTS_CA_BUNDLE.
+      # Point both at a combined bundle (system CAs + `corp-ca.crt`) so
+      # first-time model downloads succeed inside corporate networks.
+      # If the container has no corp cert, the file simply falls back to
+      # the standard bundle. Override via .env if your CA lives elsewhere.
+      SSL_CERT_FILE:                       ${SSL_CERT_FILE:-/etc/ssl/certs/ca-certificates.crt}
+      REQUESTS_CA_BUNDLE:                  ${REQUESTS_CA_BUNDLE:-/tmp/full-ca.pem}
+      CURL_CA_BUNDLE:                      ${CURL_CA_BUNDLE:-/tmp/full-ca.pem}
+    # iter-14.26 — Route boot through the wheels-install wrapper. See
+    # docker/entrypoint-with-wheels.sh. Once the image is rebuilt from
+    # the current requirements.txt this override can be removed.
+    entrypoint: ["/bin/sh", "/entrypoint-with-wheels.sh"]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8382/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  lama_mongo_data:
+    name: lama_mongo_data
+  # iter-14.27 — HF encoder cache. Populated on first boot by the
+  # entrypoint wrapper from /seed/hf_cache (host `./hf_cache`). Survives
+  # `docker compose down`. To force a rebuild from the seed dir, run
+  # `docker compose down -v` (also wipes Mongo — usually not what you want)
+  # or just `docker volume rm lama_hf_cache` then `docker compose up -d`.
+  lama_hf_cache:
+    name: lama_hf_cache
+  # iter-14.27 — LangGraph / LangChain-core wheel cache. Same seed-on-
+  # first-boot semantics as lama_hf_cache above.
+  lama_wheels:
+    name: lama_wheels

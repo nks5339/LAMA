@@ -1,0 +1,89 @@
+{
+  "theme": "light",
+  "archetype": "Swiss & High-Contrast",
+  "colors": {
+    "primary": "#0A2540",
+    "secondary": "#E2E8F0",
+    "background": "#F8FAFC",
+    "surface": "#FFFFFF",
+    "text_main": "#0F172A",
+    "text_muted": "#64748B",
+    "border": "#CBD5E1",
+    "success": "#15803D",
+    "warning": "#B45309",
+    "error": "#B91C1C",
+    "info": "#0369A1"
+  },
+  "typography": {
+    "font_family_headings": "Chivo",
+    "font_family_body": "IBM Plex Sans",
+    "h1": "text-3xl tracking-tight font-bold",
+    "h2": "text-2xl tracking-tight font-bold",
+    "h3": "text-xl tracking-tight font-semibold",
+    "h4": "text-lg font-semibold",
+    "body": "text-base leading-relaxed",
+    "small": "text-sm text-muted",
+    "label": "text-xs font-semibold uppercase tracking-wider"
+  },
+  "spacing_and_layout": {
+    "philosophy": "Comfortable density, strict grid structure, absolute clarity. Government-grade functional UI.",
+    "sidebar_width": "260px",
+    "panel_gap": "gap-4",
+    "panel_padding": "p-5",
+    "border_radius": "rounded-sm",
+    "shadows": "shadow-sm",
+    "container_style": "bg-white border border-slate-300 rounded-sm shadow-sm"
+  },
+  "motion_and_interactions": {
+    "philosophy": "NO ANIMATIONS. Instant feedback.",
+    "hover_states": "hover:bg-slate-100 transition-none",
+    "focus_states": "focus:ring-2 focus:ring-[#0A2540] focus:outline-none transition-none",
+    "transitions": "transition-none"
+  },
+  "components": {
+    "buttons": "rounded-sm px-4 py-2 font-semibold transition-none",
+    "primary_button": "bg-[#0A2540] text-white hover:bg-[#021122]",
+    "secondary_button": "bg-white border border-slate-300 text-slate-700 hover:bg-slate-50",
+    "inputs": "bg-white border border-slate-300 rounded-sm px-3 py-2 text-sm focus:border-[#0A2540] focus:ring-1 focus:ring-[#0A2540]",
+    "tooltips": "bg-slate-800 text-white text-xs py-1 px-2 rounded-sm shadow-md",
+    "tabs": "border-b border-slate-300 flex space-x-4",
+    "tab_active": "border-b-2 border-[#0A2540] text-[#0A2540] font-semibold pb-2",
+    "tab_inactive": "text-slate-500 hover:text-slate-700 pb-2"
+  },
+  "icons": {
+    "library": "lucide-react",
+    "style": "Clean, functional, high legibility"
+  },
+  "image_urls": {
+    "brand_logo": {
+      "url": "https://images.unsplash.com/photo-1649000808933-1f4aac7cad9a?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NTYxNzV8MHwxfHNlYXJjaHwxfHxhYnN0cmFjdCUyMHByb2Zlc3Npb25hbCUyMGxvZ28lMjBtaW5pbWFsfGVufDB8fHx8MTc3ODkzMDM0N3ww&ixlib=rb-4.1.0&q=85",
+      "description": "Abstract professional logo for sidebar brand representation",
+      "placement": "Top left of sidebar"
+    },
+    "user_avatar": {
+      "url": "https://images.unsplash.com/photo-1494790108377-be9c29b29330?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMzV8MHwxfHNlYXJjaHwxfHxwcm9mZXNzaW9uYWwlMjBwb3J0cmFpdCUyMGNvcnBvcmF0ZSUyMGhlYWRzaG90fGVufDB8fHx8MTc3ODkzMDM1MXww&ixlib=rb-4.1.0&q=85",
+      "description": "User profile avatar",
+      "placement": "Bottom left of sidebar or top right header"
+    }
+  },
+  "specific_screens": {
+    "layout": {
+      "sidebar": "Fixed, width 260px, contains Project Switcher (dropdown), 5-stage progress (lock icons for stages 2-5).",
+      "main_view": "Three-panel split layout, height 100vh (or remaining height minus header)."
+    },
+    "stage_1_discovery": {
+      "left_panel": "Upload dropzone (dashed border, highly visible). List of files with chunk/entity counts. 'Build Knowledge Base' button. KB Health dashboard (4 metric cards: entities, relationships, tables, roles).",
+      "center_panel": "RAG Chat. Header with model selector dropdown. Context-sensitive '?' icons (tooltip). Chat history area. Input area with token counter and type-ahead suggestions.",
+      "right_panel": "SRS Preview. Document-like container with white background and subtle shadow. 8 sections of IEEE SRS. Inline editable text areas. 'Freeze SRS' primary button. 'Export PDF' secondary button."
+    },
+    "prompt_library": "Grid of versioned cards. Editable fields with clear borders."
+  },
+  "instructions_to_main_agent": [
+    "Adhere strictly to light theme only.",
+    "Do not implement any animations (e.g., Framer Motion, transition-all). Force 'transition-none' where standard components might use them.",
+    "Ensure UI feels government-grade: stark contrast, clear borders, explicit labels.",
+    "Include 'data-testid' on all interactive elements (buttons, inputs, tooltips, panel containers).",
+    "Use a 3-column CSS Grid layout for the main stage 1 view.",
+    "Use `lucide-react` for icons."
+  ]
+}
