@@ -8,6 +8,7 @@ Key behaviours:
 3. Token usage is logged after every call.
 4. Falls back to env-var config if no DB providers configured.
 """
+import asyncio
 import os
 import time
 import httpx
@@ -1055,11 +1056,33 @@ async def fabric_chat(
             base_url[:40], model_id, timeout, sum(len(m.get("content", "")) for m in messages),
         )
         async with httpx.AsyncClient(timeout=_timeout_cfg, verify=_http_verify()) as client:
-            resp = await client.post(
-                f"{base_url}/chat/completions",
-                headers=headers, json=payload,
-                params=request_params or None,
-            )
+            # A 429 states its own remedy ("try again in 67 seconds"), so wait
+            # it out here rather than letting it escape as a failure. Escaping
+            # is what sent transient throttles into the billing-failover path,
+            # which permanently pinned agents to whichever provider answered
+            # next. Bounded: a small number of attempts, each capped, so a
+            # persistently throttled provider still surfaces as an error
+            # instead of hanging the wave.
+            for _attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
+                resp = await client.post(
+                    f"{base_url}/chat/completions",
+                    headers=headers, json=payload,
+                    params=request_params or None,
+                )
+                if resp.status_code != 429:
+                    break
+                _body = resp.text[:300]
+                if _is_billing_error(_body):
+                    break  # a hard quota cap does not heal by waiting
+                if _attempt >= _RATE_LIMIT_MAX_RETRIES:
+                    break
+                _wait = _retry_after_seconds(_body)
+                logging.getLogger("lama.fabric").warning(
+                    "429 from %s for agent=%s — waiting %.1fs (attempt %d/%d)",
+                    ptype or "provider", agent_key, _wait,
+                    _attempt + 1, _RATE_LIMIT_MAX_RETRIES,
+                )
+                await asyncio.sleep(_wait)
             if resp.status_code != 200:
                 call_status = "error"
                 error_msg = f"HTTP {resp.status_code}: {resp.text[:300]}"
@@ -1147,8 +1170,6 @@ _BILLING_MARKERS = (
     "insufficient_quota",
     "402",
     "quota exceeded",
-    "rate-limited",
-    "rate limit",
     "billing",
     "payment required",
     "credit balance",
@@ -1156,10 +1177,89 @@ _BILLING_MARKERS = (
     "exceeded your current quota",
 )
 
+# A THROTTLE, not a spend problem. Kept strictly separate from the billing
+# markers above, which used to contain "rate limit" and "rate-limited".
+#
+# That conflation had a real cost. `fabric_chat_with_failover` treats a
+# billing error as grounds to walk to another provider and, on success,
+# LEAVES THE AGENT PINNED there — permanently, silently, across restarts.
+# So one transient 429 from a rate-limited enterprise deployment
+# permanently demoted agents to whatever answered next. Observed on a live
+# run: `codegen.verifier`, the quality gate for every generated file,
+# ended up pinned from Azure gpt-5.1 to a local 4B model with nothing said
+# to the operator. With the wave fan-out issuing six coder calls at once,
+# a 429 is the expected case, not an edge case.
+#
+# A 429 is also the one failure that states its own remedy — the body says
+# "try again in 67 seconds". Waiting is correct; changing vendor forever
+# is not.
+#
+# "quota exceeded" deliberately stays in the BILLING list even though it
+# often arrives as a 429: a hard cap does not heal by waiting.
+_RATE_LIMIT_MARKERS = (
+    "429",
+    "rate limit",
+    "rate-limited",
+    "rate_limit_exceeded",
+    "too many requests",
+)
+
 
 def _is_billing_error(msg: str) -> bool:
     m = (msg or "").lower()
     return any(tok in m for tok in _BILLING_MARKERS)
+
+
+def _is_rate_limit_error(msg: str) -> bool:
+    """True for a transient throttle that should be WAITED OUT, not failed over.
+
+    A message that is also a genuine billing failure ("quota exceeded"
+    arriving as a 429) is NOT a rate limit: it will not clear by waiting.
+    """
+    m = (msg or "").lower()
+    if any(tok in m for tok in _BILLING_MARKERS):
+        return False
+    return any(tok in m for tok in _RATE_LIMIT_MARKERS)
+
+
+# Providers state their own backoff in prose rather than a header we can
+# see here, and each phrases it differently.
+_RETRY_AFTER_PATTERNS = (
+    r"try again in\s+([0-9]+(?:\.[0-9]+)?)\s*s",
+    r"retry after\s+([0-9]+(?:\.[0-9]+)?)\s*s",
+    r"please try again in\s+([0-9]+(?:\.[0-9]+)?)\s*s",
+    r"in\s+([0-9]+(?:\.[0-9]+)?)\s*(?:seconds|secs|s)\b",
+)
+
+_RETRY_AFTER_DEFAULT = 5.0
+_RETRY_AFTER_CAP = 120.0
+
+# Bounded so a persistently throttled provider surfaces as a real error
+# rather than hanging a wave forever. Tunable for deployments on a tighter
+# Azure quota than the default.
+try:
+    _RATE_LIMIT_MAX_RETRIES = max(0, int(os.environ.get("LAMA_RATE_LIMIT_RETRIES", "2") or 2))
+except ValueError:
+    _RATE_LIMIT_MAX_RETRIES = 2
+
+
+def _retry_after_seconds(msg: str) -> float:
+    """How long the provider asked us to wait, in seconds.
+
+    Falls back to a short default when the message says nothing useful, and
+    is capped so a provider claiming a two-hour wait cannot hang a whole
+    wave. Never returns None — the caller always has a number to sleep on.
+    """
+    import re as _re
+    m = (msg or "").lower()
+    for pat in _RETRY_AFTER_PATTERNS:
+        hit = _re.search(pat, m)
+        if hit:
+            try:
+                return min(float(hit.group(1)), _RETRY_AFTER_CAP)
+            except (TypeError, ValueError):
+                continue
+    return _RETRY_AFTER_DEFAULT
 
 
 _AUTH_MARKERS = ("401", "unauthorized", "invalid api key", "incorrect api key", "no auth credentials")
@@ -1197,6 +1297,7 @@ async def fabric_chat_with_failover(
     # First attempt — whatever resolve_model picks (pinned provider_id first,
     # else the default provider).
     attempts: List[Dict[str, str]] = []
+    _first_error_was_rate_limit = False
     try:
         return await fabric_chat(
             messages=messages, agent_key=agent_key, project_id=project_id,
@@ -1206,9 +1307,16 @@ async def fabric_chat_with_failover(
         )
     except Exception as exc:
         msg = str(exc)
-        # Only failover for *recoverable* errors (billing / auth). Bugs,
-        # 5xx, timeouts get re-raised so they're not silently masked.
-        if not (_is_billing_error(msg) or _is_auth_error(msg)):
+        # Only failover for *recoverable* errors. Bugs, 5xx and timeouts get
+        # re-raised so they're not silently masked.
+        #
+        # A rate limit is recoverable too, but differently: `fabric_chat` has
+        # already waited and retried it a bounded number of times before the
+        # error reaches here, so by now the provider is persistently throttled.
+        # Falling over lets the wave finish; the pin is released afterwards on
+        # the success path so the operator's primary stays primary.
+        if not (_is_billing_error(msg) or _is_auth_error(msg)
+                or _is_rate_limit_error(msg)):
             raise
         # Record which provider failed first so the user sees the chain.
         if pinned_id:
@@ -1226,6 +1334,7 @@ async def fabric_chat_with_failover(
             "type":     (first_provider or {}).get("provider_type", "openrouter"),
             "error":    msg,
         })
+        _first_error_was_rate_limit = _is_rate_limit_error(msg)
 
     # Walk every other active provider, skipping ANY id we already tried
     # (both the default AND the pre-existing pin — otherwise a pinned-but-
@@ -1259,9 +1368,26 @@ async def fabric_chat_with_failover(
                 max_tokens=max_tokens, temperature=temperature, timeout=timeout,
                 response_format=response_format,
             )
-            # Success — leave the agent pinned to this working provider so
-            # subsequent calls in the same SRS batch don't re-pay the
-            # failover tax. The Console UI lets the user un-pin if needed.
+            # Success. Keep the pin ONLY when the first provider failed for
+            # a durable reason (billing, auth) — then re-paying the failover
+            # tax on every later call would be waste.
+            #
+            # A throttle is not durable. Pinning after one 429 permanently
+            # demoted agents to whichever provider happened to answer,
+            # silently and across restarts: a live run left codegen.verifier
+            # (the quality gate for every generated file) pinned from Azure
+            # gpt-5.1 to a local 4B model. So on a rate-limit failover the
+            # pin is released and the next call goes back to the operator's
+            # chosen primary.
+            if _first_error_was_rate_limit:
+                await ac_col.update_one(
+                    {"key": agent_key}, {"$set": {"provider_id": pinned_id or ""}},
+                )
+                logging.getLogger("lama.fabric").warning(
+                    "agent=%s fell back to %s for ONE call after a 429; pin "
+                    "released so the next call returns to the primary provider",
+                    agent_key, prov.get("name") or prov.get("id") or "?",
+                )
             return result
         except Exception as exc:
             attempts.append({
