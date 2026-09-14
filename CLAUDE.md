@@ -64,7 +64,7 @@ through the 5 stages:
 | LLM    | OpenRouter / Anthropic / OpenAI / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. Tiers: `low / medium / high` per `PROVIDER_PRESETS.default_models`. |
 | Vector DB | Qdrant (`QDRANT_URL` / `QDRANT_API_KEY`) — auto-created on Build KB |
 | Mongo   | MongoDB 7 — system of record for LAMA itself (PostgreSQL is the migration *target*, not the store) |
-| Frontend| React 19, react-router-dom 7, Tailwind 3.4, Radix UI, shadcn/ui, D3 7.9, Mermaid 11, Monaco, `react-resizable-panels@2.1.7` *(pinned — do not upgrade)* |
+| Frontend| React 19, react-router-dom 7, Tailwind 3.4, Radix UI (9 packages — 22 unused ones removed 2026-09), D3 7.9, Mermaid 11, Monaco, `react-resizable-panels@2.1.7` *(pinned — do not upgrade)* |
 | Build   | CRA 5 via `@craco/craco 7`, **yarn 1.22 (corepack)** — **never `npm install`** |
 | Runtime | `python:3.11-slim-bookworm`, supervisord runs nginx + mongod + uvicorn. Image: `mishramesh/lama:latest`. Port 8382. |
 
@@ -112,8 +112,18 @@ pyflakes backend/routes/codegen.py        # the PRD's standing verification step
 
 ### Lint / format
 No project-wide formatter is enforced. Match the surrounding file's style.
-ESLint is intentionally disabled at build time (`DISABLE_ESLINT_PLUGIN=true`)
-to avoid CRA + craco friction.
+
+```bash
+ruff check backend                # backend/ruff.toml — the waste bar (E9,F,ARG)
+cd frontend && yarn lint          # frontend/eslint.config.js — flat config
+```
+
+ESLint stays disabled at *build* time (`DISABLE_ESLINT_PLUGIN=true`) and
+`yarn lint` is a separate step on purpose: yarn hoists eslint 9.23.0, but
+react-scripts depends on ^8.3.0 and nests its own 8.57.1, which is the one
+CRA's webpack plugin resolves. Flat config and eslintrc cannot be shared
+between them, so wiring lint into the build would mean downgrading. Both
+bars are currently clean: 0 ruff findings, 0 eslint errors.
 
 ---
 
@@ -230,12 +240,19 @@ AGENTS.md                    # Exhaustive operational rules (this file is the su
    `routes/datamodel.py` and `routes/architecture.py` — go through
    `pipeline.py`.
 5. **Frontend pages own their layout** (resizable `PanelGroup`). Reuse
-   `ERDiagram.jsx`, `ChatPanel.jsx`, `MiniConsole.jsx` rather than re-rolling.
+   `ERDiagram.jsx`, `MiniConsole.jsx` rather than re-rolling.
+   (`ChatPanel.jsx` was removed in 2026-09 — it had no render site; the live
+   chat is `FloatingChat.jsx`.)
 6. **`data-testid` attributes are part of the contract** — the testing agent
-   asserts on them. Examples:
-   `stage-{key}-badge-{frozen|ready|locked}`, `owl-export-btn`,
-   `model-selector`, `generate-srs-btn`, `srs-edit-btn-{section}`,
-   `freeze-btn`, `refresh-kb-health`. Keep them stable.
+   asserts on them. Verified present as of 2026-09:
+   `stage-{key}-badge-{frozen|ready|skipped}`, `generate-srs-btn`,
+   `srs-edit-btn-{section}`, `freeze-btn`, `unfreeze-btn`, `export-pdf-btn`.
+   Keep them stable. 723 distinct ids exist in total.
+   **Three ids this list used to name do not exist in the code** and were
+   removed rather than left as a false contract: `owl-export-btn` and
+   `refresh-kb-health` (zero occurrences anywhere), and
+   `stage-{key}-badge-locked` — the third badge variant the code actually
+   emits is `-skipped` (`Sidebar.jsx`). See HUMAN_INTERVENTION.md DEC-8.
 7. **Audit-log everything that changes state** via `audit_log` collection.
 8. **Never call `npm install`** — yarn-only via corepack.
 9. **Never bump `react-resizable-panels` past 2.1.7** without verifying
@@ -244,11 +261,15 @@ AGENTS.md                    # Exhaustive operational rules (this file is the su
     = add `extract_<lang>` in `backend/kb/owl_extractor.py` AND wire it into
     `extract()` and `extract_zip()`.
 11. **KB context export is YAML, not OWL/JSON-LD** (iter 13.1). The
-    endpoint path is still `/api/kb/{pid}/owl-export` for back-compat with
-    `lib/api.js::owlExportUrl` + the testing data-testid contract, but the
-    payload is `application/x-yaml`. Code should call `export_kb_yaml(...)`
-    for downloads and `export_kb_context(...)` / `export_owl(...)` (alias)
-    for in-process consumers.
+    endpoint `/api/kb/{pid}/owl-export` is still registered and still
+    returns `application/x-yaml`, but **nothing in the UI calls it any
+    more**: the `owlExportUrl` helper had zero callers and was removed with
+    the other 44 dead `lib/api.js` exports, and no `owl-export-btn` exists.
+    The route is deliberately kept (it is a working endpoint an operator or
+    script can still hit); wiring a button back up is DEC-8.
+    Code should call `export_kb_yaml(...)` for downloads and
+    `export_kb_context(...)` / `export_owl(...)` (alias) for in-process
+    consumers.
 
 ---
 

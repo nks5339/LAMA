@@ -1,23 +1,19 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { 
   Upload, 
   MessageSquare, 
   FileText, 
   Boxes, 
-  CheckCircle2, 
-  AlertCircle,
-  Clock,
   Folder,
   FileCode,
   Sparkles,
   ArrowRight
 } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
-import { kbStatus, skipStage } from "@/lib/api";
+import { skipStage } from "@/lib/api";
 import UploadPanel from "@/components/UploadPanelV2";
 import DataSourcePanel from "@/components/DataSourcePanel";
-import ChatPanel from "@/components/ChatPanel";
 import SRSPanel from "@/components/SRSPanel";
 import TargetStackSuggester from "@/components/TargetStackSuggester";
 import FloatingChat from "@/components/FloatingChat";
@@ -42,7 +38,10 @@ export default function DiscoveryV2() {
   const [conversationId, setConversationId] = useState(null);
   const [srsRefreshKey, setSrsRefreshKey] = useState(0);
   const [skippingDM, setSkippingDM] = useState(false);
-  const [chatModel, setChatModel] = useState(
+  // Read-only: nothing in the UI can change this today. The picker that
+  // used to set it lived in ChatPanel, which had no render site and was
+  // removed. See HUMAN_INTERVENTION.md DEC-8.
+  const [chatModel] = useState(
     typeof window !== "undefined" ? (localStorage.getItem("lama:chat:model") || "") : ""
   );
 
@@ -58,14 +57,6 @@ export default function DiscoveryV2() {
     })();
     return () => { cancelled = true; };
   }, [active?.id]);
-
-  const handleModelChange = (m) => {
-    setChatModel(m || "");
-    if (typeof window !== "undefined") {
-      if (m) localStorage.setItem("lama:chat:model", m);
-      else localStorage.removeItem("lama:chat:model");
-    }
-  };
 
   // iter-13.120 — "Skip DataModel → Architecture" fast-path. Requires
   // Discovery to be frozen (backend rejects otherwise). Marks DataModel
@@ -104,19 +95,6 @@ export default function DiscoveryV2() {
   const kbReady = (kbStatus?.entities || 0) > 0 || (kbStatus?.chunks || 0) > 0 || (kbStatus?.files || 0) > 0;
 
   // Determine step status
-  const getStepStatus = (step) => {
-    if (step === 1) {
-      return kbReady ? "complete" : "active";
-    }
-    if (step === 2) {
-      return kbReady ? "active" : "pending";
-    }
-    if (step === 3) {
-      if (active?.stage_status?.Discovery === "frozen") return "complete";
-      return kbReady ? "active" : "pending";
-    }
-    return "pending";
-  };
 
   if (!active) {
     return (

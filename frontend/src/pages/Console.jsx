@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import {
   Loader2,
@@ -24,8 +24,7 @@ import { useProjects } from "@/state/ProjectContext";
 import {
   setupProvider, listProviders, updateProvider, updateProviderKey,
   deleteProvider, testProvider, fetchProviderModels,
-  listAgents, updateAgent, resetAgentBudget, testAgent, getAgentUsage,
-  getUsageSummary, listPrompts, previewPrompt, testPrompt, updateProjectPrompt,
+  listAgents, updateAgent, resetAgentBudget, testAgent,   listPrompts, previewPrompt, testPrompt, updateProjectPrompt,
   getFactoryOrchestratorConfig, updateFactoryOrchestratorConfig, testFactoryOrchestratorConfig,
   testFactoryOrchestratorCli,
   deleteFactoryOrchestratorConfig,

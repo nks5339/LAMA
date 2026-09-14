@@ -50,11 +50,6 @@ export const login = (username, password) =>
   api.post("/auth/login", { username, password }).then((r) => r.data);
 export const me = () => api.get("/auth/me").then((r) => r.data);
 export const logout = () => api.post("/auth/logout").then((r) => r.data);
-export const changePassword = (oldPassword, newPassword) =>
-  api.post("/auth/change-password", {
-    old_password: oldPassword,
-    new_password: newPassword,
-  }).then((r) => r.data);
 
 // iter-13.68 — Admin (super-admin only).
 export const adminListTenants = () => api.get("/admin/tenants").then((r) => r.data);
@@ -70,7 +65,6 @@ export const adminDashboard = () => api.get("/admin/dashboard").then((r) => r.da
 
 // Projects
 export const listProjects = () => api.get("/projects").then((r) => r.data);
-export const getProject = (id) => api.get(`/projects/${id}`).then((r) => r.data);
 export const createProject = (payload) =>
   api.post("/projects", payload).then((r) => r.data);
 // iter-13.88 — hard delete a project and every artefact referencing it.
@@ -103,10 +97,6 @@ export const getJourneySettings = (projectId) =>
   api.get(`/kb/${projectId}/journeys/config`).then((r) => r.data);
 export const updateJourneySettings = (projectId, patch) =>
   api.post(`/kb/${projectId}/journeys/toggle`, patch).then((r) => r.data);
-export const getJourneySummary = (projectId) =>
-  api.get(`/kb/${projectId}/journeys/summary`).then((r) => r.data);
-export const rebuildJourneys = (projectId) =>
-  api.post(`/kb/${projectId}/journeys/rebuild`).then((r) => r.data);
 
 // KB
 // iter-13.83 — `replace` (default true) wipes the project's prior KB before
@@ -177,10 +167,6 @@ export const cloneGitRepoAndWait = async (
 };
 export const getGitSource = (projectId) =>
   api.get(`/kb/${projectId}/git-source`).then((r) => r.data);
-export const getModulesTree = (projectId) =>
-  api.get(`/kb/${projectId}/modules-tree`).then((r) => r.data);
-export const setModulesSelection = (projectId, excluded) =>
-  api.put(`/kb/${projectId}/modules-selection`, { excluded }).then((r) => r.data);
 // iter-13.83 — `replace` defaults to FALSE for upload (additive workflow);
 // pass true to wipe prior KB before this upload batch.
 export const uploadKBFiles = (projectId, files, kind = "", replace = false) => {
@@ -215,12 +201,6 @@ export const FILE_KINDS = [
   { value: "other",          label: "Other",
     hint: "Anything else — kept for context but not specially treated." },
 ];
-export const fileKindLabel = (v) => (FILE_KINDS.find((k) => k.value === v) || {}).label || v || "—";
-export const listFileKinds = () => api.get("/kb/kinds").then((r) => r.data);
-export const updateKBFileKind = (fileId, kind, notes = "") =>
-  api.patch(`/kb/files/${fileId}/kind`, { kind, notes }).then((r) => r.data);
-export const getSourceInventory = (projectId) =>
-  api.get(`/kb/${projectId}/source-inventory`).then((r) => r.data);
 
 export const listKBFiles = (projectId) => api.get(`/kb/${projectId}/files`).then((r) => r.data);
 export const deleteKBFile = (fileId) => api.delete(`/kb/files/${fileId}`).then((r) => r.data);
@@ -240,32 +220,13 @@ export const kbStatus = (projectId) =>
 // "error" message when failed).
 export const kbBuildProgress = (projectId) =>
   api.get(`/kb/${projectId}/build-progress`, { params: { _t: Date.now() } }).then((r) => r.data);
-export const kbToon = (projectId) => api.get(`/kb/${projectId}/toon`).then((r) => r.data);
-export const kbGlossary = (projectId) => api.get(`/kb/${projectId}/glossary`).then((r) => r.data);
-export const owlExportUrl = (projectId) => `${API}/kb/${projectId}/owl-export`;
 // iter-13.17 — deep legacy-logic analysis (pre-SRS pass).
 // POST runs the analyzer (default cache TTL 24h; pass {force: true} to
 // re-run). GET returns the persisted analysis doc verbatim, or
 // {exists:false} if it hasn't been built yet. The SRS generate route
 // auto-triggers this if missing, so explicit calls from the UI are
 // optional / power-user.
-export const analyzeLegacyLogic = (projectId, { model, force = false } = {}) =>
-  api
-    .post(`/kb/${projectId}/analyze-logic`, { model, force })
-    .then((r) => r.data);
-export const getLegacyLogicAnalysis = (projectId) =>
-  api.get(`/kb/${projectId}/logic-analysis`).then((r) => r.data);
 
-export const importModuleInventory = (projectId, file) => {
-  const fd = new FormData();
-  fd.append("project_id", projectId);
-  fd.append("file", file);
-  return api
-    .post("/kb/import-module-inventory", fd, { headers: { "Content-Type": "multipart/form-data" } })
-    .then((r) => r.data);
-};
-export const getModuleTraceability = (projectId) =>
-  api.get(`/kb/${projectId}/module-traceability`).then((r) => r.data);
 
 // ─── Target-stack suggestions (knowledge-graph driven) ──────────────────
 // Surfaces top-N candidate modern stacks predicted from the legacy KB.
@@ -292,8 +253,6 @@ export const listDataSources = (projectId) =>
 
 // Chat
 export const listModels = () => api.get("/chat/models").then((r) => r.data);
-export const chatHistory = (projectId, conversationId) =>
-  api.get(`/chat/${projectId}/history`, { params: { conversation_id: conversationId } }).then((r) => r.data);
 export const sendMessage = (payload) => api.post("/chat", payload).then((r) => r.data);
 
 // iter-13.100 — Rolling-memory agent sessions (droid-handoff aware).
@@ -316,8 +275,6 @@ export const listSessions = (projectId, { stage, agentKey, includeArchived } = {
   }).then((r) => r.data);
 export const archiveSession = (sessionId, reason = "") =>
   api.post(`/sessions/${sessionId}/archive`, { reason }).then((r) => r.data);
-export const attachSessionRef = (sessionId, ref) =>
-  api.post(`/sessions/${sessionId}/refs`, ref).then((r) => r.data);
 
 // SRS
 // iter-13.35 — cache-bust on every read so a freshly-regenerated section
@@ -325,8 +282,6 @@ export const attachSessionRef = (sessionId, ref) =>
 // from a CDN / proxy / browser cache after page reload.
 export const getSRS = (projectId) =>
   api.get(`/srs/${projectId}`, { params: { _t: Date.now() } }).then((r) => r.data);
-export const generateSRS = (projectId, conversationId, model) =>
-  api.post("/srs/generate", { project_id: projectId, conversation_id: conversationId, model }).then((r) => r.data);
 export const updateSRSSection = (projectId, section, content) =>
   api.put(`/srs/${projectId}/section`, { section, content }).then((r) => r.data);
 export const freezeSRS = (projectId, user, override) =>
@@ -432,9 +387,6 @@ export const getAuditTrace = (traceId) =>
   api.get(`/audit/trace/${traceId}`).then((r) => r.data);
 
 // Data Model — Stage 2
-export const generateOLTPUrl = () => `${API}/data-model/generate/oltp`;
-export const generateOLAPUrl = () => `${API}/data-model/generate/olap`;
-export const generateScriptsUrl = () => `${API}/data-model/generate/migration-scripts`;
 // Job-based (recommended for OLTP + OLAP + scripts — bypasses ~60s ingress timeout)
 export const startOLTPJob = (projectId, model) =>
   api.post("/data-model/jobs/start/oltp", { project_id: projectId, model }).then((r) => r.data);
@@ -444,10 +396,6 @@ export const startScriptsJob = (projectId, model) =>
   api.post("/data-model/jobs/start/scripts", { project_id: projectId, model }).then((r) => r.data);
 export const getDataModelJob = (jobId) =>
   api.get(`/data-model/jobs/${jobId}`).then((r) => r.data);
-export const applyBusMatrixChange = (projectId, matrix) =>
-  api.post(`/data-model/${projectId}/bus-matrix/apply`, { matrix }).then((r) => r.data);
-export const applyERChange = (projectId, patch) =>
-  api.post(`/data-model/${projectId}/er/apply`, { patch }).then((r) => r.data);
 export const generateBusMatrix = (projectId, model) =>
   api.post("/data-model/generate/bus-matrix", { project_id: projectId, model }).then((r) => r.data);
 export const generateEntityGraph = (projectId) =>
@@ -462,8 +410,6 @@ export const freezeArtifact = (projectId, artifactId) =>
   api.post(`/data-model/${projectId}/artifact/${artifactId}/freeze`).then((r) => r.data);
 export const downloadArtifactUrl = (projectId, artifactId) =>
   `${API}/data-model/${projectId}/artifact/${artifactId}/download`;
-export const sendDataModelChat = (payload) =>
-  api.post("/data-model/chat", payload).then((r) => r.data);
 export const factoryReset = (projectId) =>
   api.post(`/projects/${projectId}/factory-reset`).then((r) => r.data);
 export const resetStage2 = (projectId) =>
@@ -504,8 +450,6 @@ export const applyArchChanges = (projectId, changes, conversationMessageId) =>
   api.post(`/architecture/${projectId}/apply-changes`, { changes, conversation_message_id: conversationMessageId }).then((r) => r.data);
 export const getArchArtifacts = (projectId) =>
   api.get(`/architecture/${projectId}/artifacts`).then((r) => r.data);
-export const getArchArtifact = (projectId, artifactId) =>
-  api.get(`/architecture/${projectId}/artifact/${artifactId}`).then((r) => r.data);
 export const updateArchArtifact = (projectId, artifactId, content) =>
   api.put(`/architecture/${projectId}/artifact/${artifactId}`, { content }).then((r) => r.data);
 export const freezeArchArtifact = (projectId, artifactId) =>
@@ -606,13 +550,6 @@ export const getParityReport = (projectId, runId) =>
   api.get(`/codegen/${projectId}/parity-report`, {
     params: runId ? { run_id: runId } : {},
   }).then((r) => r.data);
-export const listParityRuns = (projectId, limit = 20) =>
-  api.get(`/codegen/${projectId}/parity-runs`, { params: { limit } }).then((r) => r.data);
-export const scoreParityOnce = (projectId, opts = {}) =>
-  api.post(`/codegen/${projectId}/parity-score`, {
-    threshold: opts.threshold ?? 95,
-    service_name: opts.serviceName || undefined,
-  }).then((r) => r.data);
 export const listCodegenFiles = (projectId) =>
   api.get(`/codegen/${projectId}/files`).then((r) => r.data);
 // iter-13.122 — Legacy → New API mapping preview. Read-only, deterministic.
@@ -633,8 +570,6 @@ export const deleteCodegenPath = (projectId, pathPrefix, serviceName) =>
     path_prefix: pathPrefix,
     service_name: serviceName || undefined,
   }).then((r) => r.data);
-export const downloadCodegenZipUrl = (projectId) =>
-  `${API}/codegen/${projectId}/download-zip`;
 export const startCodegenZipDownload = (projectId) =>
   api.post(`/codegen/${projectId}/download-zip`, null, { responseType: "blob" }).then((r) => r.data);
 // iter-13.110 — Export the generated frontend + backend project to a real
@@ -654,16 +589,6 @@ export const freezeCodegen = (projectId) =>
 export const resetCodegen = (projectId) =>
   api.post(`/codegen/${projectId}/reset`).then((r) => r.data);
 
-export const getOntology = (projectId) =>
-  api.get(`/kb/${projectId}/ontology`).then((r) => r.data);
-export const createOntologySnapshot = (projectId, name) =>
-  api.post(`/kb/${projectId}/ontology/snapshot`, { name }).then((r) => r.data);
-export const listOntologySnapshots = (projectId) =>
-  api.get(`/kb/${projectId}/ontology/snapshots`).then((r) => r.data);
-export const deleteOntologySnapshot = (projectId, snapshotId) =>
-  api.delete(`/kb/${projectId}/ontology/snapshot/${snapshotId}`).then((r) => r.data);
-export const diffOntology = (projectId, a, b = "current") =>
-  api.get(`/kb/${projectId}/ontology/diff`, { params: { a, b } }).then((r) => r.data);
 
 // Business-domain ontology (deterministic clusters + LLM enrichment)
 export const getBusinessOntology = (projectId) =>
@@ -700,8 +625,6 @@ export const startAccuracyReport = (projectId, sections = null) =>
     .then((r) => r.data);
 export const getLatestAccuracyReport = (projectId) =>
   api.get(`/living/${projectId}/accuracy-report/latest`).then((r) => r.data);
-export const listAccuracyReportSections = (projectId) =>
-  api.get(`/living/${projectId}/accuracy-report/sections`).then((r) => r.data);
 
 // iter-14.50 — Detailed Test-Case Matrix + Excel export
 export const startTestCases = (projectId, model = "") =>
@@ -726,8 +649,6 @@ export const testProvider = (id) =>
   api.post(`/console/providers/${id}/test`).then((r) => r.data);
 export const fetchProviderModels = (id) =>
   api.post(`/console/providers/${id}/fetch-models`).then((r) => r.data);
-export const listAvailableModels = () =>
-  api.get("/console/models/available").then((r) => r.data);
 // iter-14.17 — live backend log tail (polls, no SSE).
 // Returns { records: [{seq, ts, level, name, msg}], next_seq, dropped, capacity, size }
 export const tailBackendLogs = ({ sinceSeq = 0, limit = 300, minLevel = "", contains = "" } = {}) =>
@@ -772,30 +693,20 @@ export const wakeFactoryOrchestratorDroid = (projectId) =>
 // (KB build + top-3 target stack recommendation, DB pinned to legacy).
 // The auto-fire on first activation is server-side; this is the explicit
 // re-run / force-replay hook for the Console UI.
-export const onboardFactoryOrchestrator = (projectId, { force = false } = {}) =>
-  api
-    .post("/console/factory-orchestrator/onboard", { project_id: projectId, force })
-    .then((r) => r.data);
 
 // Console — Agent Fabric
 export const listAgents = () =>
   api.get("/console/agents").then((r) => r.data);
-export const getAgent = (key) =>
-  api.get(`/console/agents/${encodeURIComponent(key)}`).then((r) => r.data);
 export const updateAgent = (key, data) =>
   api.put(`/console/agents/${encodeURIComponent(key)}`, data).then((r) => r.data);
 export const resetAgentBudget = (key) =>
   api.post(`/console/agents/${encodeURIComponent(key)}/reset-budget`).then((r) => r.data);
 export const testAgent = (key, projectId) =>
   api.post(`/console/agents/${encodeURIComponent(key)}/test`, { project_id: projectId }).then((r) => r.data);
-export const getAgentUsage = (key) =>
-  api.get(`/console/agents/${encodeURIComponent(key)}/usage`).then((r) => r.data);
 
 // Console — Usage
 export const getUsageSummary = (projectId, days = 7) =>
   api.get(`/console/usage/summary`, { params: { project_id: projectId || "", days } }).then((r) => r.data);
-export const getUsageLog = (params) =>
-  api.get("/console/usage/log", { params }).then((r) => r.data);
 
 // Console — Prompt engineering
 export const previewPrompt = (promptKey, projectId) =>
@@ -809,8 +720,6 @@ export const testPrompt = (promptKey, projectId, modelOverride) =>
 // Catalog is project-agnostic; selections + inject are per-project.
 // Injected files land in codegen_files under `service_name=integrations`
 // and are picked up by the existing ZIP / GitHub-push flow.
-export const getIntegrationsCatalog = () =>
-  api.get(`/integrations/catalog`).then((r) => r.data);
 export const getProjectIntegrations = (projectId) =>
   api.get(`/integrations/${projectId}/selections`).then((r) => r.data);
 export const setProjectIntegration = (projectId, integrationId, enabled, configOverrides = {}) =>
@@ -853,17 +762,6 @@ export const stopConfidenceJob = (projectId, jobId) =>
 // Kicks off score → regenerate-below-threshold → re-score, capped at
 // max_iterations. Reuses the same /confidence/jobs/{id} progress
 // polling + pause/resume/stop as `recomputeStageConfidence`.
-export const improveStageConfidence = (
-  projectId, stage,
-  { threshold = 95, max_iterations = 3, max_sections_per_iter = 3, token_budget = 250000 } = {},
-) =>
-  api
-    .post(`/pipeline/${projectId}/confidence/${stage}/improve`, {
-      threshold, max_iterations, max_sections_per_iter, token_budget,
-    })
-    .then((r) => r.data);
-export const listAllStageConfidence = (projectId) =>
-  api.get(`/pipeline/${projectId}/confidence`).then((r) => r.data);
 
 // ════════════════════════════════════════════════════════════════════════════
 // Tools — Standalone utilities (bypass pipeline)
@@ -930,8 +828,6 @@ export const getTransformerKB = (transformId) =>
   api.get(`/tools/transformer/${transformId}/kb`).then((r) => r.data);
 
 // Transformer — Code Stack Transformation
-export const getTransformTargets = () =>
-  api.get("/tools/transformer/targets").then((r) => r.data);
 
 // iter-15.40 — Fetch candidate build tools for the selected target-stack
 // components. `params` = { backend, frontend, runtime, database }.

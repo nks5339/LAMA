@@ -1,6 +1,6 @@
 import React from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { ChevronRight, Search, Bell, Settings, User, Command } from "lucide-react";
+import { ChevronRight, Search, Bell, Settings } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
 import { useAuth } from "@/state/AuthContext";
 
@@ -18,7 +18,7 @@ export default function TopToolbar({ onSearchClick }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { active } = useProjects();
-  const { user, tenant } = useAuth();
+  const { user } = useAuth();
 
   const breadcrumbs = getBreadcrumbs(location.pathname, active);
 

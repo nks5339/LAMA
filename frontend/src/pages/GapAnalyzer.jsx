@@ -7,12 +7,12 @@
  * Layout: compact 3-tab workspace (Input | Knowledge Base | Report) in the
  * LAMA enterprise theme — EY Yellow accent, Slate palette, dense typography.
  */
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Upload, FileText, Code2, Trash2, X, Play, RefreshCw, CheckCircle,
   AlertTriangle, AlertCircle, Search, Download, FileSpreadsheet, FileJson,
-  Database, Network, Layers, ChevronRight, ChevronDown, ArrowRight,
+  Database, Network, Layers, ChevronDown, ArrowRight,
   Filter, ExternalLink, Clock, Target, Zap, Info, Github, FolderUp, Plus, Link as LinkIcon,
   MoreVertical, History as HistoryIcon, Lock, Unlock,
 } from "lucide-react";
@@ -32,19 +32,9 @@ import {
 import ZipFileRow from "../components/ZipFileRow";
 import {
   PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RTooltip,
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend,
-  RadialBarChart, RadialBar,
-} from "recharts";
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, } from "recharts";
 
 /* ═════════ Constants ═════════ */
-
-const PHASES = [
-  { id: "upload", label: "Upload", icon: Upload },
-  { id: "kb", label: "Build KB", icon: Database },
-  { id: "extract", label: "Extract", icon: Layers },
-  { id: "verify", label: "Verify", icon: Search },
-  { id: "report", label: "Report", icon: FileText },
-];
 
 // iter-14.95 — Doc-type taxonomy mirrored from backend `DOC_TYPE_LABELS`.
 // Keep in sync with routes/tools.py. `/api/tools/gap-analyzer/meta` exposes
@@ -74,14 +64,6 @@ const BACKEND_PHASE_MAP = {
 
 /* ═════════ Helpers ═════════ */
 
-const detectType = (name) => {
-  const n = (name || "").toLowerCase();
-  if (/\.(zip|tar|gz|tgz|jar|war)$/.test(n)) return "code";
-  if (/\.(md|txt|pdf|docx?|rtf|markdown)$/.test(n)) return "docs";
-  if (/\.(java|py|js|jsx|ts|tsx|php|jsp|cs|go|rb|swift|kt|scala|vb|c|cpp|h|sql)$/.test(n)) return "code";
-  return "docs";
-};
-
 const fmtBytes = (b) => {
   if (b < 1024) return `${b} B`;
   if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
@@ -101,46 +83,6 @@ const sevDot = (s) => ({
 }[s] || "bg-slate-400");
 
 /* ═════════ Sub-components ═════════ */
-
-const PhaseStepper = ({ current, completed }) => (
-  <div className="flex items-center gap-1 px-3 py-2 border-y border-slate-200 bg-slate-50/70">
-    {PHASES.map((p, i) => {
-      const done = completed.includes(p.id);
-      const active = current === p.id;
-      const Icon = p.icon;
-      return (
-        <React.Fragment key={p.id}>
-          <div className={`flex items-center gap-1.5 px-2 py-1 rounded text-[11px] font-medium transition-all ${
-            active ? "bg-[#FFE600] text-slate-900 shadow-sm" :
-            done ? "bg-emerald-50 text-emerald-700" :
-            "text-slate-400"
-          }`}>
-            {done ? <CheckCircle size={12} /> : active ? <RefreshCw size={12} className="animate-spin" /> : <Icon size={12} />}
-            <span>{p.label}</span>
-          </div>
-          {i < PHASES.length - 1 && (
-            <div className={`h-px flex-1 min-w-[8px] max-w-[20px] ${done ? "bg-emerald-300" : "bg-slate-300"}`} />
-          )}
-        </React.Fragment>
-      );
-    })}
-  </div>
-);
-
-const FileRow = ({ f, onRemove }) => (
-  <div className="flex items-center gap-2 py-1.5 px-2 hover:bg-slate-50 rounded text-xs group">
-    {f.type === "code" ? <Code2 size={13} className="text-violet-500 flex-shrink-0" /> :
-      <FileText size={13} className="text-sky-500 flex-shrink-0" />}
-    <span className="truncate flex-1 text-slate-700 font-medium">{f.file.name}</span>
-    <span className="text-slate-400 tabular-nums flex-shrink-0">{fmtBytes(f.file.size)}</span>
-    <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-      f.type === "code" ? "bg-violet-50 text-violet-700" : "bg-sky-50 text-sky-700"
-    }`}>{f.type}</span>
-    <button onClick={onRemove} className="text-slate-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity">
-      <X size={12} />
-    </button>
-  </div>
-);
 
 const StatCard = ({ label, value, icon: Icon, tone = "slate" }) => (
   <div className="border border-slate-200 rounded-md px-2.5 py-1.5 bg-white">
@@ -1934,7 +1876,7 @@ export default function GapAnalyzerPage() {
   const [phase, setPhase] = useState(null);
   const [phaseLabel, setPhaseLabel] = useState(null);       // iter-15.6 — human phase label
   const [progressPct, setProgressPct] = useState(0);         // iter-15.6 — 0-100 for progress bar
-  const [completedPhases, setCompletedPhases] = useState([]);
+  const [, setCompletedPhases] = useState([]);
   const [kb, setKb] = useState(null);
   const [result, setResult] = useState(null);
   const [analysisModel, setAnalysisModel] = useState(null); // iter-15.1 — track model of current analysis

@@ -15,7 +15,7 @@
  * on demand from a toolbar button so operators can pre-emptively
  * refresh the schema.
  */
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Dialog,
   DialogContent,

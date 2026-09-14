@@ -2,21 +2,11 @@
 const path = require("path");
 require("dotenv").config();
 
-// Environment variable overrides
-const config = {
-  enableHealthCheck: process.env.ENABLE_HEALTH_CHECK === "true",
-};
-
-// Conditionally load health check modules only if enabled
-let WebpackHealthPlugin;
-let setupHealthEndpoints;
-let healthPluginInstance;
-
-if (config.enableHealthCheck) {
-  WebpackHealthPlugin = require("./plugins/health-check/webpack-health-plugin");
-  setupHealthEndpoints = require("./plugins/health-check/health-endpoints");
-  healthPluginInstance = new WebpackHealthPlugin();
-}
+// The ENABLE_HEALTH_CHECK block and plugins/health-check/ (333 LOC) were
+// removed in 2026-09: a repo-wide grep for ENABLE_HEALTH_CHECK returned
+// exactly one hit, the line here that read it. It was never set in
+// frontend/.env, the Dockerfile or docker-compose.yml, so both modules were
+// dead in every environment.
 
 let webpackConfig = {
   eslint: {
@@ -47,10 +37,6 @@ let webpackConfig = {
         ],
       };
 
-      // Add health check plugin to webpack if enabled
-      if (config.enableHealthCheck && healthPluginInstance) {
-        webpackConfig.plugins.push(healthPluginInstance);
-      }
       return webpackConfig;
     },
   },
@@ -65,23 +51,6 @@ webpackConfig.devServer = (devServerConfig) => {
       secure: false,
     },
   };
-
-  // Add health check endpoints if enabled
-  if (config.enableHealthCheck && setupHealthEndpoints && healthPluginInstance) {
-    const originalSetupMiddlewares = devServerConfig.setupMiddlewares;
-
-    devServerConfig.setupMiddlewares = (middlewares, devServer) => {
-      // Call original setup if exists
-      if (originalSetupMiddlewares) {
-        middlewares = originalSetupMiddlewares(middlewares, devServer);
-      }
-
-      // Setup health endpoints
-      setupHealthEndpoints(devServer, healthPluginInstance);
-
-      return middlewares;
-    };
-  }
 
   return devServerConfig;
 };

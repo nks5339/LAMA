@@ -1,9 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
-import { Upload, FolderSearch, GitBranch, FileText, Loader2, Check, RefreshCw, Database, Boxes, ExternalLink } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { Upload, FolderSearch, GitBranch, Loader2, Boxes, ExternalLink } from "lucide-react";
 import { 
   uploadKBFiles, 
   scanFolder, 
-  cloneGitRepo,
   cloneGitRepoAndWait,
   kbStatus,
   listKBFiles,
@@ -13,7 +12,7 @@ import {
   FILE_KINDS
 } from "@/lib/api";
 import { ModernAccordion, AccordionItem } from "@/components/ux/ModernAccordion";
-import { MetricCard, ProgressBar, EmptyState } from "@/components/ux/Cards";
+import { ProgressBar } from "@/components/ux/Cards";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import BuildKBProgressDialog from "@/components/BuildKBProgressDialog";

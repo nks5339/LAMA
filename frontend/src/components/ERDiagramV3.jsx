@@ -1,11 +1,10 @@
-import React, { useState, useMemo } from "react";
-import { Search, Table2, Columns3, Key, Link2, ChevronDown, ChevronRight, Database, Filter, X } from "lucide-react";
+import { useState, useMemo } from "react";
+import { Search, Table2, Key, Link2, ChevronDown, ChevronRight, Database, Filter, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export default function ERDiagramV3({ data, height = 600 }) {
   const [view, setView] = useState("tables"); // tables | relationships | graph
   const [search, setSearch] = useState("");
-  const [selectedTable, setSelectedTable] = useState(null);
   const [expandedTables, setExpandedTables] = useState(new Set());
   const [showLogs, setShowLogs] = useState(false);
   const [domainFilter, setDomainFilter] = useState("all");

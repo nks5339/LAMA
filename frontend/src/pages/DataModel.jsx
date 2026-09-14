@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
 import {
@@ -9,7 +9,6 @@ import {
   Pencil,
   Check,
   X,
-  Send,
   Database,
   GitBranch,
   FileCode,
@@ -29,8 +28,6 @@ import { useIsMobile } from "@/hooks/useBreakpoint";
 import { EmptyState } from "@/components/ux";
 import { FolderOpen } from "lucide-react";
 import {
-  API,
-  generateOLTPUrl,
   startOLTPJob,
   startOLAPJob,
   startScriptsJob,
@@ -42,9 +39,6 @@ import {
   updateArtifact,
   freezeArtifact,
   downloadArtifactUrl,
-  sendDataModelChat,
-  applyBusMatrixChange,
-  applyERChange,
   factoryReset,
   resetStage2,
 } from "@/lib/api";
@@ -421,196 +415,6 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
 // ============================================================
 // RAG Chat panel (OLTP/OLAP toggle, [DDL_CHANGE] detection)
 // ============================================================
-function DataModelChatPanel({ projectId, onApplyDdl, currentOltp, currentOlap }) {
-  const [modelType, setModelType] = useState("oltp");
-  const [history, setHistory] = useState([]);
-  const [input, setInput] = useState("");
-  const [sending, setSending] = useState(false);
-  const [conversationId, setConversationId] = useState(null);
-  const scrollRef = useRef(null);
-
-  useEffect(() => {
-    if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-  }, [history]);
-
-  const send = async () => {
-    const msg = input.trim();
-    if (!msg || sending) return;
-    setHistory((h) => [...h, { role: "user", content: msg, ts: Date.now() }]);
-    setInput("");
-    setSending(true);
-    try {
-      const res = await sendDataModelChat({
-        project_id: projectId,
-        message: msg,
-        model_type: modelType,
-        conversation_id: conversationId,
-      });
-      setConversationId(res.conversation_id);
-      setHistory((h) => [
-        ...h,
-        {
-          role: "assistant",
-          content: res.message?.content || "",
-          suggested_ddl: res.suggested_ddl,
-          change_kind: res.change_kind || "ddl",
-          model_type: res.model_type,
-          ts: Date.now(),
-        },
-      ]);
-    } catch (e) {
-      toast.error("Chat failed", { description: e.response?.data?.detail || e.message });
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const applyChange = async (payload, target) => {
-    try {
-      if (target === "bus") {
-        await applyBusMatrixChange(projectId, payload);
-        toast.success("Applied bus matrix change");
-      } else if (target === "er") {
-        const r = await applyERChange(projectId, payload);
-        toast.success(`Applied ER patch (+${r.added}, −${r.removed})`);
-      } else {
-        const targetArt = target === "oltp" ? currentOltp : currentOlap;
-        if (!targetArt) {
-          toast.error(`No ${target.toUpperCase()} artifact. Generate it first.`);
-          return;
-        }
-        const merged = `${(targetArt.content || "").trim()}\n\n-- [LAMA CHAT EDIT — ${new Date().toISOString()}]\n${payload}\n`;
-        await updateArtifact(projectId, targetArt.id, merged);
-        toast.success(`Applied to ${target.toUpperCase()}`);
-      }
-      onApplyDdl?.();
-    } catch (e) {
-      toast.error("Apply failed", { description: e.response?.data?.detail || e.message });
-    }
-  };
-
-  return (
-    <div className="h-full flex flex-col bg-white border border-[#E6E6E6] rounded-sm">
-      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
-        <h3 className="font-display text-sm font-bold tracking-tight text-[#2E2E38]">Data Model Chat</h3>
-        <div className="ml-auto flex gap-1 bg-[#F6F6FA] rounded-sm p-0.5">
-          {["oltp", "olap", "bus", "er"].map((t) => (
-            <button
-              key={t}
-              type="button"
-              data-testid={`chat-model-${t}`}
-              onClick={() => setModelType(t)}
-              className={`text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-wider font-semibold ${
-                modelType === t ? "bg-[#2E2E38] text-white" : "text-[#747480] hover:text-[#2E2E38]"
-              }`}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-      </div>
-      <div ref={scrollRef} className="flex-1 overflow-y-auto mos-scroll p-3 space-y-2 bg-[#F6F6FA]" data-testid="datamodel-chat-history">
-        {history.length === 0 && (
-          <div className="text-xs text-[#747480] text-center py-6">
-            Ask anything about the {modelType.toUpperCase()} {modelType === "bus" ? "matrix" : modelType === "er" ? "diagram" : "schema"}. Changes use{" "}
-            <span className="font-mono bg-white border border-[#E6E6E6] px-1 rounded">
-              {modelType === "bus" ? "[BUS_CHANGE]" : modelType === "er" ? "[ER_CHANGE]" : "[DDL_CHANGE]"}
-            </span>.
-          </div>
-        )}
-        {history.map((m, i) => (
-          <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-            <div className={`max-w-[85%] px-3 py-2 rounded-sm border text-[12px] leading-relaxed whitespace-pre-wrap ${
-              m.role === "user" ? "bg-[#2E2E38] text-white border-[#2E2E38]" : "bg-white border-[#E6E6E6] text-[#2E2E38]"
-            }`}>
-              <div>{m.content}</div>
-              {m.suggested_ddl && (
-                <div className="mt-2 bg-[#FFFCE6] border border-[#FFE600] rounded-sm p-2" data-testid={`suggested-ddl-${i}`}>
-                  <div className="text-[10px] uppercase tracking-wider text-[#2E2E38] font-semibold mb-1">
-                    {m.change_kind === "bus" ? "Suggested Bus-Matrix Change"
-                      : m.change_kind === "er" ? "Suggested ER Patch"
-                      : "Suggested DDL Change"}
-                  </div>
-                  <pre className="text-[11px] font-mono whitespace-pre-wrap text-[#2E2E38] mb-2 max-h-64 overflow-auto">{m.suggested_ddl}</pre>
-                  <div className="flex flex-wrap gap-1">
-                    {m.change_kind === "bus" ? (
-                      <button
-                        type="button"
-                        onClick={() => applyChange(m.suggested_ddl, "bus")}
-                        data-testid={`apply-bus-${i}`}
-                        className="text-[10px] bg-[#FFE600] text-[#2E2E38] px-2 py-1 rounded-sm font-semibold hover:bg-[#FFD700]">
-                        Apply Bus Matrix
-                      </button>
-                    ) : m.change_kind === "er" ? (
-                      <button
-                        type="button"
-                        onClick={() => applyChange(m.suggested_ddl, "er")}
-                        data-testid={`apply-er-${i}`}
-                        className="text-[10px] bg-[#FFE600] text-[#2E2E38] px-2 py-1 rounded-sm font-semibold hover:bg-[#FFD700]">
-                        Apply ER Patch
-                      </button>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => applyChange(m.suggested_ddl, "oltp")}
-                          data-testid={`apply-oltp-${i}`}
-                          className="text-[10px] bg-[#FFE600] text-[#2E2E38] px-2 py-1 rounded-sm font-semibold hover:bg-[#FFD700]">
-                          Apply to OLTP
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyChange(m.suggested_ddl, "olap")}
-                          data-testid={`apply-olap-${i}`}
-                          className="text-[10px] bg-[#FFE600] text-[#2E2E38] px-2 py-1 rounded-sm font-semibold hover:bg-[#FFD700]">
-                          Apply to OLAP
-                        </button>
-                      </>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setHistory((h) => h.map((x, idx) => (idx === i ? { ...x, suggested_ddl: null } : x)));
-                      }}
-                      className="text-[10px] bg-white border border-[#E6E6E6] text-[#747480] px-2 py-1 rounded-sm hover:border-[#2E2E38]"
-                    >
-                      Dismiss
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="p-2 border-t border-[#E6E6E6] flex gap-2 bg-white">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              send();
-            }
-          }}
-          data-testid="datamodel-chat-input"
-          rows={2}
-          placeholder={`Refine the ${modelType.toUpperCase()} schema…`}
-          className="flex-1 text-xs border border-[#E6E6E6] rounded-sm px-2 py-1.5 resize-none focus:border-[#2E2E38] outline-none font-sans"
-        />
-        <Button
-          size="sm"
-          onClick={send}
-          disabled={sending || !input.trim()}
-          data-testid="datamodel-chat-send"
-          className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm h-auto px-3"
-        >
-          {sending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Send className="w-3.5 h-3.5" />}
-        </Button>
-      </div>
-    </div>
-  );
-}
 
 // ============================================================
 // Artifacts panel — cards + traceability + migration scripts
@@ -800,37 +604,6 @@ export default function DataModelPage() {
   }, [active?.id]);
 
   // ---------------- SSE helpers ----------------
-  const runSse = async (url, body, onEvent) => {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok || !res.body) {
-      const detail = await res.json().catch(() => ({ detail: res.statusText }));
-      throw new Error(detail.detail || `HTTP ${res.status}`);
-    }
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    while (true) {
-      const { value, done } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const events = buf.split("\n\n");
-      buf = events.pop() || "";
-      for (const evt of events) {
-        const line = evt.split("\n").find((l) => l.startsWith("data:"));
-        if (!line) continue;
-        try {
-          const data = JSON.parse(line.slice(5).trim());
-          onEvent(data);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  };
 
   // iter-14.56 — DataModel deterministic paths (OLTP / OLAP / Migration) fail
   // with a "No TABLE entities found in KB" message when a previous Build KB

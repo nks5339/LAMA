@@ -1,13 +1,11 @@
-import React, { useState, useCallback, useRef, useEffect, useMemo } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import {
-  Play, Pause, Square, RefreshCw, Wand2, CheckCircle, AlertTriangle, Info,
-  X, Cpu, Database, Globe, Server, Check, ChevronDown, ChevronLeft, ChevronRight,
+  Play, Pause, Square, RefreshCw, CheckCircle, AlertTriangle,   X, Cpu, Database, Globe, Server, Check, ChevronDown, ChevronLeft, ChevronRight,
   AlertCircle, GitBranch, Upload, Archive, FileCode, Trash2,
   Network, Layers, Target, Download, Sparkles, Eye, Code2, Bot, FileJson,
-  MoreVertical, History, Loader2, Folder, FolderOpen, Settings2, RotateCcw, TerminalSquare,
+  History, Loader2, Folder, FolderOpen, Settings2, RotateCcw, TerminalSquare,
   Send, MessageSquare, TestTube2, Package, FilePlus, FlaskConical,
-  Copy, PanelRightClose, PanelRightOpen, Rocket, ListChecks, Boxes,
-  Maximize2, Minimize2,
+  Copy, PanelRightClose, PanelRightOpen, Rocket,   Maximize2, Minimize2,
 } from "lucide-react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
@@ -50,7 +48,6 @@ import {
   suggestBuildTools,
 } from "../lib/api";
 import { Panel, PanelGroup, PanelResizeHandle } from "react-resizable-panels";
-import ZipFileRow from "../components/ZipFileRow";
 import TransformerTelemetry from "../components/TransformerTelemetry";
 import TransformerStepper from "../components/TransformerStepper";
 import TransformerHeader from "../components/TransformerHeader";
@@ -465,37 +462,6 @@ const getRelevantOptions = (catKey, detected) => {
 
   return cat.options.filter(opt => opt.id !== detected);
 };
-
-const TRANSFORMER_TABS = [
-  {
-    id: "input",
-    label: "Input",
-    description: "Source files, target stacks, and run controls.",
-    hint: "Prepare or review the transformation request.",
-    icon: Upload,
-  },
-  {
-    id: "kb",
-    label: "Knowledge Base",
-    description: "Live entity graph, tech stack detection, and progress.",
-    hint: "Watch the KB build and inspect intermediate results.",
-    icon: Database,
-  },
-  {
-    id: "code",
-    label: "Transformed",
-    description: "Generated structure, live file preview, and exports.",
-    hint: "Review output, regenerate files, download, or push to GitHub.",
-    icon: Code2,
-  },
-  {
-    id: "compile",
-    label: "Compilation",
-    description: "Static compilation analysis and dependency checks.",
-    hint: "Review compilation readiness and fix issues.",
-    icon: Target,
-  },
-];
 
 const TAB_HASH = {
   input: "#input",
@@ -3296,7 +3262,6 @@ export default function TransformerPage() {
   );
 
   // Verifier tab reuses the exact same console — single implementation.
-  const renderVerifierPanel = () => renderVerificationConsole();
 
   // iter-15.43 — Stacked Coder+Planner workspace. Coder stays permanently
   // visible as the primary panel; Planner details render in a collapsible
@@ -3336,26 +3301,6 @@ export default function TransformerPage() {
         </details>
       </div>
     );
-  };
-
-  const renderSelectedAgentWorkspace = () => {
-    switch (selectedAgentTab) {
-      case "context_manager":
-        return renderContextManagerPanel();
-      case "planner":
-      case "coder":
-      case "verifier":
-        // iter-15.43 — All three collapse into the stacked workspace.
-        // The right-rail Verification Console (renderVerificationConsole,
-        // iter-15.36) already lives inside renderCoderPanel, so verifier
-        // clicks land here too instead of swapping the view.
-        return renderCoderPlannerStacked();
-      case "tester":
-        return renderTesterPanel();
-      case "super_agent":
-      default:
-        return renderSuperAgentPanel();
-    }
   };
 
   const renderTesterPanel = () => {

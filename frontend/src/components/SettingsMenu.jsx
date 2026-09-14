@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Settings as SettingsIcon, History, Save, RefreshCw, BarChart3,
@@ -16,8 +16,7 @@ import { useProjects } from "@/state/ProjectContext";
 import { getUsageSummary, createProject, deleteProject } from "@/lib/api";
 import {
   labelForAgentKey, colorForAgentKey, isAgentDrivenProjectType,
-  projectTypeMeta, PROJECT_TYPE_META,
-} from "@/lib/agentLabels";
+  projectTypeMeta, } from "@/lib/agentLabels";
 
 /**
  * SettingsMenu — replaces the old "Refresh App" button with a four-pane

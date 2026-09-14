@@ -24,7 +24,7 @@
 // Polling cadence: state → 2s, agent-runs → 3s, only while status is a
 // _pending or executing state; halts on terminal (completed/failed/idle).
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Loader2,
   Play,
@@ -64,7 +64,6 @@ import {
 } from "@/components/ui/dialog";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { EmptyState } from "@/components/ux";
 import {
   startCodegenMultiAgent,
   getCodegenMultiAgentState,
@@ -510,7 +509,17 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
         <td className="px-2 py-1.5 text-[10px] text-right">
           <button
             data-testid={`codegen-ma-envelope-edit-${envelope.envelope_id}`}
-            onClick={(e) => { e.stopPropagation(); setOpen(true); setEditing(true); }}
+            // `setOpen` does not exist in this component -- EnvelopeRow's
+            // expansion is parent-controlled via isOpen/onToggle (the local
+            // `open` at line 453 is derived, not state). Clicking Edit threw
+            // ReferenceError: setOpen is not defined. Expand through the
+            // parent's toggle, and only when the row is not already open so
+            // the toggle cannot collapse it.
+            onClick={(e) => {
+              e.stopPropagation();
+              if (!open) onToggle?.(envelope.envelope_id);
+              setEditing(true);
+            }}
             className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
           >
             <Pencil className="w-3 h-3" /> Edit

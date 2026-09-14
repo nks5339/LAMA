@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { 
   Search, 
@@ -12,7 +12,6 @@ import {
   FileText,
   Settings,
   ChevronRight,
-  Command as CommandIcon
 } from "lucide-react";
 
 /**

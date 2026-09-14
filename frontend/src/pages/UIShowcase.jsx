@@ -1,16 +1,14 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import { 
   Layout, 
   Table, 
   FolderTree, 
   Settings, 
   Terminal,
-  Database,
   Play,
   Save,
   Download,
   RefreshCw,
-  FileCode,
   Boxes
 } from "lucide-react";
 import { 

@@ -12,7 +12,7 @@
  *   showSize    — bool (default true) — render human size on the right
  *   testId      — optional data-testid for the remove button
  */
-import React, { useState, useEffect, useMemo } from "react";
+import { useState, useMemo } from "react";
 import { X, ChevronRight, ChevronDown, FileText, Archive, Folder, RefreshCw } from "lucide-react";
 import JSZip from "jszip";
 

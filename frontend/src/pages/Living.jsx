@@ -2,8 +2,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Loader2, Lock, Activity, FlaskConical, GaugeCircle, FileSearch,
-  GitCompare, Download, RotateCcw, Wand2, ChevronDown, ChevronRight as ChevronRightIcon,
-  CheckCircle2, AlertTriangle, Gauge, ListChecks, FileSpreadsheet, XCircle,
+  GitCompare, Download, RotateCcw, Wand2,   AlertTriangle, Gauge, ListChecks, FileSpreadsheet, XCircle,
   ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -150,7 +149,6 @@ function TestCoverageMeter({ artifact, job, isVisible }) {
   const batches_target = hasJobData ? jobBatchTotal : (meta?.batches_target || 0);
   const n_screens = meta?.n_screens || 0;
   const n_endpoints = meta?.n_endpoints || 0;
-  const n_roles = meta?.n_roles || 0;
   const n_nfr = meta?.n_nfr || 0;
   // iter-14.87: Get actual complexity counts that drive the target
   const n_use_cases = meta?.n_use_cases || 0;
@@ -159,7 +157,6 @@ function TestCoverageMeter({ artifact, job, isVisible }) {
   const status = hasJobData ? "generating" : (meta?.status || "");
   // iter-14.86: Incremental mode tracking
   const isIncremental = meta?.incremental_mode || false;
-  const existingTcCount = meta?.existing_tc_count || 0;
   const newTcsAdded = meta?.new_tcs_added || 0;
   
   // Don't render if no data at all

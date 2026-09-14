@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { listPrompts, updatePrompt, listProjectPrompts, updateProjectPrompt } from "@/lib/api";
 import { useProjects } from "@/state/ProjectContext";
 import HelpIcon from "@/components/HelpIcon";

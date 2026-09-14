@@ -3,7 +3,7 @@
 // user/tenant in localStorage so reloads don't bounce to /login.
 // On mount, validates the persisted token via GET /api/auth/me — if
 // 401, the axios interceptor in lib/api.js drops the token and redirects.
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { login as loginApi, logout as logoutApi, me as meApi } from "@/lib/api";
 
 const AuthContext = createContext(null);

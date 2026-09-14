@@ -13,7 +13,7 @@
  *   POST  .../jobs/{jid}/pause | resume | stop          -> control
  *   GET   /pipeline/{pid}/confidence/{stage}            -> latest result
  */
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   Loader2, RefreshCw, Shield, ShieldAlert, ShieldCheck, ShieldQuestion,
@@ -205,10 +205,6 @@ export default function ConfidenceBadge({ projectId, stage, compact = false, onS
     : null;
   const score = present ? Math.max(bestScore ?? 0, latestScore ?? 0) : null;
   const band = present ? (bandOf(score)) : "unknown";
-  const showRegressed = present
-    && latestScore != null
-    && bestScore != null
-    && latestScore + 0.05 < bestScore;
   const style = BAND_STYLE[band] || BAND_STYLE.unknown;
   const Icon = style.Icon;
   const running = !!job && !TERMINAL_STATUSES.has(job.status);

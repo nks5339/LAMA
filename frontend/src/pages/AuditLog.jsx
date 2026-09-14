@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { listAudit, getAuditTrace } from "@/lib/api";
 import { useProjects } from "@/state/ProjectContext";
-import { Activity, FileSearch, X, Copy, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Activity, FileSearch, Copy, CheckCircle2, AlertTriangle } from "lucide-react";
 import {
   Dialog,
   DialogContent,

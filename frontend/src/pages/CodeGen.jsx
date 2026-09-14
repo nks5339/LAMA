@@ -66,7 +66,6 @@ import {
 import { Button } from "@/components/ui/button";
 import ConfidenceBadge from "@/components/ConfidenceBadge";
 // iter-13.119 — render the markdown Auto-Validate report in the modal
-import ReactMarkdown from "react-markdown";
 // iter-17 — Multi-Agent CodeGen pipeline panel (feature-flagged by the
 // header mode toggle; single-shot Quick Generate flow below is preserved
 // verbatim).
@@ -921,7 +920,7 @@ export default function CodeGenPage() {
   const [apiMappingOpen, setApiMappingOpen] = useState(true);
   const [apiMappingSvc, setApiMappingSvc] = useState("");
   const [selectedGenServices, setSelectedGenServices] = useState(() => new Set());
-  const [selectedGenTouched, setSelectedGenTouched] = useState(false);
+  const [, setSelectedGenTouched] = useState(false);
   const [gsPopoverOpen, setGsPopoverOpen] = useState(false);
   const gsPopoverRef = useRef(null);
   // iter-13.140 — Kebab overflow menu state

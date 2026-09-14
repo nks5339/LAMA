@@ -1,5 +1,5 @@
-import React, { useState, useMemo } from "react";
-import { ChevronDown, ChevronUp, ArrowUpDown, Search, Filter, Download, RefreshCw } from "lucide-react";
+import { useState, useMemo } from "react";
+import { ChevronDown, ChevronUp, ArrowUpDown, Search, Download, RefreshCw } from "lucide-react";
 
 /**
  * Professional DataTable component

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Lock, CheckCircle2, Circle, Library, BookOpen, Database, Boxes, Code2, Activity, Settings as SettingsIcon, ChevronLeft, ChevronRight, Terminal, Network, MoreHorizontal, Plug, SkipForward, Undo2, LogOut, ShieldCheck, Building2, X as CloseIcon, Info, FolderOpen, FileSearch, ArrowRightLeft } from "lucide-react";
+import { Lock, CheckCircle2, Library, BookOpen, Database, Boxes, Code2, Activity, Settings as SettingsIcon, ChevronLeft, ChevronRight, Terminal, Network, MoreHorizontal, Plug, SkipForward, LogOut, ShieldCheck, Building2, X as CloseIcon, Info, FolderOpen, FileSearch, ArrowRightLeft } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
 import { useAuth } from "@/state/AuthContext";
 import { getPipelineStatus, factoryReset, getProjectSettings, updateProjectSettings, cancelSRSGeneration, skipStage, unskipStage, getJourneySettings, updateJourneySettings } from "@/lib/api";
@@ -48,12 +48,6 @@ const STAGES_BY_TYPE = {
   tech_transformer:  TRANSFORMER_STAGES,
 };
 
-const PROJECT_TYPE_LABEL = {
-  legacy_migration:  "Legacy Modernization",
-  gap_analysis:      "Gap Analyzer",
-  tech_transformer:  "Technology Transformer",
-};
-
 // iter-13.89 — Responsive Sidebar.
 //   • Desktop (≥ lg): inline column, collapse/expand via the chevron as
 //     before (state persisted to `lama:panel:sidebar`).
@@ -89,7 +83,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   // iter-14.93 — Resolve pipeline stages based on the active project's type.
   // Falls back to Legacy 5-stage layout when project_type is missing (older projects).
   const STAGES = STAGES_BY_TYPE[active?.project_type || "legacy_migration"] || LEGACY_STAGES;
-  const projectTypeLabel = PROJECT_TYPE_LABEL[active?.project_type || "legacy_migration"];
 
   // iter-14.94 — For tool project types, "stage" progression is really tab
   // progression (URL hash). We derive an effective status here so the sidebar

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from "react";
-import { CheckCircle2, AlertCircle, Wifi, WifiOff, Database, Server, Cpu, Activity } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Wifi, WifiOff, Database, Server, Cpu, Activity } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
 
 /**

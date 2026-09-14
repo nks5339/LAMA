@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
-import { X, MessageSquare, Send, Bot, User, Plus, Archive, Clock, Trash2, Pencil } from "lucide-react";
-import { chatHistory, sendMessage, createSession, getSession, listSessions, archiveSession, updateSRSSection } from "@/lib/api";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { X, MessageSquare, Send, Bot, User, Plus, Clock, Trash2, Pencil } from "lucide-react";
+import { sendMessage, createSession, getSession, listSessions, archiveSession, updateSRSSection } from "@/lib/api";
 import { useProjects } from "@/state/ProjectContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -44,7 +44,7 @@ export default function FloatingChat({
   const [isOpen, setIsOpen] = useState(false);
   const [sessions, setSessions] = useState([]);
   const [activeSessionId, setActiveSessionId] = useState(null);
-  const [activeSession, setActiveSession] = useState(null);
+  const [, setActiveSession] = useState(null);
   const [history, setHistory] = useState([]);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);

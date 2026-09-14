@@ -261,3 +261,55 @@ unmasked `yuATf0sx...`. Masking now reveals a 4-character trailing fragment at
 most, and `detected_from_key` is masked on the way out so existing rows are
 covered. That reduces the severity of DEC-7 but does not remove it: the
 endpoint still should not answer an anonymous caller at all.
+
+---
+
+## DEC-8 — The Discovery model selector is not in the UI
+
+**Status:** open. Not applied, because restoring it is a product decision.
+
+**What I found.** `frontend/src/components/ChatPanel.jsx` (475 LOC) held the
+only `data-testid="model-selector"` in the codebase. `DiscoveryV2.jsx:20`
+imported it — and never rendered it. A repo-wide grep for `<ChatPanel` returns
+zero hits. The live chat is `FloatingChat.jsx`, which *consumes* a `model`
+prop (sends it at line 223) but has no picker of its own and is never passed
+an `onModelChange`.
+
+So the chain CLAUDE.md contract #11 describes:
+
+> "The model picked in ChatPanel (lifted into Discovery state, persisted to
+> `localStorage["lama:chat:model"]`) is forwarded into the
+> `/api/srs/generate/stream` POST body"
+
+is broken at the first link. `DiscoveryV2.chatModel` is read once from
+`localStorage` on mount and can never change from inside the app. Its setter
+and `handleModelChange` were both dead. SRS generation therefore always runs
+with whatever model was last written to that key — or the backend default if
+it was never written.
+
+**What I did.** Removed the dead code (ChatPanel.jsx, the unused setter and
+handler) and corrected CLAUDE.md contracts #5, #6 and #11 so they describe
+what the code actually does. The backend side is untouched and still works:
+`/api/srs/generate/stream` still accepts and honours a `model` in the body.
+
+**What I need from you — one of:**
+
+1. **Restore the picker.** Give `FloatingChat` a model dropdown, pass
+   `onModelChange` from `DiscoveryV2`, and re-add the `model-selector` testid.
+   This is what the contract says should exist. `git show 9f39a02^:frontend/src/components/ChatPanel.jsx`
+   has the original selector to lift from.
+2. **Drop the contract.** Accept that the model is chosen in Console (tier
+   routing) rather than per-conversation, and delete contract #11.
+3. **Leave it.** The key is still read on mount, so an operator can set
+   `localStorage["lama:chat:model"]` by hand.
+
+*Recommendation: 1 if per-conversation model choice is a feature you want;
+otherwise 2, because a documented contract that no code implements is worse
+than no contract.*
+
+**Two related testids in the same contract also do not exist:**
+`owl-export-btn` and `refresh-kb-health` have zero occurrences anywhere in
+`frontend/src`, and the third stage-badge variant the code emits is
+`stage-{key}-badge-skipped`, not `-locked`. The `/api/kb/{pid}/owl-export`
+route behind the first one is alive and working — only the button is gone.
+I corrected the doc rather than inventing buttons.

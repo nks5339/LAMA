@@ -10,14 +10,11 @@ import {
   Download,
   Lock,
   Pencil,
-  Check,
   Send,
   Boxes,
   GitBranch,
   FileText,
   RotateCcw,
-  ChevronDown,
-  ChevronRight as ChevronRightIcon,
   Workflow,
   Network,
   Wand2,
@@ -41,7 +38,6 @@ import {
   sendArchChat,
   applyArchChanges,
   getArchArtifacts,
-  getArchArtifact,
   updateArchArtifact,
   freezeArchArtifact,
   downloadArchArtifactUrl,
@@ -787,7 +783,6 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
     }
     return m;
   }, [groups]);
-  const inAnyGroup = React.useCallback((svcName) => !!assignedGroupId[svcName], [assignedGroupId]);
 
   const addGroup = () => {
     setGroups((g) => [...g, { id: nextGroupId, name: "", members: new Set() }]);

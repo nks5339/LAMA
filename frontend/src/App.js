@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import "@/App.css";
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Toaster } from "sonner";
@@ -16,7 +16,6 @@ import IntegrationsPage from "@/pages/Integrations";
 import ConsolePage from "@/pages/Console";
 import OntologyStudioPage from "@/pages/OntologyStudio";
 import LivingPage from "@/pages/Living";
-import StagePlaceholderPage from "@/pages/StagePlaceholder";
 import PromptLibraryPage from "@/pages/PromptLibrary";
 import AuditLogPage from "@/pages/AuditLog";
 import GitHubSettingsPage from "@/pages/GitHubSettings";

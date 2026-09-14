@@ -1,5 +1,5 @@
 // iter-13.68 — Login screen. Username/password → POST /api/auth/login.
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Loader2, Lock, User as UserIcon, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
