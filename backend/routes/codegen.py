@@ -10388,13 +10388,68 @@ async def _run_verifier_for_codegen_task(
         input_summary=f"verifying {target_path} ({len(content)} chars)",
     )
     prompt_template = await _get_codegen_prompt("codegen.verifier")
+
+    # The verifier's rubric defines four of its nine checks in terms of the
+    # ENVELOPE — contract preservation, business-logic comparison, data
+    # integrity against the tables, and completeness. Sending only the file
+    # made those four structurally impossible, and before the UNVERIFIABLE
+    # verdict existed the model had no legal way to say so, so it guessed.
+    # A gate that cannot see what it is gating against and answers anyway is
+    # a rubber stamp. Give it the evidence its own rubric asks for.
+    envelope: Dict[str, Any] = {}
+    try:
+        envelope = await codegen_envelopes.find_one(
+            {"project_id": project_id,
+             "envelope_id": task.get("envelope_id") or ""},
+            {"_id": 0},
+        ) or {}
+    except Exception:
+        # Observability, not correctness: a lookup failure must degrade to
+        # the task-only context rather than abort the wave.
+        logger.exception("verifier: envelope lookup failed for %s", task_id)
+
+    ctx_lines = [
+        f"Task: {task_id}",
+        f"Title: {task.get('title', '')}",
+        f"Description: {task.get('description', '')}",
+        f"Layer: {task.get('layer', '')}",
+        f"Action: {task.get('action', 'NEW')}",
+        f"Target path: {target_path}",
+        f"Source path: {task.get('source_path', '')}",
+        f"BR IDs: {', '.join(task.get('br_ids') or []) or '(none)'}",
+    ]
+    if envelope:
+        ctx_lines += [
+            "",
+            f"Envelope: {envelope.get('envelope_id', '')}",
+            f"Endpoint: {envelope.get('endpoint_method', '')} "
+            f"{envelope.get('endpoint_path', '')}",
+            f"Service: {envelope.get('service_name', '')}",
+            f"Business logic summary: {envelope.get('business_logic_summary', '')}",
+            f"DB tables: {', '.join(envelope.get('db_tables') or []) or '(none)'}",
+            f"DB operations: {', '.join(envelope.get('db_operations') or []) or '(none)'}",
+            f"Envelope BR IDs: {', '.join(envelope.get('br_ids') or []) or '(none)'}",
+            f"Acceptance criteria: "
+            f"{'; '.join(envelope.get('acceptance_criteria') or []) or '(none)'}",
+        ]
+    else:
+        ctx_lines += [
+            "",
+            "Envelope: NOT AVAILABLE. Checks that depend on it "
+            "(contract preservation, business-logic comparison, data "
+            "integrity, completeness) cannot be performed — mark them N/A "
+            "and say so rather than guessing.",
+        ]
+
     try:
         resp = await chat_completion(
             messages=[
                 {"role": "system", "content": prompt_template or "You are the CodeGen Verifier."},
                 {"role": "user", "content":
-                    f"Verify this generated file for task {task_id}.\n\n"
-                    f"===== FILE ({target_path}) =====\n{content[:20000]}\n\n"
+                    "Verify this generated file against the task and envelope below.\n\n"
+                    "===== TASK & ENVELOPE =====\n"
+                    + "\n".join(ctx_lines)
+                    + f"\n\n===== FILE ({target_path}) =====\n{content[:20000]}\n\n"
                     "Return ONLY the JSON described in your system prompt."},
             ],
             agent_key="codegen.verifier",
