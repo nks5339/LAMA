@@ -87,7 +87,7 @@ def _patch_pipeline(monkeypatch):
     fake_stage_conf = _FakeColl()
     fake_projects = _FakeColl()
     fake_audit = _FakeColl()
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         fake_projects.insert_one({"id": "p1"})
     )
     monkeypatch.setattr(pl, "stage_confidence", fake_stage_conf)
@@ -115,7 +115,7 @@ def test_only_sections_delta_scoring_merges_with_prior(monkeypatch, _patch_pipel
     """
     stage_conf = _patch_pipeline["stage_conf"]
     # Seed prior doc with a mixed score profile.
-    asyncio.get_event_loop().run_until_complete(stage_conf.insert_one({
+    asyncio.run(stage_conf.insert_one({
         "project_id": "p1", "stage": "Discovery",
         "overall_score": 45.0, "overall_band": "poor",
         "best_overall_score": 60.0, "best_overall_band": "fair",
@@ -156,7 +156,7 @@ def test_only_sections_delta_scoring_merges_with_prior(monkeypatch, _patch_pipel
                              for s in sections]}
     monkeypatch.setattr(pl, "score_artifact_multi_model", _fake_score)
 
-    doc = asyncio.get_event_loop().run_until_complete(
+    doc = asyncio.run(
         pl.compute_stage_confidence(
             "p1", "Discovery",
             only_sections=["actors"],
@@ -284,7 +284,7 @@ def test_improve_loop_uses_lean_delta_scoring_and_tracks_tokens(monkeypatch, _pa
 
     jid = pl._new_confidence_job("p1", "Discovery")
 
-    asyncio.get_event_loop().run_until_complete(
+    asyncio.run(
         pl._run_improve_loop(jid, "p1", "Discovery",
                              threshold=95.0, max_iterations=3, max_sections_per_iter=3,
                              token_budget=1_000_000)

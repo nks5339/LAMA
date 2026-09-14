@@ -1,0 +1,50 @@
+{
+  // ── Python interpreter ────────────────────────────────────────────
+  // Pin the interpreter explicitly. Without this, VS Code auto-discovers
+  // the first venv it finds and has previously selected the wrong one
+  // (the repo shipped a dead `.venv` built on another machine, whose
+  // interpreter path did not exist locally).
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+
+  // backend/ is the import root: modules do `from db import ...`,
+  // `from routes import ...` rather than `from backend.db import ...`.
+  "python.analysis.extraPaths": ["${workspaceFolder}/backend"],
+  "python.autoComplete.extraPaths": ["${workspaceFolder}/backend"],
+
+  // Supplies MONGO_URL / DB_NAME / OPENROUTER_API_KEY to test runs and
+  // debug sessions. backend/.env is gitignored and holds real keys.
+  "python.envFile": "${workspaceFolder}/backend/.env",
+
+  // ── Testing ───────────────────────────────────────────────────────
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestArgs": ["backend/tests"],
+
+  // ── Performance ───────────────────────────────────────────────────
+  // These trees total well over 1 GB. Excluding them from the file
+  // watcher and search keeps VS Code responsive.
+  "files.watcherExclude": {
+    "**/.venv/**": true,
+    "**/node_modules/**": true,
+    "**/frontend/build/**": true,
+    "**/__pycache__/**": true,
+    "**/wheels/**": true,
+    "**/.pytest_cache/**": true
+  },
+  "search.exclude": {
+    "**/.venv": true,
+    "**/node_modules": true,
+    "**/frontend/build": true,
+    "**/__pycache__": true,
+    "**/wheels": true
+  },
+
+  // ── Frontend ──────────────────────────────────────────────────────
+  // yarn 1.22.22 via corepack (packageManager pin). Never `npm install`.
+  "npm.packageManager": "yarn",
+  "eslint.workingDirectories": ["frontend"],
+
+  "files.exclude": {
+    "**/.DS_Store": true
+  }
+}

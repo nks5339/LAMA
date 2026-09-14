@@ -17,6 +17,7 @@ production-ready. These tests pin the contract that:
 """
 from __future__ import annotations
 
+import os
 import re
 import sys
 from pathlib import Path
@@ -151,26 +152,25 @@ def test_validator_accepts_well_formed_java_controller():
 #    back to this scaffold, so the scaffold MUST itself be valid.
 # ---------------------------------------------------------------------------
 def _import_emergency_scaffold():
-    """Import _emergency_scaffold without dragging motor + asyncio in.
+    """Import `_emergency_scaffold` straight from routes.codegen.
 
-    routes.codegen unconditionally imports motor at module load; we can't
-    avoid that by symbol-level import. So we synthesise the scaffold call
-    by reading the function source via importlib and exec'ing it in a
-    minimal namespace. Cheaper to keep in-test than to refactor the
-    1900-line route module.
+    This used to read the function's SOURCE out of routes/codegen.py and
+    exec it in a bare namespace, to avoid importing motor. That approach
+    rotted: `_emergency_scaffold` grew a `_java_scaffold` delegation,
+    which itself pulls `_java_{controller,service,entity,dto}_scaffold`
+    and the module-level `_ACTIVE_JAVA_GROUP` constant — none of which a
+    `^def <name>` regex can follow. The result was 10 tests failing with
+    `NameError` at `<string>` rather than exercising the scaffold.
+
+    A plain import is correct and self-maintaining. Importing `db` needs
+    MONGO_URL/DB_NAME to exist, but motor connects LAZILY, so a dummy
+    value is enough and no live Mongo is required — this module still
+    imports in ~0.25s against an unreachable host.
     """
-    src_path = _BACKEND / "routes" / "codegen.py"
-    text = src_path.read_text()
-    # Pull out the helpers needed by _emergency_scaffold.
-    def _grab(name):
-        m = re.search(rf"^def {name}\([^)]*\)[^:]*:\n(?:[ \t].*\n|\n)+", text, re.MULTILINE)
-        assert m, f"could not find def {name} in routes/codegen.py"
-        return m.group(0)
-
-    ns = {"re": re}
-    for fn in ("_pascal", "_kebab", "_ep_parts", "_ep_method_name", "_emergency_scaffold"):
-        exec(_grab(fn), ns)
-    return ns["_emergency_scaffold"]
+    os.environ.setdefault("MONGO_URL", "mongodb://127.0.0.1:27017")
+    os.environ.setdefault("DB_NAME", "lama_test")
+    from routes.codegen import _emergency_scaffold as _scaffold
+    return _scaffold
 
 
 _emergency_scaffold = _import_emergency_scaffold()
@@ -245,6 +245,10 @@ def test_codegen_service_prompt_format_clean():
         api_contract="", srs_use_cases="", srs_nfr="",
         file_path="X.java", file_type="controller",
         file_type_instructions="...",
+        # Added as the seeded template grew them; this dict must stay in
+        # sync with every {placeholder} in seed.py's codegen.service prompt
+        # or .format() raises KeyError.
+        architecture_pattern="", kb_context="",
     )
     out = tmpl.format(**slots)
     assert len(out) > 5000

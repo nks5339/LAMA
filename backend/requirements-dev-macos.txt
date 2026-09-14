@@ -1,0 +1,127 @@
+# ─────────────────────────────────────────────────────────────────────
+# LAMA — LOCAL DEV requirements (macOS / Apple Silicon, Python 3.14)
+#
+# `requirements.txt` remains the SOURCE OF TRUTH for the container image
+# (python:3.11-slim-bookworm). Do not use this file for the Docker build.
+#
+# Why this file exists
+# --------------------
+# `requirements.txt` is a `pip freeze` taken on a Linux CUDA machine. It
+# carries 20 `nvidia-*` / `cuda-*` pins plus `triton`, none of which have
+# macOS wheels, so `pip install -r requirements.txt` cannot complete on a
+# Mac. This file installs the same application, minus the GPU/ML stack.
+#
+# How it was derived (not guesswork)
+# ----------------------------------
+# Every .py file under backend/ was AST-parsed for its real import graph
+# (160 files, 0 parse failures). That yields 31 third-party modules. Note
+# that grepping for `import X` gives the WRONG answer here: several files
+# (integrations/platform_catalog.py, datamodel/migration_generator.py)
+# embed `import boto3` / `import psycopg2` inside string templates that
+# are emitted into GENERATED user projects — they are not LAMA runtime
+# dependencies.
+#
+# Versions match `requirements.txt` exactly wherever Python 3.14 allows,
+# so local behaviour tracks the container. Only three pins are relaxed,
+# each annotated below with the reason.
+#
+# Usage
+# -----
+#   cd backend
+#   python3 -m venv venv
+#   ./venv/bin/python -m pip install -U pip
+#   ./venv/bin/python -m pip install -r requirements-dev-macos.txt
+#   ./venv/bin/uvicorn server:app --reload --port 8000
+#
+# Verified: `import server` succeeds and exposes all 283 /api routes.
+# ─────────────────────────────────────────────────────────────────────
+
+# ── Web layer — identical to requirements.txt / the container ────────
+fastapi==0.110.1
+starlette==0.37.2
+uvicorn[standard]==0.25.0
+python-multipart==0.0.28          # required by UploadFile in routes/kb.py, routes/tools.py
+pydantic==2.13.4
+
+# ── MongoDB — LAMA's system of record ────────────────────────────────
+# RELAXED: requirements.txt pins pymongo==4.5.0 / motor==3.3.1 (2023).
+# Neither publishes a cp314 wheel, and pymongo builds C extensions, so
+# the pinned pair cannot install on Python 3.14. Floors chosen to stay
+# API-compatible with the 4.5 calls used in db.py.
+pymongo>=4.9,<5
+motor>=3.6,<4
+
+# ── HTTP ─────────────────────────────────────────────────────────────
+httpx==0.28.1
+requests==2.34.1
+urllib3==2.7.0
+
+# ── Auth (iter-13.68 multi-tenancy) ──────────────────────────────────
+passlib==1.7.4
+# CRITICAL: keep bcrypt < 4.1. passlib 1.7.4 probes `bcrypt.__about__`,
+# which bcrypt removed in 4.1; on bcrypt 5.x, CryptContext.verify() dies
+# with "password cannot be longer than 72 bytes" and LOGIN BREAKS.
+# 4.0.1 ships an abi3 wheel, so it installs cleanly on 3.14 despite its age.
+bcrypt==4.0.1
+PyJWT==2.12.1
+# RELAXED: requirements.txt pins cryptography==48.0.0; no cp314 wheel.
+cryptography>=48.0.0
+
+# ── Config / serialisation ───────────────────────────────────────────
+python-dotenv==1.2.2
+PyYAML==6.0.3                     # KB context export is YAML (iter-13.1)
+
+# ── RAG / integrations ───────────────────────────────────────────────
+qdrant-client==1.18.0
+PyGithub==2.9.1                   # routes/github.py, routes/codegen.py, routes/tools.py
+dulwich>=1.2.5,<2.0               # pure-python git fallback; floor fixes CVE-2026-42305
+tiktoken==0.12.0                  # lazy token counting in llm.py
+
+# ── Document generation ──────────────────────────────────────────────
+python-docx==1.2.0
+openpyxl==3.1.5
+reportlab==4.5.1
+pypdf==6.11.0
+lxml==6.1.0
+
+# ── Live-DB ingestion — /api/kb/{pid}/db-connect ─────────────────────
+# Only pymysql is pure-python and installs unconditionally. The rest are
+# lazily imported (routes/db_ingest.py) and need system headers on macOS
+# — psycopg2-binary 2.9.9 has no cp314 wheel and its source build fails
+# with "pg_config executable not found". Install only what you actually
+# connect to:
+#   brew install postgresql   && pip install "psycopg2-binary>=2.9.10"
+#   brew install freetds      && pip install pymssql
+#   pip install oracledb
+pymysql==1.1.1
+
+# ── Confidence engine (iter-14.14) ───────────────────────────────────
+# Pure-Python, no torch. Enables confidence_langgraph.is_available().
+# NOTE: with these installed, resolve_confidence_engine()'s auto mode
+# selects LangGraph whenever Factory/droid is not reachable — which is
+# the documented iter-14.29 rule, and is the case on this machine.
+langgraph==0.2.60
+langchain-core==0.3.29
+
+# ── Test / lint ──────────────────────────────────────────────────────
+pytest==9.0.3
+# Several suites use @pytest.mark.asyncio (e.g. test_iter91_14_diagnostics.py).
+# Without this plugin those marks are silently ignored and the async test
+# bodies never actually run — they report as passing.
+pytest-asyncio>=1.0
+pyflakes==3.4.0                   # the PRD's standing verification step
+
+# ── Deliberately EXCLUDED: GPU / ML stack ────────────────────────────
+# torch, transformers, sentence-transformers, safetensors, tokenizers,
+# huggingface_hub, hf-xet, triton, langgraph, langchain-core, and all
+# nvidia-*/cuda-* pins (~3 GB, no macOS wheels for the CUDA ones).
+#
+# Safe to omit: every import of these is lazy and guarded. See
+# confidence_langgraph.py::is_available() — it returns False and the
+# engine degrades to the legacy fabric_call path. kb/vector_store.py
+# imports sentence_transformers inside a function, so only local Qdrant
+# embedding needs it.
+#
+# To opt in locally:  pip install langgraph==0.2.60 langchain-core==0.3.29 \
+#                                 sentence-transformers torch
+#                     export LAMA_CONFIDENCE_ENGINE=langgraph

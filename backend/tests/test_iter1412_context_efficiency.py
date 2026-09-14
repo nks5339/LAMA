@@ -314,7 +314,7 @@ def test_datamodel_summary_truncates_large_ddl_at_stmt_boundary(monkeypatch):
     monkeypatch.setattr(cb, "bus_matrix", _F3)
     monkeypatch.setenv("LAMA_OLTP_DDL_MAX_CHARS", "60000")
 
-    out = asyncio.get_event_loop().run_until_complete(
+    out = asyncio.run(
         cb._datamodel_summary("p1")
     )
 
@@ -357,7 +357,7 @@ def test_datamodel_summary_passthrough_when_under_cap(monkeypatch):
     monkeypatch.setattr(cb, "olap_models", _F2)
     monkeypatch.setattr(cb, "bus_matrix", _F3)
 
-    out = asyncio.get_event_loop().run_until_complete(
+    out = asyncio.run(
         cb._datamodel_summary("p1")
     )
 

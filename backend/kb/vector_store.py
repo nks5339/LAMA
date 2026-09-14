@@ -14,6 +14,20 @@ logger = logging.getLogger("lama.vector")
 
 QDRANT_URL = os.environ.get("QDRANT_URL", "")
 QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
+# iter-17.19 — OFFLINE Qdrant. `qdrant-client` ships an embedded engine
+# (`QdrantLocal`) that persists to a plain directory with no server and no
+# Docker. Set QDRANT_PATH to use it; QDRANT_URL still wins when both are
+# set, so the container (which sets neither, or only URL) is unaffected.
+QDRANT_PATH = os.environ.get("QDRANT_PATH", "")
+# iter-17.19 — pluggable embedding backend. Default stays
+# SentenceTransformer (what the image ships). `ollama` calls a local
+# Ollama server's OpenAI-compatible /v1/embeddings instead, which keeps
+# the offline path working WITHOUT pulling torch (~3 GB).
+EMBED_BACKEND = (os.environ.get("LAMA_EMBED_BACKEND", "") or "").strip().lower()
+OLLAMA_EMBED_MODEL = os.environ.get("LAMA_OLLAMA_EMBED_MODEL", "nomic-embed-text")
+_OLLAMA_EMBED_BASE = (
+    os.environ.get("LAMA_OLLAMA_BASE_URL", "http://localhost:11434/v1").rstrip("/")
+)
 EMBED_MODEL = os.environ.get("EMBED_MODEL", "all-MiniLM-L6-v2")
 COLLECTION = os.environ.get("LAMA_QDRANT_COLLECTION", "lama_kb")
 # iter-13.18 — model-agnostic vector sizing. Default matches MiniLM-L6-v2
@@ -28,7 +42,10 @@ _embedder = None
 
 
 def _enabled() -> bool:
-    return bool(QDRANT_URL)
+    # Either transport counts: a remote server (URL) or the embedded
+    # on-disk engine (PATH). Unset both → subsystem stays off exactly as
+    # before, and every caller short-circuits gracefully.
+    return bool(QDRANT_URL or QDRANT_PATH)
 
 
 def get_client():
@@ -36,6 +53,15 @@ def get_client():
     if _client is None and _enabled():
         try:
             from qdrant_client import QdrantClient
+            # iter-17.19 — embedded mode. No server, no Docker, no network;
+            # QdrantLocal persists to this directory. Checked BEFORE the
+            # remote branch only when no URL is configured, so a configured
+            # server always wins.
+            if not QDRANT_URL and QDRANT_PATH:
+                os.makedirs(QDRANT_PATH, exist_ok=True)
+                _client = QdrantClient(path=QDRANT_PATH)
+                logger.info(f"Qdrant embedded (offline) at {QDRANT_PATH}")
+                return _client
             # iter-13.34 — honor LAMA_DISABLE_SSL_VERIFY / LAMA_CA_BUNDLE for
             # Qdrant too. Corporate MITM proxies (Zscaler / Netskope) inspect
             # every outbound HTTPS connection, so without this, Build KB
@@ -56,8 +82,53 @@ def get_client():
     return _client
 
 
+def _ollama_embed(texts: list[str]) -> Optional[list[list[float]]]:
+    """Embed via a local Ollama server's OpenAI-compatible endpoint.
+
+    iter-17.19 — lets the offline Qdrant path work without torch. Ollama
+    accepts a list `input` and returns one vector per item, in order.
+    Returns None on any failure so callers degrade exactly as they do
+    when SentenceTransformer is unavailable.
+    """
+    try:
+        import httpx
+        r = httpx.post(
+            f"{_OLLAMA_EMBED_BASE}/embeddings",
+            json={"model": OLLAMA_EMBED_MODEL, "input": texts},
+            timeout=120,
+        )
+        r.raise_for_status()
+        rows = r.json().get("data") or []
+        if len(rows) != len(texts):
+            logger.error(
+                "Ollama embeddings returned %d vectors for %d inputs",
+                len(rows), len(texts),
+            )
+            return None
+        return [row["embedding"] for row in rows]
+    except Exception as e:  # noqa: BLE001
+        logger.error(f"Ollama embedding failed: {e}")
+        return None
+
+
 def get_embedder():
     global _embedder, VECTOR_SIZE
+    # iter-17.19 — Ollama backend needs no local model object. Probe once
+    # so VECTOR_SIZE matches the model's true width (nomic-embed-text is
+    # 768, not MiniLM's 384) and a misconfigured EMBED_DIM can't silently
+    # create a collection of the wrong dimensionality.
+    if EMBED_BACKEND == "ollama":
+        if _embedder is None:
+            probe = _ollama_embed(["dimension probe"])
+            if not probe:
+                logger.warning("Ollama embedding backend unreachable — vectors disabled")
+                return None
+            VECTOR_SIZE = len(probe[0])
+            logger.info(
+                f"Ollama embedder ready: {OLLAMA_EMBED_MODEL} (dim={VECTOR_SIZE})"
+            )
+            _embedder = "ollama"
+        return _embedder
     if _embedder is None:
         try:
             from sentence_transformers import SentenceTransformer
@@ -106,6 +177,8 @@ def _embed_batch(texts: list[str]) -> Optional[list[list[float]]]:
     embedder = get_embedder()
     if embedder is None:
         return None
+    if embedder == "ollama":
+        return _ollama_embed(texts)
     try:
         return embedder.encode(texts, batch_size=64, show_progress_bar=False, normalize_embeddings=True).tolist()
     except Exception as e:
@@ -116,6 +189,13 @@ def _embed_batch(texts: list[str]) -> Optional[list[list[float]]]:
 async def index_chunks(project_id: str, chunks: list[dict]) -> int:
     """Embed and upsert chunks. Returns number successfully indexed."""
     if not chunks or not _enabled():
+        return 0
+    # iter-17.19 — resolve the embedder FIRST. Both backends discover the
+    # model's true width here and update VECTOR_SIZE; creating the
+    # collection before that pins it to the 384 default and every upsert
+    # then fails with "could not broadcast (768,) into (384,)". Latent
+    # while EMBED_MODEL happened to be 384-wide MiniLM.
+    if get_embedder() is None:
         return 0
     ok = await ensure_collection()
     if not ok:
@@ -179,10 +259,13 @@ async def search(project_id: str, query: str, top_k: int = 8) -> list[str]:
     try:
         from qdrant_client import models
         loop = asyncio.get_event_loop()
-        vector = await loop.run_in_executor(
-            None,
-            lambda: embedder.encode([query], normalize_embeddings=True)[0].tolist(),
-        )
+        # Route through _embed_batch so this honours LAMA_EMBED_BACKEND;
+        # calling embedder.encode() directly breaks any non-SentenceTransformer
+        # backend (the Ollama one carries no .encode()).
+        vectors = await loop.run_in_executor(None, lambda: _embed_batch([query]))
+        if not vectors:
+            return []
+        vector = vectors[0]
         query_filter = models.Filter(
             must=[models.FieldCondition(
                 key="project_id",
@@ -244,10 +327,11 @@ async def search_many(
     try:
         from qdrant_client import models
         loop = asyncio.get_event_loop()
-        vectors = await loop.run_in_executor(
-            None,
-            lambda: embedder.encode(queries, normalize_embeddings=True).tolist(),
-        )
+        # Same reason as in `search()` — go via _embed_batch so the
+        # configured backend is honoured.
+        vectors = await loop.run_in_executor(None, lambda: _embed_batch(queries))
+        if not vectors:
+            return []
         query_filter = models.Filter(
             must=[models.FieldCondition(
                 key="project_id", match=models.MatchValue(value=project_id),

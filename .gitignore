@@ -44,6 +44,9 @@ npm-debug.log*
 hf_cache/
 .lama-git-cache/
 .claude/worktrees/
+# Embedded (offline) Qdrant store — see QDRANT_PATH in backend/.env
+.qdrant_local/
+backend/.qdrant_local/
 
 # ---------------------------------------------------------------------------
 # Editor / OS

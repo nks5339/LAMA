@@ -1,0 +1,471 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LAMA — Setup &amp; Run Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* LAMA design tokens — mirrored from frontend/src/index.css */
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --primary:#0a2540; --primary-hover:#1A1A24;
+  --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --border-strong:#94a3b8;
+  --success:#15803d; --warning:#b45309; --error:#b91c1c; --info:#0369a1;
+  --tint:#e2e8f0;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --display:"Chivo",var(--sans);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:A4;margin:16mm 14mm}
+/* Named page so the cover can bleed edge-to-edge with no margin. */
+@page cover{size:A4;margin:0}
+.page-cover{page:cover}
+html,body{margin:0;padding:0}
+body{font-family:var(--sans);color:var(--text);background:var(--surface);
+     font-size:9.6pt;line-height:1.55;-webkit-font-smoothing:antialiased}
+
+.page{page-break-after:always}
+.page:last-child{page-break-after:auto}
+/* Never split an atomic block across a page boundary — without this a
+   two-column card row breaks mid-border and leaves an empty outline. */
+.grid2,.card,.note,.warn,.step,pre,.diagram,.runhdr{break-inside:avoid}
+tr,h3,h4{break-inside:avoid}
+h3,h4{break-after:avoid}
+h1,h2,h3,h4{font-family:var(--display);margin:0;letter-spacing:-.012em}
+
+/* ── Cover ───────────────────────────────────────────────────────────── */
+.cover{position:relative;height:297mm;background:var(--primary);color:#fff;
+       padding:30mm 20mm;overflow:hidden}
+.cover::after{content:"";position:absolute;right:-70mm;bottom:-90mm;
+       width:210mm;height:210mm;border-radius:50%;
+       background:rgba(255,255,255,.035)}
+.cover::before{content:"";position:absolute;right:-30mm;top:-60mm;
+       width:130mm;height:130mm;border-radius:50%;
+       background:rgba(255,255,255,.028)}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .mark{width:34px;height:34px;border-radius:9px;background:#fff;
+       color:var(--primary);font-family:var(--display);font-weight:800;
+       font-size:16pt;display:flex;align-items:center;justify-content:center}
+.brand .wm{font-family:var(--display);font-weight:800;font-size:16pt;letter-spacing:.14em}
+.cover h1{font-size:41pt;font-weight:800;line-height:1.03;margin:46mm 0 0;max-width:150mm}
+.cover h1 em{font-style:normal;color:#8fb4d9}
+.cover .lede{font-size:12pt;color:#c3d4e6;max-width:128mm;margin-top:9mm;line-height:1.6}
+.cover .paths{display:flex;gap:7mm;margin-top:16mm}
+.pcard{flex:1;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.16);
+       border-radius:11px;padding:7mm 6mm;max-width:74mm}
+.pcard .k{font-family:var(--mono);font-size:7.6pt;color:#8fb4d9;letter-spacing:.13em}
+.pcard .t{font-family:var(--display);font-weight:700;font-size:13pt;margin-top:2.5mm}
+.pcard .d{font-size:8.8pt;color:#c3d4e6;margin-top:2mm;line-height:1.5}
+.cover .foot{position:absolute;left:20mm;right:20mm;bottom:20mm;display:flex;
+       justify-content:space-between;align-items:flex-end;
+       border-top:1px solid rgba(255,255,255,.2);padding-top:5mm;
+       font-family:var(--mono);font-size:8pt;color:#9fb8d0}
+
+/* ── Structure ───────────────────────────────────────────────────────── */
+.sec{margin-bottom:9mm}
+.eyebrow{font-family:var(--mono);font-size:7.4pt;letter-spacing:.17em;
+       color:var(--muted);text-transform:uppercase;margin-bottom:2.5mm}
+h2{font-size:20pt;font-weight:800;color:var(--primary);margin-bottom:3mm}
+h2 .num{color:var(--border-strong);margin-right:3mm}
+h3{font-size:11.5pt;font-weight:700;color:var(--primary);margin:7mm 0 2.5mm}
+h4{font-size:9.6pt;font-weight:700;color:var(--text);margin:5mm 0 2mm}
+p{margin:0 0 2.8mm}
+.rule{height:3px;width:20mm;background:var(--primary);border-radius:2px;margin-bottom:5mm}
+a{color:var(--info);text-decoration:none}
+
+/* ── Code ────────────────────────────────────────────────────────────── */
+pre{font-family:var(--mono);font-size:8.3pt;line-height:1.62;background:#0d1b2a;
+    color:#e7eef6;border-radius:9px;padding:4.5mm 5mm;margin:0 0 3.5mm;
+    overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+pre .c{color:#7fa3c4}          /* comment */
+pre .p{color:#6fd0a8}          /* prompt  */
+pre .s{color:#e3b341}          /* string  */
+code{font-family:var(--mono);font-size:8.5pt;background:var(--tint);
+     color:var(--primary);padding:.8px 4px;border-radius:4px}
+pre code{background:none;color:inherit;padding:0}
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:0 0 4mm;font-size:8.7pt}
+th{background:var(--primary);color:#fff;font-family:var(--display);font-weight:600;
+   text-align:left;padding:2.6mm 3mm;font-size:8.3pt;letter-spacing:.02em}
+td{padding:2.4mm 3mm;border-bottom:1px solid var(--border);vertical-align:top}
+tr:nth-child(even) td{background:var(--bg)}
+td code{font-size:8pt}
+
+/* ── Callouts ────────────────────────────────────────────────────────── */
+.note{border-left:3px solid var(--info);background:#f0f7fc;padding:3.2mm 4mm;
+      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
+.warn{border-left:3px solid var(--warning);background:#fdf6ec;padding:3.2mm 4mm;
+      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
+.note b,.warn b{font-family:var(--display)}
+.note b{color:var(--info)} .warn b{color:var(--warning)}
+
+/* ── Steps ───────────────────────────────────────────────────────────── */
+.step{display:flex;gap:4.5mm;margin-bottom:5mm;break-inside:avoid}
+.step .n{flex:0 0 8mm;height:8mm;border-radius:50%;background:var(--primary);
+   color:#fff;font-family:var(--display);font-weight:700;font-size:10pt;
+   display:flex;align-items:center;justify-content:center}
+.step .body{flex:1;min-width:0}
+.step .body h4{margin-top:1mm}
+
+/* ── Misc ────────────────────────────────────────────────────────────── */
+.grid2{display:flex;gap:6mm}
+.grid2>*{flex:1;min-width:0}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:4mm 4.5mm}
+.card h4{margin-top:0}
+.pill{display:inline-block;font-family:var(--mono);font-size:7.4pt;padding:1px 6px;
+      border-radius:20px;background:var(--tint);color:var(--primary);margin-left:4px}
+.ok{color:var(--success);font-weight:600}
+.diagram{font-family:var(--mono);font-size:7.9pt;line-height:1.5;background:var(--bg);
+      border:1px solid var(--border);border-radius:9px;padding:5mm;white-space:pre;
+      color:var(--primary);overflow:hidden}
+.runhdr{background:var(--primary);color:#fff;border-radius:9px 9px 0 0;
+      padding:2.4mm 4mm;font-family:var(--mono);font-size:7.8pt;letter-spacing:.05em}
+.runhdr+pre{border-radius:0 0 9px 9px;margin-top:0}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ COVER ══════════════════ -->
+<div class="page page-cover">
+  <div class="cover">
+    <div class="brand"><div class="mark">L</div><div class="wm">LAMA</div></div>
+    <h1>Setup &amp;<br>Run <em>Guide</em></h1>
+    <div class="lede">Everything needed to take this repository from a fresh
+      clone to a running application — the local development path, and the
+      single-container Docker path.</div>
+    <div class="paths">
+      <div class="pcard">
+        <div class="k">PATH A</div>
+        <div class="t">Terminal</div>
+        <div class="d">Hot reload for day-to-day development. API on 8000, UI on 3000.</div>
+      </div>
+      <div class="pcard">
+        <div class="k">PATH B</div>
+        <div class="t">Docker</div>
+        <div class="d">One production-like container on 8382, MongoDB bundled in.</div>
+      </div>
+    </div>
+    <div class="foot">
+      <div>Legacy Application Modernization &amp; Alignment</div>
+      <div>docs/RUNNING.md</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 1. PREREQUISITES ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Before you begin</div>
+  <h2><span class="num">01</span>Prerequisites</h2>
+  <div class="rule"></div>
+
+  <p>LAMA is a FastAPI backend, a React 19 frontend, and MongoDB as its system
+  of record. Only MongoDB is strictly required to boot — everything else
+  unlocks a specific capability.</p>
+
+  <table>
+    <tr><th style="width:24%">Software</th><th style="width:36%">Needed for</th><th>Install</th></tr>
+    <tr><td><b>Python 3.11+</b><span class="pill">3.14 ok</span></td><td>Backend runtime</td><td><code>brew install python@3.14</code></td></tr>
+    <tr><td><b>MongoDB 7 / 8</b></td><td><b>Required</b> — system of record</td><td><code>brew tap mongodb/brew &amp;&amp; brew install mongodb-community</code></td></tr>
+    <tr><td><b>Node 18+</b></td><td>Frontend build &amp; dev server</td><td><code>brew install node</code></td></tr>
+    <tr><td><b>yarn 1.22</b></td><td>Frontend packages — never npm</td><td><code>corepack enable</code></td></tr>
+    <tr><td><b>LLM provider</b></td><td>All generation features</td><td>Ollama (below) or an OpenRouter key</td></tr>
+    <tr><td>Maven · Gradle<br>Go · .NET</td><td>CodeGen compile &amp; test agent</td><td><code>brew install maven gradle go dotnet</code></td></tr>
+    <tr><td>Poetry · pnpm</td><td>Additional build tools</td><td><code>brew install poetry</code> · <code>corepack enable pnpm</code></td></tr>
+    <tr><td>Docker Desktop</td><td>Path B only</td><td>docker.com/products/docker-desktop</td></tr>
+  </table>
+
+  <div class="warn"><b>A missing build tool is a hard failure, not a skip.</b>
+  The Tester/Compiler agent returns <code>status:"failed"</code> when a binary is
+  absent — deliberately, so a build can never report
+  <code>compilation_ready: true</code> without having really compiled. Install the
+  toolchains for the languages you actually generate.</div>
+
+</div>
+
+<!-- ══════════════════ 1b. LLM PROVIDER ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Before you begin · continued</div>
+  <h2><span class="num">02</span>Choosing an LLM provider</h2>
+  <div class="rule"></div>
+
+  <p>Without one the application still boots and serves every page, but each
+  generation request returns <i>“no generation provider is healthy”</i>. Pick
+  either option below — you do not need both.</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Ollama — local, free, offline</h4>
+      <p style="color:var(--muted);font-size:8.6pt">Also supplies embeddings, so you never
+      need to download PyTorch.</p>
+      <pre><span class="c"># install &amp; start</span>
+brew install ollama
+ollama serve        <span class="c"># :11434</span>
+
+<span class="c"># models</span>
+ollama pull qwen3:4b       <span class="c"># 262K</span>
+ollama pull qwen2.5-coder:7b  <span class="c"># code</span>
+ollama pull qwen3:0.6b        <span class="c"># fast</span>
+ollama pull nomic-embed-text  <span class="c"># vectors</span></pre>
+    </div>
+    <div class="card">
+      <h4>OpenRouter — cloud</h4>
+      <p style="color:var(--muted);font-size:8.6pt">One key unlocks many hosted models.
+      Add it to <code>backend/.env</code>.</p>
+      <pre>OPENROUTER_API_KEY=<span class="s">sk-or-…</span></pre>
+      <h4 style="margin-top:5mm">Register the provider</h4>
+      <p style="font-size:8.6pt">LAMA reads providers from the <b>database</b>, not
+      from environment variables. Add it once in the UI under
+      <b>Console → Models</b>, then set the <code>low</code> / <code>medium</code> /
+      <code>high</code> routing tiers.</p>
+    </div>
+  </div>
+
+  <h3>Verify the provider is live</h3>
+  <p>The API reports exactly which provider it chose, and why each alternative
+  was rejected — the fastest way to diagnose a silent generation failure.</p>
+  <pre><span class="p">$</span> curl -s http://127.0.0.1:8000/api/health/providers
+
+{
+  <span class="s">"generation"</span>: {
+    <span class="s">"chosen"</span>: <span class="s">"ollama"</span>,
+    <span class="s">"detail"</span>: <span class="s">"ollama ready (reachable at http://localhost:11434)"</span>,
+    <span class="s">"checks"</span>: [
+      { <span class="s">"provider"</span>: <span class="s">"factory"</span>, <span class="s">"healthy"</span>: false,
+        <span class="s">"reason"</span>: <span class="s">"droid binary not found in PATH"</span> },
+      { <span class="s">"provider"</span>: <span class="s">"ollama"</span>,  <span class="s">"healthy"</span>: true,
+        <span class="s">"reason"</span>: <span class="s">"reachable at http://localhost:11434"</span> }
+    ]
+  }
+}</pre>
+
+  <div class="note"><b>Thinking models need room.</b> The Qwen3 family spends
+  300–1600 tokens reasoning before emitting any content, so a small token budget
+  returns an empty response. Allow <b>2000+</b> tokens, or route short
+  latency-sensitive calls to <code>qwen2.5-coder:7b</code>, which does not think.</div>
+</div>
+
+<!-- ══════════════════ 2. PATH A ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Path A · local development</div>
+  <h2><span class="num">03</span>Run from the terminal</h2>
+  <div class="rule"></div>
+
+  <div class="step"><div class="n">1</div><div class="body">
+    <h4>Clone and create the virtual environment</h4>
+    <p>The virtual environment lives at the repository root and is named
+    <code>.venv</code>.</p>
+    <pre><span class="p">$</span> git clone &lt;your-repo-url&gt; lama
+<span class="p">$</span> cd lama
+
+<span class="p">$</span> python3 -m venv .venv
+<span class="p">$</span> ./.venv/bin/python -m pip install --upgrade pip
+<span class="p">$</span> ./.venv/bin/python -m pip install -r backend/requirements-dev-macos.txt</pre>
+  </div></div>
+
+  <div class="step"><div class="n">2</div><div class="body">
+    <h4>Install frontend packages</h4>
+    <pre><span class="p">$</span> corepack enable          <span class="c"># provides yarn 1.22.22</span>
+<span class="p">$</span> cd frontend &amp;&amp; yarn install &amp;&amp; cd ..</pre>
+    <div class="note"><b>Shortcut.</b> <code>./scripts/setup.sh</code> performs steps 1
+    and 2 and writes a <code>backend/.env</code> with a freshly generated JWT secret.</div>
+  </div></div>
+
+  <div class="step"><div class="n">3</div><div class="body">
+    <h4>Configure <code>backend/.env</code></h4>
+    <p><code>server.py</code> loads <code>backend/.env</code> — not the repo-root
+    <code>.env</code>, which belongs to docker-compose. It is gitignored.</p>
+    <pre>MONGO_URL=mongodb://127.0.0.1:27017   <span class="c"># required</span>
+DB_NAME=lama                         <span class="c"># required</span>
+LAMA_JWT_SECRET=<span class="s">&lt;48+ random chars&gt;</span>
+
+LAMA_OLLAMA_BASE_URL=http://localhost:11434/v1
+LAMA_DEFAULT_MODEL=                  <span class="c"># keep EMPTY</span>
+LAMA_CONFIDENCE_ENGINE=fabric        <span class="c"># pin explicitly</span>
+
+QDRANT_PATH=./.qdrant_local          <span class="c"># offline vectors</span>
+LAMA_EMBED_BACKEND=ollama
+LAMA_OLLAMA_EMBED_MODEL=nomic-embed-text</pre>
+    <div class="warn"><b>Two settings worth understanding.</b>
+    Any value in <code>LAMA_DEFAULT_MODEL</code> overrides per-agent tier routing for
+    <i>every</i> call, so Console routing silently stops working — leave it empty.
+    And in <code>auto</code> mode the confidence engine flips to LangGraph whenever the
+    <code>droid</code> CLI is unreachable <i>and</i> <code>langgraph</code> happens to be
+    importable, so merely installing a package changes how artifacts are scored.
+    Pin it.</div>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div class="body">
+    <h4>Start MongoDB</h4>
+    <pre><span class="p">$</span> brew services start mongodb-community
+<span class="p">$</span> nc -z 127.0.0.1 27017 &amp;&amp; echo <span class="s">"Mongo up"</span></pre>
+  </div></div>
+
+  <div class="step"><div class="n">5</div><div class="body">
+    <h4>Run the two processes</h4>
+    <div class="runhdr">TERMINAL 1 — API</div>
+    <pre><span class="p">$</span> cd backend
+<span class="p">$</span> ../.venv/bin/uvicorn server:app --reload --port 8000</pre>
+    <div class="runhdr">TERMINAL 2 — UI</div>
+    <pre><span class="p">$</span> cd frontend
+<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8000 yarn start</pre>
+    <p style="margin-top:2mm">Or use <code>./scripts/run-backend.sh</code> and
+    <code>./scripts/run-frontend.sh</code>.</p>
+  </div></div>
+
+  <table>
+    <tr><th style="width:44%">URL</th><th>What you get</th></tr>
+    <tr><td><code>http://localhost:3000</code></td><td>The application</td></tr>
+    <tr><td><code>http://127.0.0.1:8000/api/health</code></td><td><span class="ok">{"ok":true}</span></td></tr>
+    <tr><td><code>http://127.0.0.1:8000/api/health/providers</code></td><td>Which LLM provider is live</td></tr>
+    <tr><td><code>http://127.0.0.1:8000/docs</code></td><td>Interactive API documentation</td></tr>
+  </table>
+
+  <div class="note"><b>Keep hostnames consistent.</b> Browsers treat
+  <code>localhost</code> and <code>127.0.0.1</code> as different origins. Mixing them
+  between the UI and <code>REACT_APP_BACKEND_URL</code> triggers a CORS preflight
+  failure that looks like a server bug.</div>
+</div>
+
+<!-- ══════════════════ 3. PATH B ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Path B · single container</div>
+  <h2><span class="num">04</span>Run with Docker</h2>
+  <div class="rule"></div>
+
+  <p>nginx, MongoDB and the API run together in one container on <b>:8382</b>.
+  MongoDB is bundled — no local installation needed.</p>
+
+  <div class="warn"><b>Docker overwrites <code>backend/.env</code>.</b>
+  <code>docker/entrypoint.sh</code> writes a runtime <code>.env</code> to
+  <code>/app/backend/.env</code>, and compose bind-mounts <code>./backend</code> there —
+  so the write lands on your <b>host</b> file and your local settings (JWT secret,
+  Qdrant, Ollama) are replaced with container defaults. Back it up first:
+  <code>cp backend/.env backend/.env.mine</code>.</div>
+
+  <div class="note"><b>Apple Silicon.</b> The published image is
+  <code>linux/amd64</code>, so it runs under emulation on M-series Macs. It works —
+  verified — but starts and runs more slowly than a native image would.</div>
+
+  <div class="step"><div class="n">1</div><div class="body">
+    <h4>Build the UI bundle first</h4>
+    <p>Compose bind-mounts <code>./frontend/build</code> into nginx read-only, so it
+    must exist <i>before</i> the container starts.</p>
+    <pre><span class="p">$</span> cd frontend &amp;&amp; yarn install &amp;&amp; yarn build &amp;&amp; cd ..</pre>
+  </div></div>
+
+  <div class="step"><div class="n">2</div><div class="body">
+    <h4>Choose the image</h4>
+    <p>The repo-root <code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> with
+    <code>LAMA_PULL_POLICY=never</code>, so compose will not pull. Pick one:</p>
+    <pre><span class="c"># Option 1 — build locally (adds git, dulwich, JDK + Maven)</span>
+<span class="p">$</span> docker build -f Dockerfile.local -t lama:local .
+
+<span class="c"># Option 2 — use the public image; comment out BOTH lines in ./.env</span>
+<span class="c">#   LAMA_IMAGE=lama:local</span>
+<span class="c">#   LAMA_PULL_POLICY=never</span>
+<span class="p">$</span> docker pull mishramesh/lama:latest</pre>
+  </div></div>
+
+  <div class="step"><div class="n">3</div><div class="body">
+    <h4>Point the container at an LLM provider</h4>
+    <p>The root <code>.env</code> defaults to <code>LAMA_FACTORY_MODE=cli</code>, which
+    needs the <code>droid</code> binary <i>inside</i> the container. Without it every
+    LLM call fails.</p>
+    <pre><span class="c"># repo-root .env</span>
+LAMA_FACTORY_MODE=                 <span class="c"># blank — disable droid mode</span>
+LAMA_DEFAULT_MODEL=                <span class="c"># blank — use Console routing</span>
+LAMA_DISABLE_OPENROUTER_FALLBACK=0
+
+<span class="c"># reach an Ollama running on the HOST</span>
+LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1</pre>
+  </div></div>
+
+  <div class="step"><div class="n">4</div><div class="body">
+    <h4>Start it</h4>
+    <pre><span class="p">$</span> docker compose up -d
+<span class="p">$</span> docker compose logs -f lama
+<span class="p">$</span> curl http://127.0.0.1:8382/health     <span class="c"># {"ok":true}</span></pre>
+    <p>Then open <code>http://127.0.0.1:8382</code>.</p>
+  </div></div>
+
+  <h3>Everyday commands</h3>
+  <table>
+    <tr><th style="width:53%">Command</th><th>Effect</th></tr>
+    <tr><td><code>docker compose restart lama</code></td><td>Apply <code>backend/*.py</code> edits (bind-mounted)</td></tr>
+    <tr><td><code>(cd frontend &amp;&amp; yarn build) &amp;&amp; docker compose restart lama</code></td><td>Apply UI edits</td></tr>
+    <tr><td><code>docker compose down</code></td><td>Stop, <b>keep</b> data volumes</td></tr>
+    <tr><td><code>docker compose down -v</code></td><td>Stop and <b>delete</b> MongoDB data</td></tr>
+    <tr><td><code>docker compose ps</code></td><td>Status and health</td></tr>
+    <tr><td><code>docker compose exec lama bash</code></td><td>Shell inside the container</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════════ 4. REFERENCE ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Reference</div>
+  <h2><span class="num">05</span>Scripts, tests &amp; troubleshooting</h2>
+  <div class="rule"></div>
+
+  <h3>Scripts in this repository</h3>
+  <table>
+    <tr><th style="width:36%">Script</th><th>What it does</th></tr>
+    <tr><td><code>./scripts/setup.sh</code></td><td>Creates <code>.venv</code>, installs backend + frontend dependencies, writes <code>backend/.env</code></td></tr>
+    <tr><td><code>./scripts/doctor.sh</code></td><td>Checks MongoDB, Ollama, build toolchains, Qdrant, Docker — read-only</td></tr>
+    <tr><td><code>./scripts/run-backend.sh</code></td><td>Starts the API with hot reload</td></tr>
+    <tr><td><code>./scripts/run-frontend.sh</code></td><td>Starts the UI on :3000</td></tr>
+  </table>
+
+  <h3>Tests</h3>
+  <pre><span class="p">$</span> ./.venv/bin/python -m pytest backend/tests/ -q
+<span class="p">$</span> ./.venv/bin/python -m pytest backend/tests/test_lama_v4.py -k test_chat -x
+<span class="p">$</span> ./.venv/bin/python -m pyflakes backend/routes/codegen.py
+
+<span class="c"># suites that call a live server need one running:</span>
+<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8000 \
+    ./.venv/bin/python -m pytest backend/tests/ -q</pre>
+  <div class="note"><b>Expected failures.</b> Suites written before multi-tenant
+  auth call the API without a bearer token and fail with <code>401</code>. That is the
+  API behaving correctly, not a regression.</div>
+
+  <h3>Troubleshooting</h3>
+  <table>
+    <tr><th style="width:38%">Symptom</th><th>Cause &amp; fix</th></tr>
+    <tr><td><code>KeyError: 'MONGO_URL'</code></td><td><code>backend/.env</code> missing — it must sit beside <code>server.py</code></td></tr>
+    <tr><td>Starts, then hangs</td><td>MongoDB unreachable; the startup seed is waiting. Start Mongo.</td></tr>
+    <tr><td><i>no generation provider is healthy</i></td><td>No LLM configured. Check <code>/api/health/providers</code>.</td></tr>
+    <tr><td>LLM returns <b>empty</b> content</td><td>Thinking model exhausted its budget. Raise <code>max_tokens</code> to 2000+.</td></tr>
+    <tr><td><code>401 Unauthorized</code></td><td>Expected — log in. LAMA is multi-tenant with JWT auth.</td></tr>
+    <tr><td><code>toolchain missing on PATH</code></td><td>Install it; absence fails the job by design.</td></tr>
+    <tr><td>CORS / missing <code>Allow-Origin</code></td><td><code>localhost</code> vs <code>127.0.0.1</code> mismatch</td></tr>
+    <tr><td><code>library load disallowed by system policy</code></td><td>macOS quarantined a downloaded copy:<br><code>xattr -dr com.apple.quarantine .</code> then rebuild <code>.venv</code></td></tr>
+    <tr><td><code>pull access denied for lama:local</code></td><td>Image not built — see Path B, step 2</td></tr>
+    <tr><td>Semantic search returns nothing</td><td>Qdrant off. Set <code>QDRANT_PATH</code> or <code>QDRANT_URL</code>; it degrades silently by design.</td></tr>
+  </table>
+
+  <h3>How the pieces fit</h3>
+  <div class="diagram">        PATH A · development                 PATH B · docker
+        ─────────────────────                 ──────────────
+
+  Browser ──▶ localhost:3000                  127.0.0.1:8382
+                   │  CRA dev server                 │
+                   ▼                                nginx
+            127.0.0.1:8000                    ┌──────┴───────┐
+              FastAPI API  ◀───────────────▶  │  static UI   │
+                   │                          │  FastAPI     │
+       ┌───────────┼───────────┐              │  MongoDB     │
+       ▼           ▼           ▼              └──────────────┘
+   MongoDB      Ollama      Qdrant              one container
+    :27017      :11434    embedded/:6333
+  system of    LLM  +      semantic search
+   record     embeddings      (optional)</div>
+
+  <p style="margin-top:4mm">The five-stage pipeline — <b>Discovery → DataModel →
+  Architecture → CodeGen → Living</b> — is strictly sequential: each stage
+  refuses to run until the one before it has been frozen.</p>
+</div>
+
+</body>
+</html>

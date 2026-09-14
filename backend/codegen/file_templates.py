@@ -995,7 +995,13 @@ REQUIRED_TOKENS = {
     ("errors",     "java"):  ["package ", "@RestControllerAdvice", "@ExceptionHandler"],
     ("security",   "java"):  ["package ", "@Configuration", "SecurityFilterChain"],
     ("bootstrap",  "java"):  ["package ", "@SpringBootApplication", "SpringApplication.run"],
-    ("test",       "java"):  ["package ", r".regex/@(SpringBootTest|WebMvcTest|DataJpaTest)", "@Test"],
+    # `@Test` must also match the fully-qualified form. Our own deterministic
+    # fallback (`_java_test_scaffold` in routes/codegen.py) emits
+    # `@org.junit.jupiter.api.Test` to avoid managing imports — which does NOT
+    # contain the literal substring "@Test", so a literal token here rejected
+    # the very scaffold codegen falls back to when the LLM fails.
+    ("test",       "java"):  ["package ", r".regex/@(SpringBootTest|WebMvcTest|DataJpaTest)",
+                              r".regex/@(org\.junit\.jupiter\.api\.)?Test\b"],
     # Python - FastAPI + SQLAlchemy 2.0
     ("controller", "python"): ["APIRouter", r".regex/@router\.(get|post|put|patch|delete)"],
     ("service",    "python"): [r".regex/class\s+\w+Service\b"],
