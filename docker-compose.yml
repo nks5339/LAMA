@@ -171,20 +171,18 @@ services:
       #  * LAMA_FACTORY_CLI_SLIM              — strip fat KB/TOON blocks from
       #    every droid prompt; droid reads them from ./.lama/ on its cwd
       #    (materialised at Build KB time). Saves ~200-300K chars/call.
-      #  * LAMA_DISABLE_OPENROUTER_FALLBACK   — when droid fails, DO NOT
-      #    silently re-run the same fat prompt against env-var OpenRouter.
-      #    Surface the droid error instead. This was the stealth token drain.
       #  * LAMA_FACTORY_MODE                  — mark this deploy as CLI-first
       #    so the disable-fallback branch fires even before per-project
       #    orchestrator config is read.
       #  * LAMA_FACTORY_CLI_DUMP_PROMPT       — write the exact prompt sent
       #    to droid under /tmp/droid-debug for post-mortem.
+      #
+      # LAMA_DISABLE_OPENROUTER_FALLBACK used to be passed here. It is gone:
+      # no code has read it since iter-14.31 removed the OpenRouter fallback
+      # from every generation path, making the behaviour it described
+      # unconditional. Exporting a variable that does nothing implies an
+      # operator could turn the fallback back on by clearing it. They cannot.
       LAMA_FACTORY_CLI_SLIM:            ${LAMA_FACTORY_CLI_SLIM:-1}
-      # VESTIGIAL -- no code reads this. iter-14.31 removed the OpenRouter
-      # fallback for every generation path, so it is unconditionally off.
-      # Kept exported so an operator who set it in .env sees no change in
-      # behaviour, and so the name stays greppable against the docs.
-      LAMA_DISABLE_OPENROUTER_FALLBACK: ${LAMA_DISABLE_OPENROUTER_FALLBACK:-1}
       LAMA_FACTORY_MODE:                ${LAMA_FACTORY_MODE:-cli}
       LAMA_FACTORY_CLI_DUMP_PROMPT:     ${LAMA_FACTORY_CLI_DUMP_PROMPT:-}
       LAMA_FACTORY_CLI_TIMEOUT_SEC:     ${LAMA_FACTORY_CLI_TIMEOUT_SEC:-}
@@ -192,7 +190,13 @@ services:
       # ---- LLM provider (required for the pipeline) ----
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}
-      LAMA_DEFAULT_MODEL:  ${LAMA_DEFAULT_MODEL:-deepseek/deepseek-chat}
+      # Deliberately EMPTY. CLAUDE.md contract #4 and iter-13.30 say no
+      # vendor/model is hardcoded anywhere: AGENT_COMPLEXITY[agent_key]
+      # picks a tier and the Console provider's routing[tier] picks the
+      # model. docker/entrypoint.sh:96 already defaults it to empty; this
+      # line used to default it to `deepseek/deepseek-chat`, overriding
+      # Console routing for every agent on any deploy that did not set it.
+      LAMA_DEFAULT_MODEL:  ${LAMA_DEFAULT_MODEL:-}
 
       # ---- TLS knobs ----
       # Set LAMA_DISABLE_SSL_VERIFY=true in .env when you're behind a

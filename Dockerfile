@@ -11,7 +11,7 @@
 # ===============================================================
 # Stage 1 — build React frontend
 # ===============================================================
-FROM node:20-bookworm-slim AS frontend-build
+FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /build
 # Do NOT set NODE_ENV=production here — it would make yarn install skip
 # devDependencies (craco, eslint, etc.) and yarn build would then fail with
@@ -41,6 +41,15 @@ RUN yarn build
 # ===============================================================
 # Stage 2 — runtime image (Python + Mongo + Nginx + supervisord)
 # ===============================================================
+# Python 3.11 is a DELIBERATE choice, not drift. Reviewed 2026-09 against
+# moving to 3.14 to match the common macOS dev setup, and rejected:
+# `scipy` publishes no cp314 manylinux wheel at either its pinned version
+# or the latest, and scipy is a hard transitive dependency of
+# sentence-transformers, which confidence_langgraph.py imports. Building
+# it from source in a slim image means gfortran + BLAS/LAPACK. Everything
+# else in the set resolves for both. 3.11 is supported until Oct 2027.
+# Dev/prod parity is instead handled by requirements-dev-macos.txt, which
+# documents the four pins that differ and why.
 FROM python:3.11-slim-bookworm AS runtime
 
 ENV DEBIAN_FRONTEND=noninteractive \
@@ -93,8 +102,10 @@ RUN set -eux; \
 # pick actually runs a real build:
 #   - Java/Maven/Gradle → default-jdk (OpenJDK 17) + maven + Gradle
 #     (official binary distribution — bookworm's apt Gradle is stale)
-#   - Node/npm/yarn/pnpm → NodeSource Node 20 (matches frontend-build
-#     stage) + corepack (ships yarn/pnpm without extra global installs)
+#   - Node/npm/yarn/pnpm → NodeSource Node 24 (matches frontend-build
+#     stage) + corepack (ships yarn/pnpm without extra global installs).
+#     Node 20 reached end-of-life on 2026-04-30; 24 is the Active LTS
+#     line until 2026-10-20 and is supported to 2028-04-30.
 #   - Python/pip/poetry → poetry via pip (python3 is already the base image)
 #   - .NET → Microsoft's apt feed, dotnet-sdk-8.0
 #   - Go → official upstream tarball (bookworm's golang-go is too old
@@ -119,7 +130,7 @@ ENV PATH="${GRADLE_HOME}/bin:${PATH}"
 RUN gradle -v
 
 RUN set -eux; \
-    curl -fsSL https://deb.nodesource.com/setup_20.x | bash -; \
+    curl -fsSL https://deb.nodesource.com/setup_24.x | bash -; \
     apt-get install -y --no-install-recommends nodejs; \
     corepack enable; \
     rm -rf /var/lib/apt/lists/*; \
@@ -190,12 +201,20 @@ COPY backend/requirements.txt ./
 # and drops the triton GPU dep entirely). When pip later processes
 # requirements.txt, the existing torch==2.12.0 install satisfies the pin and
 # the CUDA wheel is NOT re-pulled.
+# `uvicorn[standard]` is now pinned in requirements.txt, so it is NOT
+# reinstalled here. It used to be a trailing unpinned `pip install`, which
+# silently upgraded past the uvicorn==0.25.0 that requirements.txt had just
+# pinned and pulled uvloop/httptools/watchfiles/websockets unpinned too.
+#
+# poetry is pinned because it is a build tool for the CodeGen Tester agent
+# (python/poetry targets), not a LAMA dependency -- it deliberately stays
+# out of requirements.txt so it cannot enter the app's resolution graph.
 RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu \
         torch==2.12.0 && \
     pip install --no-cache-dir -r requirements.txt && \
-    pip install --no-cache-dir 'uvicorn[standard]' && \
-    pip install --no-cache-dir poetry && \
-    poetry --version
+    pip install --no-cache-dir 'poetry==2.4.3' && \
+    poetry --version && \
+    python -c "import uvicorn, fastapi, motor, qdrant_client; print('import smoke ok')"
 
 COPY backend/ /app/backend/
 

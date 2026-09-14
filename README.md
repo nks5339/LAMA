@@ -55,7 +55,7 @@ Also available as a formatted PDF: **[docs/LAMA-Setup-Guide.pdf](docs/LAMA-Setup
 |---|---|
 | Python 3.11+ (3.14 works) | Maven · Gradle · Go · .NET — CodeGen compile agent |
 | MongoDB 7/8 — system of record | Poetry · pnpm — extra build tools |
-| Node 18+ with yarn 1.22 (`corepack enable`) | Qdrant — semantic search (embedded mode needs no server) |
+| Node 20+ with yarn 1.22 (`corepack enable`) — image builds on Node 24 LTS | Qdrant — semantic search (embedded mode needs no server) |
 | An LLM provider — Ollama or an OpenRouter key | Docker Desktop — for the container path |
 
 `./scripts/doctor.sh` tells you exactly which of these are missing and whether it
@@ -71,7 +71,7 @@ actually blocks you.
 | `frontend/` | React 19 + CRACO + Tailwind + shadcn/ui |
 | `scripts/` | `setup.sh` · `doctor.sh` · `run-backend.sh` · `run-frontend.sh` · `build-docs-pdf.sh` |
 | `docs/` | `RUNNING.md`, the setup PDF, `ARCHITECTURE.md`, `USER_MANUAL.md` |
-| `backend/requirements.txt` | **Container** dependency set (Linux, includes CUDA pins) |
+| `backend/requirements.txt` | **Container** dependency set — direct deps only, pinned for Linux / Python 3.11 |
 | `backend/requirements-dev-macos.txt` | **Local** dependency set — portable, no GPU/ML stack |
 | `CLAUDE.md` / `AGENTS.md` | Architectural contracts and rules of engagement |
 | `memory/PRD.md` | Append-only iteration log — the "why" behind every decision |

@@ -3800,7 +3800,7 @@ Freeze gates are backend-enforced and UI-confirmed. The UI uses typed confirmati
 
 ## 15. Deployment Model
 
-The deployment model is a single Docker image based on `python:3.11-slim-bookworm`. Build stage 1 compiles the React app using Node 20 and yarn. Runtime contains Python, MongoDB 7, Nginx, supervisord, git/SSH, DB drivers, backend code, and the React build. Public port is 8382; Nginx proxies `/api/*` to Uvicorn on internal port 8001 and serves the SPA for all other routes.
+The deployment model is a single Docker image based on `python:3.11-slim-bookworm`. Build stage 1 compiles the React app using Node 24 (Active LTS) and yarn. Runtime contains Python, MongoDB 7, Nginx, supervisord, git/SSH, DB drivers, backend code, and the React build. Public port is 8382; Nginx proxies `/api/*` to Uvicorn on internal port 8001 and serves the SPA for all other routes.
 
 `docker-compose.yml` overlays local development bind mounts: `./backend`, `./frontend/build`, `./docker/nginx.conf`, Factory CLI binds, corporate CA, export root, git cache, HF cache seed, and wheels seed. Named volumes: `lama_mongo_data`, `lama_hf_cache`, `lama_wheels`. Corporate proxy handling flows through `LAMA_CA_BUNDLE`, `SSL_CERT_FILE`, `REQUESTS_CA_BUNDLE`, `CURL_CA_BUNDLE`, and `NODE_EXTRA_CA_CERTS`; HF offline mode is enabled in compose.
 

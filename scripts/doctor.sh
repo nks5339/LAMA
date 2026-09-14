@@ -52,7 +52,7 @@ fi
 if command -v node >/dev/null 2>&1; then
   ok "node" "$(node --version)"
 else
-  bad "node" "install Node 18+"
+  bad "node" "install Node 20+ (the image builds on Node 24 LTS)"
 fi
 
 if command -v yarn >/dev/null 2>&1; then

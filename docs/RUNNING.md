@@ -20,7 +20,7 @@ Everything below is also scripted — see [Scripts](#scripts).
 |---|---|---|
 | **Python 3.11+** (3.14 works) | backend | `brew install python@3.14` |
 | **MongoDB 7/8** | system of record — **required** | `brew tap mongodb/brew && brew install mongodb-community` |
-| **Node 18+** | frontend | `brew install node` |
+| **Node 20+** (image uses 24 LTS) | frontend | `brew install node` |
 | **yarn 1.22** | frontend — *never use npm* | `corepack enable` |
 | **An LLM provider** | all generation | Ollama (below) **or** an OpenRouter key |
 | Maven · Gradle · Go · .NET | CodeGen compile/test agent | `brew install maven gradle go dotnet` |
@@ -85,12 +85,16 @@ Or simply: **`./scripts/setup.sh`** — which does all of the above and writes a
 starter `backend/.env` with a freshly generated JWT secret.
 
 > **Why `requirements-dev-macos.txt` and not `requirements.txt`?**
-> `requirements.txt` is a `pip freeze` taken on a Linux CUDA machine: it pins
-> 19 `nvidia-*` / `cuda-*` packages that have no macOS wheels, so it cannot
-> install on a Mac. The `-dev-macos` file installs the same application at the
-> same versions wherever Python 3.14 allows. **`requirements.txt` remains the
-> source of truth for the Docker image** — do not point the container at the
-> dev file.
+> `requirements.txt` targets the container: Linux on **Python 3.11**. Four of
+> its pins have no cp314 wheel, and it carries the HuggingFace/torch stack
+> (~3 GB) that local dev does not need. The `-dev-macos` file installs the
+> same application at the same versions wherever Python 3.14 allows, and
+> documents each relaxed pin inline. **`requirements.txt` remains the source
+> of truth for the Docker image** — do not point the container at the dev file.
+>
+> (It used to be a raw `pip freeze` from a Linux CUDA box pinning 19
+> `nvidia-*`/`cuda-*` packages. It was pruned to direct dependencies in
+> 2026-09 and no longer names a single CUDA package.)
 
 ### 2. Configure `backend/.env`
 
@@ -208,7 +212,8 @@ fails. Edit the repo-root `.env`:
 ```bash
 LAMA_FACTORY_MODE=                 # blank — disable droid CLI mode
 LAMA_DEFAULT_MODEL=                # blank — let Console routing decide
-# LAMA_DISABLE_OPENROUTER_FALLBACK has no effect -- no code reads it.
+# LAMA_DISABLE_OPENROUTER_FALLBACK was removed in 2026-09 — no code has
+# read it since iter-14.31 deleted the fallback outright.
 # iter-14.31 removed the OpenRouter fallback for every generation path.
 ```
 

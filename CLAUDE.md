@@ -274,10 +274,18 @@ LAMA_SESSION_SIGNING_KEY=                   # HMAC for agent_memory summaries �
 LAMA_FACTORY_MODE=                          # "cli" → drive local `droid` via fabric/factory_cli.py
 FACTORY_API_BASE_URL=https://api.factory.ai/api/v0
 LAMA_FACTORY_CLI_SLIM=1                     # iter-14.10 token-spend guardrail
-# LAMA_DISABLE_OPENROUTER_FALLBACK        # VESTIGIAL — read by no code.
+# LAMA_DISABLE_OPENROUTER_FALLBACK        # GONE (2026-09). Read by no code since
                                             #   iter-14.31 removed the fallback
-                                            #   outright, so it is always off.
-LAMA_CONFIDENCE_ENGINE=                     # toggle the multi-model confidence vote
+                                            #   outright; no longer exported by
+                                            #   compose or .env either.
+LAMA_CONFIDENCE_ENGINE=                     # langgraph | fabric | unset(=auto).
+                                            #   NOT an on/off switch since
+                                            #   iter-14.29 — unset means auto,
+                                            #   which picks langgraph whenever it
+                                            #   imports and the droid CLI is not
+                                            #   connected. See
+                                            #   confidence_langgraph.py::
+                                            #   resolve_confidence_engine.
 
 MONGO_URL=mongodb://127.0.0.1:27017         # bundled mongod in single-image deploy
 DB_NAME=lama
@@ -295,10 +303,15 @@ build time so production env comes from `-e` flags / compose `environment:`.
 
 ## Known Hazards / Footguns
 
-- **Python version skew.** The image is `python:3.11-slim-bookworm`, but the
-  local `backend/venv` here is **3.14**. Bytecode caches (`.pyc`) and any
-  C-extension wheel built locally will not match the container — reproduce
-  version-sensitive bugs inside `docker compose`, not the local venv.
+- **Python version skew — deliberate, not drift.** The image is
+  `python:3.11-slim-bookworm`; the local venv at repo-root **`.venv`** (not
+  `backend/venv`) is **3.14**. Reviewed 2026-09 and kept: `scipy` ships no
+  cp314 manylinux wheel, and it is a hard transitive dep of
+  `sentence-transformers`, which `confidence_langgraph.py` imports. The four
+  pins that differ are documented in `backend/requirements-dev-macos.txt`.
+  Bytecode caches (`.pyc`) and any C-extension wheel built locally will not
+  match the container — reproduce version-sensitive bugs inside
+  `docker compose`, not the local venv.
 - **`backend/.env` holds real `OPENROUTER_API_KEY` / `QDRANT_API_KEY`** and is
   now gitignored. Root `.env` is committed but carries only non-secret compose
   defaults — keep that split.

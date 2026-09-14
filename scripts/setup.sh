@@ -29,9 +29,9 @@ fi
 .venv/bin/python -m pip install --quiet --upgrade pip
 
 # ── 2. Backend dependencies ────────────────────────────────────────────────
-# requirements.txt is a pip-freeze from a Linux CUDA box (nvidia-*/cuda-*
-# pins have no macOS wheels). requirements-dev-macos.txt is the portable
-# local set — same versions wherever Python 3.14 allows.
+# requirements.txt targets the container (Linux / Python 3.11) and includes
+# the ~3 GB HuggingFace/torch stack. requirements-dev-macos.txt is the
+# portable local set — same versions wherever Python 3.14 allows.
 step "Installing backend dependencies"
 REQ="backend/requirements-dev-macos.txt"
 [ -f "$REQ" ] || REQ="backend/requirements.txt"

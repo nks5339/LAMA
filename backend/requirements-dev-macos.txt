@@ -6,10 +6,18 @@
 #
 # Why this file exists
 # --------------------
-# `requirements.txt` is a `pip freeze` taken on a Linux CUDA machine. It
-# carries 20 `nvidia-*` / `cuda-*` pins plus `triton`, none of which have
-# macOS wheels, so `pip install -r requirements.txt` cannot complete on a
-# Mac. This file installs the same application, minus the GPU/ML stack.
+# Two reasons, and as of 2026-09 only the second one still holds.
+#
+#  1. (HISTORICAL) `requirements.txt` used to be a `pip freeze` taken on a
+#     Linux CUDA machine, carrying 19 `nvidia-*` / `cuda-*` / `triton`
+#     pins with no macOS wheels, so it could not install on a Mac at all.
+#     That freeze has since been pruned to direct dependencies only and no
+#     longer names a single CUDA package.
+#
+#  2. (CURRENT) The container targets Python 3.11; this machine runs 3.14.
+#     Four pins that resolve fine on 3.11 have no cp314 wheel, and the
+#     local HuggingFace/torch stack is skipped entirely to keep the dev
+#     venv small. Those deltas are what this file still exists to carry.
 #
 # How it was derived (not guesswork)
 # ----------------------------------
@@ -109,12 +117,22 @@ pytest==9.0.3
 # Without this plugin those marks are silently ignored and the async test
 # bodies never actually run — they report as passing.
 pytest-asyncio>=1.0
+
+# ── Verification toolchain ───────────────────────────────────────────
+# What the repo's own verification steps actually invoke, so they belong
+# in the dev set rather than being assumed present on PATH. Deliberately
+# NOT in requirements.txt -- the container never lints.
 pyflakes==3.4.0                   # the PRD's standing verification step
+ruff>=0.16                        # `ruff check backend`, config in backend/ruff.toml
+vulture>=2.16                     # dead-code sweep, whitelist in .vulture-whitelist.py
 
 # ── Deliberately EXCLUDED: GPU / ML stack ────────────────────────────
 # torch, transformers, sentence-transformers, safetensors, tokenizers,
-# huggingface_hub, hf-xet, triton, langgraph, langchain-core, and all
-# nvidia-*/cuda-* pins (~3 GB, no macOS wheels for the CUDA ones).
+# huggingface_hub, hf-xet and Pillow (~3 GB).
+#
+# langgraph and langchain-core are NOT excluded -- they are pinned above.
+# This comment used to list them as excluded, contradicting the file's own
+# contents a few lines up.
 #
 # Safe to omit: every import of these is lazy and guarded. See
 # confidence_langgraph.py::is_available() — it returns False and the
