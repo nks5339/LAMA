@@ -1,0 +1,696 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LAMA — Architecture Handbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+/* LAMA design tokens — mirrored from frontend/src/index.css */
+:root{
+  --bg:#f8fafc; --surface:#ffffff; --primary:#0a2540; --primary-hover:#1A1A24;
+  --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --border-strong:#94a3b8;
+  --success:#15803d; --warning:#b45309; --error:#b91c1c; --info:#0369a1;
+  --tint:#e2e8f0;
+  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  --display:"Chivo",var(--sans);
+  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+@page{size:A4;margin:16mm 14mm}
+/* Named page so the cover can bleed edge-to-edge with no margin. */
+@page cover{size:A4;margin:0}
+.page-cover{page:cover}
+html,body{margin:0;padding:0}
+body{font-family:var(--sans);color:var(--text);background:var(--surface);
+     font-size:9.6pt;line-height:1.55;-webkit-font-smoothing:antialiased}
+
+.page{page-break-after:always}
+.page:last-child{page-break-after:auto}
+/* Never split an atomic block across a page boundary — without this a
+   two-column card row breaks mid-border and leaves an empty outline. */
+.grid2,.card,.note,.warn,.step,pre,.diagram,.runhdr{break-inside:avoid}
+tr,h3,h4{break-inside:avoid}
+h3,h4{break-after:avoid}
+h1,h2,h3,h4{font-family:var(--display);margin:0;letter-spacing:-.012em}
+
+/* ── Cover ───────────────────────────────────────────────────────────── */
+.cover{position:relative;height:297mm;background:var(--primary);color:#fff;
+       padding:30mm 20mm;overflow:hidden}
+.cover::after{content:"";position:absolute;right:-70mm;bottom:-90mm;
+       width:210mm;height:210mm;border-radius:50%;
+       background:rgba(255,255,255,.035)}
+.cover::before{content:"";position:absolute;right:-30mm;top:-60mm;
+       width:130mm;height:130mm;border-radius:50%;
+       background:rgba(255,255,255,.028)}
+.brand{display:flex;align-items:center;gap:11px}
+.brand .mark{width:34px;height:34px;border-radius:9px;background:#fff;
+       color:var(--primary);font-family:var(--display);font-weight:800;
+       font-size:16pt;display:flex;align-items:center;justify-content:center}
+.brand .wm{font-family:var(--display);font-weight:800;font-size:16pt;letter-spacing:.14em}
+.cover h1{font-size:41pt;font-weight:800;line-height:1.03;margin:46mm 0 0;max-width:150mm}
+.cover h1 em{font-style:normal;color:#8fb4d9}
+.cover .lede{font-size:12pt;color:#c3d4e6;max-width:128mm;margin-top:9mm;line-height:1.6}
+.cover .paths{display:flex;gap:7mm;margin-top:16mm}
+.pcard{flex:1;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.16);
+       border-radius:11px;padding:7mm 6mm;max-width:74mm}
+.pcard .k{font-family:var(--mono);font-size:7.6pt;color:#8fb4d9;letter-spacing:.13em}
+.pcard .t{font-family:var(--display);font-weight:700;font-size:13pt;margin-top:2.5mm}
+.pcard .d{font-size:8.8pt;color:#c3d4e6;margin-top:2mm;line-height:1.5}
+.cover .foot{position:absolute;left:20mm;right:20mm;bottom:20mm;display:flex;
+       justify-content:space-between;align-items:flex-end;
+       border-top:1px solid rgba(255,255,255,.2);padding-top:5mm;
+       font-family:var(--mono);font-size:8pt;color:#9fb8d0}
+
+/* ── Structure ───────────────────────────────────────────────────────── */
+.sec{margin-bottom:9mm}
+.eyebrow{font-family:var(--mono);font-size:7.4pt;letter-spacing:.17em;
+       color:var(--muted);text-transform:uppercase;margin-bottom:2.5mm}
+h2{font-size:20pt;font-weight:800;color:var(--primary);margin-bottom:3mm}
+h2 .num{color:var(--border-strong);margin-right:3mm}
+h3{font-size:11.5pt;font-weight:700;color:var(--primary);margin:7mm 0 2.5mm}
+h4{font-size:9.6pt;font-weight:700;color:var(--text);margin:5mm 0 2mm}
+p{margin:0 0 2.8mm}
+.rule{height:3px;width:20mm;background:var(--primary);border-radius:2px;margin-bottom:5mm}
+a{color:var(--info);text-decoration:none}
+
+/* ── Code ────────────────────────────────────────────────────────────── */
+pre{font-family:var(--mono);font-size:8.3pt;line-height:1.62;background:#0d1b2a;
+    color:#e7eef6;border-radius:9px;padding:4.5mm 5mm;margin:0 0 3.5mm;
+    overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
+pre .c{color:#7fa3c4}          /* comment */
+pre .p{color:#6fd0a8}          /* prompt  */
+pre .s{color:#e3b341}          /* string  */
+code{font-family:var(--mono);font-size:8.5pt;background:var(--tint);
+     color:var(--primary);padding:.8px 4px;border-radius:4px}
+pre code{background:none;color:inherit;padding:0}
+
+/* ── Tables ──────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:0 0 4mm;font-size:8.7pt}
+th{background:var(--primary);color:#fff;font-family:var(--display);font-weight:600;
+   text-align:left;padding:2.6mm 3mm;font-size:8.3pt;letter-spacing:.02em}
+td{padding:2.4mm 3mm;border-bottom:1px solid var(--border);vertical-align:top}
+tr:nth-child(even) td{background:var(--bg)}
+td code{font-size:8pt}
+
+/* ── Callouts ────────────────────────────────────────────────────────── */
+.note{border-left:3px solid var(--info);background:#f0f7fc;padding:3.2mm 4mm;
+      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
+.warn{border-left:3px solid var(--warning);background:#fdf6ec;padding:3.2mm 4mm;
+      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
+.note b,.warn b{font-family:var(--display)}
+.note b{color:var(--info)} .warn b{color:var(--warning)}
+
+/* ── Steps ───────────────────────────────────────────────────────────── */
+.step{display:flex;gap:4.5mm;margin-bottom:5mm;break-inside:avoid}
+.step .n{flex:0 0 8mm;height:8mm;border-radius:50%;background:var(--primary);
+   color:#fff;font-family:var(--display);font-weight:700;font-size:10pt;
+   display:flex;align-items:center;justify-content:center}
+.step .body{flex:1;min-width:0}
+.step .body h4{margin-top:1mm}
+
+/* ── Misc ────────────────────────────────────────────────────────────── */
+.grid2{display:flex;gap:6mm}
+.grid2>*{flex:1;min-width:0}
+.card{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:4mm 4.5mm}
+.card h4{margin-top:0}
+.pill{display:inline-block;font-family:var(--mono);font-size:7.4pt;padding:1px 6px;
+      border-radius:20px;background:var(--tint);color:var(--primary);margin-left:4px}
+.ok{color:var(--success);font-weight:600}
+.diagram{font-family:var(--mono);font-size:7.9pt;line-height:1.5;background:var(--bg);
+      border:1px solid var(--border);border-radius:9px;padding:5mm;white-space:pre;
+      color:var(--primary);overflow:hidden}
+.runhdr{background:var(--primary);color:#fff;border-radius:9px 9px 0 0;
+      padding:2.4mm 4mm;font-family:var(--mono);font-size:7.8pt;letter-spacing:.05em}
+.runhdr+pre{border-radius:0 0 9px 9px;margin-top:0}
+</style>
+<style>
+figure{margin:0 auto 3.5mm;break-inside:avoid;width:78%}
+figure.tight{width:62%}
+figure img{width:100%;height:auto;display:block;border:1px solid var(--border);
+  border-radius:9px;background:var(--surface)}
+figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
+  margin-top:1.6mm;line-height:1.45;text-align:center}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════ COVER ══════════════════ -->
+<div class="page page-cover">
+  <div class="cover">
+    <div class="brand"><div class="mark">L</div><div class="wm">LAMA</div></div>
+    <h1>Architecture<br><em>Handbook</em></h1>
+    <div class="lede">How LAMA is built and how to operate it — the five-stage
+      pipeline, the technology behind each layer, and the technical
+      architecture of the runtime, the model fabric, the knowledge base and
+      the agentic code generator.</div>
+    <div class="paths">
+      <div class="pcard">
+        <div class="k">PART I</div>
+        <div class="t">The System</div>
+        <div class="d">What LAMA does, the stack it runs on, and how the pieces fit together.</div>
+      </div>
+      <div class="pcard">
+        <div class="k">PART II</div>
+        <div class="t">The Internals</div>
+        <div class="d">Model fabric, knowledge base, agent pipeline, data model and API surface.</div>
+      </div>
+    </div>
+    <div class="foot">
+      <div>Legacy Application Modernization &amp; Alignment</div>
+      <div>architecture/handbook.pdf</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 01 OVERVIEW ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part I · The system</div>
+  <h2><span class="num">01</span>What LAMA is</h2>
+  <div class="rule"></div>
+
+  <p><b>LAMA — Legacy Application Modernization &amp; Alignment</b> is a
+  full-stack, AI-assisted migration studio. You point it at a folder of legacy
+  code — PHP/CodeIgniter, JSP, .NET, Python, JavaScript — and it walks that
+  application through a deterministic five-stage pipeline, producing
+  freezable, GitHub-pushable artifacts at every stage.</p>
+
+  <p>The reference pilot is the <b>PMIS Migration Pilot</b>:
+  PHP&nbsp;8 / CodeIgniter&nbsp;4 / MariaDB → FastAPI / Python&nbsp;3.12 /
+  PostgreSQL.</p>
+
+  <h3>The five stages</h3>
+  <table>
+    <tr><th style="width:6%">#</th><th style="width:19%">Stage</th><th style="width:48%">Produces</th><th>Freeze unlocks</th></tr>
+    <tr><td>1</td><td><b>Discovery</b></td><td>Knowledge base (YAML/TOON), IEEE-830 SRS (12 sections), business ontology</td><td>DataModel</td></tr>
+    <tr><td>2</td><td><b>DataModel</b></td><td>OLTP DDL, OLAP DDL, Kimball bus matrix, 3 migration scripts</td><td>Architecture</td></tr>
+    <tr><td>3</td><td><b>Architecture</b></td><td>Service map, HLD, LLD, API contracts, sequence diagrams</td><td>CodeGen</td></tr>
+    <tr><td>4</td><td><b>CodeGen</b></td><td>Per-service source tree, Dockerfiles, ZIP, GitHub push</td><td>Living</td></tr>
+    <tr><td>5</td><td><b>Living</b></td><td>Selenium tests, SRS-drift detection, runtime observability</td><td>—</td></tr>
+  </table>
+
+  <div class="note"><b>Stages are strictly sequential.</b> Every stage-N+1 route
+  calls <code>pipeline.require_stage_context(...)</code> and returns HTTP&nbsp;400
+  if the upstream stage is not frozen. The only sanctioned bypass is marking an
+  intermediate stage <i>skipped</i>, which writes a minimal StageContext so the
+  downstream gate still passes.</div>
+
+  <h3>Two tracks beside the pipeline</h3>
+  <p>Not all work flows through the five stages. Two independent tracks exist
+  and neither requires a frozen upstream stage:</p>
+
+  <div class="grid2">
+    <div class="card">
+      <h4>Tools <span class="pill">/api/tools</span></h4>
+      <p style="margin:0"><b>Gap Analyzer</b> compares code against an SRS, FRS
+      or user manual and reports the gaps; it has its own freeze/unfreeze and
+      export. <b>Transformer</b> is a standalone code-transform super-agent
+      (for example Helidon→Spring&nbsp;Boot, Oracle→PostgreSQL).</p>
+    </div>
+    <div class="card">
+      <h4>Multi-Agent CodeGen <span class="pill">stage 4</span></h4>
+      <p style="margin:0">An agentic alternative to single-shot Stage-4
+      generation. It <i>does</i> require a frozen Architecture. Backend and
+      tests only — the UI still drives the single-shot flow, so the page does
+      not exercise this path.</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════ 02 TECHNOLOGY ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part I · The system</div>
+  <h2><span class="num">02</span>Technology stack</h2>
+  <div class="rule"></div>
+
+  <p>Versions below are read from <code>backend/requirements.txt</code>,
+  <code>frontend/package.json</code> and the <code>Dockerfile</code>. Treat them
+  as pinned — do not bump them silently.</p>
+
+  <h3>Backend</h3>
+  <table>
+    <tr><th style="width:30%">Component</th><th style="width:20%">Version</th><th>Role</th></tr>
+    <tr><td>Python</td><td><code>3.11-slim-bookworm</code></td><td>Runtime image</td></tr>
+    <tr><td>FastAPI</td><td><code>0.110.1</code></td><td>HTTP API, 21 router mounts</td></tr>
+    <tr><td>Uvicorn</td><td><code>0.25.0</code></td><td>ASGI server</td></tr>
+    <tr><td>Motor / PyMongo</td><td><code>3.3.1</code> / <code>4.5.0</code></td><td>Async MongoDB driver</td></tr>
+    <tr><td>Pydantic</td><td><code>2.13.4</code></td><td>Models and validation</td></tr>
+    <tr><td>httpx</td><td><code>0.28.1</code></td><td>All outbound LLM/provider calls</td></tr>
+    <tr><td>qdrant-client</td><td><code>1.18.0</code></td><td>Vector index (optional)</td></tr>
+    <tr><td>sentence-transformers</td><td><code>5.5.0</code></td><td>Local embeddings</td></tr>
+    <tr><td>PyGithub</td><td><code>2.9.1</code></td><td>Repository push</td></tr>
+    <tr><td>PyYAML</td><td><code>6.0.3</code></td><td>KB context export</td></tr>
+    <tr><td>python-jose · passlib</td><td><code>3.5.0</code> · <code>1.7.4</code></td><td>JWT and bcrypt</td></tr>
+    <tr><td>langgraph · langchain-core</td><td><code>0.2.60</code> · <code>0.3.29</code></td><td>Opt-in confidence engine</td></tr>
+    <tr><td>dulwich</td><td><code>&gt;=1.2.5,&lt;2.0</code></td><td>Pure-Python git fallback</td></tr>
+  </table>
+
+  <h3>Frontend</h3>
+  <table>
+    <tr><th style="width:30%">Component</th><th style="width:20%">Version</th><th>Role</th></tr>
+    <tr><td>React · React DOM</td><td><code>^19.0.0</code></td><td>UI runtime</td></tr>
+    <tr><td>react-router-dom</td><td><code>^7.5.1</code></td><td>Routing</td></tr>
+    <tr><td>CRA · CRACO</td><td><code>5.0.1</code> · <code>^7.1.0</code></td><td>Build toolchain</td></tr>
+    <tr><td>Tailwind CSS</td><td><code>^3.4.17</code></td><td>Styling, with Radix UI + shadcn/ui</td></tr>
+    <tr><td>axios</td><td><code>^1.8.4</code></td><td>API client, 600&nbsp;s timeout</td></tr>
+    <tr><td>D3 · Mermaid</td><td><code>7.9.0</code> · <code>^11.15.0</code></td><td>ER diagrams and rendered diagrams</td></tr>
+    <tr><td>Monaco Editor</td><td><code>^4.7.0</code></td><td>Generated-code editing</td></tr>
+    <tr><td>Recharts</td><td><code>^3.6.0</code></td><td>Admin analytics</td></tr>
+    <tr><td>react-resizable-panels</td><td><code>2.1.7</code> <span class="pill">pinned</span></td><td>Panel layout</td></tr>
+    <tr><td>yarn</td><td><code>1.22.22</code></td><td>Package manager — <b>never npm</b></td></tr>
+  </table>
+
+  <h3>Data and models</h3>
+  <table>
+    <tr><th style="width:30%">Component</th><th>Role</th></tr>
+    <tr><td><b>MongoDB 7</b></td><td>LAMA's own system of record — 59 collections. PostgreSQL is the migration <i>target</i>, never LAMA's store.</td></tr>
+    <tr><td><b>Qdrant</b></td><td>Optional semantic index. Inert unless <code>QDRANT_URL</code> or <code>QDRANT_PATH</code> is set; callers degrade to TOON-only.</td></tr>
+    <tr><td><b>LLM providers</b></td><td>Five vendor presets — OpenRouter, Anthropic, OpenAI, Groq, Ollama — plus a <code>custom</code> scaffold.</td></tr>
+    <tr><td><b>Factory.ai</b></td><td>Optional per-project brokered execution, over HTTP API or the local <code>droid</code> CLI.</td></tr>
+  </table>
+</div>
+
+<!-- ══════════════════ 03 RUNTIME ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part I · The system</div>
+  <h2><span class="num">03</span>Runtime architecture</h2>
+  <div class="rule"></div>
+
+  <p>LAMA ships as a <b>single container</b>. <code>supervisord</code> runs three
+  processes — <code>mongod</code>, <code>uvicorn</code> and <code>nginx</code> —
+  and exposes exactly one port.</p>
+
+  <figure>
+    <img src="diagrams/lama-runtime.png" alt="LAMA runtime architecture">
+    <figcaption>Runtime topology. Interactive version:
+    <code>architecture/diagrams/lama-runtime.html</code></figcaption>
+  </figure>
+
+  <h3>Request path</h3>
+  <table>
+    <tr><th style="width:26%">Hop</th><th>Behaviour</th></tr>
+    <tr><td><b>Browser → nginx</b></td><td>Port <code>8382</code> is the only exposed port.</td></tr>
+    <tr><td><b>nginx → FastAPI</b></td><td><code>/api/</code> proxies to <code>127.0.0.1:8001</code>. <code>/health</code> maps to <code>/api/health</code>.</td></tr>
+    <tr><td><b>Static assets</b></td><td>Served from <code>/usr/share/nginx/html</code>; unmatched paths fall back to <code>index.html</code> for the SPA.</td></tr>
+    <tr><td><b>FastAPI → Mongo</b></td><td>Motor async driver; the single source of truth for collection accessors is <code>backend/db.py</code>.</td></tr>
+    <tr><td><b>FastAPI → Qdrant</b></td><td>Optional. Off unless a URL or embedded path is configured.</td></tr>
+  </table>
+
+  <div class="note"><b>nginx is tuned for this workload.</b>
+  <code>client_max_body_size 100M</code> for ZIP uploads,
+  <code>proxy_buffering off</code> so SSE streams are not held back, and
+  600&nbsp;s read/send timeouts for long generation jobs. The SPA shell is
+  served <code>no-store</code>; hashed assets cache immutably for a week.</div>
+
+  <div class="warn"><b>Architecture does not stream.</b> Its long jobs run as
+  background tasks polled every 2&nbsp;s, because production Kubernetes ingress
+  imposes a 60&nbsp;s timeout. DataModel and SRS may stream — they emit short
+  chunks.</div>
+</div>
+
+<!-- ══════════════════ 04 PIPELINE ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part I · The system</div>
+  <h2><span class="num">04</span>The pipeline and its freeze gates</h2>
+  <div class="rule"></div>
+
+  <p>The pipeline is the spine of the product. Each stage is unlocked only by
+  freezing the one before it, and a freeze is a deliberate, typed human action.</p>
+
+  <figure>
+    <img src="diagrams/lama-pipeline.png" alt="LAMA freeze-gated pipeline">
+    <figcaption>The five stages, the handoff that unlocks each one, and the
+    skip bypass. Interactive version:
+    <code>architecture/diagrams/lama-pipeline.html</code></figcaption>
+  </figure>
+
+  <h3>What a freeze actually does</h3>
+  <table>
+    <tr><th style="width:8%">#</th><th style="width:32%">Step</th><th>What happens</th></tr>
+    <tr><td>1</td><td><b>Operator types the word</b></td><td>Freeze and reset gates require a typed <code>FREEZE</code> / <code>RESET</code> in the UI. Intentional friction — do not weaken it.</td></tr>
+    <tr><td>2</td><td><b>Confidence engine votes</b></td><td>Two to three independent models score the artifact section by section against the knowledge base. Results land in <code>stage_confidence</code> as per-stage badges; responses that do not match the JSON schema are discarded from the vote.</td></tr>
+    <tr><td>3</td><td><b>StageContext is written</b></td><td><code>save_stage_context()</code> upserts one document per <code>(project_id, stage)</code> and auto-increments its <code>version</code>.</td></tr>
+    <tr><td>4</td><td><b>Next stage is promoted</b></td><td>Promotion is implicit — the handler sets <code>project.stage_status[N+1] = "available"</code>.</td></tr>
+  </table>
+
+  <div class="warn"><b>Only intermediate stages may be skipped.</b> DataModel,
+  Architecture and Living can be marked skipped; <b>Discovery and CodeGen never
+  can</b>. A skipped stage writes a minimal StageContext purely so downstream
+  gates pass.</div>
+</div>
+
+<!-- ══════════════════ 05 LLM FABRIC ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part II · The internals</div>
+  <h2><span class="num">05</span>The LLM fabric</h2>
+  <div class="rule"></div>
+
+  <p>Every model call in the product goes through <b>one</b> entry point.
+  Stage routes never call a provider over HTTP directly.</p>
+
+  <figure>
+    <img src="diagrams/lama-fabric-call.png" alt="One fabric_call through the LLM fabric">
+    <figcaption>A single <code>fabric_call()</code>, from stage route to provider
+    and back. Interactive version:
+    <code>architecture/diagrams/lama-fabric-call.html</code></figcaption>
+  </figure>
+
+  <div class="note"><b>Know which of the three modes is live before debugging a
+  prompt.</b> <code>fabric_call()</code> itself is only a tracing wrapper — it
+  mints a trace id and delegates; every routing decision lives in
+  <code>_fabric_call_impl</code>. Each call also probes for a healthy provider
+  first (Factory, then Anthropic, OpenAI, Groq, Ollama) and raises rather than
+  guessing if none is. Both outcomes reach <code>llm_traces</code>, so a failure
+  is as traceable as a success.</div>
+
+  <table>
+    <tr><th style="width:24%">Mode</th><th>When it runs</th></tr>
+    <tr><td><b>Console routing</b><br><span class="pill">default</span></td><td><code>AGENT_COMPLEXITY[agent_key]</code> picks a tier; <code>provider.routing[tier]</code> picks the model. Failover walks every active provider on quota or auth errors.</td></tr>
+    <tr><td><b>Factory API</b></td><td>Brokered to <code>api.factory.ai</code> when the project enables it. Poll-based; slow agents get a longer timeout and a shrink-and-retry path.</td></tr>
+    <tr><td><b>Factory CLI</b></td><td><code>LAMA_FACTORY_MODE=cli</code> drives the local <code>droid</code> binary. The API-versus-CLI choice is made inside the orchestrator — from <code>llm.py</code> there is one Factory door.</td></tr>
+  </table>
+
+  <h3>Complexity tiers</h3>
+  <p>Each agent key carries a tier that the Console maps to a concrete model —
+  no hard-coded vendor defaults at call sites.</p>
+
+  <p><b><code>high</code></b> — <code>srs.regenerate</code>,
+  <code>datamodel.oltp</code>, <code>arch.recommend</code>,
+  <code>arch.hld</code>, <code>codegen.planner</code>,
+  <code>codegen.coder_be</code>, <code>codegen.coder_fe</code>.<br>
+  <b><code>medium</code></b> — <code>srs.generate</code>,
+  <code>arch.lld</code>, <code>codegen.verifier</code>,
+  <code>codegen.reviewer</code>, <code>codegen.tester</code>.<br>
+  <b><code>low</code></b> — <code>srs.gap_question</code>,
+  <code>datamodel.bus_matrix</code>, <code>codegen.build_tool_selector</code>,
+  <code>codegen.finalizer</code>.</p>
+
+</div>
+
+<!-- ══════════════════ 06 KNOWLEDGE BASE ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part II · The internals</div>
+  <h2><span class="num">06</span>Knowledge base and Discovery</h2>
+  <div class="rule"></div>
+
+  <p>Discovery turns unstructured legacy source into typed, queryable context
+  that every later stage consumes.</p>
+
+  <figure>
+    <img src="diagrams/lama-discovery-kb.png" alt="Legacy source to SRS context">
+    <figcaption>From legacy source to SRS prompt context. Interactive version:
+    <code>architecture/diagrams/lama-discovery-kb.html</code></figcaption>
+  </figure>
+
+  <h3>Ingestion</h3>
+  <p>Source arrives as a folder scan, a ZIP upload or a git clone. The folder
+  scanner deliberately skips <code>node_modules</code>, <code>.git</code>,
+  <code>vendor</code>, <code>__pycache__</code> and backup patterns
+  (<code>*.bak</code>, <code>*.save</code>, <code>*_bkp</code>,
+  <code>*_old</code>, <code>*_backup</code>, <code>*.php_*</code>).
+  <b>The order of these patterns matters</b> — it fixed a real defect.</p>
+
+  <h3>Extraction</h3>
+  <p><code>kb/parsers.py</code> extracts text per file type (PHP, SQL, PDF,
+  DOCX, CSV, TXT, ZIP); <code>kb/owl_extractor.py</code> derives the ontology —
+  classes, methods, tables, columns, relations, roles. It is
+  <b>language-agnostic</b>: a new language means an
+  <code>extract_&lt;lang&gt;</code> function wired into <i>both</i>
+  <code>extract()</code> and <code>extract_zip()</code>.</p>
+
+  <h3>The SRS</h3>
+  <p>Discovery produces an IEEE-830 style SRS in <b>12 sections</b>:
+  <code>introduction</code>, <code>overall_description</code>,
+  <code>actors_use_case_inventory</code>, <code>specific_requirements</code>,
+  <code>detailed_use_cases</code>, <code>external_interfaces</code>,
+  <code>non_functional_requirements</code>,
+  <code>integration_requirements</code>, <code>validation_verification</code>,
+  <code>traceability_matrix</code>, <code>appendices</code> and
+  <code>entity_model</code>.</p>
+
+  <div class="note"><b>Build stage context once, not per section.</b>
+  <code>context_bundler.build_stage_context()</code> gathers everything a stage
+  prompt needs in one pass and caches it, keyed by project, stage, KB version,
+  SRS version and target stack — so a KB rebuild or SRS edit invalidates it
+  automatically. SRS fans out to 12 sections; re-querying Mongo per section is
+  the problem this was written to kill.</div>
+
+</div>
+
+<!-- ══════════════════ 07 MULTI-AGENT CODEGEN ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part II · The internals</div>
+  <h2><span class="num">07</span>Multi-agent CodeGen</h2>
+  <div class="rule"></div>
+
+  <p>An agentic alternative to single-shot Stage-4 generation, driven by a state
+  machine in one <code>codegen_pipeline_state</code> document per project. It
+  requires a frozen Architecture.</p>
+
+  <figure class="tight">
+    <img src="diagrams/lama-codegen-multiagent.png" alt="Multi-agent CodeGen pipeline state">
+    <figcaption>Pipeline states and the two human confirmation gates.
+    Interactive version:
+    <code>architecture/diagrams/lama-codegen-multiagent.html</code></figcaption>
+  </figure>
+
+  <h3>The agent chain</h3>
+  <p><code>context_manager → build_tool_selector → planner → coder_be |
+  coder_fe → verifier → reviewer → tester → traceability_gate →
+  finalizer</code>, after a <code>super_agent</code> initialises the run. The
+  coders draw a <code>high</code> tier model, the finalizer <code>low</code>.</p>
+
+  <div class="warn"><b>BE/FE routing is deterministic, not advisory.</b> The
+  Planner proposes; <code>_route_task_to_coder()</code> then overrides from the
+  target path. Unambiguous backend paths go to <code>coder_be</code>,
+  unambiguous frontend paths to <code>coder_fe</code>; only truly ambiguous
+  paths keep the Planner's choice. A frontend file must never reach the backend
+  coder.</div>
+
+  <h3>States</h3>
+  <table>
+    <tr><th style="width:34%">Status</th><th>Meaning</th></tr>
+    <tr><td><code>idle</code></td><td>No run in flight</td></tr>
+    <tr><td><code>envelopes_pending</code> → <code>envelopes_confirmed</code><br><code>tasks_pending</code> → <code>tasks_confirmed</code></td><td>The two human gates — envelopes discovered, then tasks planned, each awaiting confirmation</td></tr>
+    <tr><td><code>executing</code></td><td>Coder waves, split backend/frontend</td></tr>
+    <tr><td><code>traceability_gate</code></td><td>Final check before finalize</td></tr>
+    <tr><td><code>completed</code> · <code>failed</code></td><td>Terminal — a run restarts only from <code>idle</code>, <code>failed</code> or <code>completed</code></td></tr>
+  </table>
+
+</div>
+
+<!-- ══════════════════ 08 DATA MODEL ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part II · The internals</div>
+  <h2><span class="num">08</span>Data model</h2>
+  <div class="rule"></div>
+
+  <p><code>backend/db.py</code> is the <b>single source of truth</b> for
+  collections — 59 of them. A new collection is added there or it does not
+  exist. Thirty-nine are project-scoped and indexed as such by
+  <code>ensure_indexes()</code> at startup.</p>
+
+  <table>
+    <tr><th style="width:26%">Group</th><th>Collections</th></tr>
+    <tr><td><b>Core &amp; Discovery</b></td><td><code>projects</code>, <code>kb_files</code>, <code>kb_chunks</code>, <code>kb_entities</code>, <code>kb_toon</code>, <code>kb_deep_analysis</code>, <code>conversations</code>, <code>messages</code>, <code>srs_documents</code>, <code>prompts</code>, <code>project_prompts</code>, <code>freeze_gates</code>, <code>audit_log</code>, <code>stage_context</code></td></tr>
+    <tr><td><b>Stage 2 · DataModel</b></td><td><code>data_models</code>, <code>bus_matrix</code>, <code>olap_models</code>, <code>migration_artifacts</code></td></tr>
+    <tr><td><b>Stage 3 · Architecture</b></td><td><code>arch_documents</code>, <code>arch_services</code></td></tr>
+    <tr><td><b>Stage 4 · CodeGen</b></td><td><code>codegen_files</code>, <code>codegen_runs</code>, <code>parity_runs</code></td></tr>
+    <tr><td><b>Stage 5 · Living</b></td><td><code>living_artifacts</code>, <code>living_runs</code>, <code>ontology_snapshots</code>, <code>business_ontologies</code></td></tr>
+    <tr><td><b>Multi-agent CodeGen</b></td><td><code>codegen_envelopes</code>, <code>codegen_tasks</code>, <code>codegen_agent_runs</code>, <code>codegen_pipeline_state</code></td></tr>
+    <tr><td><b>Transformer</b></td><td><code>transformer_envelopes</code>, <code>transformer_tasks</code>, <code>transformer_agent_runs</code>, <code>transformer_agent_configs</code></td></tr>
+    <tr><td><b>Tools</b></td><td><code>gap_analyses</code>, <code>gap_analysis_files</code>, <code>transformations</code>, <code>transform_files</code>, <code>tools_kb</code></td></tr>
+    <tr><td><b>Graph &amp; journeys</b></td><td><code>legacy_analysis</code>, <code>kb_graph</code>, <code>kb_journeys</code>, <code>kb_journey_config</code></td></tr>
+    <tr><td><b>Console</b></td><td><code>model_providers</code>, <code>agent_configs</code>, <code>token_usage_log</code></td></tr>
+    <tr><td><b>Multi-tenancy</b></td><td><code>tenants</code>, <code>users</code></td></tr>
+    <tr><td><b>Confidence</b></td><td><code>stage_confidence</code>, <code>living_reports</code></td></tr>
+    <tr><td><b>Sessions &amp; tracing</b></td><td><code>agent_sessions</code>, <code>llm_traces</code></td></tr>
+    <tr><td><b>Other</b></td><td><code>github_configs</code>, <code>data_sources</code>, <code>project_integrations</code>, <code>kb_git_sources</code>, <code>kb_module_selection</code>, <code>factory_workspaces</code></td></tr>
+  </table>
+
+  <div class="note"><b>Multi-tenant since iter-13.68.</b> JWT bearer auth
+  resolves a token to <code>{user, tenant}</code>; a super-admin carries
+  <code>tenant_id == "*"</code>. Any new route that reads project data must
+  scope by tenant, not by <code>project_id</code> alone.</div>
+</div>
+
+<!-- ══════════════════ 09 API SURFACE ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part II · The internals</div>
+  <h2><span class="num">09</span>API surface</h2>
+  <div class="rule"></div>
+
+  <p>Everything mounts under <code>/api</code>. There are <b>21 router
+  mounts</b> from <b>20 route modules</b> — <code>routes/datamodel.py</code>
+  contributes two. One file per route concern; modules do not cross-import,
+  they go through <code>pipeline.py</code>.</p>
+
+  <table>
+    <tr><th style="width:26%">Prefix</th><th style="width:26%">Module</th><th>Concern</th></tr>
+    <tr><td><code>/projects</code></td><td><code>projects.py</code></td><td>Project CRUD, tenant-scoped</td></tr>
+    <tr><td><code>/projects</code></td><td><code>datamodel.py</code></td><td>Factory orchestrator config <span class="pill">2nd mount</span></td></tr>
+    <tr><td><code>/kb</code></td><td><code>kb.py</code></td><td>Upload, scan, build, clone <span class="pill">shared</span></td></tr>
+    <tr><td><code>/kb</code></td><td><code>db_ingest.py</code></td><td>Live DB + app-URL ingestion <span class="pill">shared</span></td></tr>
+    <tr><td><code>/srs</code></td><td><code>srs.py</code></td><td>SRS generate, edit, freeze</td></tr>
+    <tr><td><code>/data-model</code></td><td><code>datamodel.py</code></td><td>Stage 2 artifacts</td></tr>
+    <tr><td><code>/architecture</code></td><td><code>architecture.py</code></td><td>Stage 3 jobs and artifacts</td></tr>
+    <tr><td><code>/codegen</code></td><td><code>codegen.py</code></td><td>Stage 4, incl. multi-agent</td></tr>
+    <tr><td><code>/living</code></td><td><code>living.py</code></td><td>Stage 5</td></tr>
+    <tr><td><code>/pipeline</code></td><td><code>pipeline.py</code></td><td>Skip/unskip, confidence</td></tr>
+    <tr><td><code>/tools</code></td><td><code>tools.py</code></td><td>Gap Analyzer + Transformer</td></tr>
+    <tr><td><code>/console</code></td><td><code>console.py</code></td><td>Providers, agents, usage</td></tr>
+    <tr><td><code>/chat</code></td><td><code>chat.py</code></td><td>TOON-context chat</td></tr>
+    <tr><td><code>/sessions</code></td><td><code>sessions.py</code></td><td>Rolling agent memory</td></tr>
+    <tr><td><code>/context</code></td><td><code>context.py</code></td><td>Context-bundle inspection</td></tr>
+    <tr><td><code>/auth</code> · <code>/admin</code></td><td><code>auth.py</code> · <code>admin.py</code></td><td>Login; tenant/user CRUD</td></tr>
+    <tr><td><code>/prompts</code> · <code>/audit</code></td><td><code>prompts.py</code> · <code>audit.py</code></td><td>Prompt library; audit trail</td></tr>
+    <tr><td><code>/github</code> · <code>/integrations</code></td><td><code>github.py</code> · <code>integrations.py</code></td><td>Push config; integration catalog</td></tr>
+  </table>
+
+  <div class="note"><b>Two prefixes are intentionally shared.</b>
+  <code>/kb</code> is served by both <code>kb.py</code> and
+  <code>db_ingest.py</code>, and <code>/projects</code> by both
+  <code>projects.py</code> and <code>datamodel.py</code>. This is by design, not
+  a collision to "fix".</div>
+
+  <p>On the frontend, <b>every</b> backend call lives in
+  <code>frontend/src/lib/api.js</code>. A request interceptor attaches the
+  bearer token; a response interceptor clears credentials and redirects to
+  <code>/login</code> on HTTP&nbsp;401.</p>
+</div>
+
+<!-- ══════════════════ 10 DEPLOYMENT ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part III · Operating LAMA</div>
+  <h2><span class="num">10</span>Deployment and operations</h2>
+  <div class="rule"></div>
+
+  <h3>Local development — split processes</h3>
+  <div class="runhdr">TERMINAL · fast iteration</div>
+<pre><span class="c"># backend — hot reload on :8000</span>
+<span class="p">$</span> cd backend &amp;&amp; uvicorn server:app --reload --port 8000
+
+<span class="c"># frontend — CRA dev server on :3000</span>
+<span class="p">$</span> cd frontend &amp;&amp; yarn install &amp;&amp; yarn start</pre>
+
+  <h3>Single image — production-like</h3>
+  <div class="runhdr">DOCKER · port 8382</div>
+<pre><span class="p">$</span> docker compose up -d
+<span class="p">$</span> docker compose logs -f lama
+<span class="p">$</span> curl http://127.0.0.1:8382/health      <span class="c"># → {"ok":true}</span>
+
+<span class="c"># after Python edits</span>
+<span class="p">$</span> docker compose restart lama
+
+<span class="c"># after React edits — nginx serves the bind-mounted build</span>
+<span class="p">$</span> (cd frontend &amp;&amp; yarn build) &amp;&amp; docker compose restart lama</pre>
+
+  <h3>Boot order</h3>
+  <p><code>supervisord</code> starts three processes by priority:
+  <b>10</b> <code>mongod</code> (bound to <code>127.0.0.1:27017</code>, data in
+  <code>/data/db</code>), <b>20</b> <code>uvicorn</code>
+  (<code>server:app</code> on <code>:8001</code>, proxy headers trusted), and
+  <b>30</b> <code>nginx</code>. On every backend start a FastAPI startup event
+  runs <code>run_seed()</code> — idempotent and safe on each boot — seeding the
+  prompt library, the PMIS pilot, agent configs, tier migrations and default
+  tenancy, then building indexes.</p>
+
+  <h3>Tests</h3>
+<pre><span class="p">$</span> pytest backend/tests/                  <span class="c"># ~70 suites</span>
+<span class="p">$</span> pytest backend/tests/test_lama_v4.py -k test_chat -x
+<span class="p">$</span> pyflakes backend/routes/codegen.py     <span class="c"># standing verification step</span></pre>
+
+  <div class="note">Suites are named <code>test_iter&lt;N&gt;_&lt;topic&gt;.py</code>
+  and pin <b>one</b> iteration's behaviour — read the matching
+  <code>memory/PRD.md</code> entry first. A <code>502</code> on chat-edit tests is
+  acceptable; they assert <code>in (200, 502)</code>.</div>
+</div>
+
+<!-- ══════════════════ 11 CONFIGURATION ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part III · Operating LAMA</div>
+  <h2><span class="num">11</span>Configuration</h2>
+  <div class="rule"></div>
+
+  <table>
+    <tr><th style="width:42%">Variable</th><th>Purpose</th></tr>
+    <tr><td><code>MONGO_URL</code> · <code>DB_NAME</code></td><td><b>Required.</b> System of record.</td></tr>
+    <tr><td><code>OPENROUTER_API_KEY</code></td><td>Needed for any meaningful LLM call via the env fallback path.</td></tr>
+    <tr><td><code>LAMA_DEFAULT_MODEL</code></td><td>Deliberately empty — the Console's routing table picks per agent key.</td></tr>
+    <tr><td><code>QDRANT_URL</code> · <code>QDRANT_API_KEY</code></td><td>Remote vector index. Optional.</td></tr>
+    <tr><td><code>QDRANT_PATH</code></td><td>Embedded on-disk vector engine — no server needed.</td></tr>
+    <tr><td><code>LAMA_JWT_SECRET</code></td><td>HS256 signing key. Set it in production.</td></tr>
+    <tr><td><code>LAMA_SESSION_SIGNING_KEY</code></td><td>HMAC for agent-memory summaries. A mismatch wipes the summary by design.</td></tr>
+    <tr><td><code>LAMA_FACTORY_MODE</code></td><td><code>cli</code> drives the local <code>droid</code> binary.</td></tr>
+    <tr><td><code>FACTORY_API_BASE_URL</code></td><td>Defaults to <code>https://api.factory.ai/api/v0</code>.</td></tr>
+    <tr><td><code>LAMA_DISABLE_OPENROUTER_FALLBACK</code></td><td><code>1</code> stops silent fallback spend.</td></tr>
+    <tr><td><code>LAMA_CONFIDENCE_ENGINE</code></td><td><code>langgraph</code> selects the opt-in alternative engine.</td></tr>
+    <tr><td><code>LAMA_BR_ENFORCE</code> · <code>LAMA_BR_MIN_COVERAGE</code></td><td>Block freeze when business-rule coverage is below threshold.</td></tr>
+    <tr><td><code>CORS_ORIGINS</code></td><td>Wide open by default. <b>Tighten in production.</b></td></tr>
+    <tr><td><code>LAMA_DISABLE_SSL_VERIFY</code> · <code>LAMA_CA_BUNDLE</code></td><td>For corporate TLS proxies.</td></tr>
+  </table>
+
+  <div class="warn"><b>Secrets hygiene.</b> <code>backend/.env</code> holds real
+  API keys and is gitignored; it is deleted from the image at build time so
+  production configuration comes from <code>-e</code> flags or compose
+  <code>environment:</code>. The root <code>.env</code> is committed and must
+  carry only non-secret compose defaults. Keep that split.</div>
+</div>
+
+<!-- ══════════════════ 12 CONVENTIONS ══════════════════ -->
+<div class="page">
+  <div class="eyebrow">Part III · Operating LAMA</div>
+  <h2><span class="num">12</span>Conventions and known footguns</h2>
+  <div class="rule"></div>
+
+  <h3>Rules of engagement</h3>
+  <table>
+    <tr><th style="width:34%">Rule</th><th>Why</th></tr>
+    <tr><td>Read <code>memory/PRD.md</code> first</td><td>Append-only iteration log; recent entries override earlier ones and the file is always newer than the summaries.</td></tr>
+    <tr><td>Never invent stages, collections or routes</td><td>New collection → <code>db.py</code>. New route → register in <code>server.py</code>. New API call → <code>lib/api.js</code>.</td></tr>
+    <tr><td>All LLM calls via <code>fabric_call()</code></td><td>Never <code>httpx</code> directly — it bypasses routing, tracing and budgets.</td></tr>
+    <tr><td>Never run <code>npm install</code></td><td>yarn-only, via corepack.</td></tr>
+    <tr><td><code>data-testid</code> is part of the contract</td><td>The testing agent asserts on them; keep them stable.</td></tr>
+    <tr><td>Audit-log state changes</td><td>Via the <code>audit_log</code> collection.</td></tr>
+    <tr><td>Pydantic over raw <code>dict</code> bodies</td><td>For any new POST payload.</td></tr>
+  </table>
+
+  <h3>Footguns</h3>
+  <table>
+    <tr><th style="width:34%">Trap</th><th>What to do</th></tr>
+    <tr><td><b>Python version skew</b></td><td>The image is 3.11 but a local venv may be 3.14. Reproduce version-sensitive bugs inside Docker, not the local venv.</td></tr>
+    <tr><td><b>Compose masks the image</b></td><td><code>./frontend/build</code> and <code>./backend</code> are bind-mounted over the baked-in copies. A stale local build silently serves old UI even after pulling a new image.</td></tr>
+    <tr><td><b>Compose overrides the entrypoint</b></td><td>It routes through a wheels-install wrapper, so debugging boot means reading that script, not <code>docker/entrypoint.sh</code>.</td></tr>
+    <tr><td><b>Inactive provider, valid flag</b></td><td>A provider marked <code>is_active</code> with an invalid key produces a cascade of 401s. A validate-ping endpoint is still backlog.</td></tr>
+    <tr><td><b>CodeGen file tree is flattened</b></td><td>Non-recursive on purpose, due to a babel plugin defect. Do not "fix" by recursing without testing.</td></tr>
+    <tr><td><b>SRS auto-trigger swallows failures</b></td><td><code>srs_triggered</code> failures are silent. Known backlog item.</td></tr>
+    <tr><td><b>Markdown fences from the model</b></td><td>Handled by <code>SRSPanel.jsx::normaliseSectionContent</code>. Reuse it on any new render path.</td></tr>
+  </table>
+
+  <h3>Where to look</h3>
+  <table>
+    <tr><th style="width:40%">Goal</th><th>Open</th></tr>
+    <tr><td>Understand the pipeline</td><td><code>backend/pipeline.py</code> + <code>memory/PRD.md</code></td></tr>
+    <tr><td>Find which collection stores X</td><td><code>backend/db.py</code></td></tr>
+    <tr><td>Debug which model actually ran</td><td><code>llm.py::fabric_call</code> → <code>llm_traces</code>, <code>token_usage_log</code></td></tr>
+    <tr><td>Gather context for a stage prompt</td><td><code>backend/context_bundler.py</code></td></tr>
+    <tr><td>Add an LLM provider</td><td><code>backend/fabric/model_fabric.py</code> → <code>PROVIDER_PRESETS</code></td></tr>
+    <tr><td>Add an SRS section</td><td><code>backend/routes/srs.py</code> → <code>SECTION_CONFIGS</code></td></tr>
+    <tr><td>Deep architecture narrative</td><td><code>docs/ARCHITECTURE.md</code> <span class="pill">see note</span></td></tr>
+  </table>
+
+  <div class="warn"><b>Documentation currency.</b> <code>docs/ARCHITECTURE.md</code>
+  self-declares iteration&nbsp;14.27 while <code>memory/PRD.md</code> has reached
+  17.18 — roughly three major iterations of drift. Its own header defers to
+  <code>memory/PRD.md</code> on conflict. Prefer the PRD, then the code.</div>
+
+  <div class="note"><b>About this handbook.</b> Every version number, count and
+  contract here was read from the source tree, not from prose. The five
+  diagrams were generated with Archify from typed sources in
+  <code>architecture/src/</code> and verified against the code; the audit is in
+  <code>architecture/report.md</code>.</div>
+</div>
+
+</body>
+</html>

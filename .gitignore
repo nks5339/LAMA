@@ -3,6 +3,9 @@
 # ---------------------------------------------------------------------------
 # Root `.env` IS committed — its header documents it as non-secret compose
 # defaults only. `backend/.env` holds real OPENROUTER / QDRANT keys.
+# /Users/nikunj/Desktop/lama/.claude
+
+.claude/
 backend/.env
 frontend/.env.local
 frontend/.env.*.local

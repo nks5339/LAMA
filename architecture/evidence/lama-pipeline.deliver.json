@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "workflow",
+  "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-pipeline.workflow.json",
+  "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-pipeline.html",
+  "specification": {
+    "sha256": "d1b0e57465873abc27806d65eecdb9656e803960d08d164f0c34ef55ad44fbc7",
+    "bytes": 5916
+  },
+  "artifact": {
+    "sha256": "08935f7d1744622804f0993256a83f16b0e00409c21cc1643b4f7e0b3f0b8793",
+    "bytes": 810345
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

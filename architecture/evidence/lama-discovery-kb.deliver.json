@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "dataflow",
+  "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-discovery-kb.dataflow.json",
+  "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-discovery-kb.html",
+  "specification": {
+    "sha256": "770de0d701ceb7e0165db1e07d5f23951ed19938104a9ad212d367142b394412",
+    "bytes": 4374
+  },
+  "artifact": {
+    "sha256": "41387ebf961751569782b574718c7cc0238b6e7a4ecbbf381ab26a3edf9259d4",
+    "bytes": 806664
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

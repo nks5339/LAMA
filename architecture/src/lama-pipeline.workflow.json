@@ -1,0 +1,275 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "meta": {
+    "title": "LAMA — Freeze-Gated Migration Pipeline",
+    "output": "lama-pipeline.html",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "happy-path",
+        "label": "Sequential stages",
+        "focus": [
+          "discovery",
+          "datamodel",
+          "architecture",
+          "codegen",
+          "living"
+        ],
+        "note": "The five stages always run in order, each unlocked by the one before it."
+      },
+      {
+        "id": "handoff",
+        "label": "How a stage unlocks the next",
+        "focus": [
+          "discovery",
+          "freeze",
+          "stagectx",
+          "datamodel"
+        ],
+        "note": "Freezing writes a StageContext document and promotes the following stage."
+      },
+      {
+        "id": "exceptions",
+        "label": "Skipping a stage",
+        "focus": [
+          "architecture",
+          "skipped",
+          "codegen"
+        ],
+        "note": "Skipping writes a minimal StageContext so the downstream gate still passes."
+      }
+    ],
+    "legend": {
+      "mode": "auto",
+      "entries": {
+        "backend": {
+          "label": "Generation stage"
+        },
+        "database": {
+          "label": "Data artifact"
+        },
+        "cloud": {
+          "label": "Design stage"
+        },
+        "external": {
+          "label": "Runtime stage"
+        },
+        "security": {
+          "label": "Human gate"
+        },
+        "messagebus": {
+          "label": "Bypass"
+        }
+      }
+    }
+  },
+  "lanes": [
+    {
+      "id": "stages",
+      "label": "Pipeline Stages"
+    },
+    {
+      "id": "handoff",
+      "label": "Stage Handoff"
+    }
+  ],
+  "phases": [
+    {
+      "id": "understand",
+      "label": "Understand",
+      "fromCol": 0,
+      "toCol": 1
+    },
+    {
+      "id": "design",
+      "label": "Design",
+      "fromCol": 2,
+      "toCol": 3,
+      "variant": "emphasis"
+    },
+    {
+      "id": "operate",
+      "label": "Build + operate",
+      "fromCol": 4,
+      "toCol": 5,
+      "variant": "dashed"
+    }
+  ],
+  "groups": [],
+  "mainPath": [
+    "discovery",
+    "datamodel",
+    "architecture",
+    "codegen",
+    "living"
+  ],
+  "nodes": [
+    {
+      "id": "discovery",
+      "lane": "stages",
+      "col": 0,
+      "type": "backend",
+      "label": "Discovery",
+      "sublabel": "KB · SRS · Ontology",
+      "tag": "stage 1"
+    },
+    {
+      "id": "datamodel",
+      "lane": "stages",
+      "col": 1,
+      "type": "database",
+      "label": "DataModel",
+      "sublabel": "OLTP · OLAP · Bus Matrix",
+      "tag": "stage 2",
+      "width": 140
+    },
+    {
+      "id": "architecture",
+      "lane": "stages",
+      "col": 2,
+      "type": "cloud",
+      "label": "Architecture",
+      "sublabel": "Service Map · HLD · LLD",
+      "tag": "stage 3"
+    },
+    {
+      "id": "codegen",
+      "lane": "stages",
+      "col": 3,
+      "type": "backend",
+      "label": "CodeGen",
+      "sublabel": "Source tree · Docker",
+      "tag": "stage 4"
+    },
+    {
+      "id": "living",
+      "lane": "stages",
+      "col": 4,
+      "type": "external",
+      "label": "Living",
+      "sublabel": "Tests · Drift · Runtime",
+      "tag": "stage 5"
+    },
+    {
+      "id": "freeze",
+      "lane": "handoff",
+      "col": 0,
+      "type": "security",
+      "label": "Freeze Gate",
+      "sublabel": "typed confirmation",
+      "tag": "human gate"
+    },
+    {
+      "id": "stagectx",
+      "lane": "handoff",
+      "col": 1,
+      "type": "database",
+      "label": "StageContext",
+      "sublabel": "one doc per stage"
+    },
+    {
+      "id": "skipped",
+      "lane": "handoff",
+      "col": 2,
+      "type": "messagebus",
+      "label": "Skip Stage",
+      "sublabel": "sanctioned bypass"
+    }
+  ],
+  "edges": [
+    {
+      "id": "discovery-datamodel",
+      "from": "discovery",
+      "to": "datamodel",
+      "variant": "emphasis",
+      "role": "main"
+    },
+    {
+      "id": "datamodel-architecture",
+      "from": "datamodel",
+      "to": "architecture",
+      "role": "main"
+    },
+    {
+      "id": "architecture-codegen",
+      "from": "architecture",
+      "to": "codegen",
+      "role": "main"
+    },
+    {
+      "id": "codegen-living",
+      "from": "codegen",
+      "to": "living",
+      "role": "main"
+    },
+    {
+      "id": "discovery-freeze",
+      "from": "discovery",
+      "to": "freeze",
+      "label": "typed FREEZE",
+      "variant": "security",
+      "role": "branch"
+    },
+    {
+      "id": "freeze-stagectx",
+      "from": "freeze",
+      "to": "stagectx",
+      "label": "save_stage_context()",
+      "role": "branch"
+    },
+    {
+      "id": "stagectx-datamodel",
+      "from": "stagectx",
+      "to": "datamodel",
+      "label": "marks next available",
+      "variant": "dashed",
+      "role": "return"
+    },
+    {
+      "id": "architecture-skipped",
+      "from": "architecture",
+      "to": "skipped",
+      "label": "skip",
+      "variant": "dashed",
+      "role": "branch"
+    },
+    {
+      "id": "skipped-codegen",
+      "from": "skipped",
+      "to": "codegen",
+      "label": "minimal StageContext",
+      "variant": "dashed",
+      "role": "return"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "One ordered path",
+      "items": [
+        "Stages run in strict order",
+        "Each route calls require_stage_context",
+        "The same handoff repeats 4 times"
+      ]
+    },
+    {
+      "dot": "cyan",
+      "title": "What a freeze writes",
+      "items": [
+        "A StageContext per project and stage",
+        "Its version counter increments",
+        "The next stage becomes available"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Stop conditions",
+      "items": [
+        "Unfrozen upstream returns HTTP 400",
+        "Only stages 2, 3 and 5 may be skipped",
+        "Discovery and CodeGen never skip"
+      ]
+    }
+  ]
+}

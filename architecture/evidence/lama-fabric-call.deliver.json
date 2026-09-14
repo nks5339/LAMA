@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "sequence",
+  "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-fabric-call.sequence.json",
+  "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-fabric-call.html",
+  "specification": {
+    "sha256": "c37ec5c69a00e45c85a229891a54745e7a5628856cec0404222ca2170a2cd76a",
+    "bytes": 5675
+  },
+  "artifact": {
+    "sha256": "83a55cd890ab627bffb35507653e2246e0b358b02fac3b5a81cba0ccd242ace5",
+    "bytes": 812939
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

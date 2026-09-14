@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "lifecycle",
+  "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-codegen-multiagent.lifecycle.json",
+  "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-codegen-multiagent.html",
+  "specification": {
+    "sha256": "266583ae2412678d71fd09fd4f13b1616ab18d32862ead6ec959fbc20c4683ab",
+    "bytes": 4436
+  },
+  "artifact": {
+    "sha256": "285161df56ce5bd308e172081356d3150bc897c4fb9e9b9af4d209ebcedafe46",
+    "bytes": 807793
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

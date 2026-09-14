@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-runtime.architecture.json",
+  "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-runtime.html",
+  "specification": {
+    "sha256": "fcdf375c6c93914cd552738f3b7741c2a62ba5856ece8a6db2132d26bd0d5d4e",
+    "bytes": 4969
+  },
+  "artifact": {
+    "sha256": "f049693d4fcea1630258e26863d5d25261cf5a2d22675bde676e86d2247fbb43",
+    "bytes": 812212
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

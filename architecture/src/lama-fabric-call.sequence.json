@@ -1,0 +1,266 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "meta": {
+    "title": "LAMA — One fabric_call() Through the LLM Fabric",
+    "output": "lama-fabric-call.html",
+    "viewBox": [
+      1080,
+      540
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "entry",
+        "label": "Entry and health gate",
+        "focus": [
+          "route",
+          "wrapper",
+          "impl",
+          "probe"
+        ],
+        "note": "Every model call enters one wrapper and is gated on a healthy provider."
+      },
+      {
+        "id": "routing",
+        "label": "Which transport runs",
+        "focus": [
+          "impl",
+          "factory",
+          "console"
+        ],
+        "note": "Factory is tried first when the project enables it; otherwise Console routing runs."
+      },
+      {
+        "id": "evidence",
+        "label": "Trace and return",
+        "focus": [
+          "impl",
+          "wrapper",
+          "traces",
+          "route"
+        ],
+        "note": "The wrapper records the trace whether the call succeeded or failed."
+      }
+    ],
+    "column_fit": "spread"
+  },
+  "participants": [
+    {
+      "id": "route",
+      "type": "backend",
+      "label": "Stage Route",
+      "sublabel": "SRS · Arch · CodeGen"
+    },
+    {
+      "id": "wrapper",
+      "type": "backend",
+      "label": "fabric_call()",
+      "sublabel": "tracing wrapper"
+    },
+    {
+      "id": "impl",
+      "type": "backend",
+      "label": "_fabric_call_impl",
+      "sublabel": "routing logic"
+    },
+    {
+      "id": "probe",
+      "type": "security",
+      "label": "Provider Probe",
+      "sublabel": "health gate"
+    },
+    {
+      "id": "factory",
+      "type": "external",
+      "label": "Factory",
+      "sublabel": "HTTP API or droid CLI"
+    },
+    {
+      "id": "console",
+      "type": "cloud",
+      "label": "Model Fabric",
+      "sublabel": "Console routing"
+    },
+    {
+      "id": "traces",
+      "type": "database",
+      "label": "llm_traces",
+      "sublabel": "Mongo"
+    }
+  ],
+  "segments": [
+    {
+      "from": 150,
+      "to": 252,
+      "label": "Entry + health gate"
+    },
+    {
+      "from": 262,
+      "to": 382,
+      "label": "Route to a transport"
+    },
+    {
+      "from": 392,
+      "to": 470,
+      "label": "Sanitize + record"
+    }
+  ],
+  "messages": [
+    {
+      "id": "call",
+      "from": "route",
+      "to": "wrapper",
+      "y": 162,
+      "label": "fabric_call(messages, agent_key)",
+      "variant": "emphasis"
+    },
+    {
+      "id": "delegate",
+      "from": "wrapper",
+      "to": "impl",
+      "y": 190,
+      "label": "mint trace_id, delegate",
+      "variant": "default"
+    },
+    {
+      "id": "probe-call",
+      "from": "impl",
+      "to": "probe",
+      "y": 218,
+      "label": "probe providers",
+      "variant": "security"
+    },
+    {
+      "id": "probe-ok",
+      "from": "probe",
+      "to": "impl",
+      "y": 248,
+      "label": "healthy, else hard fail",
+      "variant": "return"
+    },
+    {
+      "id": "factory-call",
+      "from": "impl",
+      "to": "factory",
+      "y": 276,
+      "label": "if enabled: brokered session",
+      "variant": "emphasis"
+    },
+    {
+      "id": "factory-return",
+      "from": "factory",
+      "to": "impl",
+      "y": 304,
+      "label": "completion",
+      "variant": "return"
+    },
+    {
+      "id": "console-call",
+      "from": "impl",
+      "to": "console",
+      "y": 336,
+      "label": "else: chat with failover",
+      "variant": "default"
+    },
+    {
+      "id": "console-return",
+      "from": "console",
+      "to": "impl",
+      "y": 364,
+      "label": "completion",
+      "variant": "return"
+    },
+    {
+      "id": "sanitized",
+      "from": "impl",
+      "to": "wrapper",
+      "y": 400,
+      "label": "sanitized result",
+      "variant": "return"
+    },
+    {
+      "id": "trace-write",
+      "from": "wrapper",
+      "to": "traces",
+      "y": 428,
+      "label": "record OK or FAIL",
+      "variant": "dashed"
+    },
+    {
+      "id": "reply",
+      "from": "wrapper",
+      "to": "route",
+      "y": 456,
+      "label": "response dict",
+      "variant": "return"
+    }
+  ],
+  "activations": [
+    {
+      "participant": "wrapper",
+      "from": 157,
+      "to": 462,
+      "type": "backend"
+    },
+    {
+      "participant": "impl",
+      "from": 185,
+      "to": 406,
+      "type": "backend"
+    },
+    {
+      "participant": "probe",
+      "from": 213,
+      "to": 250,
+      "type": "security"
+    },
+    {
+      "participant": "factory",
+      "from": 271,
+      "to": 310,
+      "type": "external"
+    },
+    {
+      "participant": "console",
+      "from": 331,
+      "to": 370,
+      "type": "cloud"
+    },
+    {
+      "participant": "traces",
+      "from": 423,
+      "to": 440,
+      "type": "database"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "One door in",
+      "items": [
+        "Stage routes never call an HTTP provider directly",
+        "fabric_call() only mints a trace id and delegates",
+        "All routing decisions live in _fabric_call_impl"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Health gate",
+      "items": [
+        "Every call probes for a healthy provider first",
+        "Probe order is Factory, Anthropic, OpenAI, Groq, then Ollama",
+        "With nothing healthy the call raises instead of guessing"
+      ]
+    },
+    {
+      "dot": "orange",
+      "title": "Two transports, one at a time",
+      "items": [
+        "Factory and Console routing are alternatives, not a chain",
+        "The API-versus-CLI split happens inside the orchestrator",
+        "The trace is written even when the call fails"
+      ]
+    }
+  ]
+}

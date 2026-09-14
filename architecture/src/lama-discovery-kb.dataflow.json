@@ -1,0 +1,194 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "meta": {
+    "title": "LAMA — Legacy Source to SRS Context",
+    "output": "lama-discovery-kb.html",
+    "viewBox": [
+      1080,
+      520
+    ],
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "ingest",
+        "label": "Ingest and parse",
+        "focus": [
+          "legacy",
+          "extract"
+        ],
+        "note": "Legacy code arrives as a folder, ZIP or git clone and is parsed per language."
+      },
+      {
+        "id": "store",
+        "label": "Two stores",
+        "focus": [
+          "extract",
+          "kbcolls",
+          "qdrant"
+        ],
+        "note": "Mongo always holds the knowledge base; Qdrant is an optional semantic index."
+      },
+      {
+        "id": "assemble",
+        "label": "Assemble prompt context",
+        "focus": [
+          "kbcolls",
+          "qdrant",
+          "bundler",
+          "srs"
+        ],
+        "note": "One bundle per stage replaces per-section re-querying."
+      }
+    ]
+  },
+  "stages": [
+    {
+      "label": "Sources"
+    },
+    {
+      "label": "Extract"
+    },
+    {
+      "label": "Store"
+    },
+    {
+      "label": "Assemble"
+    },
+    {
+      "label": "Consume"
+    }
+  ],
+  "nodes": [
+    {
+      "id": "legacy",
+      "type": "external",
+      "label": "Legacy Source",
+      "sublabel": "folder · ZIP · git",
+      "stage": 0,
+      "row": 1,
+      "tag": "read-only"
+    },
+    {
+      "id": "extract",
+      "type": "backend",
+      "label": "KB Extraction",
+      "sublabel": "parsers · OWL extractor",
+      "stage": 1,
+      "row": 1
+    },
+    {
+      "id": "kbcolls",
+      "type": "database",
+      "label": "KB Collections",
+      "sublabel": "entities · chunks · TOON",
+      "stage": 2,
+      "row": 0,
+      "tag": "Mongo"
+    },
+    {
+      "id": "qdrant",
+      "type": "database",
+      "label": "Qdrant",
+      "sublabel": "vector index",
+      "stage": 2,
+      "row": 2,
+      "tag": "optional"
+    },
+    {
+      "id": "bundler",
+      "type": "backend",
+      "label": "context_bundler",
+      "sublabel": "one gather per stage",
+      "stage": 3,
+      "row": 1
+    },
+    {
+      "id": "srs",
+      "type": "external",
+      "label": "SRS Generation",
+      "sublabel": "12 IEEE-830 sections",
+      "stage": 4,
+      "row": 1
+    }
+  ],
+  "flows": [
+    {
+      "id": "source-scan",
+      "from": "legacy",
+      "to": "extract",
+      "label": "scan + parse",
+      "classification": "legacy source",
+      "variant": "emphasis"
+    },
+    {
+      "id": "entities",
+      "from": "extract",
+      "to": "kbcolls",
+      "label": "entities + relations",
+      "classification": "knowledge base",
+      "variant": "emphasis"
+    },
+    {
+      "id": "embeddings",
+      "from": "extract",
+      "to": "qdrant",
+      "label": "chunk embeddings",
+      "classification": "vectors",
+      "variant": "dashed"
+    },
+    {
+      "id": "toon-skeleton",
+      "from": "kbcolls",
+      "to": "bundler",
+      "label": "TOON skeleton",
+      "classification": "typed context"
+    },
+    {
+      "id": "semantic-hits",
+      "from": "qdrant",
+      "to": "bundler",
+      "label": "semantic hits",
+      "classification": "retrieval",
+      "variant": "dashed"
+    },
+    {
+      "id": "stage-context",
+      "from": "bundler",
+      "to": "srs",
+      "label": "stage context",
+      "classification": "prompt input",
+      "variant": "emphasis"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Ingest",
+      "items": [
+        "Folder scan skips node_modules, .git, vendor and backups",
+        "Skip-pattern order is deliberate and load-bearing",
+        "parsers.py extracts text; owl_extractor.py extracts ontology",
+        "A new language means a new extractor, wired into extract()"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Two stores, one truth",
+      "items": [
+        "Mongo always holds the knowledge base",
+        "Qdrant is off unless QDRANT_URL or QDRANT_PATH is set",
+        "Without it, retrieval degrades to the TOON skeleton alone"
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Why bundle once",
+      "items": [
+        "SRS fans out to 12 sections per run",
+        "Per-section querying re-hit Mongo roughly 100 times",
+        "The bundle is cached and keyed by KB and SRS version"
+      ]
+    }
+  ]
+}
