@@ -1,0 +1,7 @@
+backend/codegen/parity_loop.py:37: unused import 'asdict' (90% confidence)
+backend/datamodel/oltp_generator.py:275: unused variable 'data_model_hints' (100% confidence)
+backend/kb/parsers.py:218: unused variable 'max_piece' (100% confidence)
+backend/routes/architecture.py:16: unused import 'JSONResponse' (90% confidence)
+backend/routes/architecture.py:44: unused import 'get_module_context' (90% confidence)
+backend/routes/codegen.py:242: unused variable 'dominant_lang' (100% confidence)
+backend/routes/datamodel.py:14: unused import 'JSONResponse' (90% confidence)

@@ -1,0 +1,1311 @@
+ARG001 Unused function argument: `srs_sections`
+    --> backend/arch_deterministic.py:1142:5
+     |
+1140 |     proj: Dict[str, Any],
+1141 |     services: List[Dict[str, Any]],
+1142 |     srs_sections: Dict[str, str],
+     |     ^^^^^^^^^^^^
+1143 |     oltp_ddl: str,
+1144 | ) -> str:
+     |
+
+ARG001 Unused function argument: `flav`
+    --> backend/arch_deterministic.py:1391:5
+     |
+1389 |     svc: Dict[str, Any],
+1390 |     ddl_by_table: Dict[str, List[Dict[str, Any]]],
+1391 |     flav: Dict[str, str],
+     |     ^^^^
+1392 | ) -> str:
+1393 |     name = svc.get("name") or "service"
+     |
+
+F401 [*] `dataclasses.field` imported but unused
+  --> backend/codegen/parity_loop.py:37:36
+   |
+35 | import logging
+36 | import re
+37 | from dataclasses import dataclass, field, asdict
+   |                                    ^^^^^
+38 | from typing import Any, Dict, List, Optional, Tuple
+   |
+help: Remove unused import
+   |
+36 | import re
+   - from dataclasses import dataclass, field, asdict
+37 + from dataclasses import dataclass
+38 | from typing import Any, Dict, List, Optional, Tuple
+   |
+
+F401 [*] `dataclasses.asdict` imported but unused
+  --> backend/codegen/parity_loop.py:37:43
+   |
+35 | import logging
+36 | import re
+37 | from dataclasses import dataclass, field, asdict
+   |                                           ^^^^^^
+38 | from typing import Any, Dict, List, Optional, Tuple
+   |
+help: Remove unused import
+   |
+36 | import re
+   - from dataclasses import dataclass, field, asdict
+37 + from dataclasses import dataclass
+38 | from typing import Any, Dict, List, Optional, Tuple
+   |
+
+F401 [*] `db.arch_documents` imported but unused
+  --> backend/codegen/parity_loop.py:43:5
+   |
+41 |     codegen_files,
+42 |     arch_services,
+43 |     arch_documents,
+   |     ^^^^^^^^^^^^^^
+44 |     # iter-13.119 — db.py exports the collection as `stage_context`; every
+45 |     # other consumer aliases it. Mirror that here.
+   |
+help: Remove unused import: `db.arch_documents`
+   |
+42 |     arch_services,
+   -     arch_documents,
+   -     # iter-13.119 — db.py exports the collection as `stage_context`; every
+   -     # other consumer aliases it. Mirror that here.
+43 |     stage_context as stage_context_col,
+   |
+
+F841 Local variable `svc_by_name` is assigned to but never used
+   --> backend/codegen/parity_loop.py:499:5
+    |
+497 |         svc_q["name"] = only_service
+498 |     services_list = await arch_services.find(svc_q, {"_id": 0}).to_list(200)
+499 |     svc_by_name = {s["name"]: s for s in services_list}
+    |     ^^^^^^^^^^^
+500 |
+501 |     dm = await stage_context_col.find_one(
+    |
+help: Remove assignment to unused variable `svc_by_name`
+
+ARG001 Unused function argument: `file_def`
+   --> backend/codegen/utility_templates.py:210:16
+    |
+210 | def _build_ctx(file_def: dict, project: dict, utility_svc: dict,
+    |                ^^^^^^^^
+211 |                business_svc: Optional[dict]) -> dict:
+212 |     cfg = utility_svc.get("utility_config") or {}
+    |
+
+ARG001 Unused function argument: `models`
+   --> backend/confidence_langgraph.py:875:5
+    |
+873 |     kb_summary: str = "",
+874 |     ground_truth: str = "",
+875 |     models: list = None,  # accepted for signature parity; unused by HF path
+    |     ^^^^^^
+876 | ) -> dict:
+877 |     """Shape-compatible drop-in for `confidence.score_artifact_multi_model`.
+    |
+
+F401 [*] `db.codegen_files` imported but unused
+  --> backend/context_bundler.py:59:5
+   |
+57 |     arch_documents,
+58 |     arch_services,
+59 |     codegen_files,
+   |     ^^^^^^^^^^^^^
+60 |     legacy_analysis,
+61 |     business_ontologies,
+   |
+help: Remove unused import: `db.codegen_files`
+   |
+58 |     arch_services,
+   -     codegen_files,
+59 |     legacy_analysis,
+   |
+
+F401 [*] `typing.Optional` imported but unused
+  --> backend/datamodel/bus_matrix_deriver.py:22:37
+   |
+21 | import re
+22 | from typing import Any, Dict, List, Optional
+   |                                     ^^^^^^^^
+help: Remove unused import: `typing.Optional`
+   |
+21 | import re
+   - from typing import Any, Dict, List, Optional
+22 + from typing import Any, Dict, List
+23 |
+   |
+
+F401 [*] `json` imported but unused
+  --> backend/datamodel/migration_generator.py:15:8
+   |
+13 | from __future__ import annotations
+14 |
+15 | import json
+   |        ^^^^
+16 | import re
+17 | from typing import Any, Dict, List, Optional
+   |
+help: Remove unused import: `json`
+   |
+14 |
+   - import json
+15 | import re
+   |
+
+F401 [*] `typing.Optional` imported but unused
+  --> backend/datamodel/migration_generator.py:17:37
+   |
+15 | import json
+16 | import re
+17 | from typing import Any, Dict, List, Optional
+   |                                     ^^^^^^^^
+help: Remove unused import: `typing.Optional`
+   |
+16 | import re
+   - from typing import Any, Dict, List, Optional
+17 + from typing import Any, Dict, List
+18 |
+   |
+
+F401 [*] `typing.Iterable` imported but unused
+  --> backend/datamodel/olap_generator.py:15:31
+   |
+14 | import re
+15 | from typing import Any, Dict, Iterable, List, Optional, Tuple
+   |                               ^^^^^^^^
+help: Remove unused import
+   |
+14 | import re
+   - from typing import Any, Dict, Iterable, List, Optional, Tuple
+15 + from typing import Any, Dict, List, Tuple
+16 |
+   |
+
+F401 [*] `typing.Optional` imported but unused
+  --> backend/datamodel/olap_generator.py:15:47
+   |
+14 | import re
+15 | from typing import Any, Dict, Iterable, List, Optional, Tuple
+   |                                               ^^^^^^^^
+help: Remove unused import
+   |
+14 | import re
+   - from typing import Any, Dict, Iterable, List, Optional, Tuple
+15 + from typing import Any, Dict, List, Tuple
+16 |
+   |
+
+F541 [*] f-string without any placeholders
+  --> backend/datamodel/olap_generator.py:97:18
+   |
+95 |     lines.append(f'CREATE TABLE IF NOT EXISTS "{name}" (')
+96 |     lines.append(f'    "{name}_key" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,')
+97 |     lines.append(f'    "natural_key" VARCHAR(128) NOT NULL,')
+   |                  ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+98 |     for a in attrs:
+99 |         an = _sanitise(a.get("name") or "")
+   |
+help: Remove extraneous `f` prefix
+   |
+96 |     lines.append(f'    "{name}_key" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,')
+   -     lines.append(f'    "natural_key" VARCHAR(128) NOT NULL,')
+97 +     lines.append('    "natural_key" VARCHAR(128) NOT NULL,')
+98 |     for a in attrs:
+   |
+
+F401 [*] `typing.Iterable` imported but unused
+  --> backend/datamodel/oltp_generator.py:31:31
+   |
+30 | import re
+31 | from typing import Any, Dict, Iterable, List, Optional, Tuple
+   |                               ^^^^^^^^
+help: Remove unused import: `typing.Iterable`
+   |
+30 | import re
+   - from typing import Any, Dict, Iterable, List, Optional, Tuple
+31 + from typing import Any, Dict, List, Optional, Tuple
+32 |
+   |
+
+ARG001 Unused function argument: `table_name`
+   --> backend/datamodel/oltp_generator.py:155:29
+    |
+155 | def _column_line(col: dict, table_name: str, fks: List[dict]) -> str:
+    |                             ^^^^^^^^^^
+156 |     """Render one column definition line, including inline REFERENCES if FK."""
+157 |     name = _sanitise_ident(col.get("name") or "")
+    |
+
+ARG001 Unused function argument: `data_model_hints`
+   --> backend/datamodel/oltp_generator.py:275:5
+    |
+273 |     entities: List[dict],
+274 |     domain_map: Optional[Dict[str, Any]] = None,
+275 |     data_model_hints: Optional[Dict[str, Any]] = None,
+    |     ^^^^^^^^^^^^^^^^
+276 |     fr_links: Optional[List[dict]] = None,
+277 |     project_name: str = "",
+    |
+
+F541 [*] f-string without any placeholders
+   --> backend/fabric/factory_cli.py:972:17
+    |
+970 |             "tried": tried,
+971 |             "error": (
+972 |                 f"`droid` binary not found. Tried (in order): "
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+973 |                 + ", ".join(f"`{t}`" for t in tried)
+974 |             ),
+    |
+help: Remove extraneous `f` prefix
+    |
+971 |             "error": (
+    -                 f"`droid` binary not found. Tried (in order): "
+972 +                 "`droid` binary not found. Tried (in order): "
+973 |                 + ", ".join(f"`{t}`" for t in tried)
+    |
+
+F841 Local variable `first_err` is assigned to but never used
+   --> backend/fabric/model_fabric.py:900:9
+    |
+898 |             "error":    msg,
+899 |         })
+900 |         first_err: Exception = exc
+    |         ^^^^^^^^^
+901 |
+902 |     # Walk every other active provider, skipping ANY id we already tried
+    |
+help: Remove assignment to unused variable `first_err`
+
+F401 [*] `integrations.live_impls.JAVA_IMPLS` imported but unused
+  --> backend/integrations/renderer.py:33:5
+   |
+31 | from integrations.catalog import CATALOG, get_entry
+32 | from integrations.live_impls import (
+33 |     JAVA_IMPLS, JAVA_UTIL, JAVA_UTIL_PATH,
+   |     ^^^^^^^^^^
+34 |     NODE_IMPLS, NODE_UTIL, NODE_UTIL_PATH,
+35 |     render_java_controller, render_node_router,
+   |
+help: Remove unused import
+   |
+32 | from integrations.live_impls import (
+   -     JAVA_IMPLS, JAVA_UTIL, JAVA_UTIL_PATH,
+   -     NODE_IMPLS, NODE_UTIL, NODE_UTIL_PATH,
+33 +     JAVA_UTIL, JAVA_UTIL_PATH,
+34 +     NODE_UTIL, NODE_UTIL_PATH,
+35 |     render_java_controller, render_node_router,
+   |
+
+F401 [*] `integrations.live_impls.NODE_IMPLS` imported but unused
+  --> backend/integrations/renderer.py:34:5
+   |
+32 | from integrations.live_impls import (
+33 |     JAVA_IMPLS, JAVA_UTIL, JAVA_UTIL_PATH,
+34 |     NODE_IMPLS, NODE_UTIL, NODE_UTIL_PATH,
+   |     ^^^^^^^^^^
+35 |     render_java_controller, render_node_router,
+36 | )
+   |
+help: Remove unused import
+   |
+32 | from integrations.live_impls import (
+   -     JAVA_IMPLS, JAVA_UTIL, JAVA_UTIL_PATH,
+   -     NODE_IMPLS, NODE_UTIL, NODE_UTIL_PATH,
+33 +     JAVA_UTIL, JAVA_UTIL_PATH,
+34 +     NODE_UTIL, NODE_UTIL_PATH,
+35 |     render_java_controller, render_node_router,
+   |
+
+F401 [*] `typing.Any` imported but unused
+  --> backend/kb/deep_analyzer.py:26:20
+   |
+24 | import re
+25 | from datetime import datetime, timezone
+26 | from typing import Any
+   |                    ^^^
+27 |
+28 | from db import kb_toon, kb_entities, projects, kb_files
+   |
+help: Remove unused import: `typing.Any`
+   |
+25 | from datetime import datetime, timezone
+   - from typing import Any
+26 |
+   |
+
+F401 [*] `db.projects` imported but unused
+  --> backend/kb/deep_analyzer.py:28:38
+   |
+26 | from typing import Any
+27 |
+28 | from db import kb_toon, kb_entities, projects, kb_files
+   |                                      ^^^^^^^^
+29 | from llm import fabric_call as chat_completion
+30 | from kb.vector_store import search as qdrant_search
+   |
+help: Remove unused import: `db.projects`
+   |
+27 |
+   - from db import kb_toon, kb_entities, projects, kb_files
+28 + from db import kb_toon, kb_entities, kb_files
+29 | from llm import fabric_call as chat_completion
+   |
+
+F401 [*] `urllib.parse.quote` imported but unused
+  --> backend/kb/factory_materializer.py:59:26
+   |
+57 | import time
+58 | from typing import Any, Dict, List, Optional, Tuple
+59 | from urllib.parse import quote
+   |                          ^^^^^
+60 |
+61 | import httpx
+   |
+help: Remove unused import: `urllib.parse.quote`
+   |
+58 | from typing import Any, Dict, List, Optional, Tuple
+   - from urllib.parse import quote
+59 |
+   |
+
+F401 [*] `collections.deque` imported but unused
+  --> backend/kb/kb_graph.py:28:38
+   |
+26 | import os
+27 | import re
+28 | from collections import defaultdict, deque
+   |                                      ^^^^^
+29 | from datetime import datetime, timezone
+30 | from typing import Any
+   |
+help: Remove unused import: `collections.deque`
+   |
+27 | import re
+   - from collections import defaultdict, deque
+28 + from collections import defaultdict
+29 | from datetime import datetime, timezone
+   |
+
+ARG001 Unused function argument: `key`
+   --> backend/kb/kb_graph.py:481:41
+    |
+479 |     import json as _json_for_size
+480 |
+481 |     def _shard_array(items: list[dict], key: str) -> list[list[dict]]:
+    |                                         ^^^
+482 |         shards: list[list[dict]] = []
+483 |         current: list[dict] = []
+    |
+
+F401 [*] `typing.Optional` imported but unused
+ --> backend/kb/parsers.py:5:20
+  |
+3 | import csv
+4 | import zipfile
+5 | from typing import Optional
+  |                    ^^^^^^^^
+help: Remove unused import: `typing.Optional`
+  |
+4 | import zipfile
+  - from typing import Optional
+5 |
+  |
+
+ARG001 Unused function argument: `max_piece`
+   --> backend/kb/parsers.py:218:51
+    |
+218 | def _split_on_structure(text: str, filetype: str, max_piece: int) -> list[str]:
+    |                                                   ^^^^^^^^^
+219 |     """Cut on language-aware anchors; return raw pieces (may exceed budget)."""
+220 |     if not text:
+    |
+
+F401 [*] `typing.Iterable` imported but unused
+  --> backend/kb/target_stack.py:23:25
+   |
+21 | from __future__ import annotations
+22 |
+23 | from typing import Any, Iterable
+   |                         ^^^^^^^^
+24 |
+25 | # ──────────────────────────────────────────────────────────────────────
+   |
+help: Remove unused import: `typing.Iterable`
+   |
+22 |
+   - from typing import Any, Iterable
+23 + from typing import Any
+24 |
+   |
+
+ARG001 Unused function argument: `entities`
+   --> backend/kb/toon.py:209:5
+    |
+208 | def summarise(
+209 |     entities: List[Dict[str, Any]],
+    |     ^^^^^^^^
+210 |     stats: Dict[str, int],
+211 |     language: str | None = None,
+    |
+
+ARG001 Unused function argument: `project_id`
+    --> backend/llm.py:2113:5
+     |
+2111 | async def _resolve_context_window(
+2112 |     agent_key: str = "",
+2113 |     project_id: str = "",
+     |     ^^^^^^^^^^
+2114 |     model_hint: str = "",
+2115 | ) -> int:
+     |
+
+F401 [*] `os` imported but unused
+  --> backend/onboarding.py:25:8
+   |
+23 | import asyncio
+24 | import logging
+25 | import os
+   |        ^^
+26 | from datetime import datetime, timezone
+27 | from pathlib import Path
+   |
+help: Remove unused import: `os`
+   |
+24 | import logging
+   - import os
+25 | from datetime import datetime, timezone
+   |
+
+F401 [*] `fastapi.responses.JSONResponse` imported but unused
+  --> backend/routes/architecture.py:16:50
+   |
+15 | from fastapi import APIRouter, HTTPException
+16 | from fastapi.responses import StreamingResponse, JSONResponse
+   |                                                  ^^^^^^^^^^^^
+17 |
+18 | from db import (
+   |
+help: Remove unused import: `fastapi.responses.JSONResponse`
+   |
+15 | from fastapi import APIRouter, HTTPException
+   - from fastapi.responses import StreamingResponse, JSONResponse
+16 + from fastapi.responses import StreamingResponse
+17 |
+   |
+
+F401 [*] `pipeline.get_module_context` imported but unused
+  --> backend/routes/architecture.py:44:65
+   |
+42 | from kb.vector_store import search as qdrant_search
+43 | from kb.legacy_tables import build_oltp_ddl_from_kb  # iter-14.33 — legacy-table harvest
+44 | from pipeline import require_stage_context, save_stage_context, get_module_context
+   |                                                                 ^^^^^^^^^^^^^^^^^^
+45 | # iter-14.20 — deterministic Python generators for HLD / LLD / API Contracts.
+46 | # These replace the LLM-driven jobs at the bottom of this file. The
+   |
+help: Remove unused import: `pipeline.get_module_context`
+   |
+43 | from kb.legacy_tables import build_oltp_ddl_from_kb  # iter-14.33 — legacy-table harvest
+   - from pipeline import require_stage_context, save_stage_context, get_module_context
+44 + from pipeline import require_stage_context, save_stage_context
+45 | # iter-14.20 — deterministic Python generators for HLD / LLD / API Contracts.
+   |
+
+ARG001 Unused function argument: `model`
+    --> backend/routes/architecture.py:4066:51
+     |
+4066 | async def _run_hld_job(jid: str, project_id: str, model: str):
+     |                                                   ^^^^^
+4067 |     """iter-14.20 — HLD is now deterministic Python. No LLM calls.
+     |
+
+ARG001 Unused function argument: `model`
+    --> backend/routes/architecture.py:4153:51
+     |
+4151 | # D. LLD generation (job) — one section per service
+4152 | # -----------------------------------------------------------
+4153 | async def _run_lld_job(jid: str, project_id: str, model: str):
+     |                                                   ^^^^^
+4154 |     """iter-14.20 — LLD is now deterministic Python. No LLM calls.
+     |
+
+ARG001 Unused function argument: `model`
+    --> backend/routes/architecture.py:4451:61
+     |
+4449 | # left in place for back-compat when this job hasn't been run).
+4450 | # -----------------------------------------------------------
+4451 | async def _run_api_contracts_job(jid: str, project_id: str, model: str):
+     |                                                             ^^^^^
+4452 |     """iter-14.20 — API Contracts are now deterministic Python. No LLM calls.
+     |
+
+F401 [*] `llm.AVAILABLE_MODELS` imported but unused
+  --> backend/routes/chat.py:11:22
+   |
+ 9 |     fabric_call as chat_completion,
+10 |     fabric_call_with_session,
+11 |     estimate_tokens, AVAILABLE_MODELS, get_available_models,
+   |                      ^^^^^^^^^^^^^^^^
+12 | )
+13 | from kb.vector_store import search as qdrant_search
+   |
+help: Remove unused import: `llm.AVAILABLE_MODELS`
+   |
+10 |     fabric_call_with_session,
+   -     estimate_tokens, AVAILABLE_MODELS, get_available_models,
+11 +     estimate_tokens, get_available_models,
+12 | )
+   |
+
+F401 [*] `db.data_models` imported but unused
+  --> backend/routes/codegen.py:18:5
+   |
+16 |     arch_documents, arch_services, codegen_files, codegen_runs,
+17 |     messages as messages_col, conversations, stage_context as stage_context_col,
+18 |     data_models, kb_entities, srs_documents, kb_chunks, kb_files,
+   |     ^^^^^^^^^^^
+19 |     # iter-13.115 — codegen now grounds the LLM in the KB (business
+20 |     # ontology + deep legacy-analysis) in addition to graph/RAG/legacy
+   |
+help: Remove unused import: `db.data_models`
+   |
+17 |     messages as messages_col, conversations, stage_context as stage_context_col,
+   -     data_models, kb_entities, srs_documents, kb_chunks, kb_files,
+18 +     kb_entities, srs_documents, kb_chunks, kb_files,
+19 |     # iter-13.115 — codegen now grounds the LLM in the KB (business
+   |
+
+F541 [*] f-string without any placeholders
+   --> backend/routes/codegen.py:178:9
+    |
+176 |     lines = [
+177 |         f"# {proj.get('name') or _ACTIVE_PROJECT_SLUG} — merged multi-service topology",
+178 |         f"# Generated by LAMA. Every service below is part of the SAME application.",
+    |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+179 |         f"name: {_ACTIVE_PROJECT_SLUG}",
+180 |         "services:",
+    |
+help: Remove extraneous `f` prefix
+    |
+177 |         f"# {proj.get('name') or _ACTIVE_PROJECT_SLUG} — merged multi-service topology",
+    -         f"# Generated by LAMA. Every service below is part of the SAME application.",
+178 +         "# Generated by LAMA. Every service below is part of the SAME application.",
+179 |         f"name: {_ACTIVE_PROJECT_SLUG}",
+    |
+
+F541 [*] f-string without any placeholders
+   --> backend/routes/codegen.py:191:13
+    |
+189 |             f"    build: ./services/{n}",
+190 |             f"    container_name: {_ACTIVE_PROJECT_SLUG}-{n}",
+191 |             f"    ports:",
+    |             ^^^^^^^^^^^^^
+192 |             f"      - \"{port}:8080\"",
+193 |             f"    environment:",
+    |
+help: Remove extraneous `f` prefix
+    |
+190 |             f"    container_name: {_ACTIVE_PROJECT_SLUG}-{n}",
+    -             f"    ports:",
+191 +             "    ports:",
+192 |             f"      - \"{port}:8080\"",
+    |
+
+F541 [*] f-string without any placeholders
+   --> backend/routes/codegen.py:193:13
+    |
+191 |             f"    ports:",
+192 |             f"      - \"{port}:8080\"",
+193 |             f"    environment:",
+    |             ^^^^^^^^^^^^^^^^^^^
+194 |             f"      - APP_NAME={_ACTIVE_PROJECT_SLUG}",
+195 |             f"      - SERVICE_NAME={n}",
+    |
+help: Remove extraneous `f` prefix
+    |
+192 |             f"      - \"{port}:8080\"",
+    -             f"    environment:",
+193 +             "    environment:",
+194 |             f"      - APP_NAME={_ACTIVE_PROJECT_SLUG}",
+    |
+
+F541 [*] f-string without any placeholders
+   --> backend/routes/codegen.py:196:13
+    |
+194 |             f"      - APP_NAME={_ACTIVE_PROJECT_SLUG}",
+195 |             f"      - SERVICE_NAME={n}",
+196 |             f"    depends_on: []",
+    |             ^^^^^^^^^^^^^^^^^^^^^
+197 |         ]
+198 |         port += 1
+    |
+help: Remove extraneous `f` prefix
+    |
+195 |             f"      - SERVICE_NAME={n}",
+    -             f"    depends_on: []",
+196 +             "    depends_on: []",
+197 |         ]
+    |
+
+ARG001 Unused function argument: `dominant_lang`
+   --> backend/routes/codegen.py:242:60
+    |
+240 | def _build_deterministic_root_content(
+241 |     file_def: Dict[str, Any], proj: Dict[str, Any],
+242 |     biz_services: List[Dict[str, Any]], proj_pattern: str, dominant_lang: str,
+    |                                                            ^^^^^^^^^^^^^
+243 | ) -> Optional[str]:
+244 |     """Return deterministic body for a root artifact, or None to let LLM handle."""
+    |
+
+F841 Local variable `paths_indent` is assigned to but never used
+   --> backend/routes/codegen.py:936:13
+    |
+934 |         if stripped.startswith("paths:") and ln.find("paths:") == 0:
+935 |             in_paths = True
+936 |             paths_indent = 0
+    |             ^^^^^^^^^^^^
+937 |             out.append(ln)
+938 |             continue
+    |
+help: Remove assignment to unused variable `paths_indent`
+
+ARG001 Unused function argument: `proj`
+    --> backend/routes/codegen.py:1223:47
+     |
+1221 | # ────────────────────────────────────────────────────────────────────
+1222 |
+1223 | def _java_scaffold(file_def: dict, svc: dict, proj: dict) -> Optional[str]:
+     |                                               ^^^^
+1224 |     """Return a runnable Java file body for `file_def`, or None if unhandled.
+     |
+
+F841 Local variable `pk_col_name` is assigned to but never used
+    --> backend/routes/codegen.py:1244:5
+     |
+1242 |     pk_jtype = _java_type_for_sql(pk_col["sql_type"]) if pk_col else "Long"
+1243 |     pk_jname = _camel(pk_col["name"]) if pk_col else "id"
+1244 |     pk_col_name = pk_col["name"] if pk_col else "id"
+     |     ^^^^^^^^^^^
+1245 |
+1246 |     # ─── Entity ──────────────────────────────────────────────────────
+     |
+help: Remove assignment to unused variable `pk_col_name`
+
+F841 Local variable `non_pk` is assigned to but never used
+    --> backend/routes/codegen.py:1403:5
+     |
+1401 |                           cols: List[Dict[str, Any]]) -> str:
+1402 |     """toEntity / toDto / applyUpdate with real field copies."""
+1403 |     non_pk = [c for c in cols if not c.get("pk")]
+     |     ^^^^^^
+1404 |     to_entity_lines: List[str] = []
+1405 |     to_dto_args: List[str] = []
+     |
+help: Remove assignment to unused variable `non_pk`
+
+F541 [*] f-string without any placeholders
+    --> backend/routes/codegen.py:1572:20
+     |
+1570 |         else:
+1571 |             params = ""
+1572 |             body = f"        return ResponseEntity.ok().build();"
+     |                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+1573 |             ret = "ResponseEntity<Void>"
+1574 |         method_blocks.append(
+     |
+help: Remove extraneous `f` prefix
+     |
+1571 |             params = ""
+     -             body = f"        return ResponseEntity.ok().build();"
+1572 +             body = "        return ResponseEntity.ok().build();"
+1573 |             ret = "ResponseEntity<Void>"
+     |
+
+F841 Local variable `expected` is assigned to but never used
+    --> backend/routes/codegen.py:1728:9
+     |
+1726 |         url = re.sub(r"\{\w+\}", "1", p)
+1727 |         body_send = ""
+1728 |         expected = "isOk(), isCreated(), isNoContent(), isNotFound(), isBadRequest()"
+     |         ^^^^^^^^
+1729 |         if verb == "POST":
+1730 |             body_send = "                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)\n" \
+     |
+help: Remove assignment to unused variable `expected`
+
+ARG001 Unused function argument: `svc`
+    --> backend/routes/codegen.py:1791:34
+     |
+1790 | def _frontend_emergency_scaffold(path: str, ctype: str, file_def: dict,
+1791 |                                  svc: dict, proj: dict) -> str:
+     |                                  ^^^
+1792 |     """iter-13.85 — Deterministic frontend scaffolds (React + TS + Vite +
+1793 |     React Query + Zustand + react-router-dom). All outputs are designed
+     |
+
+F821 Undefined name `_todo_hits`
+    --> backend/routes/codegen.py:3751:32
+     |
+3749 |                         return (
+3750 |                             f"// LAMA: deterministic scaffold (LLM emitted "
+3751 |                             f"{_todo_hits} TODO/Unsupported placeholders — "
+     |                                ^^^^^^^^^^
+3752 |                             f"replaced with DDL-grounded scaffold). Run Gap Recovery to "
+3753 |                             f"enrich with legacy logic.\n" + scaffold
+     |
+
+ARG001 Unused function argument: `run_id`
+    --> backend/routes/codegen.py:3952:30
+     |
+3952 | async def _save_codegen_file(run_id: str, project_id: str, svc: dict, file_def: dict, content: str) -> dict:
+     |                              ^^^^^^
+3953 |     now = datetime.now(timezone.utc).isoformat()
+3954 |     existing = await codegen_files.find_one({"project_id": project_id, "file_path": file_def["path"]}, {"_id": 0})
+     |
+
+F841 Local variable `arch_ctx` is assigned to but never used
+    --> backend/routes/codegen.py:4018:9
+     |
+4016 |     try:
+4017 |         _job_update(jid, status="running", step="Loading architecture context…", pct=1)
+4018 |         arch_ctx = await require_stage_context(project_id, "Architecture", "CodeGen")
+     |         ^^^^^^^^
+4019 |         proj = await projects.find_one({"id": project_id}, {"_id": 0})
+4020 |         # iter-14.20.9 — Bind the active Java group / project slug BEFORE
+     |
+help: Remove assignment to unused variable `arch_ctx`
+
+F541 [*] f-string without any placeholders
+    --> backend/routes/codegen.py:6860:19
+     |
+6858 |         pct=1,
+6859 |     )
+6860 |     _job_log(jid, f"━━ Auto-Validate started ━━")
+     |                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6861 |     _job_log(jid, f"project={project_id} threshold={threshold:.1f}% "
+6862 |                   f"max_iter={max_iterations} max_files/iter={max_files_per_iter} "
+     |
+help: Remove extraneous `f` prefix
+     |
+6859 |     )
+     -     _job_log(jid, f"━━ Auto-Validate started ━━")
+6860 +     _job_log(jid, "━━ Auto-Validate started ━━")
+6861 |     _job_log(jid, f"project={project_id} threshold={threshold:.1f}% "
+     |
+
+F541 [*] f-string without any placeholders
+    --> backend/routes/codegen.py:6910:31
+     |
+6909 |     try:
+6910 |         _job_update(jid, step=f"Checking Architecture stage…", pct=2)
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6911 |         _job_log(jid, "checking Architecture frozen…")
+6912 |         await asyncio.wait_for(
+     |
+help: Remove extraneous `f` prefix
+     |
+6909 |     try:
+     -         _job_update(jid, step=f"Checking Architecture stage…", pct=2)
+6910 +         _job_update(jid, step="Checking Architecture stage…", pct=2)
+6911 |         _job_log(jid, "checking Architecture frozen…")
+     |
+
+F541 [*] f-string without any placeholders
+    --> backend/routes/codegen.py:6955:31
+     |
+6953 |                 )
+6954 |             except asyncio.TimeoutError:
+6955 |                 _job_log(jid, f"✗ score_run timed out after 180s — bailing this iteration")
+     |                               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+6956 |                 raise HTTPException(500, "score_run timed out after 180s")
+6957 |             _ms = int((datetime.now(timezone.utc) - _t0).total_seconds() * 1000)
+     |
+help: Remove extraneous `f` prefix
+     |
+6954 |             except asyncio.TimeoutError:
+     -                 _job_log(jid, f"✗ score_run timed out after 180s — bailing this iteration")
+6955 +                 _job_log(jid, "✗ score_run timed out after 180s — bailing this iteration")
+6956 |                 raise HTTPException(500, "score_run timed out after 180s")
+     |
+
+F401 [*] `fabric.model_fabric.PROVIDER_PRESETS` imported but unused
+  --> backend/routes/console.py:19:5
+   |
+17 | )
+18 | from fabric.model_fabric import (
+19 |     PROVIDER_PRESETS,
+   |     ^^^^^^^^^^^^^^^^
+20 |     AGENT_COMPLEXITY,
+21 |     setup_default_provider,
+   |
+help: Remove unused import
+   |
+18 | from fabric.model_fabric import (
+   -     PROVIDER_PRESETS,
+   -     AGENT_COMPLEXITY,
+19 |     setup_default_provider,
+   -     detect_provider_from_key,
+20 |     fabric_chat,
+   -     estimate_prompt_tokens,
+21 |     estimate_cost,
+22 |     resolve_model,
+23 |     _rewrite_local_url_for_docker,
+   -     _resolve_ollama_endpoint,
+24 | )
+   |
+
+F401 [*] `fabric.model_fabric.AGENT_COMPLEXITY` imported but unused
+  --> backend/routes/console.py:20:5
+   |
+18 | from fabric.model_fabric import (
+19 |     PROVIDER_PRESETS,
+20 |     AGENT_COMPLEXITY,
+   |     ^^^^^^^^^^^^^^^^
+21 |     setup_default_provider,
+22 |     detect_provider_from_key,
+   |
+help: Remove unused import
+   |
+18 | from fabric.model_fabric import (
+   -     PROVIDER_PRESETS,
+   -     AGENT_COMPLEXITY,
+19 |     setup_default_provider,
+   -     detect_provider_from_key,
+20 |     fabric_chat,
+   -     estimate_prompt_tokens,
+21 |     estimate_cost,
+22 |     resolve_model,
+23 |     _rewrite_local_url_for_docker,
+   -     _resolve_ollama_endpoint,
+24 | )
+   |
+
+F401 [*] `fabric.model_fabric.detect_provider_from_key` imported but unused
+  --> backend/routes/console.py:22:5
+   |
+20 |     AGENT_COMPLEXITY,
+21 |     setup_default_provider,
+22 |     detect_provider_from_key,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+23 |     fabric_chat,
+24 |     estimate_prompt_tokens,
+   |
+help: Remove unused import
+   |
+18 | from fabric.model_fabric import (
+   -     PROVIDER_PRESETS,
+   -     AGENT_COMPLEXITY,
+19 |     setup_default_provider,
+   -     detect_provider_from_key,
+20 |     fabric_chat,
+   -     estimate_prompt_tokens,
+21 |     estimate_cost,
+22 |     resolve_model,
+23 |     _rewrite_local_url_for_docker,
+   -     _resolve_ollama_endpoint,
+24 | )
+   |
+
+F401 [*] `fabric.model_fabric.estimate_prompt_tokens` imported but unused
+  --> backend/routes/console.py:24:5
+   |
+22 |     detect_provider_from_key,
+23 |     fabric_chat,
+24 |     estimate_prompt_tokens,
+   |     ^^^^^^^^^^^^^^^^^^^^^^
+25 |     estimate_cost,
+26 |     resolve_model,
+   |
+help: Remove unused import
+   |
+18 | from fabric.model_fabric import (
+   -     PROVIDER_PRESETS,
+   -     AGENT_COMPLEXITY,
+19 |     setup_default_provider,
+   -     detect_provider_from_key,
+20 |     fabric_chat,
+   -     estimate_prompt_tokens,
+21 |     estimate_cost,
+22 |     resolve_model,
+23 |     _rewrite_local_url_for_docker,
+   -     _resolve_ollama_endpoint,
+24 | )
+   |
+
+F401 [*] `fabric.model_fabric._resolve_ollama_endpoint` imported but unused
+  --> backend/routes/console.py:28:5
+   |
+26 |     resolve_model,
+27 |     _rewrite_local_url_for_docker,
+28 |     _resolve_ollama_endpoint,
+   |     ^^^^^^^^^^^^^^^^^^^^^^^^
+29 | )
+30 | from factory_orchestrator import (
+   |
+help: Remove unused import
+   |
+18 | from fabric.model_fabric import (
+   -     PROVIDER_PRESETS,
+   -     AGENT_COMPLEXITY,
+19 |     setup_default_provider,
+   -     detect_provider_from_key,
+20 |     fabric_chat,
+   -     estimate_prompt_tokens,
+21 |     estimate_cost,
+22 |     resolve_model,
+23 |     _rewrite_local_url_for_docker,
+   -     _resolve_ollama_endpoint,
+24 | )
+   |
+
+F401 [*] `fastapi.responses.JSONResponse` imported but unused
+  --> backend/routes/datamodel.py:14:50
+   |
+13 | from fastapi import APIRouter, HTTPException
+14 | from fastapi.responses import StreamingResponse, JSONResponse
+   |                                                  ^^^^^^^^^^^^
+15 |
+16 | from db import (
+   |
+help: Remove unused import: `fastapi.responses.JSONResponse`
+   |
+13 | from fastapi import APIRouter, HTTPException
+   - from fastapi.responses import StreamingResponse, JSONResponse
+14 + from fastapi.responses import StreamingResponse
+15 |
+   |
+
+ARG001 Unused function argument: `proj`
+   --> backend/routes/datamodel.py:321:47
+    |
+319 | # /generate/bus-matrix (LLM-driven) afterwards.
+320 | # -----------------------------------------------------------
+321 | async def _ensure_bus_matrix(project_id: str, proj: dict) -> tuple[dict | None, str, dict | None]:
+    |                                               ^^^^
+322 |     """Return ``(bus_matrix_dict, source, artifact)``.
+    |
+
+F841 Local variable `polish_tokens` is assigned to but never used
+   --> backend/routes/datamodel.py:807:13
+    |
+806 |             # Optional polish passes (small LLM calls — opt-in via flags).
+807 |             polish_tokens = 0
+    |             ^^^^^^^^^^^^^
+808 |             if modes.get("enum_polish"):
+809 |                 _job_update(job_id, step="Polish: ENUM types via LLM…", pct=72)
+    |
+help: Remove assignment to unused variable `polish_tokens`
+
+F401 [*] `urllib.parse.urlparse` imported but unused
+  --> backend/routes/db_ingest.py:50:26
+   |
+48 | from datetime import datetime, timezone
+49 | from typing import Any
+50 | from urllib.parse import urlparse
+   |                          ^^^^^^^^
+51 |
+52 | from fastapi import APIRouter, HTTPException
+   |
+help: Remove unused import: `urllib.parse.urlparse`
+   |
+49 | from typing import Any
+   - from urllib.parse import urlparse
+50 |
+   |
+
+ARG001 Unused function argument: `project_id`
+   --> backend/routes/db_ingest.py:563:25
+    |
+563 | def _schema_to_entities(project_id: str, schema: dict[str, Any], origin_label: str) -> list[dict]:
+    |                         ^^^^^^^^^^
+564 |     """Turn the fetched schema into KB entities compatible with toon.serialise
+565 |     + aggregate_stats. Uses the same TABLE / TABLE_HINT shape that
+    |
+
+F401 [*] `typing.Optional` imported but unused
+ --> backend/routes/github.py:6:20
+  |
+4 | from fastapi import APIRouter, HTTPException
+5 | from pydantic import BaseModel
+6 | from typing import Optional
+  |                    ^^^^^^^^
+7 |
+8 | import requests
+  |
+help: Remove unused import: `typing.Optional`
+  |
+5 | from pydantic import BaseModel
+  - from typing import Optional
+6 |
+  |
+
+F401 [*] `kb.owl_export.export_owl` imported but unused
+  --> backend/routes/kb.py:21:27
+   |
+19 | from kb.toon import serialise, summarise
+20 | from kb.vector_store import index_chunks as qdrant_index, delete_project_vectors
+21 | from kb.owl_export import export_owl, export_kb_yaml
+   |                           ^^^^^^^^^^
+22 | from kb.module_inventory_parser import parse_module_inventory, generate_module_text_summary
+23 | from kb.tech_detector import detect_tech_stack
+   |
+help: Remove unused import: `kb.owl_export.export_owl`
+   |
+20 | from kb.vector_store import index_chunks as qdrant_index, delete_project_vectors
+   - from kb.owl_export import export_owl, export_kb_yaml
+21 + from kb.owl_export import export_kb_yaml
+22 | from kb.module_inventory_parser import parse_module_inventory, generate_module_text_summary
+   |
+
+F841 Local variable `files_for_detect` is assigned to but never used
+    --> backend/routes/kb.py:1142:5
+     |
+1140 |     # Merge: real files first (they own the chunks for content scan),
+1141 |     # synthetic files only contribute filenames for the language tally.
+1142 |     files_for_detect = files + synthetic_files
+     |     ^^^^^^^^^^^^^^^^
+1143 |     await _set_build_phase(project_id, "tech_detect")
+1144 |     try:
+     |
+help: Remove assignment to unused variable `files_for_detect`
+
+F811 [*] Redefinition of unused `asyncio` from line 6
+    --> backend/routes/kb.py:2050:8
+     |
+2048 | # to see real-world concepts (Citizen, Loan Application, Invoice, …).
+2049 | # ─────────────────────────────────────────────────────────────────────────
+2050 | import asyncio
+     |        ^^^^^^^ `asyncio` redefined here
+2051 | import time as _time
+2052 | from typing import Any as _Any
+     |
+    ::: backend/routes/kb.py:6:8
+     |
+   4 | import time   # iter-13.96 — phase heartbeat timing for chunk_dedup loop
+   5 | import uuid
+   6 | import asyncio  # iter-14.5 — background-task pattern for /clone-git
+     |        ------- previous definition of `asyncio` here
+   7 | import logging
+   8 | import json
+     |
+help: Remove definition: `asyncio`
+     |
+2049 | # ─────────────────────────────────────────────────────────────────────────
+     - import asyncio
+2050 | import time as _time
+     |
+
+F841 Local variable `convo_foreign` is assigned to but never used
+    --> backend/routes/kb.py:2698:5
+     |
+2696 |         if c:
+2697 |             convo.append(c)
+2698 |     convo_foreign = _scan("\n".join(convo))
+     |     ^^^^^^^^^^^^^
+2699 |
+2700 |     # 4. srs_documents — what the user is actually seeing
+     |
+help: Remove assignment to unused variable `convo_foreign`
+
+F401 [*] `db.olap_models` imported but unused
+  --> backend/routes/living.py:42:5
+   |
+40 |     legacy_analysis as legacy_analysis_col,
+41 |     data_models as data_models_col,
+42 |     olap_models,
+   |     ^^^^^^^^^^^
+43 |     living_reports,
+44 |     stage_confidence,
+   |
+help: Remove unused import
+   |
+41 |     data_models as data_models_col,
+   -     olap_models,
+42 |     living_reports,
+   -     stage_confidence,
+43 | )
+   |
+
+F401 [*] `db.stage_confidence` imported but unused
+  --> backend/routes/living.py:44:5
+   |
+42 |     olap_models,
+43 |     living_reports,
+44 |     stage_confidence,
+   |     ^^^^^^^^^^^^^^^^
+45 | )
+46 | from llm import fabric_call
+   |
+help: Remove unused import
+   |
+41 |     data_models as data_models_col,
+   -     olap_models,
+42 |     living_reports,
+   -     stage_confidence,
+43 | )
+   |
+
+F401 [*] `pipeline.save_stage_context` imported but unused
+  --> backend/routes/living.py:47:45
+   |
+45 | )
+46 | from llm import fabric_call
+47 | from pipeline import require_stage_context, save_stage_context
+   |                                             ^^^^^^^^^^^^^^^^^^
+48 | from confidence import (
+49 |     score_artifact_multi_model,
+   |
+help: Remove unused import: `pipeline.save_stage_context`
+   |
+46 | from llm import fabric_call
+   - from pipeline import require_stage_context, save_stage_context
+47 + from pipeline import require_stage_context
+48 | from confidence import (
+   |
+
+ARG001 Unused function argument: `model`
+    --> backend/routes/living.py:1469:58
+     |
+1469 | async def _run_jmeter_batched(jid: str, project_id: str, model: str = ""):
+     |                                                          ^^^^^
+1470 |     """iter-14.55.2 — Deterministic JMeter plan builder.
+     |
+
+F841 Local variable `overall_pool` is assigned to but never used
+   --> backend/routes/pipeline.py:663:5
+    |
+662 |     scored = [r["score"] for r in rows if not r.get("missing")]
+663 |     overall_pool = [r["score"] for r in rows]
+    |     ^^^^^^^^^^^^
+664 |     # iter-14.8 — `overall_score` is the LATEST run's score. See high-water
+665 |     # mark note below for why we also persist `best_overall_score`.
+    |
+help: Remove assignment to unused variable `overall_pool`
+
+ARG001 Unused function argument: `m`
+   --> backend/routes/srs.py:593:21
+    |
+591 |     #    ("| … | ... |") both match (a plain match would consume the
+592 |     #    shared pipe and skip the second cell).
+593 |     def _cell_scrub(m: _re.Match[str]) -> str:
+    |                     ^
+594 |         stats["empty_ellipsis_cells"] += 1
+595 |         return "| NOT_EVIDENCED "
+    |
+
+ARG001 Unused function argument: `ftype`
+   --> backend/routes/srs.py:651:38
+    |
+651 | def _is_high_signal_file(fname: str, ftype: str) -> int:
+    |                                      ^^^^^
+652 |     """Higher score → more likely to be useful in SRS reasoning.
+    |
+
+F401 [*] `hashlib` imported but unused
+  --> backend/routes/tools.py:14:8
+   |
+12 | import contextlib
+13 | import csv
+14 | import hashlib
+   |        ^^^^^^^
+15 | import io
+16 | import json
+   |
+help: Remove unused import: `hashlib`
+   |
+13 | import csv
+   - import hashlib
+14 | import io
+   |
+
+F841 Local variable `transforms_map` is assigned to but never used
+    --> backend/routes/tools.py:4078:5
+     |
+4076 |             kb_ctx = ""
+4077 |
+4078 |     transforms_map = transform.get("transforms") or {}
+     |     ^^^^^^^^^^^^^^
+4079 |     content = source.get("content", "")
+4080 |     target_stack = _resolve_target_stack(transform, original_path, content)
+     |
+help: Remove assignment to unused variable `transforms_map`
+
+ARG001 Unused function argument: `target_stack`
+    --> backend/routes/tools.py:5756:63
+     |
+5755 | def _structural_check(
+5756 |     transformed: str, source_path: str, detected_stack: dict, target_stack: dict,
+     |                                                               ^^^^^^^^^^^^
+5757 | ) -> Dict[str, Any]:
+5758 |     """Cheap deterministic gate. Returns {ok, severity, issues[]}."""
+     |
+
+F841 Local variable `cwd` is assigned to but never used
+    --> backend/routes/tools.py:6883:9
+     |
+6881 |         if not _CORRUPTED_SOURCE_SIGNATURE_RE.search(text):
+6882 |             continue
+6883 |         cwd = (f.get("cwd") or "").strip("/")
+     |         ^^^
+6884 |         # Try to pin down WHICH file is corrupted from any `Name.ext:...`
+6885 |         # mention near the corruption signature, even without a full
+     |
+help: Remove assignment to unused variable `cwd`
+
+ARG001 Unused function argument: `resume`
+    --> backend/routes/tools.py:8757:5
+     |
+8755 |     transform_id: str,
+8756 |     model: str = None,
+8757 |     resume: bool = False,
+     |     ^^^^^^
+8758 | ):
+8759 |     """Multi-agent transformation pipeline (iter-16).
+     |
+
+F841 Local variable `target_stack` is assigned to but never used
+    --> backend/routes/tools.py:8777:9
+     |
+8776 |         detected_stack = transform.get("source_stack") or {}
+8777 |         target_stack = transform.get("transforms") or {}
+     |         ^^^^^^^^^^^^
+8778 |         source_files_docs = await transform_files.find(
+8779 |             {"transform_id": transform_id, "type": "source"}
+     |
+help: Remove assignment to unused variable `target_stack`
+
+F841 Local variable `kb_ctx` is assigned to but never used
+    --> backend/routes/tools.py:8818:13
+     |
+8816 |                 upsert=True,
+8817 |             )
+8818 |             kb_ctx = render_kb_for_prompt(kb, max_chars=15000)
+     |             ^^^^^^
+8819 |         except Exception as e:
+8820 |             print(f"[transformer:{transform_id}] KB build failed: {e}")
+     |
+help: Remove assignment to unused variable `kb_ctx`
+
+F401 [*] `typing.Tuple` imported but unused
+  --> backend/tools_kb_builder.py:22:47
+   |
+20 | import os
+21 | import re
+22 | from typing import Any, Dict, List, Optional, Tuple
+   |                                               ^^^^^
+23 |
+24 | from kb.owl_extractor import extract, enrich_routes, aggregate_stats, _collect_string_constants
+   |
+help: Remove unused import: `typing.Tuple`
+   |
+21 | import re
+   - from typing import Any, Dict, List, Optional, Tuple
+22 + from typing import Any, Dict, List, Optional
+23 |
+   |
+
+Found 88 errors.
+[*] 48 fixable with the `--fix` option (15 hidden fixes can be enabled with the `--unsafe-fixes` option).

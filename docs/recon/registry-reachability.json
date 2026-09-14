@@ -1,0 +1,2400 @@
+{
+ "prompt_keys": [
+  {
+   "key": "arch.api_contracts",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.chat",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/fabric/model_fabric.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/tests/test_iter13100_upstream_attach.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.decompose",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.hld",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.lld",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.recommend",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/tests/test_iter1422_route_extraction.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.sequence",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "code.generate",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.build_tool_selector",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.chat",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/fabric/model_fabric.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.coder_be",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.coder_fe",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.context_manager",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.docs",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.finalizer",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.frontend",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.gap_recovery",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter1423_field_evidence.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.planner",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.regenerate",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.reviewer",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.service",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter1421_codegen_ownership.py",
+    "backend/tests/test_iter1423_field_evidence.py",
+    "frontend/src/pages/CodeGen.jsx"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.super_agent",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.tester",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.traceability_gate",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.verifier",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/codegen.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.bus_matrix",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/datamodel.py",
+    "backend/routes/living.py",
+    "backend/tests/test_datamodel.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.chat",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter13100_agent_memory.py",
+    "backend/tests/test_iter13100_sessions_route.py",
+    "backend/tests/test_iter13100_upstream_attach.py",
+    "frontend/src/components/FloatingChat.jsx",
+    "frontend/src/pages/DataModel.jsx"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.olap",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter10_ontology.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.oltp",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter10_ontology.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.optimise",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "diff.srs",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/living.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "drift.detector",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "gov.business_rule_extraction",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "gov.completeness_contract",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/architecture.py",
+    "backend/routes/codegen.py",
+    "backend/routes/datamodel.py",
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "gov.core",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "gov.field_traceability",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "gov.role_analysis",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "legacy.deep_analyzer",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.architecture",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.codegen",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.datamodel",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.discovery",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.living",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.diff",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.edit",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/chat.py",
+    "backend/tests/test_lama_v4.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.gap_question",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/fabric/model_fabric.py",
+    "backend/llm.py",
+    "backend/routes/chat.py",
+    "backend/routes/srs.py",
+    "backend/tests/test_iter13100_sessions_route.py",
+    "backend/tests/test_lama_v2.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.generate",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/factory_orchestrator.py",
+    "backend/kb/business_ontology.py",
+    "backend/llm.py",
+    "backend/routes/chat.py",
+    "backend/routes/srs.py",
+    "backend/tests/test_console.py",
+    "backend/tests/test_iter1391_factory_isolation.py",
+    "backend/tests/test_lama_v2.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.regenerate",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/pipeline.py",
+    "backend/routes/srs.py",
+    "backend/tests/test_iter147_factory_cli_timeout.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.revalidation",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.spec.ieee29148",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "test.cases",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/llm.py",
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "test.jmeter",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/llm.py",
+    "backend/routes/living.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "test.jmeter.samplers",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [],
+   "reachable": false
+  },
+  {
+   "key": "test.selenium",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/llm.py",
+    "backend/routes/living.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "test.unit",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_analyzer",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_analyzer.doc_parser",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_verifier",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/tests/test_iter1538_agent_plan_chat.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.coder",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "backend/tests/test_iter1534_coder_factory_narrative_guard.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.context_manager",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "backend/tests/test_iter1519_agent_pipeline_config.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.devops_expert",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "backend/tests/test_iter1562_fix_loop_iterations.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.pattern",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.planner",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.super_agent",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.tester",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.validator",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.verifier",
+   "defined_in": [
+    "backend/seed.py"
+   ],
+   "consumers": [
+    "backend/fabric/model_fabric.py",
+    "backend/routes/tools.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  }
+ ],
+ "agent_complexity_tiers": [
+  {
+   "key": "arch.api_contracts",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.chat",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/seed.py",
+    "backend/tests/test_iter13100_upstream_attach.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.decompose",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.hld",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.lld",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/routes/living.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.recommend",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1422_route_extraction.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "arch.sequence",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/architecture.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.build_tool_selector",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.chat",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.coder_be",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.coder_fe",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.context_manager",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.docs",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.finalizer",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.frontend",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.gap_recovery",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1423_field_evidence.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.planner",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.regenerate",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.reviewer",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.service",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1421_codegen_ownership.py",
+    "backend/tests/test_iter1423_field_evidence.py",
+    "frontend/src/pages/CodeGen.jsx"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.super_agent",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.tester",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.traceability_gate",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "codegen.verifier",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/codegen.py",
+    "backend/seed.py",
+    "backend/tests/test_iter17_codegen_multiagent.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.bus_matrix",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/datamodel.py",
+    "backend/routes/living.py",
+    "backend/seed.py",
+    "backend/tests/test_datamodel.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.chat",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/seed.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter13100_agent_memory.py",
+    "backend/tests/test_iter13100_sessions_route.py",
+    "backend/tests/test_iter13100_upstream_attach.py",
+    "frontend/src/components/FloatingChat.jsx",
+    "frontend/src/pages/DataModel.jsx"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.olap",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/seed.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter10_ontology.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "datamodel.oltp",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/llm.py",
+    "backend/routes/datamodel.py",
+    "backend/seed.py",
+    "backend/tests/test_datamodel.py",
+    "backend/tests/test_iter10_ontology.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "kb.graphify",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/kb/kb_graph.py",
+    "backend/tests/test_iter1391_factory_isolation.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.architecture",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.codegen",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.datamodel",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.discovery",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "orchestrator.living",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.diff",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.edit",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/chat.py",
+    "backend/seed.py",
+    "backend/tests/test_lama_v4.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.gap_question",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/agent_memory.py",
+    "backend/llm.py",
+    "backend/routes/chat.py",
+    "backend/routes/srs.py",
+    "backend/seed.py",
+    "backend/tests/test_iter13100_sessions_route.py",
+    "backend/tests/test_lama_v2.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.generate",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/factory_orchestrator.py",
+    "backend/kb/business_ontology.py",
+    "backend/llm.py",
+    "backend/routes/chat.py",
+    "backend/routes/srs.py",
+    "backend/seed.py",
+    "backend/tests/test_console.py",
+    "backend/tests/test_iter1391_factory_isolation.py",
+    "backend/tests/test_lama_v2.py",
+    "backend/tests/test_migrationos.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.regenerate",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/pipeline.py",
+    "backend/routes/srs.py",
+    "backend/seed.py",
+    "backend/tests/test_iter147_factory_cli_timeout.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "srs.revalidation",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/srs.py",
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_analyzer",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_analyzer.doc_parser",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.gap_verifier",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.coder",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1534_coder_factory_narrative_guard.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.context_manager",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1519_agent_pipeline_config.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.devops_expert",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "backend/tests/test_iter1562_fix_loop_iterations.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.pattern",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.planner",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.super_agent",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.tester",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.validator",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  },
+  {
+   "key": "tools.transformer.verifier",
+   "defined_in": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "consumers": [
+    "backend/routes/tools.py",
+    "backend/seed.py",
+    "frontend/src/lib/agentLabels.js"
+   ],
+   "reachable": true
+  }
+ ],
+ "env_vars": [
+  {
+   "env": "LAMA_ARCH_DOMAIN_BUCKETING",
+   "read_by": [
+    "backend/routes/architecture.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_ARCH_MAX_SPEC_TABLES",
+   "read_by": [
+    "backend/routes/architecture.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_BR_ENFORCE",
+   "read_by": [
+    "backend/kb/br_tracker.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_BR_MIN_COVERAGE",
+   "read_by": [
+    "backend/kb/br_tracker.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CA_BUNDLE",
+   "read_by": [
+    "backend/factory_orchestrator.py",
+    "backend/integrations/catalog.py",
+    "backend/llm.py",
+    "backend/routes/github.py",
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_CONFIDENCE_THRESHOLD",
+   "read_by": [
+    "backend/codegen/confidence_graph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_GAP_FILE_TIMEOUT",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_HF_CHUNK_CHARS",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_CODEGEN_HF_CORPUS_MAX",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_CODEGEN_HF_ENABLED",
+   "read_by": [
+    "backend/codegen/hf_confidence.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_HF_MIN_SIM",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_CODEGEN_MAX_ENDPOINTS_PER_SVC",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_MAX_ITERATIONS",
+   "read_by": [
+    "backend/codegen/confidence_graph.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_MAX_TABLES_PER_SVC",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_NODE_TIMEOUT",
+   "read_by": [
+    "backend/codegen/confidence_graph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODEGEN_PARALLELISM",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CODER_MAX_CONCURRENCY",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_COMPILE_FIX_CONCURRENCY",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_COMPILE_FIX_MAX_ITER",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_COMPILE_TIMEOUT_SEC",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CONFIDENCE_ENGINE",
+   "read_by": [
+    "backend/confidence_langgraph.py",
+    "backend/routes/living.py",
+    "backend/routes/pipeline.py",
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CONFIDENCE_STAGE_CONCURRENCY",
+   "read_by": [
+    "backend/routes/pipeline.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CONFIDENCE_STRICT_HF",
+   "read_by": [
+    "backend/confidence_langgraph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CONTEXT_BUNDLE_MAX_CHARS",
+   "read_by": [
+    "backend/context_bundler.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CONTEXT_CACHE_TTL_SEC",
+   "read_by": [
+    "backend/context_bundler.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_CORP_CA_HOST",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_COVERAGE_TIMEOUT_SEC",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_DATA_DIR",
+   "read_by": [
+    "backend/context_bundler.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_DB_SECRET",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_DEFAULT_MODEL",
+   "read_by": [
+    "backend/fabric/model_fabric.py",
+    "backend/llm.py",
+    "backend/routes/codegen.py",
+    "backend/routes/console.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_DEFAULT_PROJECT_ID",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_DISABLE_OPENROUTER_FALLBACK",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_DISABLE_SSL_VERIFY",
+   "read_by": [
+    "backend/factory_orchestrator.py",
+    "backend/integrations/catalog.py",
+    "backend/llm.py",
+    "backend/routes/github.py",
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_DROID_BIN_HOST",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_DROID_BIN_HOST_DIR",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_EMBED_BACKEND",
+   "read_by": [
+    "backend/kb/vector_store.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_EOF_",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_EXPORT_HOST_DIR",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_EXPORT_ROOT",
+   "read_by": [
+    "backend/codegen/disk_exporter.py",
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_5XX_RETRIES",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_AUTO",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_BIN",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_CWD",
+   "read_by": [
+    "backend/fabric/factory_cli.py",
+    "backend/kb/droid_workspace.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_DUMP_DIR",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_DUMP_PROMPT",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_PROBE_FAILURE_TTL_SEC",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_PROBE_STICKY_SUCCESS_SEC",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_PROBE_SUCCESS_TTL_SEC",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_PROBE_TIMEOUT_SEC",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_SLIM",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CLI_TIMEOUT_SEC",
+   "read_by": [
+    "backend/fabric/factory_cli.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_CONFIG_HOST",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_FACTORY_MATERIALIZE_CHUNK",
+   "read_by": [
+    "backend/kb/factory_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_MATERIALIZE_MAX_BYTES",
+   "read_by": [
+    "backend/kb/factory_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_MATERIALIZE_TIMEOUT",
+   "read_by": [
+    "backend/kb/factory_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_MODE",
+   "read_by": [
+    "backend/fabric/factory_cli.py",
+    "backend/llm.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_PIN_BYPASS",
+   "read_by": [
+    "backend/llm.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_POLL_INTERVAL_SEC",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_PROMPT_MAX_CHARS",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_PROMPT_RETRY_MAX_CHARS",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_SLOW_AGENT_TIMEOUT_SEC",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_STRICT",
+   "read_by": [
+    "backend/llm.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_TIMEOUT_RETRY_MAX_CHARS",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_WAKE_MIN_INTERVAL_SEC",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_FACTORY_WORKSPACE_BASE",
+   "read_by": [
+    "backend/factory_orchestrator.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GAP_ANALYSIS_MODEL",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GAP_CLONE_TIMEOUT",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GAP_RECOVERY_CONCURRENCY",
+   "read_by": [
+    "backend/routes/codegen.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GIT_CACHE_HOST",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_GIT_CLONE_ROOT",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GIT_CLONE_TIMEOUT",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_GRAPHIFY_ENRICH",
+   "read_by": [
+    "backend/kb/kb_graph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_HF_ACCEPT_SCORE",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_ALLOW_LLM_FALLBACK",
+   "read_by": [
+    "backend/confidence_langgraph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_HF_CONTRADICTION_HARD_STOP",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_COVERAGE_ACCEPT",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_COVERAGE_FLOOR",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_EMBEDDING_MODEL",
+   "read_by": [
+    "backend/confidence_langgraph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_HF_LOAD_TIMEOUT",
+   "read_by": [
+    "backend/confidence_langgraph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_HF_NLI_MAX_PAIRS",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_NLI_MODEL",
+   "read_by": [
+    "backend/confidence_langgraph.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_HF_REJECT_SCORE",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HF_TOKEN_MATCH_SIM",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HOME",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_HYDRATED_REF_MAX_CHARS",
+   "read_by": [
+    "backend/agent_memory.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_IMAGE",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_INGEST_CONCURRENCY",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_INGEST_PER_FILE_TIMEOUT",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_IN_DOCKER",
+   "read_by": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_KB_STAGES",
+   "read_by": [
+    "backend/kb/journey_config.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_KINDS",
+   "read_by": [
+    "backend/kb/journey_config.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_MAX_COLS_PER_TABLE",
+   "read_by": [
+    "backend/kb/journey_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_MAX_METHODS_PER_ROUTE",
+   "read_by": [
+    "backend/kb/journey_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_MAX_TABLES_PER_ROUTE",
+   "read_by": [
+    "backend/kb/journey_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JOURNEY_MAX_TOTAL",
+   "read_by": [
+    "backend/kb/journey_materializer.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JWT_SECRET",
+   "read_by": [
+    "backend/auth.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_JWT_TTL_HOURS",
+   "read_by": [
+    "backend/auth.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_LEGACY_WORKSPACE_BUDGET",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_LEGACY_WORKSPACE_MAX_FILES",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_LEGACY_WORKSPACE_PER_FILE_CAP",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_LOCAL_LLM_TIMEOUT",
+   "read_by": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_MAT_CHUNK_",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_MAT_EXTRACT_OK",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_MAT_INIT_OK",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_OLLAMA_BASE_URL",
+   "read_by": [
+    "backend/fabric/model_fabric.py",
+    "backend/kb/vector_store.py",
+    "backend/llm.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLLAMA_CLOUD",
+   "read_by": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLLAMA_CLOUD_BASE_URL",
+   "read_by": [
+    "backend/fabric/model_fabric.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLLAMA_EMBED_MODEL",
+   "read_by": [
+    "backend/kb/vector_store.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLLAMA_FIRST_FALLBACK",
+   "read_by": [
+    "backend/llm.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLTP_DDL_MAX_CHARS",
+   "read_by": [
+    "backend/context_bundler.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OLTP_DETERMINISTIC",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_ORACLE_OWNER",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_OWL_MAX_TEXT_BYTES",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OWL_SKIP_MINIFIED",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_OWL_TIMEOUT_SEC",
+   "read_by": [
+    "backend/routes/kb.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_PROJECT",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_PULL_POLICY",
+   "read_by": [],
+   "reachable": false
+  },
+  {
+   "env": "LAMA_QDRANT_COLLECTION",
+   "read_by": [
+    "backend/kb/vector_store.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_REVALIDATION_MODEL",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SESSION_SIGNING_KEY",
+   "read_by": [
+    "backend/agent_memory.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_AUTORETRY",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_AUTO_RETRIES",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_BATCH",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_FREEZE_MIN",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_MAX_CONSEC_FAILS",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_MIN_CONFIDENCE",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SRS_PARALLEL",
+   "read_by": [
+    "backend/routes/srs.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SUPERADMIN_EMAIL",
+   "read_by": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SUPERADMIN_PASS",
+   "read_by": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SUPERADMIN_RESET",
+   "read_by": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_SUPERADMIN_USER",
+   "read_by": [
+    "backend/seed.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_TESTGEN_CONCURRENCY",
+   "read_by": [
+    "backend/routes/tools.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_THREADPOOL_WORKERS",
+   "read_by": [
+    "backend/server.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_TOON_STAGE_BUDGET_CHARS",
+   "read_by": [
+    "backend/context_bundler.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_USE_GRAPH_KB",
+   "read_by": [
+    "backend/context_bundler.py",
+    "backend/kb/graph_config.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_USE_JOURNEY_KB",
+   "read_by": [
+    "backend/kb/journey_config.py"
+   ],
+   "reachable": true
+  },
+  {
+   "env": "LAMA_WORKSPACE_READY",
+   "read_by": [],
+   "reachable": false
+  }
+ ]
+}

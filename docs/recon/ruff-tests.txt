@@ -1,0 +1,2705 @@
+ARG001 Unused function argument: `existing_project_id`
+  --> backend/tests/test_arch_codegen.py:85:27
+   |
+85 | def test_arch_reset_works(existing_project_id):
+   |                           ^^^^^^^^^^^^^^^^^^^
+86 |     # Use a fresh project_id to avoid disturbing existing state
+87 |     pid = "TEST_arch_reset_" + uuid.uuid4().hex
+   |
+
+F541 [*] f-string without any placeholders
+   --> backend/tests/test_codegen_frontend.py:176:17
+    |
+174 | def test_frontend_emergency_scaffold_passes_validator(ctype):
+175 |     file_def = {
+176 |         "path": f"frontend/src/pages/Dashboard.tsx" if ctype == "page"
+    |                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+177 |                 else f"frontend/src/{ctype}.tsx",
+178 |         "ctype": ctype,
+    |
+help: Remove extraneous `f` prefix
+    |
+175 |     file_def = {
+    -         "path": f"frontend/src/pages/Dashboard.tsx" if ctype == "page"
+176 +         "path": "frontend/src/pages/Dashboard.tsx" if ctype == "page"
+177 |                 else f"frontend/src/{ctype}.tsx",
+    |
+
+F841 Local variable `root` is assigned to but never used
+   --> backend/tests/test_codegen_standalone.py:240:5
+    |
+238 | def test_scaffold_pom_xml_is_well_formed_xml():
+239 |     body = _scaffold_for("services/orders/pom.xml", "java")
+240 |     root = ET.fromstring(body)
+    |     ^^^^
+241 |     # spring-boot-starter-parent + spring-boot-maven-plugin must be present
+242 |     assert "spring-boot-starter-parent" in body
+    |
+help: Remove assignment to unused variable `root`
+
+F541 [*] f-string without any placeholders
+   --> backend/tests/test_codegen_standalone.py:293:30
+    |
+291 | def test_scaffold_dockerfile_per_language_has_workdir_and_entrypoint():
+292 |     for lang in _LANGS:
+293 |         body = _scaffold_for(f"services/orders/Dockerfile", lang, ftype="dockerfile")
+    |                              ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+294 |         assert "WORKDIR /app" in body, f"{lang} Dockerfile missing WORKDIR"
+295 |         assert any(tok in body for tok in ("ENTRYPOINT", "CMD")), f"{lang} Dockerfile missing CMD/ENTRYPOINT"
+    |
+help: Remove extraneous `f` prefix
+    |
+292 |     for lang in _LANGS:
+    -         body = _scaffold_for(f"services/orders/Dockerfile", lang, ftype="dockerfile")
+293 +         body = _scaffold_for("services/orders/Dockerfile", lang, ftype="dockerfile")
+294 |         assert "WORKDIR /app" in body, f"{lang} Dockerfile missing WORKDIR"
+    |
+
+F401 [*] `codegen.file_templates.get_file_instruction` imported but unused
+  --> backend/tests/test_codegen_structural.py:34:5
+   |
+32 |     FILE_TYPE_SKELETONS,
+33 |     REQUIRED_TOKENS,
+34 |     get_file_instruction,
+   |     ^^^^^^^^^^^^^^^^^^^^
+35 |     required_tokens_for,
+36 | )
+   |
+help: Remove unused import: `codegen.file_templates.get_file_instruction`
+   |
+33 |     REQUIRED_TOKENS,
+   -     get_file_instruction,
+34 |     required_tokens_for,
+   |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:138:50
+    |
+137 | @pytest.mark.asyncio
+138 | async def test_sign_and_verify_summary_roundtrip(fake_db):
+    |                                                  ^^^^^^^
+139 |     from agent_memory import sign_summary, verify_summary_sig
+140 |     from models import AgentSession, ContextRef
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:161:49
+    |
+160 | @pytest.mark.asyncio
+161 | async def test_tampered_summary_fails_signature(fake_db):
+    |                                                 ^^^^^^^
+162 |     """The whole point of HMAC: a client-modified summary must not validate."""
+163 |     from agent_memory import sign_summary, verify_summary_sig
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:181:64
+    |
+180 | @pytest.mark.asyncio
+181 | async def test_empty_summary_with_empty_sig_is_trivially_valid(fake_db):
+    |                                                                ^^^^^^^
+182 |     from agent_memory import verify_summary_sig
+183 |     from models import AgentSession
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:221:60
+    |
+220 | @pytest.mark.asyncio
+221 | async def test_append_turn_grows_live_tail_and_token_count(fake_db):
+    |                                                            ^^^^^^^
+222 |     from agent_memory import append_turn, create_session
+223 |     from models import AgentSessionCreate
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:262:46
+    |
+261 | @pytest.mark.asyncio
+262 | async def test_attach_ref_dedups_and_resigns(fake_db):
+    |                                              ^^^^^^^
+263 |     from agent_memory import attach_ref, create_session
+264 |     from models import AgentSessionCreate, ContextRef
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:298:62
+    |
+297 | @pytest.mark.asyncio
+298 | async def test_list_sessions_filters_by_project_and_archived(fake_db):
+    |                                                              ^^^^^^^
+299 |     from agent_memory import archive_session, create_session, list_sessions
+300 |     from models import AgentSessionCreate
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:315:68
+    |
+314 | @pytest.mark.asyncio
+315 | async def test_build_prompt_prefix_includes_summary_refs_and_turns(fake_db):
+    |                                                                    ^^^^^^^
+316 |     from agent_memory import append_turn, build_prompt_prefix, create_session
+317 |     from models import AgentSessionCreate, ContextRef
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_agent_memory.py:407:48
+    |
+406 | @pytest.mark.asyncio
+407 | async def test_rollover_noop_when_under_budget(fake_db):
+    |                                                ^^^^^^^
+408 |     from agent_memory import append_turn, create_session, maybe_rollover
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:101:49
+    |
+100 | @pytest.mark.asyncio
+101 | async def test_unknown_session_id_falls_through(fake_db, stub_fabric_call):
+    |                                                 ^^^^^^^
+102 |     """Stale / wrong session_id must NOT block the LLM call."""
+103 |     from llm import fabric_call_with_session
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:114:47
+    |
+113 | @pytest.mark.asyncio
+114 | async def test_archived_session_falls_through(fake_db, stub_fabric_call):
+    |                                               ^^^^^^^
+115 |     from agent_memory import archive_session, create_session
+116 |     from llm import fabric_call_with_session
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:130:64
+    |
+129 | @pytest.mark.asyncio
+130 | async def test_active_session_splices_prefix_and_appends_after(fake_db, stub_fabric_call):
+    |                                                                ^^^^^^^
+131 |     """The marquee test: prefix is spliced between caller-system and
+132 |     caller-rest, AND both the new user turn + assistant reply are
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:177:56
+    |
+176 | @pytest.mark.asyncio
+177 | async def test_auto_append_false_does_not_grow_session(fake_db, stub_fabric_call):
+    |                                                        ^^^^^^^
+178 |     from agent_memory import create_session, get_session
+179 |     from llm import fabric_call_with_session
+    |
+
+ARG001 Unused function argument: `stub_fabric_call`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:177:65
+    |
+176 | @pytest.mark.asyncio
+177 | async def test_auto_append_false_does_not_grow_session(fake_db, stub_fabric_call):
+    |                                                                 ^^^^^^^^^^^^^^^^
+178 |     from agent_memory import create_session, get_session
+179 |     from llm import fabric_call_with_session
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:194:60
+    |
+193 | @pytest.mark.asyncio
+194 | async def test_wrapper_runs_rollover_before_calling_fabric(fake_db, stub_fabric_call, monkeypatch):
+    |                                                            ^^^^^^^
+195 |     """Force the session over budget so the wrapper triggers rollover
+196 |     BEFORE the stubbed fabric_call is invoked for the real user turn.
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:263:64
+    |
+262 | @pytest.mark.asyncio
+263 | async def test_resolve_context_window_falls_back_when_db_empty(fake_db):
+    |                                                                ^^^^^^^
+264 |     """With no providers configured and no hint, must return the safe default."""
+265 |     from llm import _resolve_context_window
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_fabric_call_with_session.py:272:69
+    |
+271 | @pytest.mark.asyncio
+272 | async def test_resolve_context_window_uses_preset_when_hint_matches(fake_db):
+    |                                                                     ^^^^^^^
+273 |     """A model hint that exists in PROVIDER_PRESETS must drive the answer."""
+274 |     from llm import _resolve_context_window
+    |
+
+ARG001 Unused function argument: `fake_db`
+  --> backend/tests/test_iter13100_hydration.py:92:59
+   |
+91 | @pytest.mark.asyncio
+92 | async def test_hydrate_missing_doc_returns_missing_status(fake_db):
+   |                                                           ^^^^^^^
+93 |     from agent_memory import hydrate_refs
+94 |     from models import ContextRef
+   |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_hydration.py:104:59
+    |
+103 | @pytest.mark.asyncio
+104 | async def test_hydrate_refuses_non_allowlisted_collection(fake_db):
+    |                                                           ^^^^^^^
+105 |     """Trust boundary: a tampered session pointing at `agent_configs`
+106 |     (API keys) or `users` (password hashes) must be refused at hydration
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_hydration.py:255:63
+    |
+254 | @pytest.mark.asyncio
+255 | async def test_hydrated_prefix_surfaces_missing_ref_as_notice(fake_db):
+    |                                                               ^^^^^^^
+256 |     from agent_memory import build_prompt_prefix, create_session
+257 |     from models import AgentSessionCreate, ContextRef
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_hydration.py:272:65
+    |
+271 | @pytest.mark.asyncio
+272 | async def test_hydrated_prefix_surfaces_forbidden_ref_as_notice(fake_db):
+    |                                                                 ^^^^^^^
+273 |     from agent_memory import build_prompt_prefix, create_session
+274 |     from models import AgentSessionCreate, ContextRef
+    |
+
+ARG001 Unused function argument: `fake_db`
+  --> backend/tests/test_iter13100_upstream_attach.py:79:48
+   |
+77 | # ─────────────────────────────────────────────────────────────────────
+78 | @pytest.mark.asyncio
+79 | async def test_auto_attach_empty_for_discovery(fake_db):
+   |                                                ^^^^^^^
+80 |     from agent_memory import auto_attach_upstream_refs
+   |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_upstream_attach.py:207:57
+    |
+206 | @pytest.mark.asyncio
+207 | async def test_discovery_session_starts_with_empty_refs(fake_db):
+    |                                                         ^^^^^^^
+208 |     """No upstream stages exist for Discovery — auto-attach must produce
+209 |     an empty refs list, not a spurious self-reference."""
+    |
+
+ARG001 Unused function argument: `fake_db`
+   --> backend/tests/test_iter13100_upstream_attach.py:223:48
+    |
+221 | # ─────────────────────────────────────────────────────────────────────
+222 | @pytest.mark.asyncio
+223 | async def test_per_stage_sessions_are_isolated(fake_db):
+    |                                                ^^^^^^^
+224 |     """A rollover on the Discovery session must not change the DataModel
+225 |     session's live_turns / summary, even though they share project_id."""
+    |
+
+F401 [*] `agent_memory.AGENT_MEMORY` imported but unused
+   --> backend/tests/test_iter13100_upstream_attach.py:227:9
+    |
+225 |     session's live_turns / summary, even though they share project_id."""
+226 |     from agent_memory import (
+227 |         AGENT_MEMORY, append_turn, create_session, get_session, maybe_rollover,
+    |         ^^^^^^^^^^^^
+228 |     )
+229 |     from models import AgentSessionCreate
+    |
+help: Remove unused import: `agent_memory.AGENT_MEMORY`
+    |
+226 |     from agent_memory import (
+    -         AGENT_MEMORY, append_turn, create_session, get_session, maybe_rollover,
+227 +         append_turn, create_session, get_session, maybe_rollover,
+228 |     )
+    |
+
+ARG001 Unused function argument: `monkeypatch`
+   --> backend/tests/test_iter1390_kb_leak.py:116:52
+    |
+116 | def test_load_srs_context_rejects_empty_project_id(monkeypatch):
+    |                                                    ^^^^^^^^^^^
+117 |     """`_load_srs_context` is the SRS hot-path entry. It MUST refuse early
+118 |     when project_id is empty so no downstream Mongo query ever sees `{}`.
+    |
+
+F401 [*] `pytest` imported but unused
+  --> backend/tests/test_iter1391_factory_isolation.py:36:8
+   |
+34 | import sys
+35 |
+36 | import pytest
+   |        ^^^^^^
+37 |
+38 | HERE = os.path.dirname(os.path.abspath(__file__))
+   |
+help: Remove unused import: `pytest`
+   |
+35 |
+   - import pytest
+36 |
+   |
+
+ARG002 Unused method argument: `a`
+  --> backend/tests/test_iter1410_improve_loop.py:42:29
+   |
+40 |     class _FakeCollProxy:
+41 |         def __getattr__(self, _n): return _FakeCollProxy()
+42 |         def __call__(self, *a, **kw): return self
+   |                             ^
+43 |
+44 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter1410_improve_loop.py:42:34
+   |
+40 |     class _FakeCollProxy:
+41 |         def __getattr__(self, _n): return _FakeCollProxy()
+42 |         def __call__(self, *a, **kw): return self
+   |                                  ^^
+43 |
+44 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_iter1410_improve_loop.py:57:35
+   |
+55 |         self.docs: list[dict] = []
+56 |
+57 |     async def find_one(self, flt, projection=None):
+   |                                   ^^^^^^^^^^
+58 |         for d in self.docs:
+59 |             if all(d.get(k) == v for k, v in flt.items()):
+   |
+
+ARG001 Unused function argument: `jid`
+   --> backend/tests/test_iter1410_improve_loop.py:101:48
+    |
+ 99 |     seq = {"i": 0, "scores": [50.0, 78.0, 97.0]}
+100 |
+101 |     async def _fake_compute(project_id, stage, jid=None):
+    |                                                ^^^
+102 |         seq["i"] += 1
+103 |         s = seq["scores"][min(seq["i"] - 1, len(seq["scores"]) - 1)]
+    |
+
+ARG001 Unused function argument: `model`
+   --> backend/tests/test_iter1410_improve_loop.py:136:59
+    |
+134 |     calls: list[dict] = []
+135 |
+136 |     async def _fake_regen(project_id, section_key, hints, model=""):
+    |                                                           ^^^^^
+137 |         calls.append({"pid": project_id, "section": section_key,
+138 |                       "hints": list(hints or [])})
+    |
+
+ARG002 Unused method argument: `a`
+  --> backend/tests/test_iter1411_token_reduction.py:42:29
+   |
+40 |     class _FakeCollProxy:
+41 |         def __getattr__(self, _n): return _FakeCollProxy()
+42 |         def __call__(self, *a, **kw): return self
+   |                             ^
+43 |
+44 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter1411_token_reduction.py:42:34
+   |
+40 |     class _FakeCollProxy:
+41 |         def __getattr__(self, _n): return _FakeCollProxy()
+42 |         def __call__(self, *a, **kw): return self
+   |                                  ^^
+43 |
+44 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_iter1411_token_reduction.py:61:42
+   |
+59 |         self.docs: list[dict] = []
+60 |
+61 |     async def find_one(self, filt: dict, projection=None):
+   |                                          ^^^^^^^^^^
+62 |         for d in self.docs:
+63 |             if all(d.get(k) == v for k, v in filt.items()):
+   |
+
+ARG002 Unused method argument: `a`
+  --> backend/tests/test_iter1411_token_reduction.py:76:33
+   |
+74 |             self.docs.append(dict(doc))
+75 |
+76 |     async def update_one(self, *a, **kw):
+   |                                 ^
+77 |         return None
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter1411_token_reduction.py:76:38
+   |
+74 |             self.docs.append(dict(doc))
+75 |
+76 |     async def update_one(self, *a, **kw):
+   |                                      ^^
+77 |         return None
+   |
+
+ARG001 Unused function argument: `project_id`
+   --> backend/tests/test_iter1411_token_reduction.py:150:30
+    |
+149 |     scorer_calls: list[dict] = []
+150 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                              ^^^^^^^^^^
+151 |                           kb_summary, ground_truth, models):
+152 |         scorer_calls.append({"sections": [s["key"] for s in sections], "models": list(models)})
+    |
+
+ARG001 Unused function argument: `stage`
+   --> backend/tests/test_iter1411_token_reduction.py:150:42
+    |
+149 |     scorer_calls: list[dict] = []
+150 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                                          ^^^^^
+151 |                           kb_summary, ground_truth, models):
+152 |         scorer_calls.append({"sections": [s["key"] for s in sections], "models": list(models)})
+    |
+
+ARG001 Unused function argument: `artifact_text`
+   --> backend/tests/test_iter1411_token_reduction.py:150:49
+    |
+149 |     scorer_calls: list[dict] = []
+150 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                                                 ^^^^^^^^^^^^^
+151 |                           kb_summary, ground_truth, models):
+152 |         scorer_calls.append({"sections": [s["key"] for s in sections], "models": list(models)})
+    |
+
+ARG001 Unused function argument: `kb_summary`
+   --> backend/tests/test_iter1411_token_reduction.py:151:27
+    |
+149 |     scorer_calls: list[dict] = []
+150 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+151 |                           kb_summary, ground_truth, models):
+    |                           ^^^^^^^^^^
+152 |         scorer_calls.append({"sections": [s["key"] for s in sections], "models": list(models)})
+153 |         return {"sections": [{**s, "score": 90.0, "band": "great",
+    |
+
+ARG001 Unused function argument: `ground_truth`
+   --> backend/tests/test_iter1411_token_reduction.py:151:39
+    |
+149 |     scorer_calls: list[dict] = []
+150 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+151 |                           kb_summary, ground_truth, models):
+    |                                       ^^^^^^^^^^^^
+152 |         scorer_calls.append({"sections": [s["key"] for s in sections], "models": list(models)})
+153 |         return {"sections": [{**s, "score": 90.0, "band": "great",
+    |
+
+F841 Local variable `stage_conf` is assigned to but never used
+   --> backend/tests/test_iter1411_token_reduction.py:229:5
+    |
+227 |       * Trajectory rows carry scoring_mode + tokens_used.
+228 |     """
+229 |     stage_conf = _patch_pipeline["stage_conf"]
+    |     ^^^^^^^^^^
+230 |
+231 |     # A minimal Discovery catalogue: 2 rows.
+    |
+help: Remove assignment to unused variable `stage_conf`
+
+ARG001 Unused function argument: `max_chars`
+   --> backend/tests/test_iter1411_token_reduction.py:239:33
+    |
+237 |     ]
+238 |     monkeypatch.setattr(pl, "_sections_for_stage", lambda _s: sections_stub)
+239 |     async def _art(_pid, _keys, max_chars: int = 28000): return "ART"
+    |                                 ^^^^^^^^^
+240 |     monkeypatch.setattr(pl, "_collect_artifact_text", _art)
+    |
+
+ARG001 Unused function argument: `project_id`
+   --> backend/tests/test_iter1411_token_reduction.py:256:30
+    |
+254 |     # `nfr` stays scored at ~30 throughout (never re-scored in iter 2+),
+255 |     # so the merge path is what matters for it.
+256 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                              ^^^^^^^^^^
+257 |                           kb_summary, ground_truth, models):
+258 |         call_log.append({"section_keys": [s["key"] for s in sections],
+    |
+
+ARG001 Unused function argument: `stage`
+   --> backend/tests/test_iter1411_token_reduction.py:256:42
+    |
+254 |     # `nfr` stays scored at ~30 throughout (never re-scored in iter 2+),
+255 |     # so the merge path is what matters for it.
+256 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                                          ^^^^^
+257 |                           kb_summary, ground_truth, models):
+258 |         call_log.append({"section_keys": [s["key"] for s in sections],
+    |
+
+ARG001 Unused function argument: `artifact_text`
+   --> backend/tests/test_iter1411_token_reduction.py:256:49
+    |
+254 |     # `nfr` stays scored at ~30 throughout (never re-scored in iter 2+),
+255 |     # so the merge path is what matters for it.
+256 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+    |                                                 ^^^^^^^^^^^^^
+257 |                           kb_summary, ground_truth, models):
+258 |         call_log.append({"section_keys": [s["key"] for s in sections],
+    |
+
+ARG001 Unused function argument: `kb_summary`
+   --> backend/tests/test_iter1411_token_reduction.py:257:27
+    |
+255 |     # so the merge path is what matters for it.
+256 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+257 |                           kb_summary, ground_truth, models):
+    |                           ^^^^^^^^^^
+258 |         call_log.append({"section_keys": [s["key"] for s in sections],
+259 |                          "models": list(models)})
+    |
+
+ARG001 Unused function argument: `ground_truth`
+   --> backend/tests/test_iter1411_token_reduction.py:257:39
+    |
+255 |     # so the merge path is what matters for it.
+256 |     async def _fake_score(*, project_id, stage, artifact_text, sections,
+257 |                           kb_summary, ground_truth, models):
+    |                                       ^^^^^^^^^^^^
+258 |         call_log.append({"section_keys": [s["key"] for s in sections],
+259 |                          "models": list(models)})
+    |
+
+ARG001 Unused function argument: `project_id`
+   --> backend/tests/test_iter1411_token_reduction.py:276:27
+    |
+275 |     regen_calls: list[str] = []
+276 |     async def _fake_regen(project_id, section_key, hints, model=""):
+    |                           ^^^^^^^^^^
+277 |         regen_calls.append(section_key)
+278 |         return {"ok": True, "section": section_key, "tokens": 5000, "failed": False}
+    |
+
+ARG001 Unused function argument: `hints`
+   --> backend/tests/test_iter1411_token_reduction.py:276:52
+    |
+275 |     regen_calls: list[str] = []
+276 |     async def _fake_regen(project_id, section_key, hints, model=""):
+    |                                                    ^^^^^
+277 |         regen_calls.append(section_key)
+278 |         return {"ok": True, "section": section_key, "tokens": 5000, "failed": False}
+    |
+
+ARG001 Unused function argument: `model`
+   --> backend/tests/test_iter1411_token_reduction.py:276:59
+    |
+275 |     regen_calls: list[str] = []
+276 |     async def _fake_regen(project_id, section_key, hints, model=""):
+    |                                                           ^^^^^
+277 |         regen_calls.append(section_key)
+278 |         return {"ok": True, "section": section_key, "tokens": 5000, "failed": False}
+    |
+
+ARG002 Unused method argument: `a`
+  --> backend/tests/test_iter1412_context_efficiency.py:44:29
+   |
+42 |     class _FakeCollProxy:
+43 |         def __getattr__(self, _n): return _FakeCollProxy()
+44 |         def __call__(self, *a, **kw): return self
+   |                             ^
+45 |
+46 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter1412_context_efficiency.py:44:34
+   |
+42 |     class _FakeCollProxy:
+43 |         def __getattr__(self, _n): return _FakeCollProxy()
+44 |         def __call__(self, *a, **kw): return self
+   |                                  ^^
+45 |
+46 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+F811 Redefinition of unused `test_estimate_tokens_returns_positive_int_for_all_inputs` from line 197
+   --> backend/tests/test_iter1412_context_efficiency.py:208:5
+    |
+208 | def test_estimate_tokens_returns_positive_int_for_all_inputs():
+    |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `test_estimate_tokens_returns_positive_int_for_all_inputs` redefined here
+209 |     from llm import estimate_tokens
+    |
+   ::: backend/tests/test_iter1412_context_efficiency.py:197:5
+    |
+195 | # ---------------------------------------------------------------------------
+196 |
+197 | def test_estimate_tokens_returns_positive_int_for_all_inputs():
+    |     -------------------------------------------------------- previous definition of `test_estimate_tokens_returns_positive_int_for_all_inputs` here
+198 |     from llm import estimate_tokens
+    |
+help: Remove definition: `test_estimate_tokens_returns_positive_int_for_all_inputs`
+
+F401 [*] `asyncio` imported but unused
+  --> backend/tests/test_iter1414_confidence_langgraph.py:18:8
+   |
+16 | from __future__ import annotations
+17 |
+18 | import asyncio
+   |        ^^^^^^^
+19 | import os
+20 | import sys
+   |
+help: Remove unused import: `asyncio`
+   |
+17 |
+   - import asyncio
+18 | import os
+   |
+
+ARG001 Unused function argument: `state`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:197:30
+    |
+195 |     monkeypatch.setattr(clg, "_graph_build_failed", False, raising=False)
+196 |
+197 |     async def _fake_llm_eval(state):
+    |                              ^^^^^
+198 |         return {
+199 |             "route_taken": "llm",
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:256:22
+    |
+255 |     # Make the engine raise on first call.
+256 |     async def _boom(*a, **kw):
+    |                      ^
+257 |         raise RuntimeError("simulated engine failure")
+258 |     monkeypatch.setattr(clg, "score_section_langgraph", _boom)
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:256:27
+    |
+255 |     # Make the engine raise on first call.
+256 |     async def _boom(*a, **kw):
+    |                           ^^
+257 |         raise RuntimeError("simulated engine failure")
+258 |     monkeypatch.setattr(clg, "score_section_langgraph", _boom)
+    |
+
+ARG001 Unused function argument: `args`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:266:28
+    |
+264 |         return ["cheap-model"]
+265 |
+266 |     async def _fake_multi(*args, **kwargs):
+    |                            ^^^^
+267 |         return {
+268 |             "sections": [{
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:302:22
+    |
+300 |     monkeypatch.delenv("LAMA_CONFIDENCE_STRICT_HF", raising=False)
+301 |
+302 |     async def _boom(*a, **kw):
+    |                      ^
+303 |         raise RuntimeError("simulated engine failure")
+304 |     monkeypatch.setattr(clg, "score_section_langgraph", _boom)
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:302:27
+    |
+300 |     monkeypatch.delenv("LAMA_CONFIDENCE_STRICT_HF", raising=False)
+301 |
+302 |     async def _boom(*a, **kw):
+    |                           ^^
+303 |         raise RuntimeError("simulated engine failure")
+304 |     monkeypatch.setattr(clg, "score_section_langgraph", _boom)
+    |
+
+ARG001 Unused function argument: `args`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:313:28
+    |
+311 |         return ["cheap-model"]
+312 |
+313 |     async def _fake_multi(*args, **kwargs):
+    |                            ^^^^
+314 |         called["multi"] += 1
+315 |         return {"sections": [{"score": 77.0, "band": "good"}], "models_used": []}
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:313:36
+    |
+311 |         return ["cheap-model"]
+312 |
+313 |     async def _fake_multi(*args, **kwargs):
+    |                                    ^^^^^^
+314 |         called["multi"] += 1
+315 |         return {"sections": [{"score": 77.0, "band": "good"}], "models_used": []}
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:345:25
+    |
+343 |     called = {"lg": 0}
+344 |
+345 |     async def _fake_lg(*a, **kw):
+    |                         ^
+346 |         called["lg"] += 1
+347 |         return {"score": 99.0, "engine": "langgraph"}
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:345:30
+    |
+343 |     called = {"lg": 0}
+344 |
+345 |     async def _fake_lg(*a, **kw):
+    |                              ^^
+346 |         called["lg"] += 1
+347 |         return {"score": 99.0, "engine": "langgraph"}
+    |
+
+ARG001 Unused function argument: `args`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:350:28
+    |
+348 |     monkeypatch.setattr(clg, "score_section_langgraph", _fake_lg)
+349 |
+350 |     async def _fake_multi(*args, **kwargs):
+    |                            ^^^^
+351 |         return {
+352 |             "sections": [{
+    |
+
+ARG001 Unused function argument: `project_id`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:383:29
+    |
+381 |     verdict contract `pipeline.py` + `living.py` already parse."""
+382 |
+383 |     async def _fake_section(project_id, cfg, content, kb_summary, ground_truth):
+    |                             ^^^^^^^^^^
+384 |         return {
+385 |             "score": 96.0, "band": "high",
+    |
+
+ARG001 Unused function argument: `cfg`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:383:41
+    |
+381 |     verdict contract `pipeline.py` + `living.py` already parse."""
+382 |
+383 |     async def _fake_section(project_id, cfg, content, kb_summary, ground_truth):
+    |                                         ^^^
+384 |         return {
+385 |             "score": 96.0, "band": "high",
+    |
+
+ARG001 Unused function argument: `content`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:383:46
+    |
+381 |     verdict contract `pipeline.py` + `living.py` already parse."""
+382 |
+383 |     async def _fake_section(project_id, cfg, content, kb_summary, ground_truth):
+    |                                              ^^^^^^^
+384 |         return {
+385 |             "score": 96.0, "band": "high",
+    |
+
+ARG001 Unused function argument: `kb_summary`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:383:55
+    |
+381 |     verdict contract `pipeline.py` + `living.py` already parse."""
+382 |
+383 |     async def _fake_section(project_id, cfg, content, kb_summary, ground_truth):
+    |                                                       ^^^^^^^^^^
+384 |         return {
+385 |             "score": 96.0, "band": "high",
+    |
+
+ARG001 Unused function argument: `ground_truth`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:383:67
+    |
+381 |     verdict contract `pipeline.py` + `living.py` already parse."""
+382 |
+383 |     async def _fake_section(project_id, cfg, content, kb_summary, ground_truth):
+    |                                                                   ^^^^^^^^^^^^
+384 |         return {
+385 |             "score": 96.0, "band": "high",
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1414_confidence_langgraph.py:514:26
+    |
+512 |     monkeypatch.setattr(clg, "is_available", lambda: True)
+513 |
+514 |     async def _lg_boom(**kwargs):
+    |                          ^^^^^^
+515 |         raise RuntimeError("hf models did not load")
+    |
+
+F841 Local variable `root` is assigned to but never used
+  --> backend/tests/test_iter1417_log_tail.py:42:5
+   |
+41 | def test_records_captured_with_monotonic_seq():
+42 |     root = _install_and_get_root()
+   |     ^^^^
+43 |     logging.getLogger("lama.test").info("first")
+44 |     logging.getLogger("lama.test").warning("second")
+   |
+help: Remove assignment to unused variable `root`
+
+F401 [*] `asyncio` imported but unused
+ --> backend/tests/test_iter1421_codegen_ownership.py:7:8
+  |
+5 | pytest suite without a live backend.
+6 | """
+7 | import asyncio
+  |        ^^^^^^^
+8 | import os
+9 | import sys
+  |
+help: Remove unused import: `asyncio`
+  |
+6 | """
+  - import asyncio
+7 | import os
+  |
+
+ARG002 Unused method argument: `a`
+  --> backend/tests/test_iter149_confidence_highwater.py:48:29
+   |
+46 |     class _FakeCollProxy:
+47 |         def __getattr__(self, _name): return _FakeCollProxy()
+48 |         def __call__(self, *a, **kw): return self
+   |                             ^
+49 |
+50 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter149_confidence_highwater.py:48:34
+   |
+46 |     class _FakeCollProxy:
+47 |         def __getattr__(self, _name): return _FakeCollProxy()
+48 |         def __call__(self, *a, **kw): return self
+   |                                  ^^
+49 |
+50 |     _motor_asyncio.AsyncIOMotorClient = _FakeMongoClient
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_iter149_confidence_highwater.py:67:35
+   |
+65 |         self.docs: list[dict] = []
+66 |
+67 |     async def find_one(self, flt, projection=None):
+   |                                   ^^^^^^^^^^
+68 |         for d in self.docs:
+69 |             if all(d.get(k) == v for k, v in flt.items()):
+   |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1538_agent_plan_chat.py:203:52
+    |
+201 |     to a canned "transformed content" response — mirrors real fabric_call's
+202 |     dict-with-'content' shape."""
+203 |     async def _fake_fabric_call(*, agent_key="", **kwargs):
+    |                                                    ^^^^^^
+204 |         if agent_key == "tools.transformer.chat":
+205 |             return {"content": actions_json, "model": "test-model"}
+    |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1544_compiler_agent.py:46:26
+   |
+45 | # ─────────────── helpers ───────────────
+46 | async def _noop_log_run(*a, **kw): return "run-id"
+   |                          ^
+47 | async def _noop_update_run(*a, **kw): return None
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1544_compiler_agent.py:46:31
+   |
+45 | # ─────────────── helpers ───────────────
+46 | async def _noop_log_run(*a, **kw): return "run-id"
+   |                               ^^
+47 | async def _noop_update_run(*a, **kw): return None
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1544_compiler_agent.py:47:29
+   |
+45 | # ─────────────── helpers ───────────────
+46 | async def _noop_log_run(*a, **kw): return "run-id"
+47 | async def _noop_update_run(*a, **kw): return None
+   |                             ^
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1544_compiler_agent.py:47:34
+   |
+45 | # ─────────────── helpers ───────────────
+46 | async def _noop_log_run(*a, **kw): return "run-id"
+47 | async def _noop_update_run(*a, **kw): return None
+   |                                  ^^
+
+ARG001 Unused function argument: `tmp_path`
+  --> backend/tests/test_iter1544_compiler_agent.py:60:56
+   |
+59 | # ─────────────── _write_transformed_workspace ───────────────
+60 | def test_write_transformed_workspace_materialises_tree(tmp_path, monkeypatch):
+   |                                                        ^^^^^^^^
+61 |     monkeypatch.setattr(tools_mod, "tempfile", __import__("tempfile"))
+62 |     files = [
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:60:33
+   |
+58 |         return type("R", (), {"inserted_id": doc.get("_id")})()
+59 |
+60 |     async def find_one(self, q, projection=None):
+   |                                 ^^^^^^^^^^
+61 |         for r in self.rows:
+62 |             if all(r.get(k) == v for k, v in q.items()):
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:66:28
+   |
+64 |         return None
+65 |
+66 |     def find(self, q=None, projection=None):
+   |                            ^^^^^^^^^^
+67 |         q = q or {}
+68 |         matched = []
+   |
+
+ARG002 Unused method argument: `q`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:89:32
+   |
+87 |         return type("R", (), {"deleted_count": before - len(self.rows)})()
+88 |
+89 |     async def update_one(self, q, u, **kw): return None
+   |                                ^
+90 |     async def count_documents(self, q): return len(list(self.find(q).to_list_sync() if hasattr(self.find(q), "to_list_sync") else []))
+   |
+
+ARG002 Unused method argument: `u`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:89:35
+   |
+87 |         return type("R", (), {"deleted_count": before - len(self.rows)})()
+88 |
+89 |     async def update_one(self, q, u, **kw): return None
+   |                                   ^
+90 |     async def count_documents(self, q): return len(list(self.find(q).to_list_sync() if hasattr(self.find(q), "to_list_sync") else []))
+   |
+
+ARG002 Unused method argument: `kw`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:89:40
+   |
+87 |         return type("R", (), {"deleted_count": before - len(self.rows)})()
+88 |
+89 |     async def update_one(self, q, u, **kw): return None
+   |                                        ^^
+90 |     async def count_documents(self, q): return len(list(self.find(q).to_list_sync() if hasattr(self.find(q), "to_list_sync") else []))
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:93:18
+   |
+93 | async def _noop(*a, **kw): return None
+   |                  ^
+94 | async def _noop_str(*a, **kw): return "run-id"
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:93:23
+   |
+93 | async def _noop(*a, **kw): return None
+   |                       ^^
+94 | async def _noop_str(*a, **kw): return "run-id"
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:94:22
+   |
+93 | async def _noop(*a, **kw): return None
+94 | async def _noop_str(*a, **kw): return "run-id"
+   |                      ^
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1545_test_gen_and_coverage.py:94:27
+   |
+93 | async def _noop(*a, **kw): return None
+94 | async def _noop_str(*a, **kw): return "run-id"
+   |                           ^^
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1545_test_gen_and_coverage.py:101:57
+    |
+ 99 |     monkeypatch.setattr(tools_mod, "_log_agent_run", _noop_str)
+100 |     monkeypatch.setattr(tools_mod, "_update_agent_run", _noop)
+101 |     monkeypatch.setattr(tools_mod, "_emit_log", lambda *a, **k: None)
+    |                                                         ^
+102 |     monkeypatch.setattr(tools_mod, "_get_effective_model", _noop_str)
+    |
+
+ARG005 Unused lambda argument: `k`
+   --> backend/tests/test_iter1545_test_gen_and_coverage.py:101:62
+    |
+ 99 |     monkeypatch.setattr(tools_mod, "_log_agent_run", _noop_str)
+100 |     monkeypatch.setattr(tools_mod, "_update_agent_run", _noop)
+101 |     monkeypatch.setattr(tools_mod, "_emit_log", lambda *a, **k: None)
+    |                                                              ^
+102 |     monkeypatch.setattr(tools_mod, "_get_effective_model", _noop_str)
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1545_test_gen_and_coverage.py:160:24
+    |
+158 |     monkeypatch.setattr(tools_mod, "transform_files", fake_files)
+159 |
+160 |     async def _blank(**kw): return {"content": "   \n  "}
+    |                        ^^
+161 |     monkeypatch.setattr(tools_mod, "fabric_call", _blank)
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1545_test_gen_and_coverage.py:175:25
+    |
+173 |     monkeypatch.setattr(tools_mod, "transform_files", fake_files)
+174 |
+175 |     async def _fenced(**kw):
+    |                         ^^
+176 |         return {"content": "```python\ndef test_x(): assert True\n```"}
+177 |     monkeypatch.setattr(tools_mod, "fabric_call", _fenced)
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1545_test_gen_and_coverage.py:195:21
+    |
+193 |     monkeypatch.setattr(tools_mod, "transform_files", fake_files)
+194 |
+195 |     async def _ok(**kw): return {"content": "new"}
+    |                     ^^
+196 |     monkeypatch.setattr(tools_mod, "fabric_call", _ok)
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter15627_export_sanitizer.py:148:31
+    |
+146 |     )
+147 |
+148 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+149 |         return {"_id": "tx-1", "name": "demo-project"}
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter15627_export_sanitizer.py:148:36
+    |
+146 |     )
+147 |
+148 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+149 |         return {"_id": "tx-1", "name": "demo-project"}
+    |
+
+ARG002 Unused method argument: `n`
+   --> backend/tests/test_iter15627_export_sanitizer.py:152:33
+    |
+151 |     class _FakeCursor:
+152 |         async def to_list(self, n):
+    |                                 ^
+153 |             return [{"path": "helidon-quickstart/pom.xml", "content": contaminated_pom}]
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter15627_export_sanitizer.py:155:21
+    |
+153 |             return [{"path": "helidon-quickstart/pom.xml", "content": contaminated_pom}]
+154 |
+155 |     def _fake_find(*a, **kw):
+    |                     ^
+156 |         return _FakeCursor()
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter15627_export_sanitizer.py:155:26
+    |
+153 |             return [{"path": "helidon-quickstart/pom.xml", "content": contaminated_pom}]
+154 |
+155 |     def _fake_find(*a, **kw):
+    |                          ^^
+156 |         return _FakeCursor()
+    |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_compile_fix_diagnosis.py:53:26
+   |
+53 | async def _noop_log_run(*a, **kw):
+   |                          ^
+54 |     return "run-id"
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_compile_fix_diagnosis.py:53:31
+   |
+53 | async def _noop_log_run(*a, **kw):
+   |                               ^^
+54 |     return "run-id"
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_compile_fix_diagnosis.py:57:29
+   |
+57 | async def _noop_update_run(*a, **kw):
+   |                             ^
+58 |     return None
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_compile_fix_diagnosis.py:57:34
+   |
+57 | async def _noop_update_run(*a, **kw):
+   |                                  ^^
+58 |     return None
+   |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:112:62
+    |
+111 |     monkeypatch.setattr(tools_mod, "_binary_on_path", _fake_binary_on_path)
+112 |     monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **kw: _FakeProc())
+    |                                                              ^
+113 |
+114 |     versions = tools_mod._detect_installed_toolchain_versions()
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:112:67
+    |
+111 |     monkeypatch.setattr(tools_mod, "_binary_on_path", _fake_binary_on_path)
+112 |     monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **kw: _FakeProc())
+    |                                                                   ^^
+113 |
+114 |     versions = tools_mod._detect_installed_toolchain_versions()
+    |
+
+ARG005 Unused lambda argument: `name`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:119:62
+    |
+118 | def test_detect_installed_toolchain_versions_empty_when_nothing_on_path(monkeypatch):
+119 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |                                                              ^^^^
+120 |     versions = tools_mod._detect_installed_toolchain_versions()
+121 |     assert versions == {}
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:128:17
+    |
+126 |         return "/usr/bin/javac" if name == "javac" else None
+127 |
+128 |     def _raise(*a, **kw):
+    |                 ^
+129 |         raise OSError("boom")
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:128:22
+    |
+126 |         return "/usr/bin/javac" if name == "javac" else None
+127 |
+128 |     def _raise(*a, **kw):
+    |                      ^^
+129 |         raise OSError("boom")
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:203:17
+    |
+201 |     monkeypatch.setattr(
+202 |         tools_mod.transform_files, "find",
+203 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                 ^
+204 |     )
+205 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: "/usr/bin/javac" if name == "javac" else None)
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:203:22
+    |
+201 |     monkeypatch.setattr(
+202 |         tools_mod.transform_files, "find",
+203 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                      ^^
+204 |     )
+205 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: "/usr/bin/javac" if name == "javac" else None)
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:211:62
+    |
+209 |         stderr = "javac 17.0.20.1\n"
+210 |
+211 |     monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **kw: _FakeProc())
+    |                                                              ^
+212 |
+213 |     def _fail_if_called(**kwargs):
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:211:67
+    |
+209 |         stderr = "javac 17.0.20.1\n"
+210 |
+211 |     monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **kw: _FakeProc())
+    |                                                                   ^^
+212 |
+213 |     def _fail_if_called(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:213:27
+    |
+211 |     monkeypatch.setattr(tools_mod.subprocess, "run", lambda *a, **kw: _FakeProc())
+212 |
+213 |     def _fail_if_called(**kwargs):
+    |                           ^^^^^^
+214 |         raise AssertionError("fabric_call should not be invoked for the deterministic fast-path")
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:290:17
+    |
+288 |     monkeypatch.setattr(
+289 |         tools_mod.transform_files, "find",
+290 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                 ^
+291 |     )
+292 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:290:22
+    |
+288 |     monkeypatch.setattr(
+289 |         tools_mod.transform_files, "find",
+290 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                      ^^
+291 |     )
+292 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |
+
+ARG005 Unused lambda argument: `name`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:292:62
+    |
+290 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+291 |     )
+292 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |                                                              ^^^^
+293 |
+294 |     def _fail_if_called(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:294:27
+    |
+292 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+293 |
+294 |     def _fail_if_called(**kwargs):
+    |                           ^^^^^^
+295 |         raise AssertionError("fabric_call should not be invoked for the deterministic fast-path")
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:325:17
+    |
+323 |     monkeypatch.setattr(
+324 |         tools_mod.transform_files, "find",
+325 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}, {"path": "svc/src/Main.java"}]),
+    |                 ^
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:325:22
+    |
+323 |     monkeypatch.setattr(
+324 |         tools_mod.transform_files, "find",
+325 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}, {"path": "svc/src/Main.java"}]),
+    |                      ^^
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:327:69
+    |
+325 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}, {"path": "svc/src/Main.java"}]),
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                     ^
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:327:74
+    |
+325 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}, {"path": "svc/src/Main.java"}]),
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                          ^^
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:328:68
+    |
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                    ^
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:328:73
+    |
+326 |     )
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                         ^^
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:329:73
+    |
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                         ^
+330 |
+331 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:329:78
+    |
+327 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+328 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                              ^^
+330 |
+331 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:331:35
+    |
+329 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+330 |
+331 |     async def _fake_fabric_call(**kwargs):
+    |                                   ^^^^^^
+332 |         payload = {
+333 |             "root_cause": "Missing dependency declaration in pom.xml",
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:357:17
+    |
+355 |     monkeypatch.setattr(
+356 |         tools_mod.transform_files, "find",
+357 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}]),
+    |                 ^
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:357:22
+    |
+355 |     monkeypatch.setattr(
+356 |         tools_mod.transform_files, "find",
+357 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}]),
+    |                      ^^
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:359:69
+    |
+357 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}]),
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                     ^
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:359:74
+    |
+357 |         lambda *a, **kw: _FakeCursor([{"path": "svc/pom.xml"}]),
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                          ^^
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:360:68
+    |
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                    ^
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:360:73
+    |
+358 |     )
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                         ^^
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:361:73
+    |
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                         ^
+362 |
+363 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:361:78
+    |
+359 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+360 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                              ^^
+362 |
+363 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:363:35
+    |
+361 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+362 |
+363 |     async def _fake_fabric_call(**kwargs):
+    |                                   ^^^^^^
+364 |         payload = {
+365 |             "root_cause": "hallucinated a file that was never in the candidate list",
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:381:68
+    |
+379 |         {"status": "failed", "reason": "disk full", "cwd": "svc", "stdout_tail": "", "stderr_tail": ""},
+380 |     ])
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+    |                                                                    ^
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:381:73
+    |
+379 |         {"status": "failed", "reason": "disk full", "cwd": "svc", "stdout_tail": "", "stderr_tail": ""},
+380 |     ])
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+    |                                                                         ^^
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:382:69
+    |
+380 |     ])
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                     ^
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:382:74
+    |
+380 |     ])
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+    |                                                                          ^^
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:383:68
+    |
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                    ^
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:383:73
+    |
+381 |     monkeypatch.setattr(tools_mod.transform_files, "find", lambda *a, **kw: _FakeCursor([]))
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+    |                                                                         ^^
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:384:73
+    |
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                         ^
+385 |
+386 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:384:78
+    |
+382 |     monkeypatch.setattr(tools_mod, "_get_effective_prompt", lambda *a, **kw: asyncio.sleep(0, result="PLANNER PROMPT"))
+383 |     monkeypatch.setattr(tools_mod, "_get_effective_model", lambda *a, **kw: asyncio.sleep(0, result="fake-model"))
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+    |                                                                              ^^
+385 |
+386 |     async def _fake_fabric_call(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:386:35
+    |
+384 |     monkeypatch.setattr(tools_mod, "_project_id_for_transform", lambda *a, **kw: asyncio.sleep(0, result="proj-1"))
+385 |
+386 |     async def _fake_fabric_call(**kwargs):
+    |                                   ^^^^^^
+387 |         payload = {"root_cause": "Disk is full on the build agent", "fixable": False, "target_files": []}
+388 |         return {"content": json.dumps(payload)}
+    |
+
+ARG001 Unused function argument: `monkeypatch`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:397:76
+    |
+397 | def test_llm_diagnose_generic_failure_no_failed_invocations_short_circuits(monkeypatch):
+    |                                                                            ^^^^^^^^^^^
+398 |     diag = asyncio.run(tools_mod._llm_diagnose_generic_failure("tx-1", {"components": []}, 1, None))
+399 |     assert diag == {"blocked": False, "root_cause": "", "error_groups": []}
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:405:79
+    |
+403 | def test_planner_fix_tasks_build_config_notes_differ_from_source_notes(monkeypatch):
+404 |     file_doc = {"path": "svc/pom.xml", "original_path": "svc/pom.xml"}
+405 |     monkeypatch.setattr(tools_mod, "_resolve_failing_transform_file", lambda *a, **kw: asyncio.sleep(0, result=file_doc))
+    |                                                                               ^
+406 |
+407 |     inserted = []
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:405:84
+    |
+403 | def test_planner_fix_tasks_build_config_notes_differ_from_source_notes(monkeypatch):
+404 |     file_doc = {"path": "svc/pom.xml", "original_path": "svc/pom.xml"}
+405 |     monkeypatch.setattr(tools_mod, "_resolve_failing_transform_file", lambda *a, **kw: asyncio.sleep(0, result=file_doc))
+    |                                                                                    ^^
+406 |
+407 |     inserted = []
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:427:79
+    |
+425 | def test_planner_fix_tasks_source_notes_use_default_phrasing(monkeypatch):
+426 |     file_doc = {"path": "svc/src/Main.java", "original_path": "svc/src/Main.java"}
+427 |     monkeypatch.setattr(tools_mod, "_resolve_failing_transform_file", lambda *a, **kw: asyncio.sleep(0, result=file_doc))
+    |                                                                               ^
+428 |
+429 |     async def _fake_insert_one(doc):
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_compile_fix_diagnosis.py:427:84
+    |
+425 | def test_planner_fix_tasks_source_notes_use_default_phrasing(monkeypatch):
+426 |     file_doc = {"path": "svc/src/Main.java", "original_path": "svc/src/Main.java"}
+427 |     monkeypatch.setattr(tools_mod, "_resolve_failing_transform_file", lambda *a, **kw: asyncio.sleep(0, result=file_doc))
+    |                                                                                    ^^
+428 |
+429 |     async def _fake_insert_one(doc):
+    |
+
+F401 [*] `pytest` imported but unused
+  --> backend/tests/test_iter1562_dependency_version_not_found.py:40:8
+   |
+38 | import sys
+39 |
+40 | import pytest
+   |        ^^^^^^
+41 |
+42 | HERE = os.path.dirname(os.path.abspath(__file__))
+   |
+help: Remove unused import: `pytest`
+   |
+39 |
+   - import pytest
+40 |
+   |
+
+ARG001 Unused function argument: `repo`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:112:50
+    |
+110 | # ─────────────── _detect_dependency_version_not_found_error_groups ───────────────
+111 | def test_detect_dependency_version_not_found_matches_parsson_report(monkeypatch):
+112 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                                                  ^^^^
+113 |         assert group_id == "org.eclipse.parsson"
+114 |         assert artifact_id == "parsson"
+    |
+
+ARG001 Unused function argument: `group_id`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:136:27
+    |
+135 | def test_detect_dependency_version_not_found_falls_back_gracefully_when_lookup_fails(monkeypatch):
+136 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                           ^^^^^^^^
+137 |         return []  # offline / blocked
+    |
+
+ARG001 Unused function argument: `artifact_id`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:136:37
+    |
+135 | def test_detect_dependency_version_not_found_falls_back_gracefully_when_lookup_fails(monkeypatch):
+136 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                                     ^^^^^^^^^^^
+137 |         return []  # offline / blocked
+    |
+
+ARG001 Unused function argument: `repo`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:136:50
+    |
+135 | def test_detect_dependency_version_not_found_falls_back_gracefully_when_lookup_fails(monkeypatch):
+136 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                                                  ^^^^
+137 |         return []  # offline / blocked
+    |
+
+ARG001 Unused function argument: `monkeypatch`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:153:82
+    |
+153 | def test_detect_dependency_version_not_found_returns_empty_for_unrelated_failure(monkeypatch):
+    |                                                                                  ^^^^^^^^^^^
+154 |     fails = [{
+155 |         "component": "backend", "tool": "maven", "cwd": "backend",
+    |
+
+ARG001 Unused function argument: `group_id`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:170:27
+    |
+168 |     version-specific fast-path must win and `fabric_call` must never be
+169 |     invoked."""
+170 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                           ^^^^^^^^
+171 |         return ["1.0.0", "1.0.5", "1.1.9"]
+    |
+
+ARG001 Unused function argument: `artifact_id`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:170:37
+    |
+168 |     version-specific fast-path must win and `fabric_call` must never be
+169 |     invoked."""
+170 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                                     ^^^^^^^^^^^
+171 |         return ["1.0.0", "1.0.5", "1.1.9"]
+    |
+
+ARG001 Unused function argument: `repo`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:170:50
+    |
+168 |     version-specific fast-path must win and `fabric_call` must never be
+169 |     invoked."""
+170 |     async def _fake_fetch(group_id, artifact_id, repo):
+    |                                                  ^^^^
+171 |         return ["1.0.0", "1.0.5", "1.1.9"]
+    |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:176:17
+    |
+174 |     monkeypatch.setattr(
+175 |         tools_mod.transform_files, "find",
+176 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                 ^
+177 |     )
+178 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:176:22
+    |
+174 |     monkeypatch.setattr(
+175 |         tools_mod.transform_files, "find",
+176 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+    |                      ^^
+177 |     )
+178 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |
+
+ARG005 Unused lambda argument: `name`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:178:62
+    |
+176 |         lambda *a, **kw: _FakeCursor([{"path": "backend/pom.xml"}]),
+177 |     )
+178 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+    |                                                              ^^^^
+179 |
+180 |     def _fail_if_called(**kwargs):
+    |
+
+ARG001 Unused function argument: `kwargs`
+   --> backend/tests/test_iter1562_dependency_version_not_found.py:180:27
+    |
+178 |     monkeypatch.setattr(tools_mod, "_binary_on_path", lambda name: None)
+179 |
+180 |     def _fail_if_called(**kwargs):
+    |                           ^^^^^^
+181 |         raise AssertionError("fabric_call should not be invoked for the deterministic fast-path")
+    |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:52:26
+   |
+52 | async def _noop_log_run(*a, **kw):
+   |                          ^
+53 |     return "run-id"
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:52:31
+   |
+52 | async def _noop_log_run(*a, **kw):
+   |                               ^^
+53 |     return "run-id"
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:56:29
+   |
+56 | async def _noop_update_run(*a, **kw):
+   |                             ^
+57 |     return None
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:56:34
+   |
+56 | async def _noop_update_run(*a, **kw):
+   |                                  ^^
+57 |     return None
+   |
+
+ARG005 Unused lambda argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:76:57
+   |
+74 |     monkeypatch.setattr(tools_mod, "_log_agent_run", _noop_log_run)
+75 |     monkeypatch.setattr(tools_mod, "_update_agent_run", _noop_update_run)
+76 |     monkeypatch.setattr(tools_mod, "_emit_log", lambda *a, **kw: None)
+   |                                                         ^
+77 |     monkeypatch.delenv("LAMA_COMPILE_FIX_MAX_ITER", raising=False)
+   |
+
+ARG005 Unused lambda argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:76:62
+   |
+74 |     monkeypatch.setattr(tools_mod, "_log_agent_run", _noop_log_run)
+75 |     monkeypatch.setattr(tools_mod, "_update_agent_run", _noop_update_run)
+76 |     monkeypatch.setattr(tools_mod, "_emit_log", lambda *a, **kw: None)
+   |                                                              ^^
+77 |     monkeypatch.delenv("LAMA_COMPILE_FIX_MAX_ITER", raising=False)
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:79:31
+   |
+77 |     monkeypatch.delenv("LAMA_COMPILE_FIX_MAX_ITER", raising=False)
+78 |
+79 |     async def _fake_find_one(*a, **kw):
+   |                               ^
+80 |         return {"_id": "tx-1", "detected_stack": {}, "target_stack": {}}
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:79:36
+   |
+77 |     monkeypatch.delenv("LAMA_COMPILE_FIX_MAX_ITER", raising=False)
+78 |
+79 |     async def _fake_find_one(*a, **kw):
+   |                                    ^^
+80 |         return {"_id": "tx-1", "detected_stack": {}, "target_stack": {}}
+   |
+
+ARG001 Unused function argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:82:33
+   |
+80 |         return {"_id": "tx-1", "detected_stack": {}, "target_stack": {}}
+81 |
+82 |     async def _fake_update_one(*a, **kw):
+   |                                 ^
+83 |         return None
+   |
+
+ARG001 Unused function argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:82:38
+   |
+80 |         return {"_id": "tx-1", "detected_stack": {}, "target_stack": {}}
+81 |
+82 |     async def _fake_update_one(*a, **kw):
+   |                                      ^^
+83 |         return None
+   |
+
+ARG005 Unused lambda argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:89:17
+   |
+87 |     monkeypatch.setattr(
+88 |         tools_mod.transform_files, "find",
+89 |         lambda *a, **kw: _FakeFilesCursor([{"path": "backend/Main.java", "content": "class Main {}"}]),
+   |                 ^
+90 |     )
+91 |     monkeypatch.setattr(tools_mod, "_write_transformed_workspace", lambda files: "/tmp/fake-ws")
+   |
+
+ARG005 Unused lambda argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:89:22
+   |
+87 |     monkeypatch.setattr(
+88 |         tools_mod.transform_files, "find",
+89 |         lambda *a, **kw: _FakeFilesCursor([{"path": "backend/Main.java", "content": "class Main {}"}]),
+   |                      ^^
+90 |     )
+91 |     monkeypatch.setattr(tools_mod, "_write_transformed_workspace", lambda files: "/tmp/fake-ws")
+   |
+
+ARG005 Unused lambda argument: `files`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:91:75
+   |
+89 |         lambda *a, **kw: _FakeFilesCursor([{"path": "backend/Main.java", "content": "class Main {}"}]),
+90 |     )
+91 |     monkeypatch.setattr(tools_mod, "_write_transformed_workspace", lambda files: "/tmp/fake-ws")
+   |                                                                           ^^^^^
+92 |
+93 |     import shutil as _sh
+   |
+
+ARG005 Unused lambda argument: `a`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:94:48
+   |
+93 |     import shutil as _sh
+94 |     monkeypatch.setattr(_sh, "rmtree", lambda *a, **kw: None)
+   |                                                ^
+95 |
+96 |     # Deterministic FIX-task/Coder path — irrelevant to the iteration-
+   |
+
+ARG005 Unused lambda argument: `kw`
+  --> backend/tests/test_iter1562_fix_loop_iterations.py:94:53
+   |
+93 |     import shutil as _sh
+94 |     monkeypatch.setattr(_sh, "rmtree", lambda *a, **kw: None)
+   |                                                     ^^
+95 |
+96 |     # Deterministic FIX-task/Coder path — irrelevant to the iteration-
+   |
+
+ARG005 Unused lambda argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:98:69
+    |
+ 96 |     # Deterministic FIX-task/Coder path — irrelevant to the iteration-
+ 97 |     # count behaviour under test, so make it a trivial always-succeeds no-op.
+ 98 |     monkeypatch.setattr(tools_mod, "_parse_compile_errors", lambda *a, **kw: [
+    |                                                                     ^
+ 99 |         {"path": "backend/Main.java", "component": "backend", "tool": "maven", "lines": [(1, "boom")]},
+100 |     ])
+    |
+
+ARG005 Unused lambda argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:98:74
+    |
+ 96 |     # Deterministic FIX-task/Coder path — irrelevant to the iteration-
+ 97 |     # count behaviour under test, so make it a trivial always-succeeds no-op.
+ 98 |     monkeypatch.setattr(tools_mod, "_parse_compile_errors", lambda *a, **kw: [
+    |                                                                          ^^
+ 99 |         {"path": "backend/Main.java", "component": "backend", "tool": "maven", "lines": [(1, "boom")]},
+100 |     ])
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:102:36
+    |
+100 |     ])
+101 |
+102 |     async def _fake_planner_tasks(*a, **kw):
+    |                                    ^
+103 |         return [{"target_path": "backend/Main.java"}]
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:102:41
+    |
+100 |     ])
+101 |
+102 |     async def _fake_planner_tasks(*a, **kw):
+    |                                         ^^
+103 |         return [{"target_path": "backend/Main.java"}]
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:107:38
+    |
+105 |     monkeypatch.setattr(tools_mod, "_planner_fix_tasks_from_errors", _fake_planner_tasks)
+106 |
+107 |     async def _fake_coder_apply_fix(*a, **kw):
+    |                                      ^
+108 |         return True
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:107:43
+    |
+105 |     monkeypatch.setattr(tools_mod, "_planner_fix_tasks_from_errors", _fake_planner_tasks)
+106 |
+107 |     async def _fake_coder_apply_fix(*a, **kw):
+    |                                           ^^
+108 |         return True
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:161:35
+    |
+159 |     call_count = {"n": 0}
+160 |
+161 |     async def _fake_run_compiler(*a, **kw):
+    |                                   ^
+162 |         call_count["n"] += 1
+163 |         if call_count["n"] < 5:
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:161:40
+    |
+159 |     call_count = {"n": 0}
+160 |
+161 |     async def _fake_run_compiler(*a, **kw):
+    |                                        ^^
+162 |         call_count["n"] += 1
+163 |         if call_count["n"] < 5:
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:184:35
+    |
+182 |     agent_calls: List[str] = []
+183 |
+184 |     async def _fake_run_compiler(*a, **kw):
+    |                                   ^
+185 |         call_count["n"] += 1
+186 |         if call_count["n"] <= 2:
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:184:40
+    |
+182 |     agent_calls: List[str] = []
+183 |
+184 |     async def _fake_run_compiler(*a, **kw):
+    |                                        ^^
+185 |         call_count["n"] += 1
+186 |         if call_count["n"] <= 2:
+    |
+
+ARG001 Unused function argument: `transform_id`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:191:41
+    |
+189 |         return _passing_compile_result()
+190 |
+191 |     async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    |                                         ^^^^^^^^^^^^
+192 |         agent_calls.append(agent_name)
+193 |         return True
+    |
+
+ARG001 Unused function argument: `task_row`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:191:55
+    |
+189 |         return _passing_compile_result()
+190 |
+191 |     async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    |                                                       ^^^^^^^^
+192 |         agent_calls.append(agent_name)
+193 |         return True
+    |
+
+ARG001 Unused function argument: `detected_stack`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:191:65
+    |
+189 |         return _passing_compile_result()
+190 |
+191 |     async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    |                                                                 ^^^^^^^^^^^^^^
+192 |         agent_calls.append(agent_name)
+193 |         return True
+    |
+
+ARG001 Unused function argument: `target_stack`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:191:81
+    |
+189 |         return _passing_compile_result()
+190 |
+191 |     async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    |                                                                                 ^^^^^^^^^^^^
+192 |         agent_calls.append(agent_name)
+193 |         return True
+    |
+
+ARG001 Unused function argument: `model`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:191:95
+    |
+189 |         return _passing_compile_result()
+190 |
+191 |     async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    |                                                                                               ^^^^^
+192 |         agent_calls.append(agent_name)
+193 |         return True
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:214:31
+    |
+212 |     captured = {}
+213 |
+214 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+215 |         return {"content": "pom xml content", "_id": "f1", "original_path": "backend/pom.xml"}
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:214:36
+    |
+212 |     captured = {}
+213 |
+214 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+215 |         return {"content": "pom xml content", "_id": "f1", "original_path": "backend/pom.xml"}
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:219:33
+    |
+217 |     monkeypatch.setattr(tools_mod.transform_files, "find_one", _fake_find_one)
+218 |
+219 |     async def _fake_update_one(*a, **kw):
+    |                                 ^
+220 |         return None
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:219:38
+    |
+217 |     monkeypatch.setattr(tools_mod.transform_files, "find_one", _fake_find_one)
+218 |
+219 |     async def _fake_update_one(*a, **kw):
+    |                                      ^^
+220 |         return None
+    |
+
+ARG001 Unused function argument: `transform_id`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:31
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                               ^^^^^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `task_doc`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:45
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                             ^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `source_content`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:55
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                       ^^^^^^^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `kb_ctx`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:71
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                                       ^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `detected_stack`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:79
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                                               ^^^^^^^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `target_stack`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:95
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                                                               ^^^^^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `model`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:109
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                                                                             ^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `envelope`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:225:121
+    |
+223 |     monkeypatch.setattr(tools_mod.transformer_tasks, "update_one", _fake_update_one)
+224 |
+225 |     async def _fake_run_coder(transform_id, task_doc, source_content, kb_ctx, detected_stack, target_stack, model=None, envelope=None…
+    |                                                                                                                         ^^^^^^^^
+226 |         captured["agent_name"] = agent_name
+227 |         return "<fixed content>"
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:229:35
+    |
+227 |         return "<fixed content>"
+228 |
+229 |     async def _fake_run_verifier(*a, **kw):
+    |                                   ^
+230 |         return {"verdict": "ACCEPT", "confidence": 95, "structural_check": {"ok": True}}
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:229:40
+    |
+227 |         return "<fixed content>"
+228 |
+229 |     async def _fake_run_verifier(*a, **kw):
+    |                                        ^^
+230 |         return {"verdict": "ACCEPT", "confidence": 95, "structural_check": {"ok": True}}
+    |
+
+ARG001 Unused function argument: `transform_id`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:252:42
+    |
+250 |     captured = {}
+251 |
+252 |     async def _fake_get_effective_prompt(transform_id, agent):
+    |                                          ^^^^^^^^^^^^
+253 |         captured["prompt_agent"] = agent
+254 |         return "SYSTEM PROMPT"
+    |
+
+ARG001 Unused function argument: `transform_id`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:256:41
+    |
+254 |         return "SYSTEM PROMPT"
+255 |
+256 |     async def _fake_get_effective_model(transform_id, agent, fallback_model):
+    |                                         ^^^^^^^^^^^^
+257 |         captured["model_agent"] = agent
+258 |         return fallback_model
+    |
+
+ARG001 Unused function argument: `transform_id`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:264:46
+    |
+262 |         return {"content": "<?xml version=\"1.0\"?><project></project>", "model": "some-model"}
+263 |
+264 |     async def _fake_project_id_for_transform(transform_id):
+    |                                              ^^^^^^^^^^^^
+265 |         return "p1"
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:299:31
+    |
+297 |     ).isoformat()
+298 |
+299 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+300 |         return {
+301 |             "compile_fix_progress": {"phase": "fixing", "iteration": 2, "updated_at": stale_ts},
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:299:36
+    |
+297 |     ).isoformat()
+298 |
+299 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+300 |         return {
+301 |             "compile_fix_progress": {"phase": "fixing", "iteration": 2, "updated_at": stale_ts},
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:313:31
+    |
+311 |     fresh_ts = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+312 |
+313 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+314 |         return {
+315 |             "compile_fix_progress": {"phase": "compiling", "iteration": 1, "updated_at": fresh_ts},
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:313:36
+    |
+311 |     fresh_ts = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+312 |
+313 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+314 |         return {
+315 |             "compile_fix_progress": {"phase": "compiling", "iteration": 1, "updated_at": fresh_ts},
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:332:31
+    |
+330 |     ).isoformat()
+331 |
+332 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+333 |         return {
+334 |             "compile_fix_progress": {"phase": "passed", "iteration": 1, "updated_at": stale_ts},
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:332:36
+    |
+330 |     ).isoformat()
+331 |
+332 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+333 |         return {
+334 |             "compile_fix_progress": {"phase": "passed", "iteration": 1, "updated_at": stale_ts},
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:344:31
+    |
+343 | def test_status_no_stall_flag_when_no_compile_fix_progress_yet(monkeypatch):
+344 |     async def _fake_find_one(*a, **kw):
+    |                               ^
+345 |         return {"status": "running"}
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:344:36
+    |
+343 | def test_status_no_stall_flag_when_no_compile_fix_progress_yet(monkeypatch):
+344 |     async def _fake_find_one(*a, **kw):
+    |                                    ^^
+345 |         return {"status": "running"}
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:357:35
+    |
+355 |     after that escalation does the loop finally stop (NOT because of a
+356 |     hardcoded count) rather than looping forever burning LLM calls."""
+357 |     async def _fake_run_compiler(*a, **kw):
+    |                                   ^
+358 |         return _failing_compile_result(reason="same failure every time")
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:357:40
+    |
+355 |     after that escalation does the loop finally stop (NOT because of a
+356 |     hardcoded count) rather than looping forever burning LLM calls."""
+357 |     async def _fake_run_compiler(*a, **kw):
+    |                                        ^^
+358 |         return _failing_compile_result(reason="same failure every time")
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:378:35
+    |
+376 |     call_count = {"n": 0}
+377 |
+378 |     async def _fake_run_compiler(*a, **kw):
+    |                                   ^
+379 |         call_count["n"] += 1
+380 |         return _failing_compile_result(reason=f"failure #{call_count['n']}")  # always different, never passes/stagnates
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:378:40
+    |
+376 |     call_count = {"n": 0}
+377 |
+378 |     async def _fake_run_compiler(*a, **kw):
+    |                                        ^^
+379 |         call_count["n"] += 1
+380 |         return _failing_compile_result(reason=f"failure #{call_count['n']}")  # always different, never passes/stagnates
+    |
+
+ARG001 Unused function argument: `a`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:394:35
+    |
+392 |     call_count = {"n": 0}
+393 |
+394 |     async def _fake_run_compiler(*a, **kw):
+    |                                   ^
+395 |         call_count["n"] += 1
+396 |         return _failing_compile_result(reason=f"failure #{call_count['n']}")
+    |
+
+ARG001 Unused function argument: `kw`
+   --> backend/tests/test_iter1562_fix_loop_iterations.py:394:40
+    |
+392 |     call_count = {"n": 0}
+393 |
+394 |     async def _fake_run_compiler(*a, **kw):
+    |                                        ^^
+395 |         call_count["n"] += 1
+396 |         return _failing_compile_result(reason=f"failure #{call_count['n']}")
+    |
+
+ARG001 Unused function argument: `cg`
+   --> backend/tests/test_iter17_codegen_multiagent.py:242:22
+    |
+242 | def _wait_for_status(cg, fakes, pid, target, timeout=2.0):
+    |                      ^^
+243 |     """Background tasks in TestClient run inline / same event loop, so the
+244 |     state should already be at target by the time the endpoint call returns.
+    |
+
+F401 [*] `asyncio` imported but unused
+  --> backend/tests/test_iter91_14_diagnostics.py:16:8
+   |
+14 | from __future__ import annotations
+15 |
+16 | import asyncio
+   |        ^^^^^^^
+17 | import json
+18 | from typing import Any, Dict, List
+   |
+help: Remove unused import: `asyncio`
+   |
+15 |
+   - import asyncio
+16 | import json
+   |
+
+F401 [*] `typing.Any` imported but unused
+  --> backend/tests/test_iter91_14_diagnostics.py:18:20
+   |
+16 | import asyncio
+17 | import json
+18 | from typing import Any, Dict, List
+   |                    ^^^
+19 | from unittest.mock import patch
+   |
+help: Remove unused import
+   |
+17 | import json
+   - from typing import Any, Dict, List
+18 + from typing import List
+19 | from unittest.mock import patch
+   |
+
+F401 [*] `typing.Dict` imported but unused
+  --> backend/tests/test_iter91_14_diagnostics.py:18:25
+   |
+16 | import asyncio
+17 | import json
+18 | from typing import Any, Dict, List
+   |                         ^^^^
+19 | from unittest.mock import patch
+   |
+help: Remove unused import
+   |
+17 | import json
+   - from typing import Any, Dict, List
+18 + from typing import List
+19 | from unittest.mock import patch
+   |
+
+ARG001 Unused function argument: `req`
+  --> backend/tests/test_iter91_14_diagnostics.py:68:17
+   |
+66 | @pytest.mark.asyncio
+67 | async def test_try_start_computer_returns_false_when_all_4xx():
+68 |     def handler(req: httpx.Request) -> httpx.Response:
+   |                 ^^^
+69 |         return httpx.Response(404, json={"error": "not found"})
+   |
+
+ARG001 Unused function argument: `req`
+  --> backend/tests/test_iter91_14_diagnostics.py:79:17
+   |
+77 | @pytest.mark.asyncio
+78 | async def test_get_computer_diagnostic_extracts_known_fields():
+79 |     def handler(req: httpx.Request) -> httpx.Response:
+   |                 ^^^
+80 |         return httpx.Response(200, json={
+81 |             "id": "cid-789",
+   |
+
+ARG001 Unused function argument: `req`
+   --> backend/tests/test_iter91_14_diagnostics.py:100:17
+    |
+ 98 | @pytest.mark.asyncio
+ 99 | async def test_get_computer_diagnostic_handles_non_200():
+100 |     def handler(req: httpx.Request) -> httpx.Response:
+    |                 ^^^
+101 |         return httpx.Response(404, text="Not found")
+    |
+
+ARG001 Unused function argument: `req`
+   --> backend/tests/test_iter91_14_diagnostics.py:227:17
+    |
+225 |     """When every listing endpoint returns 404, _cleanup_stale_sessions
+226 |     must return 0 without raising."""
+227 |     def handler(req: httpx.Request) -> httpx.Response:
+    |                 ^^^
+228 |         return httpx.Response(404)
+229 |     async with _make_client(handler) as client:
+    |
+
+F401 [*] `tempfile` imported but unused
+  --> backend/tests/test_iter91_16_context_bundler.py:13:8
+   |
+11 | import os
+12 | import sys
+13 | import tempfile
+   |        ^^^^^^^^
+14 |
+15 | sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
+   |
+help: Remove unused import: `tempfile`
+   |
+12 | import sys
+   - import tempfile
+13 |
+   |
+
+ARG002 Unused method argument: `api`
+   --> backend/tests/test_lama_v4.py:140:69
+    |
+138 | # ------------------------- 6. SRS stream returns SSE quickly -------------------------
+139 | class TestSRSStream:
+140 |     def test_stream_returns_text_event_stream_and_start_event(self, api, fresh_project):
+    |                                                                     ^^^
+141 |         """Use a fresh project (no KB) so start event fires fast; we just want headers + first event."""
+142 |         url = f"{BASE_URL}/api/srs/generate/stream"
+    |
+
+ARG002 Unused method argument: `fresh_project`
+   --> backend/tests/test_lama_v4.py:179:46
+    |
+177 |         assert expected.issubset(set(body["sections"].keys()))
+178 |
+179 |     def test_freeze_then_unfreeze(self, api, fresh_project):
+    |                                              ^^^^^^^^^^^^^
+180 |         # Need an SRS doc first — seed an empty one via direct update through generate? Easier:
+181 |         # generate a 1-section stub by calling /api/srs/{pid} which returns scaffold but doesn't persist.
+    |
+
+F401 [*] `io` imported but unused
+ --> backend/tests/test_migrationos.py:7:8
+  |
+5 | """
+6 | import os
+7 | import io
+  |        ^^
+8 | import uuid
+9 | import time
+  |
+help: Remove unused import: `io`
+  |
+6 | import os
+  - import io
+7 | import uuid
+  |
+
+ARG002 Unused method argument: `api`
+   --> backend/tests/test_migrationos.py:156:33
+    |
+155 | class TestKB:
+156 |     def test_upload_files(self, api, pilot_project_id):
+    |                                 ^^^
+157 |         files = [
+158 |             ("files", ("UserController.php", PHP_SAMPLE.encode(), "application/x-php")),
+    |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_srs_streaming.py:65:33
+   |
+64 |     # --- read ---
+65 |     async def find_one(self, q, projection=None):
+   |                                 ^^^^^^^^^^
+66 |         for d in self.docs:
+67 |             if all(d.get(k) == v for k, v in (q or {}).items()):
+   |
+
+ARG002 Unused method argument: `projection`
+  --> backend/tests/test_srs_streaming.py:73:28
+   |
+71 |         return None
+72 |
+73 |     def find(self, q=None, projection=None):
+   |                            ^^^^^^^^^^
+74 |         q = q or {}
+75 |         matches = [d for d in self.docs if all(d.get(k) == v for k, v in q.items())]
+   |
+
+ARG001 Unused function argument: `messages`
+   --> backend/tests/test_srs_streaming.py:211:32
+    |
+209 |     )
+210 |
+211 |     async def fake_fabric_call(messages, model="x", temperature=0.0, max_tokens=1000, timeout=30.0, **_kw):
+    |                                ^^^^^^^^
+212 |         # Tiny await so the event loop yields — this is what lets the
+213 |         # heartbeat path in _run_job actually run during the LLM call.
+    |
+
+ARG001 Unused function argument: `model`
+   --> backend/tests/test_srs_streaming.py:211:42
+    |
+209 |     )
+210 |
+211 |     async def fake_fabric_call(messages, model="x", temperature=0.0, max_tokens=1000, timeout=30.0, **_kw):
+    |                                          ^^^^^
+212 |         # Tiny await so the event loop yields — this is what lets the
+213 |         # heartbeat path in _run_job actually run during the LLM call.
+    |
+
+ARG001 Unused function argument: `temperature`
+   --> backend/tests/test_srs_streaming.py:211:53
+    |
+209 |     )
+210 |
+211 |     async def fake_fabric_call(messages, model="x", temperature=0.0, max_tokens=1000, timeout=30.0, **_kw):
+    |                                                     ^^^^^^^^^^^
+212 |         # Tiny await so the event loop yields — this is what lets the
+213 |         # heartbeat path in _run_job actually run during the LLM call.
+    |
+
+ARG001 Unused function argument: `max_tokens`
+   --> backend/tests/test_srs_streaming.py:211:70
+    |
+209 |     )
+210 |
+211 |     async def fake_fabric_call(messages, model="x", temperature=0.0, max_tokens=1000, timeout=30.0, **_kw):
+    |                                                                      ^^^^^^^^^^
+212 |         # Tiny await so the event loop yields — this is what lets the
+213 |         # heartbeat path in _run_job actually run during the LLM call.
+    |
+
+ARG001 Unused function argument: `timeout`
+   --> backend/tests/test_srs_streaming.py:211:87
+    |
+209 |     )
+210 |
+211 |     async def fake_fabric_call(messages, model="x", temperature=0.0, max_tokens=1000, timeout=30.0, **_kw):
+    |                                                                                       ^^^^^^^
+212 |         # Tiny await so the event loop yields — this is what lets the
+213 |         # heartbeat path in _run_job actually run during the LLM call.
+    |
+
+F841 Local variable `ping_seen` is assigned to but never used
+   --> backend/tests/test_srs_streaming.py:310:17
+    |
+308 |             t = evt.get("type")
+309 |             if t == "ping" or t == "section_progress":
+310 |                 ping_seen = True
+    |                 ^^^^^^^^^
+311 |             elif t == "section_complete":
+312 |                 section_complete_keys.append(evt["section"])
+    |
+help: Remove assignment to unused variable `ping_seen`
+
+Found 252 errors.
+[*] 13 fixable with the `--fix` option (4 hidden fixes can be enabled with the `--unsafe-fixes` option).
