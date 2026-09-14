@@ -196,6 +196,56 @@ in real output.
 
 ---
 
+## The quality chain, observed working end to end
+
+The most useful evidence came from watching the agents disagree with each
+other on a live run against Azure `gpt-5.1`.
+
+**The verifier caught real compile errors, with evidence, and the gate acted
+on them.** Two files were rejected at confidence 98:
+
+```
+TASK-0019  dto/ApiClaimsIdDtos.java
+  [BLOCKER] File defines multiple public top-level records and none of them
+            matches the filename
+  evidence: 'public record CreateRequest(...)\n...\npublic record UpdateRequest(...)'
+
+TASK-0020  exception/ApiClaimsIdException.java
+  [BLOCKER] Global exception handler is defined as an inner static class
+            inside a non-component class
+  evidence: '@RestControllerAdvice\n    public static class GlobalExceptionHandler {'
+```
+
+Both are genuine faults. A Java file may hold only one public top-level type
+and it must match the filename, so the first would not compile at all. The
+second would compile but Spring would never register the handler.
+
+Before the verifier-gate fix, a `REJECT` at confidence 98 was recorded as
+`VERIFIED`, because the code read the verdict into a local and then decided on
+the score alone. Both of these files would have shipped.
+
+**The `UNVERIFIABLE` verdict earned its place immediately.** Fourteen files
+came back unverifiable rather than accepted or rejected:
+
+```
+[BLOCKER] Cannot verify that the JPA mappings (table/columns, nullability,
+          lengths) match ...
+evidence: '// TRACEABILITY-GAP: Original DDL not present in KB; mapping based
+           on best-effort ...'
+```
+
+That is correct. The fixture was built with a frozen Architecture and no
+DataModel, so there is no OLTP DDL to check column mappings against. The
+verifier said so and cited the coder's own gap comment as the evidence, rather
+than guessing an `ACCEPT` or inventing a `REJECT`. The gate fails closed on
+`UNVERIFIABLE`, so nothing unverifiable is silently approved.
+
+Both hardened prompts are visibly working together here: the coder writes
+`TRACEABILITY-GAP` where it lacks input instead of fabricating, and the
+verifier reads that marker as evidence that it cannot complete its check.
+
+---
+
 ## Known, not fixed
 
 - **A partial `srs.generate` row** in `agent_configs` carries only `key`,
