@@ -2051,7 +2051,6 @@ async def diff_ontology(project_id: str, a: str = "", b: str = "current"):
 # Replaces the raw code-level Class/Table/Column graph for users who want
 # to see real-world concepts (Citizen, Loan Application, Invoice, …).
 # ─────────────────────────────────────────────────────────────────────────
-import asyncio
 import time as _time
 from typing import Any as _Any
 

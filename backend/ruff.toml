@@ -1,0 +1,132 @@
+# Ruff configuration — the zero-waste bar, enforced.
+#
+# Before this file there was no ruff config, so `ruff check` used its default
+# rule set (E4, E7, E9, F). This pins the WASTE bar -- F (dead code) plus ARG
+# (dead parameters) -- and requires it to be clean.
+#
+# E4 and E7 are deliberately NOT selected. They are style rules
+# (multiple-statements-on-one-line, module-import-not-at-top-of-file,
+# lambda-assignment), and CLAUDE.md is explicit that this repo enforces no
+# project-wide formatter and that new code should match the surrounding
+# file's style. Turning them on would add 90+ cosmetic findings that have
+# nothing to do with waste and would drown the findings that do. E9 (syntax
+# errors) is kept because a file that will not parse is not a style opinion.
+#
+# `ruff check backend` must be clean. Everything still reported is a real
+# finding; everything deliberately kept is listed below with its reason.
+
+target-version = "py311"   # the container is python:3.11-slim-bookworm
+line-length = 120
+
+exclude = [
+    "venv", ".venv", "__pycache__", "separate",
+    # A vulture whitelist is a file of BARE NAMES by design -- that is the
+    # format vulture reads. Ruff correctly sees every line as an undefined
+    # name, so the two tools cannot lint the same file.
+    ".vulture-whitelist.py",
+]
+
+[lint]
+select = ["E9", "F", "ARG"]
+
+# ── Justified survivors ───────────────────────────────────────────────
+#
+# One reason per entry. An unused ARGUMENT is not the same as an unused
+# import: removing it changes a signature, and most of these exist because
+# something else dictates the signature. "It is not read in the body" is not
+# by itself evidence that it can go.
+#
+# Anything NOT listed here must be removed rather than added to this list.
+[lint.per-file-ignores]
+
+# Architecture HLD / LLD / API-contract generation became DETERMINISTIC
+# (see backend/arch_deterministic.py); these jobs emit `"model":
+# "deterministic"` and make no LLM call. The `model` parameter is retained so
+# the route signature and the UI's payload contract are unchanged, and so the
+# five _run_*_job functions keep one uniform shape.
+"routes/architecture.py" = ["ARG001"]
+
+# _run_jmeter_batched(jid, project_id, model) — same family, same reason: it
+# builds the JMeter plan deterministically and keeps the sibling signature.
+"routes/living.py" = ["ARG001"]
+
+# _cell_scrub(m) is a re.sub REPLACEMENT CALLBACK (routes/srs.py:598). The
+# match object is passed by re.sub itself; the parameter is the calling
+# convention, not a leftover.
+# _is_high_signal_file(..., ftype) keeps the uniform (path, ftype) shape its
+# five call sites share.
+"routes/srs.py" = ["ARG001"]
+
+# The scaffold family — _java_scaffold(file_def, svc, proj),
+# _frontend_emergency_scaffold(path, ctype, file_def, svc, proj),
+# _emergency_scaffold(file_def, svc, proj) — is dispatched uniformly from 8+
+# sites. Individual scaffolds use different subsets of the context; the
+# signature is the interface.
+# _save_codegen_file(run_id, ...) carries the run identity for callers that
+# log against it.
+# _build_deterministic_root_content(..., dominant_lang) keeps the shape its
+# per-language branches share.
+"routes/codegen.py" = ["ARG001"]
+
+# _structural_check(..., target_stack) — the checks that consult the target
+# stack are selected by `detected_stack`; the parameter keeps the signature
+# aligned with the sibling verifier entry points.
+# _run_multi_agent_transformation(..., resume) is dispatched through
+# BackgroundTasks.add_task, which supplies it positionally.
+"routes/tools.py" = ["ARG001"]
+
+# _ensure_bus_matrix(project_id, proj) — `proj` is the already-fetched
+# project doc, passed so callers that have it do not refetch; this branch
+# happens not to need it.
+"routes/datamodel.py" = ["ARG001"]
+
+# _schema_to_entities(project_id, ...) — project_id is threaded through the
+# whole db_ingest extraction chain for logging and tenant scoping; this leaf
+# does not need it but its siblings do.
+"routes/db_ingest.py" = ["ARG001"]
+
+# render_lld(..., srs_sections) and _render_openapi_for_service(..., flav)
+# keep the uniform renderer signature; each renderer reads a different subset.
+"arch_deterministic.py" = ["ARG001"]
+
+# _resolve_context_window(project_id, ...) — project_id is accepted so the
+# resolver can be made project-aware without touching call sites; the current
+# resolution is global. Off-by-default extension point, not dead weight.
+"llm.py" = ["ARG001"]
+
+# score_artifact_multi_model_langgraph(..., models) — the LangGraph engine
+# scores with its own pinned HF encoders rather than the caller's model list.
+# The parameter keeps it drop-in compatible with the legacy fabric_call
+# scorer it substitutes for (see LAMA_CONFIDENCE_ENGINE).
+"confidence_langgraph.py" = ["ARG001"]
+
+# _column_line(..., table_name) and generate_oltp_ddl(..., data_model_hints)
+# keep the generator signatures uniform across oltp / olap / bus_matrix.
+"datamodel/oltp_generator.py" = ["ARG001"]
+
+# _build_ctx(file_def, ...) — uniform template-context builder signature.
+"codegen/utility_templates.py" = ["ARG001"]
+
+# _shard_array(key, ...) takes the key so shard callers read symmetrically;
+# _split_on_structure(..., max_piece) keeps the splitter signature shared with
+# the size-based splitter beside it.
+"kb/kb_graph.py" = ["ARG001"]
+"kb/parsers.py" = ["ARG001"]
+
+# summarise(entities, ...) — the TOON summariser derives everything it needs
+# from the already-indexed structures; `entities` keeps it interchangeable
+# with the other summarisers.
+"kb/toon.py" = ["ARG001"]
+
+# ── Tests ─────────────────────────────────────────────────────────────
+# 252 findings, overwhelmingly ARG001/ARG002/ARG005 on pytest fixture
+# parameters and stub lambdas whose arguments are required by the calling
+# convention. Removing them would break the fixtures. F401 in a test is
+# usually an import kept for its side effect (sys.path setup).
+"tests/*" = ["ARG", "F401", "F811", "F841", "F541"]
+
+# _test_structural_validator.py and _smoke_*.py are MANUAL scripts, not
+# collected by pytest (the leading underscore is what keeps pytest away).
+# They are run by hand during an iteration and carry scratch variables.
+"_test_*.py" = ["ARG", "F"]
+"tests/_smoke_*.py" = ["ARG", "F"]

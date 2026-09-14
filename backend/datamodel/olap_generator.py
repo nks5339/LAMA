@@ -94,7 +94,7 @@ def _emit_dimension(dim: dict) -> str:
     lines: List[str] = []
     lines.append(f'CREATE TABLE IF NOT EXISTS "{name}" (')
     lines.append(f'    "{name}_key" INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,')
-    lines.append(f'    "natural_key" VARCHAR(128) NOT NULL,')
+    lines.append('    "natural_key" VARCHAR(128) NOT NULL,')
     for a in attrs:
         an = _sanitise(a.get("name") or "")
         if not an or an in ("natural_key",):

@@ -969,7 +969,7 @@ async def _do_test_cli_connection(cli_bin: Optional[str] = None) -> Dict[str, An
             "binary": candidate or FACTORY_CLI_BIN or "droid",
             "tried": tried,
             "error": (
-                f"`droid` binary not found. Tried (in order): "
+                "`droid` binary not found. Tried (in order): "
                 + ", ".join(f"`{t}`" for t in tried)
             ),
             "hint": (

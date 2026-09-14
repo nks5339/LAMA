@@ -47,7 +47,15 @@ def _source_files() -> list[Path]:
     for d in _SOURCE_DIRS:
         if not d.is_dir():
             continue
-        out.extend(sorted(p for p in d.glob("*.py") if not p.name.startswith("_test")))
+        out.extend(sorted(
+            p for p in d.glob("*.py")
+            # _test_* are manual scripts, not collected by pytest.
+            # .vulture-whitelist.py is a file of bare names by design --
+            # that is the format vulture reads, so every line is
+            # legitimately an "undefined name".
+            if not p.name.startswith("_test")
+            and p.name != ".vulture-whitelist.py"
+        ))
     return out
 
 
