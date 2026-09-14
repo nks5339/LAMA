@@ -24,7 +24,7 @@ Every later claim of "no new failures" is measured against this.
   --ignore=backend/tests/test_console.py
 ```
 
-Full output: [`docs/recon/pytest-baseline.txt`](recon/pytest-baseline.txt).
+Failure identifiers: [`docs/recon/pytest-baseline.txt`](recon/pytest-baseline.txt) (reduced from the raw 2.1 MB dump in 2026-09 — the id set is what "no new failures" is diffed against).
 
 `test_console.py` is excluded because it errors at **collection**, not at test time:
 it reads `REACT_APP_BACKEND_URL` at module scope and calls `.rstrip()` on the `None`
