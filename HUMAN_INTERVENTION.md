@@ -177,3 +177,87 @@ discrepancy at the site.
 *Recommendation: 1, but measured first.* The comment suggests someone
 concluded the tally was incomplete without them. Worth confirming on the PMIS
 pilot before flipping it for everyone.
+
+---
+
+### DEC-7 — 300+ routes accept requests with no bearer token
+
+**Raised:** deep test, live against a running backend. **This is the most
+serious finding in the audit.** It needs a decision because the fix is small
+but its blast radius is not.
+
+Only two routers enforce authentication. Every other data-bearing endpoint
+answers an anonymous caller:
+
+```
+GET /api/projects                              401   <- enforced
+GET /api/kb/{pid}/status                       200
+GET /api/codegen/{pid}/multi-agent/state       200
+GET /api/codegen/{pid}/files                   200   <- generated source code
+GET /api/tools/transformer                     200
+GET /api/console/providers                     200   <- provider configuration
+GET /api/audit?project_id=...                  200
+GET /api/prompts                               200
+```
+
+Auth-dependency references per router:
+
+| Router | Routes | Auth refs |
+|---|---|---|
+| `admin` | 9 | 11 |
+| `auth` | 4 | 4 |
+| `projects` | 7 | 8 |
+| **every other router** | **~287** | **0** |
+
+`CLAUDE.md` contract #3 states the intent plainly: *"New routes that read
+project data must scope by tenant, not just `project_id`."* The intent is not
+implemented outside those three routers. In a multi-tenant deployment reachable
+beyond localhost, any caller who knows or guesses a `project_id` can read
+another tenant's knowledge base, generated source, audit log and provider
+configuration. `CORS_ORIGINS=*` means a browser on any origin can do it too.
+
+**The fix is small, and the client is already ready for it.** `lib/api.js`
+attaches a bearer token to every request through an axios interceptor
+(line 19), and the two XHR upload paths set the header explicitly. So a global
+dependency would not break the UI:
+
+```python
+# server.py
+from auth import get_current_user
+
+_OPEN_PATHS = {"/api/health", "/api/health/providers",
+               "/api/auth/login", "/api/"}
+
+api_router = APIRouter(
+    prefix="/api",
+    dependencies=[Depends(get_current_user)],   # <- the whole change
+)
+# with the open paths mounted on a separate un-gated router
+```
+
+**Why I did not just apply it.** It flips ~287 endpoints from open to closed in
+one commit. Anything that calls LAMA without a token stops working: the testing
+agent's flows, any curl scripts or dashboards you have, and the five
+live-server test suites. That is a behaviour change with real operational
+blast radius, and which of those matter is something only you know.
+
+**What I need from you — one of:**
+
+1. **Apply it globally now.** I add the dependency, exempt health and login,
+   and re-drive the full pipeline to prove nothing broke.
+2. **Apply it behind `LAMA_REQUIRE_AUTH`,** defaulting ON, so you can switch
+   it off for a single environment while migrating tooling.
+3. **Gate only the sensitive readers first** — `console/*` (provider
+   configuration), `codegen/*/files` (generated source), `audit/*` — and leave
+   the rest for a follow-up.
+
+*Recommendation: 2.* It closes the hole by default and gives you one lever if
+something you own turns out to call LAMA unauthenticated.
+
+**Already fixed, separately, because it was unambiguous:** the same endpoint
+was emitting 12 characters of the real 32-character Azure key —
+`api_key` gave `yuATf0...p6pG` and `detected_from_key` gave a completely
+unmasked `yuATf0sx...`. Masking now reveals a 4-character trailing fragment at
+most, and `detected_from_key` is masked on the way out so existing rows are
+covered. That reduces the severity of DEC-7 but does not remove it: the
+endpoint still should not answer an anonymous caller at all.

@@ -64,16 +64,43 @@ async def get_logs_tail(
 
 
 def _mask_key(k: str) -> str:
+    """Mask a credential, revealing at most a 4-character trailing fragment.
+
+    This used to emit `k[:6] + "..." + k[-4:]`. Combined with the unmasked
+    `detected_from_key` below (which stores `api_key[:8]`), a caller received
+    12 of a 32-character key — positions 0-7 and 28-31.
+
+    Twelve characters will not let anyone brute-force it. It is still wrong:
+    enough to CONFIRM a key someone already holds, it survives into logs and
+    screenshots, and no caller has a reason to receive it. A trailing
+    fragment alone is what everyone else emits, and it is all an operator
+    needs to tell two configured keys apart — `provider_type`, `name` and
+    `base_url` already identify the vendor.
+    """
     k = k or ""
-    if len(k) < 8:
-        return "***"
-    return f"{k[:6]}...{k[-4:]}"
+    if not k:
+        return ""
+    if len(k) < 12:
+        # Too short to reveal anything without giving away a real share of it.
+        return "*" * 8
+    return f"{'*' * 8}{k[-4:]}"
 
 
 def _serialize_provider(p: Dict[str, Any]) -> Dict[str, Any]:
     p = {**p}
     p.pop("_id", None)
     p["api_key"] = _mask_key(p.get("api_key", ""))
+    # `detected_from_key` is populated as `api_key[:8] + "..."` by
+    # setup_default_provider. It was never masked on the way out, so a field
+    # whose only job is to say WHICH key a row came from was emitting raw key
+    # material. Re-mask it here rather than at the write site so existing
+    # rows in Mongo are covered too.
+    _dfk = str(p.get("detected_from_key") or "")
+    if _dfk and not _dfk.startswith("*"):
+        # Non-secret local markers like "ollama-local" carry no key material.
+        p["detected_from_key"] = _dfk if _dfk.endswith("-local") else _mask_key(
+            _dfk.rstrip(".")
+        )
     return p
 
 
