@@ -4,7 +4,7 @@ A layered verification of the whole application, not just the changes made in
 this session. Static bars, the full suite, a live backend, and the real
 pipelines driven end to end against live providers.
 
-**Headline: six more defects found, every one by running the code rather than
+**Headline: seven more defects found, every one by running the code rather than
 reading it, and seven guards restored that had gone stale and were protecting
 nothing. One finding needs your decision before it can be fixed.**
 
@@ -201,6 +201,57 @@ no caller needs it.
 **Fixed.** Masking reveals a 4-character trailing fragment at most, and
 `detected_from_key` is masked at serialization so rows already in Mongo are
 covered without a migration.
+
+### D14 — the verifier could not see what it was gating against
+
+The most consequential quality finding, and it was exposed by an earlier fix
+rather than found directly.
+
+The `codegen.verifier` rubric defines four of its nine checks in terms of the
+envelope:
+
+```
+3_contract_preservation  "Compare with the envelope. Every path MUST match exactly."
+5_business_logic_check   "Compare method body against the envelope's
+                          business_logic_summary"
+6_data_integrity         "column names match the OLTP DDL"
+9_completeness           "All methods from the envelope exist in the file"
+```
+
+The call site sent the file content and a task id. Nothing else. Four of the
+nine checks were structurally impossible.
+
+Before the `UNVERIFIABLE` verdict was added, the verifier had no legal way to
+report that, so it guessed — and reading well-formed code, it mostly guessed
+`ACCEPT`. **The quality gate for every generated file was a rubber stamp.**
+
+On the live run nine files came back `UNVERIFIABLE` citing *"without the
+TASK-XXXX envelope or contract details"*. That is the verifier correctly
+reporting it had been asked to do an impossible job. The prompt hardening did
+not make it strict; it stopped it bluffing and surfaced the real defect
+underneath.
+
+**Fixed.** The user prompt now carries the task and the envelope: endpoint,
+service, business-logic summary, db tables and operations, BR ids, acceptance
+criteria. When the envelope lookup fails the prompt says so explicitly, so the
+model marks the dependent checks N/A rather than guessing — the same failure
+mode this fix exists to remove.
+
+**Breakdown of the 26 verification failures on the live fixture run**, which
+is how the split between fixture artefact and real fault was established:
+
+| Cause | Count |
+|---|---|
+| Cite the missing DataModel / DDL | 16 |
+| Cite the missing envelope (**D14**) | 9 |
+| Genuine code faults | 3 |
+
+The 16 are a fixture artefact: that fixture was built with a frozen
+Architecture and no DataModel stage, which a real run cannot do — the pipeline
+requires DataModel frozen before Architecture. The 9 were the defect above. The
+3 were real, and are listed in the quality-chain section.
+
+---
 
 ---
 
