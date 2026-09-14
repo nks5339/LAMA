@@ -972,9 +972,16 @@ async def preview_prompt(payload: dict):
     ]
     total_tokens = sum(v["token_estimate"] for v in variables) + max(1, len(template) // 4)
     # Find model that will run for this key
-    model_id, _, _ = await resolve_model(key)
+    model_id, _, _, _meta = await resolve_model(key)
+    # Cost the preview against the provider this agent actually resolves to.
+    # Reading the default row here was wrong whenever the agent was pinned to
+    # a different provider via `provider_id`, which quoted the preview at the
+    # wrong vendor's rates.
     default_provider = await mp_col.find_one({"is_default": True}, {"_id": 0})
-    ptype = (default_provider or {}).get("provider_type", "openrouter")
+    ptype = (
+        _meta.get("provider_type")
+        or (default_provider or {}).get("provider_type", "openrouter")
+    )
     cost = estimate_cost(model_id, total_tokens, 0, ptype)
     return {
         "resolved_template": resolved_template[:8000],

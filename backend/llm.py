@@ -539,6 +539,7 @@ async def _try_ollama_fallback(
             max_tokens=kwargs.get("max_tokens", 0) or 0,
             temperature=kwargs.get("temperature", 0.3),
             timeout=kwargs.get("timeout", 600.0),
+            response_format=kwargs.get("response_format"),
         )
         if isinstance(result, dict) and (result.get("content") or "").strip():
             result = await _sanitize_response_inplace(
@@ -580,6 +581,18 @@ async def chat_completion(
     `model` empty → resolves from `LAMA_DEFAULT_MODEL` env-var. Raises a
     clear error if both are empty so the caller learns to configure a
     provider in Console → Models instead of silently routing to a guess.
+
+    UNREACHABLE as of iter-14.31 — see docs/RECON.md. Every stage route
+    binds the name `chat_completion` to `fabric_call` at import
+    (``from llm import fabric_call as chat_completion``), so no caller
+    anywhere resolves to THIS function; and iter-14.31 removed the
+    env-var OpenRouter fallback inside `_fabric_call_impl` that used to
+    be its last caller, replacing it with a hard failure. Deliberately
+    NOT given the `response_format` plumbing the live path received —
+    adding parameters to unreachable code is the waste this audit
+    exists to remove. Flagged for a removal decision in Phase 2 rather
+    than deleted here, because a fallback deserves its own evidence
+    trail and its own commit.
     """
     if not OPENROUTER_API_KEY:
         # iter-14.8 — make this error actionable. Users see this on the
@@ -1591,6 +1604,7 @@ async def _fabric_call_impl(
                     max_tokens=kwargs.get("max_tokens", 0) or 0,
                     temperature=kwargs.get("temperature", 0.3),
                     timeout=kwargs.get("timeout", 120.0),
+                    response_format=kwargs.get("response_format"),
                 )
                 # If failover returned empty content (e.g., upstream 200 with no text)
                 # and we have an OpenRouter env-var fallback configured, retry via legacy client.
@@ -2010,6 +2024,7 @@ async def fabric_call_stream(
                     max_tokens=kwargs.get("max_tokens", 0) or 0,
                     temperature=kwargs.get("temperature", 0.3),
                     timeout=kwargs.get("timeout", 600.0),
+                    response_format=kwargs.get("response_format"),
                 ):
                     yield piece
                 return

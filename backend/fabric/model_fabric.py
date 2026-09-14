@@ -272,6 +272,86 @@ def detect_provider_from_key(api_key: str) -> str:
     return "custom"
 
 
+# ── JSON mode ─────────────────────────────────────────────────────────
+# Fifteen agent call sites (every structural agent in routes/codegen.py
+# and routes/tools.py) ask for `response_format={"type": "json_object"}`.
+# Until this landed the kwarg was dropped in llm.py's hand-off to
+# fabric_chat, so NOT ONE of them ever got JSON mode: each asked for
+# strict JSON, silently received prose, and fell back to scraping the
+# outermost {...} out of it with `_extract_json_object`. On a small local
+# model that is exactly how a good file ends up scored REJECT / 0.0.
+#
+# Providers do not agree on the wire format, so the translation lives
+# here and nowhere else. Adding a provider means adding one line.
+#
+#   openai / azure / groq / openrouter / custom
+#       OpenAI's own field. `custom` covers LM Studio, vLLM and
+#       llama.cpp, all of which implement the OpenAI shape.
+#   ollama
+#       Its /v1 OpenAI-compatibility layer has accepted `response_format`
+#       since v0.5. LAMA only ever posts to /v1/chat/completions (see
+#       fabric_chat), so the OpenAI field is the correct one here — NOT
+#       the top-level `format: "json"` of the native /api/chat route.
+#   anthropic
+#       /v1/messages has no equivalent field and rejects unknown keys.
+#       Callers get a system-message instruction instead; see
+#       `json_mode_system_suffix`.
+_JSON_MODE_OPENAI_STYLE = frozenset({
+    "openai", "azure", "groq", "openrouter", "ollama", "custom",
+})
+
+# Appended to the system message for providers with no native JSON mode.
+# Deliberately terse: a long lecture competes with the caller's own schema
+# instructions, which are more specific and should win.
+_JSON_MODE_SYSTEM_SUFFIX = (
+    "\n\nRespond with a single valid JSON object and nothing else. "
+    "No prose before or after it, no markdown code fences."
+)
+
+
+def supports_json_mode(provider_type: str) -> bool:
+    """True when the provider accepts a native structured-output field.
+
+    False does not mean JSON is unobtainable — it means the caller must
+    fall back to instructing the model in the prompt.
+    """
+    return (provider_type or "").strip().lower() in _JSON_MODE_OPENAI_STYLE
+
+
+def apply_json_mode(
+    payload: Dict,
+    provider_type: str,
+    response_format: Dict | None,
+) -> Dict:
+    """Translate a caller's `response_format` into this provider's wire format.
+
+    Mutates and returns `payload`. A falsy `response_format` is a no-op, so
+    this is safe to call unconditionally on every request.
+
+    For a provider with no native JSON mode the instruction is appended to
+    the first system message (or a system message is prepended if there is
+    none), which is the only portable way to ask.
+    """
+    if not response_format:
+        return payload
+
+    ptype = (provider_type or "").strip().lower()
+    if ptype in _JSON_MODE_OPENAI_STYLE:
+        payload["response_format"] = response_format
+        return payload
+
+    messages = payload.get("messages") or []
+    for msg in messages:
+        if msg.get("role") == "system":
+            msg["content"] = (msg.get("content") or "") + _JSON_MODE_SYSTEM_SUFFIX
+            return payload
+    payload["messages"] = [
+        {"role": "system", "content": _JSON_MODE_SYSTEM_SUFFIX.strip()},
+        *messages,
+    ]
+    return payload
+
+
 # iter-14.21 — Ollama cloud vs local endpoint resolver.
 # User reported: "Selected an Ollama :...-cloud model tag AND set
 # OLLAMA_API_KEY on the provider, but LAMA still hit the local endpoint."
@@ -434,9 +514,25 @@ async def setup_default_provider(api_key: str, name: str = "", base_url: str = "
     return d
 
 
-async def resolve_model(agent_key: str) -> Tuple[str, str, Dict]:
+async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
     """Resolve which model and provider to use for an agent.
-    Returns (model_id, provider_base_url, provider_headers).
+
+    Returns ``(model_id, provider_base_url, provider_headers, meta)`` where
+    ``meta`` carries what the caller needs to actually shape the request:
+
+      ``provider_type``   the type of the provider we resolved to. NOT
+                          necessarily the default provider's type — an agent
+                          may be pinned to a different row via ``provider_id``,
+                          and JSON-mode translation has to follow the provider
+                          we are really talking to.
+      ``request_params``  query parameters to send with the POST. Empty for
+                          every provider except Azure, which carries its API
+                          version in the query string rather than a header.
+
+    ``meta`` was added when Azure landed. Azure is the first provider whose
+    request cannot be described by (url, headers) alone, and JSON mode needed
+    a trustworthy provider type at the payload-building site; both wanted the
+    same extra return value, so they share one.
 
     iter-13.112 — Stage-based routing with generate/regenerate modes (like Factory).
     Determines if this is a first-time generation or regeneration based on agent_key
@@ -488,6 +584,7 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict]:
                 "HTTP-Referer": "https://lama.local",
                 "X-Title": "LAMA",
             },
+            {"provider_type": "openrouter", "request_params": {}},
         )
 
     # iter-13.112 — Try stage_routing_generate or stage_routing_regenerate first,
@@ -547,8 +644,37 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict]:
     _bl = (base_url or "").lower()
     if not is_ollama_cloud and any(h in _bl for h in ("localhost", "127.0.0.1", "0.0.0.0")):
         base_url = _rewrite_local_url_for_docker(base_url)
+    request_params: Dict = {}
     if ptype == "anthropic":
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+    elif ptype == "azure":
+        # Azure OpenAI differs from the OpenAI shape in three ways, all of
+        # them structural rather than cosmetic:
+        #   1. the deployment name lives in the URL path, not in `model`
+        #   2. the API version is a query parameter
+        #   3. auth is an `api-key` header, not `Authorization: Bearer`
+        #
+        # Callers append "/chat/completions" to base_url, so base_url has to
+        # end at the deployment. `model_id` here is the DEPLOYMENT name — on
+        # Azure that is operator-chosen and need not match any published
+        # model name, which is why it is also left in the payload untouched
+        # (Azure ignores it; some gateways echo it back for routing).
+        deployment = model_id or provider.get("azure_deployment", "")
+        api_version = (
+            provider.get("azure_api_version")
+            or os.environ.get("AZURE_API_VERSION", "")
+            or "2024-02-15-preview"
+        )
+        root = (base_url or "").rstrip("/")
+        # An operator may paste either the account root or a URL that already
+        # points at the deployment. Only append the path we are missing, so a
+        # corporate gateway URL that is already deployment-scoped is not
+        # mangled into .../deployments/x/openai/deployments/x.
+        if deployment and "/deployments/" not in root:
+            root = f"{root}/openai/deployments/{deployment}"
+        base_url = root
+        headers = {"api-key": api_key, "Content-Type": "application/json"}
+        request_params = {"api-version": api_version}
     elif ptype == "ollama":
         # iter-14.21 — cloud Ollama needs Bearer auth; local doesn't.
         if is_ollama_cloud and api_key:
@@ -565,7 +691,10 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict]:
             "HTTP-Referer": "https://lama.local",
             "X-Title": "LAMA",
         }
-    return model_id, base_url, headers
+    return model_id, base_url, headers, {
+        "provider_type": ptype,
+        "request_params": request_params,
+    }
 
 
 async def fabric_chat(
@@ -576,6 +705,7 @@ async def fabric_chat(
     max_tokens: int = 0,
     temperature: float = 0.3,
     timeout: float = 120.0,
+    response_format: Dict | None = None,
 ) -> Dict:
     """Single entry point for all LLM calls. Resolves model, applies wraps, logs usage."""
     from db import agent_configs as ac_col, token_usage_log as log_col, model_providers as mp_col
@@ -591,10 +721,12 @@ async def fabric_chat(
         }
 
     if model_override:
-        _, base_url, headers = await resolve_model(agent_key)
+        _, base_url, headers, _meta = await resolve_model(agent_key)
         model_id = model_override
     else:
-        model_id, base_url, headers = await resolve_model(agent_key)
+        model_id, base_url, headers, _meta = await resolve_model(agent_key)
+    resolved_ptype = _meta.get("provider_type", "openrouter")
+    request_params = _meta.get("request_params") or {}
 
     # Apply wrap prefix/suffix to first system message
     if status == "wrapped" and agent:
@@ -667,6 +799,12 @@ async def fabric_chat(
             )
     
     payload = {"model": model_id, "messages": messages, "temperature": temperature, "max_tokens": effective_max}
+    # Structured output. Applied against the provider we actually RESOLVED
+    # to, not the default provider row read below — an agent pinned via
+    # `provider_id` can be talking to a different vendor entirely, and
+    # sending OpenAI's `response_format` to one that rejects unknown keys
+    # turns a working call into a 400.
+    payload = apply_json_mode(payload, resolved_ptype, response_format)
     # iter-13.115 fix — `ptype` was previously only assigned inside the
     # `finally:` block (after the HTTP call), but the iter-13.114 local-
     # timeout-floor check below read it BEFORE the call → UnboundLocalError
@@ -732,7 +870,11 @@ async def fabric_chat(
             base_url[:40], model_id, timeout, sum(len(m.get("content", "")) for m in messages),
         )
         async with httpx.AsyncClient(timeout=_timeout_cfg, verify=_http_verify()) as client:
-            resp = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+            resp = await client.post(
+                f"{base_url}/chat/completions",
+                headers=headers, json=payload,
+                params=request_params or None,
+            )
             if resp.status_code != 200:
                 call_status = "error"
                 error_msg = f"HTTP {resp.status_code}: {resp.text[:300]}"
@@ -851,6 +993,7 @@ async def fabric_chat_with_failover(
     max_tokens: int = 0,
     temperature: float = 0.3,
     timeout: float = 120.0,
+    response_format: Dict | None = None,
 ) -> Dict:
     """Wrap fabric_chat with automatic provider failover on 402/401/quota.
 
@@ -874,6 +1017,7 @@ async def fabric_chat_with_failover(
             messages=messages, agent_key=agent_key, project_id=project_id,
             model_override=model_override, max_tokens=max_tokens,
             temperature=temperature, timeout=timeout,
+            response_format=response_format,
         )
     except Exception as exc:
         msg = str(exc)
@@ -929,6 +1073,7 @@ async def fabric_chat_with_failover(
                 messages=messages, agent_key=agent_key, project_id=project_id,
                 model_override="",   # let resolve_model pick from this provider's routing
                 max_tokens=max_tokens, temperature=temperature, timeout=timeout,
+                response_format=response_format,
             )
             # Success — leave the agent pinned to this working provider so
             # subsequent calls in the same SRS batch don't re-pay the
@@ -980,6 +1125,7 @@ async def fabric_chat_stream(
     max_tokens: int = 0,
     temperature: float = 0.3,
     timeout: float = 600.0,
+    response_format: Dict | None = None,
 ):
     """Async generator yielding content delta strings.
 
@@ -998,14 +1144,20 @@ async def fabric_chat_stream(
         return
 
     if model_override:
-        _, base_url, headers = await resolve_model(agent_key)
+        _, base_url, headers, _meta = await resolve_model(agent_key)
         model_id = model_override
     else:
-        model_id, base_url, headers = await resolve_model(agent_key)
+        model_id, base_url, headers, _meta = await resolve_model(agent_key)
+    request_params = _meta.get("request_params") or {}
 
     # Provider gating — we only know how to stream OpenAI-compatible.
+    # Prefer the type of the provider we actually resolved to; the default
+    # row is only a fallback for when resolve_model took the env-var path.
     provider = await mp_col.find_one({"is_default": True}, {"_id": 0})
-    ptype = (provider or {}).get("provider_type", "openrouter").lower()
+    ptype = (
+        _meta.get("provider_type")
+        or (provider or {}).get("provider_type", "openrouter")
+    ).lower()
     if ptype == "anthropic":
         raise NotImplementedError(
             "fabric_chat_stream: native Anthropic /v1/messages SSE not yet "
@@ -1022,6 +1174,11 @@ async def fabric_chat_stream(
         # Many OpenAI-compatible providers honour this; safely ignored by the rest.
         "stream_options": {"include_usage": True},
     }
+    # Structured output works alongside streaming on the OpenAI shape: the
+    # deltas simply arrive already constrained to JSON. Anthropic never
+    # reaches here (it raises NotImplementedError above), so in practice
+    # this always takes the native-field branch.
+    payload = apply_json_mode(payload, ptype, response_format)
 
     t0 = time.time()
     error_msg = ""
@@ -1034,6 +1191,7 @@ async def fabric_chat_stream(
             async with client.stream(
                 "POST", f"{base_url}/chat/completions",
                 headers=headers, json=payload,
+                params=request_params or None,
             ) as resp:
                 if resp.status_code != 200:
                     body = (await resp.aread()).decode("utf-8", "ignore")[:300]

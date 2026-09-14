@@ -89,11 +89,18 @@ class TestOllamaCloudRouting:
         mp_col = MagicMock()
         mp_col.find_one = AsyncMock(return_value=provider)
         with patch("db.agent_configs", ac_col), patch("db.model_providers", mp_col):
-            model_id, base_url, headers = await model_fabric.resolve_model("codegen.service")
+            model_id, base_url, headers, meta = await model_fabric.resolve_model("codegen.service")
 
         assert model_id == "gpt-oss:20b-cloud"
         assert "ollama.com" in base_url
         assert headers.get("Authorization") == "Bearer test-key-xyz"
+        # `meta` was added alongside the Azure provider: Azure is the first
+        # provider whose request needs more than (url, headers), and JSON-mode
+        # translation needs the provider type of the row we actually resolved
+        # to rather than the default row's type. Ollama carries no query
+        # params, so this pins that non-Azure providers stay unaffected.
+        assert meta["provider_type"] == "ollama"
+        assert meta["request_params"] == {}
 
 
 # ══════════════════════════════════════════════════════════════════════
