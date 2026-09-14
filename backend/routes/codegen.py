@@ -8022,10 +8022,28 @@ def _looks_like_frontend_path(p: str) -> bool:
     return False
 
 
+# An extension that can only ever belong to one side. These outrank any
+# directory prefix, because a prefix like `services/` says almost nothing
+# about a file while `.tsx` says everything.
+#
+# `.ts` and `.js` are deliberately ABSENT from the frontend set: a Node
+# backend uses them too, so they stay ambiguous and defer to the Planner,
+# which has the envelope and service context that this function does not.
+# Likewise `.yml` / `.yaml` / `.toml` / `.json` are absent from the backend
+# set — they appear on both sides.
+_DECISIVE_FE_EXTENSIONS = (
+    ".jsx", ".tsx", ".css", ".scss", ".vue", ".svelte", ".html",
+)
+_DECISIVE_BE_EXTENSIONS = (
+    ".java", ".kt", ".py", ".go", ".rs", ".sql", ".cs", ".rb", ".php",
+)
+
+
 def _route_task_to_coder(task: Dict[str, Any]) -> str:
     """Deterministic BE/FE routing applied AFTER the Planner runs.
 
     Rules (in order):
+      0. A decisive file EXTENSION wins outright, whatever the directory.
       1. If the path is unambiguously BE (matches BE rules AND not FE),
          return "coder_be".
       2. If unambiguously FE (matches FE rules AND not BE), return
@@ -8035,9 +8053,27 @@ def _route_task_to_coder(task: Dict[str, Any]) -> str:
          "coder_be" (and callers may log a warning agent_run).
 
     Never returns anything other than "coder_be" or "coder_fe".
+
+    Rule 0 exists because rules 1 and 2 were INERT for the layout this
+    pipeline's own planner emits. `_BE_PATH_PREFIXES` contains
+    ``services/`` and the planner writes frontend files as
+    ``services/web/src/pages/panels.tsx`` — which matches the backend rule
+    on its prefix and the frontend rule on its extension, lands in the
+    "ambiguous" branch, and silently defers to the Planner. Every frontend
+    file in a real run was routed by the Planner's suggestion alone, so the
+    override that is supposed to guarantee "a FE file never reaches the BE
+    coder" was guaranteeing nothing. Verified against a live pipeline run
+    before the fix.
     """
     path = (task.get("target_path") or "").strip()
     planner = (task.get("assigned_to") or "").strip()
+
+    lowered = path.lower()
+    if lowered.endswith(_DECISIVE_FE_EXTENSIONS):
+        return "coder_fe"
+    if lowered.endswith(_DECISIVE_BE_EXTENSIONS):
+        return "coder_be"
+
     be = _looks_like_backend_path(path)
     fe = _looks_like_frontend_path(path)
     if be and not fe:
