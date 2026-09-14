@@ -59,13 +59,72 @@ def test_openai_style_providers_get_the_native_field(ptype: str):
     ``format: "json"`` of the native /api/chat route. ``custom`` covers
     LM Studio, vLLM and llama.cpp, all of which implement the same shape.
     """
-    payload = {"model": "m", "messages": [{"role": "user", "content": "hi"}]}
+    # The prompt already says "JSON", which is the common case for LAMA's
+    # structural agents and avoids entangling this with the word-injection
+    # guard covered separately below.
+    original = [{"role": "user", "content": "Return JSON."}]
+    payload = {"model": "m", "messages": [dict(m) for m in original]}
     out = apply_json_mode(payload, ptype, JSON_OBJECT)
 
     assert out["response_format"] == JSON_OBJECT
     assert supports_json_mode(ptype) is True
-    # The caller's messages must be left exactly alone.
-    assert out["messages"] == [{"role": "user", "content": "hi"}]
+    # A prompt that already qualifies must be passed through untouched.
+    assert out["messages"] == original
+
+
+def test_openai_style_gets_the_json_word_injected_when_absent():
+    """OpenAI and Azure refuse json_object mode unless "json" is in the messages.
+
+        HTTP 400  'messages' must contain the word 'json' in some form, to
+                  use 'response_format' of type 'json_object'.
+
+    Verified against a live Azure gpt-5.1 deployment. Without the guard,
+    turning JSON mode on converts a working call into a hard 400 for any
+    agent whose prompt does not happen to say "json" — an accuracy fix that
+    ships as an outage. The code-path fallbacks in routes/codegen.py (for
+    example ``"You are the CodeGen Reviewer."``, used when a prompt row is
+    missing) are exactly such prompts, and they fire when something else
+    has already gone wrong.
+    """
+    payload = {
+        "model": "gpt-5.1",
+        "messages": [
+            {"role": "system", "content": "You are the CodeGen Verifier."},
+            {"role": "user", "content": "Emit a verdict of ACCEPT."},
+        ],
+    }
+    out = apply_json_mode(payload, "azure", JSON_OBJECT)
+
+    assert out["response_format"] == JSON_OBJECT
+    blob = " ".join(m["content"] for m in out["messages"]).lower()
+    assert "json" in blob
+
+
+def test_openai_style_leaves_messages_alone_when_json_already_present():
+    """Do not pad a prompt that already says it.
+
+    The caller's own wording is more specific than ours, and every injected
+    token is one the operator pays for on a prompt that did not need it.
+    """
+    original = [
+        {"role": "system", "content": "Return ONLY the JSON described below."},
+        {"role": "user", "content": "go"},
+    ]
+    payload = {"model": "gpt-4o", "messages": [dict(m) for m in original]}
+    out = apply_json_mode(payload, "openai", JSON_OBJECT)
+
+    assert out["messages"] == original
+
+
+def test_json_word_detection_is_case_insensitive():
+    """Prompts say "JSON" far more often than "json"."""
+    payload = {
+        "model": "gpt-4o",
+        "messages": [{"role": "system", "content": "Return STRICT JSON ONLY."}],
+    }
+    out = apply_json_mode(payload, "openai", JSON_OBJECT)
+
+    assert out["messages"] == [{"role": "system", "content": "Return STRICT JSON ONLY."}]
 
 
 def test_anthropic_gets_a_system_instruction_instead():

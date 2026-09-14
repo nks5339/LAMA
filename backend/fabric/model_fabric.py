@@ -74,6 +74,69 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
              "context_window": 128000, "cost_per_1k_input": 0.005, "cost_per_1k_output": 0.015},
         ],
     },
+    "azure": {
+        # Azure OpenAI. `base_url` is per-tenant and has no sensible
+        # default, so it comes from the operator (Console) or AZURE_ENDPOINT.
+        # It is the ACCOUNT root; resolve_model() appends
+        # /openai/deployments/<deployment> and adds ?api-version=<version>.
+        #
+        # Note the endpoint is not always *.openai.azure.com — enterprise
+        # deployments routinely sit behind a corporate gateway with an
+        # arbitrary host and path prefix. resolve_model() therefore only
+        # appends the deployment path when the URL does not already contain
+        # one, so a pre-scoped gateway URL is left alone.
+        "base_url": os.environ.get("AZURE_ENDPOINT", ""),
+        # Azure keys are opaque 32-char strings with no distinguishing
+        # prefix, so they cannot be auto-detected from the key alone.
+        # Selecting "azure" in the Console is required.
+        "key_prefix": "",
+        # On Azure the routable identifier is the DEPLOYMENT name, which the
+        # operator chooses. There is no vendor-fixed catalogue to seed, so
+        # all three tiers default to the configured deployment and the
+        # operator splits them later if they deploy more than one.
+        "default_models": {
+            "low": os.environ.get("AZURE_DEPLOYMENT", ""),
+            "medium": os.environ.get("AZURE_DEPLOYMENT", ""),
+            "high": os.environ.get("AZURE_DEPLOYMENT", ""),
+        },
+        # Cost is billed per-deployment at rates that depend on the
+        # operator's agreement, so zeros here are honest rather than a
+        # guess. The token counts in token_usage_log stay accurate; only
+        # the dollar column is unknown until the operator fills it in.
+        "model_catalogue": (
+            [{
+                "id": os.environ.get("AZURE_DEPLOYMENT", ""),
+                "label": f"{os.environ.get('AZURE_DEPLOYMENT', '')} (Azure deployment)",
+                "context_window": 128000,
+                "cost_per_1k_input": 0.0,
+                "cost_per_1k_output": 0.0,
+            }] if os.environ.get("AZURE_DEPLOYMENT") else []
+        ),
+    },
+    "gemini": {
+        # Google's OpenAI-compatibility surface, NOT the native
+        # generativelanguage REST shape. Using it means Gemini flows
+        # through the same fabric_chat path as every other provider
+        # (Bearer auth, /chat/completions, the same SSE streaming) instead
+        # of needing a second transport.
+        "base_url": "https://generativelanguage.googleapis.com/v1beta/openai",
+        "key_prefix": "AIza",
+        "default_models": {
+            "low": "gemini-2.0-flash",
+            "medium": "gemini-2.5-flash",
+            "high": "gemini-2.5-pro",
+        },
+        "model_catalogue": [
+            {"id": "gemini-2.0-flash", "label": "Gemini 2.0 Flash (low)",
+             "context_window": 1000000, "cost_per_1k_input": 0.0001, "cost_per_1k_output": 0.0004},
+            {"id": "gemini-2.5-flash", "label": "Gemini 2.5 Flash (medium)",
+             "context_window": 1000000, "cost_per_1k_input": 0.0003, "cost_per_1k_output": 0.0025},
+            {"id": "gemini-2.5-pro", "label": "Gemini 2.5 Pro (high)",
+             "context_window": 1000000, "cost_per_1k_input": 0.00125, "cost_per_1k_output": 0.010},
+            {"id": "gemini-1.5-pro", "label": "Gemini 1.5 Pro (legacy)",
+             "context_window": 2000000, "cost_per_1k_input": 0.00125, "cost_per_1k_output": 0.005},
+        ],
+    },
     "groq": {
         "base_url": "https://api.groq.com/openai/v1",
         "key_prefix": "gsk_",
@@ -256,6 +319,18 @@ def estimate_cost(model_id: str, prompt_tokens: int, completion_tokens: int,
 
 
 def detect_provider_from_key(api_key: str) -> str:
+    """Infer a provider type from an API key's prefix.
+
+    Every value returned here MUST be a key of PROVIDER_PRESETS. An
+    "AIza..." key used to return "google", which was never a preset, so
+    setup_default_provider fell through to the "custom" preset — a row with
+    an empty base_url and an empty model catalogue that could not route a
+    single call. Google keys now return "gemini", which exists.
+
+    Azure is deliberately absent: its keys are opaque 32-char strings with
+    no distinguishing prefix, so they are indistinguishable from "custom".
+    Selecting Azure explicitly in the Console is required.
+    """
     key = (api_key or "").strip()
     if key.startswith("sk-ant-"):
         return "anthropic"
@@ -264,7 +339,7 @@ def detect_provider_from_key(api_key: str) -> str:
     if key.startswith("gsk_"):
         return "groq"
     if key.startswith("AIza"):
-        return "google"
+        return "gemini"
     if key.startswith("sk-"):
         return "openai"
     if not key:
@@ -309,6 +384,57 @@ _JSON_MODE_SYSTEM_SUFFIX = (
 )
 
 
+# ── Reasoning-class models ────────────────────────────────────────────
+# OpenAI's reasoning families (o1, o3, o4, gpt-5) renamed the output-token
+# budget to `max_completion_tokens` and REJECT `max_tokens` outright:
+#
+#   HTTP 400  Unsupported parameter: 'max_tokens' is not supported with
+#             this model. Use 'max_completion_tokens' instead.
+#
+# fabric_chat sends `max_tokens` on every request, so without this every
+# single call to such a deployment fails — verified against a live Azure
+# gpt-5.1 deployment, where it is a total outage rather than a degradation.
+#
+# Matched on the model id because the constraint follows the MODEL, not the
+# provider: the same rule applies to OpenAI direct, Azure, and any gateway
+# in front of them. Azure makes it easier to hit because the deployment name
+# is operator-chosen, which is why the match is a substring scan rather than
+# an exact list — a deployment called "prod-gpt-5-chat" is still gpt-5.
+_REASONING_MODEL_MARKERS = ("gpt-5", "o1-", "o3-", "o4-")
+
+
+def _is_reasoning_model(model_id: str) -> bool:
+    m = (model_id or "").strip().lower()
+    if not m:
+        return False
+    # Strip a vendor prefix like "openai/" so OpenRouter-style ids match too.
+    tail = m.rsplit("/", 1)[-1]
+    return (
+        any(marker in tail for marker in _REASONING_MODEL_MARKERS)
+        or tail in {"o1", "o3", "o4"}
+    )
+
+
+def token_limit_field(model_id: str) -> str:
+    """Name of the output-token-budget field this model accepts."""
+    return "max_completion_tokens" if _is_reasoning_model(model_id) else "max_tokens"
+
+
+def apply_token_limit(payload: Dict, model_id: str, max_tokens: int) -> Dict:
+    """Set the output-token budget under whichever name the model accepts.
+
+    Mutates and returns `payload`. Always removes the other spelling, so a
+    payload that already carries `max_tokens` cannot smuggle it through to a
+    model that rejects it.
+    """
+    field = token_limit_field(model_id)
+    payload.pop("max_tokens", None)
+    payload.pop("max_completion_tokens", None)
+    if max_tokens:
+        payload[field] = max_tokens
+    return payload
+
+
 def supports_json_mode(provider_type: str) -> bool:
     """True when the provider accepts a native structured-output field.
 
@@ -316,6 +442,21 @@ def supports_json_mode(provider_type: str) -> bool:
     fall back to instructing the model in the prompt.
     """
     return (provider_type or "").strip().lower() in _JSON_MODE_OPENAI_STYLE
+
+
+def _with_json_instruction(messages: List[Dict]) -> List[Dict]:
+    """Return `messages` with the JSON instruction attached to the system turn.
+
+    Appends to the first system message so the caller's own schema
+    instructions still come first and win — they are more specific than
+    ours. Prepends a system message when there is none.
+    """
+    out = [dict(m) for m in messages]
+    for msg in out:
+        if msg.get("role") == "system":
+            msg["content"] = (msg.get("content") or "") + _JSON_MODE_SYSTEM_SUFFIX
+            return out
+    return [{"role": "system", "content": _JSON_MODE_SYSTEM_SUFFIX.strip()}, *out]
 
 
 def apply_json_mode(
@@ -336,19 +477,30 @@ def apply_json_mode(
         return payload
 
     ptype = (provider_type or "").strip().lower()
+    messages = payload.get("messages") or []
+
     if ptype in _JSON_MODE_OPENAI_STYLE:
         payload["response_format"] = response_format
+        # OpenAI and Azure REFUSE json_object mode unless the word "json"
+        # appears somewhere in the messages:
+        #
+        #   HTTP 400  'messages' must contain the word 'json' in some form,
+        #             to use 'response_format' of type 'json_object'.
+        #
+        # Verified against a live Azure gpt-5.1 deployment. Without this
+        # guard, switching JSON mode on would convert a working call into a
+        # hard 400 for any agent whose prompt happens not to say "json" —
+        # turning an accuracy fix into an outage. Most seeded LAMA prompts
+        # do say it, but the code-path fallbacks ("You are the CodeGen
+        # Reviewer.", used when a prompt row is missing) do not, and those
+        # fire exactly when something else has already gone wrong.
+        if not any("json" in (m.get("content") or "").lower() for m in messages):
+            payload["messages"] = _with_json_instruction(messages)
         return payload
 
-    messages = payload.get("messages") or []
-    for msg in messages:
-        if msg.get("role") == "system":
-            msg["content"] = (msg.get("content") or "") + _JSON_MODE_SYSTEM_SUFFIX
-            return payload
-    payload["messages"] = [
-        {"role": "system", "content": _JSON_MODE_SYSTEM_SUFFIX.strip()},
-        *messages,
-    ]
+    # No native field on this provider — instructing the model in the prompt
+    # is the only portable way to ask.
+    payload["messages"] = _with_json_instruction(messages)
     return payload
 
 
@@ -445,7 +597,9 @@ def _rewrite_local_url_for_docker(url: str) -> str:
 
 
 async def setup_default_provider(api_key: str, name: str = "", base_url: str = "",
-                                 provider_type: str = "") -> Dict:
+                                 provider_type: str = "",
+                                 azure_deployment: str = "",
+                                 azure_api_version: str = "") -> Dict:
     """Auto-configure a provider from a single API key. Called when user pastes a key in Console.
 
     `provider_type` (iter-13.40) — when supplied, overrides the auto-detect.
@@ -490,6 +644,30 @@ async def setup_default_provider(api_key: str, name: str = "", base_url: str = "
         {"$set": {"is_active": False, "deactivated_at": now,
                   "deactivated_reason": "superseded by new auto-configure"}},
     )
+    # Azure carries two extra pieces of routing state that no other
+    # provider needs: the deployment name (which sits in the URL path) and
+    # the API version (a query parameter). Fall back to the environment so
+    # a deployment configured in .env works without re-typing it in the UI.
+    az_deployment = (azure_deployment or os.environ.get("AZURE_DEPLOYMENT", "")).strip()
+    az_api_version = (azure_api_version or os.environ.get("AZURE_API_VERSION", "")).strip()
+
+    routing = preset["default_models"].copy()
+    catalogue = list(preset.get("model_catalogue", []))
+    if ptype == "azure" and az_deployment:
+        # The deployment IS the routable id on Azure, and the operator may
+        # have supplied one that differs from AZURE_DEPLOYMENT in the env.
+        # Point every tier at it so the row can route immediately; the
+        # operator can split tiers later if they deploy more than one.
+        routing = {tier: az_deployment for tier in ("low", "medium", "high")}
+        if not any(m.get("id") == az_deployment for m in catalogue):
+            catalogue.append({
+                "id": az_deployment,
+                "label": f"{az_deployment} (Azure deployment)",
+                "context_window": 128000,
+                "cost_per_1k_input": 0.0,
+                "cost_per_1k_output": 0.0,
+            })
+
     doc = ModelProvider(
         name=name or f"{ptype.title()} (auto)",
         provider_type=ptype,
@@ -497,8 +675,10 @@ async def setup_default_provider(api_key: str, name: str = "", base_url: str = "
         api_key=api_key,
         is_default=True,
         detected_from_key=(api_key[:8] + "...") if api_key else (f"{ptype}-local" if ptype == "ollama" else ""),
-        models=preset.get("model_catalogue", []),
-        routing=preset["default_models"].copy(),
+        models=catalogue,
+        routing=routing,
+        azure_deployment=az_deployment if ptype == "azure" else "",
+        azure_api_version=az_api_version if ptype == "azure" else "",
     )
     d = doc.model_dump()
     d["updated_at"] = now
@@ -798,7 +978,12 @@ async def fabric_chat(
                 str(ctx_exc)[:200],
             )
     
-    payload = {"model": model_id, "messages": messages, "temperature": temperature, "max_tokens": effective_max}
+    payload = {"model": model_id, "messages": messages, "temperature": temperature}
+    # Output-token budget, under whichever name this model accepts. The
+    # reasoning families (gpt-5, o1/o3/o4) reject `max_tokens` with a 400,
+    # so hardcoding it made those deployments unusable rather than merely
+    # degraded.
+    payload = apply_token_limit(payload, model_id, effective_max)
     # Structured output. Applied against the provider we actually RESOLVED
     # to, not the default provider row read below — an agent pinned via
     # `provider_id` can be talking to a different vendor entirely, and
@@ -1169,11 +1354,11 @@ async def fabric_chat_stream(
         "model": model_id,
         "messages": messages,
         "temperature": temperature,
-        "max_tokens": effective_max,
         "stream": True,
         # Many OpenAI-compatible providers honour this; safely ignored by the rest.
         "stream_options": {"include_usage": True},
     }
+    payload = apply_token_limit(payload, model_id, effective_max)
     # Structured output works alongside streaming on the OpenAI shape: the
     # deltas simply arrive already constrained to JSON. Anthropic never
     # reaches here (it raises NotImplementedError above), so in practice

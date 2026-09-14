@@ -323,13 +323,28 @@ class CodegenRun(BaseModel):
 
 # ---------- Console: Model Fabric / Agent Fabric / Token Usage ----------
 class ModelProvider(BaseModel):
-    """One configured LLM provider (OpenRouter, Anthropic, OpenAI, Groq, Ollama, custom)."""
+    """One configured LLM provider (OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq, Ollama, custom)."""
     model_config = ConfigDict(extra="ignore")
     id: str = Field(default_factory=_new_id)
     name: str
-    provider_type: str  # "openrouter"|"anthropic"|"openai"|"groq"|"ollama"|"custom"
+    # "openrouter"|"anthropic"|"openai"|"azure"|"gemini"|"groq"|"ollama"|"custom"
+    provider_type: str
     base_url: str
     api_key: str
+    # ── Azure OpenAI only ────────────────────────────────────────────
+    # Azure is the one provider whose request cannot be described by
+    # (base_url, headers, model) alone. The deployment name lives in the
+    # URL path and the API version is a query parameter, so both have to
+    # be stored on the row. They are plain fields rather than a nested
+    # dict because `extra="ignore"` silently DROPS unknown keys — a nested
+    # blob would have vanished on the first model_validate and taken the
+    # operator's configuration with it.
+    #
+    # `azure_deployment` is operator-chosen on Azure and need not match
+    # any published model name, which is why it is separate from
+    # `routing` / `models`.
+    azure_deployment: str = ""
+    azure_api_version: str = ""
     is_default: bool = False
     is_active: bool = True
     # iter-14.34 — user-controlled toggle for whether the stored api_key

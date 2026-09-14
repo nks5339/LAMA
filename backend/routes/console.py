@@ -93,7 +93,33 @@ async def providers_setup(payload: dict):
         raise HTTPException(400, "api_key required")
     name = (payload or {}).get("name", "")
     base_url = (payload or {}).get("base_url", "")
-    doc = await setup_default_provider(api_key, name=name, base_url=base_url, provider_type=provider_type)
+    # Azure needs a deployment name and an API version on top of the key:
+    # the deployment sits in the URL path and the version is a query
+    # parameter, so neither can be derived from the key or the base URL.
+    azure_deployment = (payload or {}).get("azure_deployment", "").strip()
+    azure_api_version = (payload or {}).get("azure_api_version", "").strip()
+    if provider_type == "azure":
+        missing = [
+            label for label, value in (
+                ("base_url (Azure endpoint)", base_url or os.environ.get("AZURE_ENDPOINT", "")),
+                ("azure_deployment", azure_deployment or os.environ.get("AZURE_DEPLOYMENT", "")),
+            ) if not value
+        ]
+        if missing:
+            # Fail here with the field names rather than persisting a row
+            # that cannot build a URL and only reveals the problem as a 404
+            # on the operator's first real generation call.
+            raise HTTPException(
+                400,
+                "Azure requires " + " and ".join(missing)
+                + ". The endpoint is your account root (the deployment path is "
+                  "appended automatically) and the deployment is the name you "
+                  "chose in Azure, not a published model name.",
+            )
+    doc = await setup_default_provider(
+        api_key, name=name, base_url=base_url, provider_type=provider_type,
+        azure_deployment=azure_deployment, azure_api_version=azure_api_version,
+    )
     return {"ok": True, "provider": _serialize_provider(doc)}
 
 
@@ -199,8 +225,26 @@ async def test_provider(provider_id: str):
     if not model_id:
         return {"ok": False, "error": "No model configured for this provider."}
     is_cloud = False
+    test_params: Dict[str, Any] = {}
     if ptype == "anthropic":
         headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}
+    elif ptype == "azure":
+        # Mirror resolve_model exactly. This endpoint exists to tell the
+        # operator whether their real calls will work, so building the URL
+        # a different way here would make the button worse than useless: it
+        # could pass while generation fails, or vice versa.
+        deployment = p.get("azure_deployment", "") or model_id
+        api_version = (
+            p.get("azure_api_version")
+            or os.environ.get("AZURE_API_VERSION", "")
+            or "2024-02-15-preview"
+        )
+        root = (base_url or "").rstrip("/")
+        if deployment and "/deployments/" not in root:
+            root = f"{root}/openai/deployments/{deployment}"
+        base_url = root
+        headers = {"api-key": api_key, "Content-Type": "application/json"}
+        test_params = {"api-version": api_version}
     elif ptype == "ollama":
         # iter-14.21 — auto-detect cloud endpoint + Bearer auth (same
         # rules as resolve_model). Test connection now reflects the
@@ -215,9 +259,18 @@ async def test_provider(provider_id: str):
     else:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                    "HTTP-Referer": "https://lama.local", "X-Title": "LAMA"}
+    from fabric.model_fabric import apply_token_limit
     payload = {"model": model_id,
                "messages": [{"role": "user", "content": "Say 'ok' in one word."}],
-               "max_tokens": 10, "temperature": 0.1}
+               "temperature": 0.1}
+    # The reasoning families reject `max_tokens` outright, so the shared
+    # helper picks the field name. A budget of 10 is also too small for them:
+    # reasoning tokens are drawn from the same allowance, so a tiny cap is
+    # spent thinking and returns an empty string with finish_reason="length",
+    # which reads as a dead provider. 2000 is enough to reason and still
+    # answer "ok".
+    _is_reasoning = apply_token_limit({}, model_id, 1).get("max_completion_tokens")
+    payload = apply_token_limit(payload, model_id, 2000 if _is_reasoning else 10)
     t0 = time.time()
     # iter-14.25.6 — Ollama pre-flight: if the operator points at a local
     # Ollama endpoint but the requested model isn't pulled, the OpenAI-
@@ -278,7 +331,8 @@ async def test_provider(provider_id: str):
         else:
             _timeout = httpx.Timeout(30.0)
         async with httpx.AsyncClient(timeout=_timeout, verify=_http_verify()) as client:
-            r = await client.post(f"{base_url}/chat/completions", headers=headers, json=payload)
+            r = await client.post(f"{base_url}/chat/completions", headers=headers,
+                                  json=payload, params=test_params or None)
             latency_ms = int((time.time() - t0) * 1000)
             if r.status_code != 200:
                 return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}",

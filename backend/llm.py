@@ -912,7 +912,13 @@ async def probe_generation_providers(project_id: str = "") -> dict:
     # Priority within Console: Anthropic → OpenAI → Groq → Ollama.
     # Any other type (openrouter, deepseek, …) is treated as generic
     # "cloud" and only picked if none of the preferred types match.
-    _preferred_order = ["anthropic", "openai", "groq", "ollama"]
+    # Azure leads because an enterprise deployment is a committed, funded
+    # contract — when one is configured it is the intended route, not a
+    # fallback. Gemini sits with the other cloud vendors. Ollama stays last
+    # of the configured providers: it is free and local, so it is the right
+    # thing to fall back TO but the wrong thing to prefer over a paid
+    # endpoint the operator deliberately set up.
+    _preferred_order = ["azure", "anthropic", "openai", "gemini", "groq", "ollama"]
     _providers_by_type: dict[str, dict] = {}
     try:
         from db import model_providers as _mp_col
