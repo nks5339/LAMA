@@ -256,18 +256,6 @@ export const analyzeLegacyLogic = (projectId, { model, force = false } = {}) =>
 export const getLegacyLogicAnalysis = (projectId) =>
   api.get(`/kb/${projectId}/logic-analysis`).then((r) => r.data);
 
-// iter-13.19 — Graphified KB. Build KB now auto-builds the graph; these
-// helpers let the UI surface graph stats and rebuild on demand without
-// re-uploading the codebase. iter-13.31: graph injection into SRS /
-// Architecture / CodeGen prompts is now toggleable per-project (see
-// `getProjectSettings` / `updateProjectSettings` above) and falls back
-// to the `LAMA_USE_GRAPH_KB` env default when no project override is set.
-export const rebuildKbGraph = (projectId) =>
-  api.post(`/kb/${projectId}/rebuild-graph`).then((r) => r.data);
-export const getKbGraph = (projectId, { includePayload = false } = {}) =>
-  api
-    .get(`/kb/${projectId}/graph`, { params: { include_payload: includePayload } })
-    .then((r) => r.data);
 export const importModuleInventory = (projectId, file) => {
   const fd = new FormData();
   fd.append("project_id", projectId);
