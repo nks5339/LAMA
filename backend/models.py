@@ -732,6 +732,12 @@ class CodeGenEnvelope(BaseModel):
     controller_class: str = ""
     controller_file: str = ""
 
+    # The microservice this endpoint belongs to, taken from the frozen
+    # Architecture. Distinct from `service_class` below, which is the Java
+    # class INSIDE it. Without this the Planner cannot tell two services
+    # apart and writes every generated file into the first one.
+    service_name: str = ""
+
     # Service layer
     service_class: str = ""
     service_file: str = ""

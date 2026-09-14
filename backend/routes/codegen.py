@@ -9279,6 +9279,14 @@ async def _run_multi_agent_codegen(project_id: str, model: Optional[str] = None)
                 "risk_level": env.get("risk_level") or "low",
                 "layer": env.get("layer") or "",
                 "side": env.get("side") or "backend",
+                # The microservice this endpoint belongs to. The builder
+                # records it as `_service_name`; without persisting it here
+                # the Planner had no way to know which service an envelope
+                # came from and wrote every service's files into the first
+                # one. Underscore-prefixed keys do not survive this explicit
+                # projection, which is why it needs a real name.
+                "service_name": (env.get("_service_name")
+                                 or env.get("service_name") or ""),
                 "acceptance_criteria": list(env.get("acceptance_criteria") or []),
                 "br_ids": list(env.get("br_ids") or []),
                 "created_at": _now_iso(),
@@ -9404,7 +9412,8 @@ def _plan_tasks_for_envelopes(
             # (was services/<svc>/frontend). Vue/Angular targets get
             # their idiomatic layout via `_fe_task_layout`.
             # Per-envelope service, not one name for the whole project.
-            _env_svc = (env.get("_service_name") or "").strip() or fe_service_name
+            _env_svc = (env.get("service_name")
+                        or env.get("_service_name") or "").strip() or fe_service_name
             _seen_fe_services.add(_env_svc)
             fe_layout = _fe_task_layout(
                 fe_target["lang"], fe_target["framework"],
@@ -9430,7 +9439,8 @@ def _plan_tasks_for_envelopes(
             # .NET/Python targets each get framework-idiomatic paths
             # via `_be_task_layout`.
             # Per-envelope service, not one name for the whole project.
-            _env_svc = (env.get("_service_name") or "").strip() or be_service_name
+            _env_svc = (env.get("service_name")
+                        or env.get("_service_name") or "").strip() or be_service_name
             _seen_be_services.add(_env_svc)
             be_layout = _be_task_layout(
                 be_target["lang"], be_target["framework"],
