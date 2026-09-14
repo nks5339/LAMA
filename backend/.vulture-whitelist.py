@@ -24,3 +24,12 @@ max_piece
 # _build_deterministic_root_content(..., dominant_lang) — shared shape across
 # the per-language branches.
 dominant_lang
+
+# FakeCollection.find_one(self, flt, projection=None) in the in-memory test
+# fixtures — Motor's real signature is find_one(filter, projection=None) and
+# production calls it WITH a projection (e.g. routes/pipeline.py passes
+# {"_id": 0}). The parameter has to be accepted even though the fakes ignore
+# it, or every such call raises TypeError. 7 occurrences across
+# test_iter1410 / test_iter1411 / test_iter149 / test_iter1545 /
+# test_srs_streaming.
+projection

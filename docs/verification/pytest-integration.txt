@@ -1,2 +1,20 @@
-F..........FFF......F..F....FF........................FF.F.....F....F.EE [ 55%]
-EE..E.EEEEF
+# Integration suites (-m integration) — PARTIAL CAPTURE, run stopped manually.
+#
+# The authoritative complete result is the 868s run recorded in
+# DEEP_TEST_2026-09.md section 6:
+#
+#     918 passed, 30 failed, 1 skipped, 17 errors in 868.33s (0:14:28)
+#
+# This second pass was started only to capture per-test detail and was
+# stopped after ~20 minutes at 57%: these suites drive live SRS generation,
+# and with qwen3:4b on local Ollama a single generation blocks for a very
+# long time. The pytest process showed 1.89s of CPU against ~20 minutes of
+# wall clock -- it was waiting on the model, not working.
+#
+# To reproduce the full run:
+#   REACT_APP_BACKEND_URL=http://127.0.0.1:8382 \
+#     .venv/bin/python -m pytest -q --run-integration
+#
+# Partial progress line from the stopped run:
+# F..........FFF......F..F....FF........................FF.Fs....F....F.EE [ 57%]
+# EE..E.EEEEFF

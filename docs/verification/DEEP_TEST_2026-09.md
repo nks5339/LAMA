@@ -19,6 +19,7 @@ Baseline for comparison: `docs/recon/pytest-baseline.txt`
 | `yarn lint` | *did not exist* | **0 errors**, 44 warnings |
 | `yarn build` | compiled | **compiles** |
 | `yarn test` | could not run | **runs** |
+| `vulture --min-confidence 80` | n/a | **0 findings** (whitelist applied) |
 | Registered routes | 311 | **312** |
 | `requirements.txt` explicit pins | 176 | **38 direct → 122 resolved, 0 CUDA** |
 | `package.json` dependencies | 59 | **26** |
@@ -271,6 +272,35 @@ All eight also predate iter-13.68 (JWT auth + multi-tenancy) and died in their
 first fixture on `401 Missing Authorization header`. `conftest.py` now attaches
 a bearer token centrally in integration mode only.
 
+### The integration suites, run for real
+
+Against a live backend on `:8382` with MongoDB and Ollama up:
+
+| | passed | failed | errors |
+|---|---|---|---|
+| before the auth fix | 898 | 20 | 48 |
+| **after the auth fix** | **918** | **30** | **17** |
+
+`918 passed, 30 failed, 1 skipped, 17 errors in 868.33s (0:14:28)`
+
+Errors fell because tests that used to die in a fixture now actually execute;
+some then fail on their own merits, which is the point — they are visible
+rather than masked. The 17 remaining errors are concentrated in three suites:
+`test_lama_v2` (8), `test_lama_v4` (5), `test_iter11_living_diff` (4).
+
+**These 30 failures are not triaged individually in this report.** They are
+pre-existing behaviour in eight suites that were 100% unrunnable before this
+pass and are still gated off by default, so they cannot mask a regression in
+the in-process suites. Triaging them is follow-up work, not a blocker — and
+worth doing now that they run at all.
+
+A second pass intended to capture per-test detail was stopped after ~20 minutes:
+these suites drive the full pipeline including live SRS generation, and with
+`qwen3:4b` on local Ollama a single `test_generate_srs_real_llm` blocks for a
+very long time (the pytest process showed 1.89s of CPU against ~20 minutes
+wall-clock — it was waiting on the model, not working). The completed 868s run
+above is the authoritative result.
+
 ---
 
 ## 7. Open items — not fixed, by design
@@ -302,6 +332,10 @@ a bearer token centrally in integration mode only.
 ```bash
 # Backend
 ruff check backend
+.venv/bin/vulture backend backend/.vulture-whitelist.py --min-confidence 80
+#   NOTE: the whitelist is an INPUT PATH, not --exclude. Passing it via
+#   --exclude merely stops vulture scanning it, and the bar then reports
+#   10 phantom findings that are all already whitelisted.
 .venv/bin/python -m pytest -q                       # 837 passed, 129 skipped
 .venv/bin/python -c "import sys;sys.path.insert(0,'backend');from server import app;print(len(app.routes))"
 
