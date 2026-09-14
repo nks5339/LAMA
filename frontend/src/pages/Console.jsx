@@ -1092,6 +1092,13 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
   const [apiKey, setApiKey] = useState("");
   const [name, setName] = useState("");
   const [baseUrl, setBaseUrl] = useState("");
+  // Auto-detect reads the key prefix (sk-ant-, sk-or-, gsk_, AIza, sk-).
+  // Azure keys are opaque 32-char strings with no prefix, so they are
+  // indistinguishable from a custom provider and MUST be chosen explicitly.
+  const [providerType, setProviderType] = useState("");
+  const [azureDeployment, setAzureDeployment] = useState("");
+  const [azureApiVersion, setAzureApiVersion] = useState("");
+  const isAzure = providerType === "azure";
   const [busy, setBusy] = useState(false);
 
   const refresh = async () => {
@@ -1105,6 +1112,15 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
       toast.error("Paste an API key (or a base URL for Ollama/custom).");
       return;
     }
+    // Azure cannot be auto-detected and cannot build a URL without these.
+    // Catching it here names the missing field instead of letting the
+    // backend reject the row after the user has already hit the button.
+    if (isAzure && (!baseUrl.trim() || !azureDeployment.trim())) {
+      toast.error(
+        "Azure needs the endpoint (account root) and the deployment name."
+      );
+      return;
+    }
     setBusy(true);
     try {
       // Empty key + base URL → Ollama (local runtime, no key required).
@@ -1115,10 +1131,16 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
         name: name.trim(),
         base_url: baseUrl.trim(),
       };
-      if (!apiKey.trim()) payload.provider_type = "ollama";
+      if (providerType) payload.provider_type = providerType;
+      else if (!apiKey.trim()) payload.provider_type = "ollama";
+      if (isAzure) {
+        payload.azure_deployment = azureDeployment.trim();
+        payload.azure_api_version = azureApiVersion.trim();
+      }
       const r = await setupProvider(payload);
       toast.success(`Provider configured: ${r.provider?.name}`);
       setApiKey(""); setName(""); setBaseUrl("");
+      setAzureDeployment(""); setAzureApiVersion("");
       await refresh();
     } catch (e) { toast.error("Setup failed: " + (e?.response?.data?.detail || e.message)); }
     finally { setBusy(false); }
@@ -1196,14 +1218,31 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
         <div className="bg-[#FFFCE6] border-l-4 border-[#FFE600] px-4 py-3">
           <div className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Quick Setup</div>
           <div className="text-sm font-display font-bold text-[#2E2E38]">Paste one API key to configure routing automatically</div>
-          <div className="text-[11px] text-[#747480] mt-0.5">Auto-detects provider from key prefix (sk-or- → OpenRouter, sk-ant- → Anthropic, sk- → OpenAI, gsk_ → Groq). Leave the key blank and fill the base URL to register an Ollama (local) provider.</div>
+          <div className="text-[11px] text-[#747480] mt-0.5">Auto-detects provider from key prefix (sk-or- → OpenRouter, sk-ant- → Anthropic, sk- → OpenAI, gsk_ → Groq, AIza → Gemini). Leave the key blank and fill the base URL to register an Ollama (local) provider. <strong>Azure has no key prefix</strong> — pick it explicitly below.</div>
         </div>
         <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
+          <select
+            data-testid="setup-provider-type"
+            value={providerType}
+            onChange={(e) => setProviderType(e.target.value)}
+            disabled={readOnly}
+            className="text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 bg-white disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+          >
+            <option value="">Auto-detect from key</option>
+            <option value="azure">Azure OpenAI</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="gemini">Google Gemini</option>
+            <option value="groq">Groq</option>
+            <option value="openrouter">OpenRouter</option>
+            <option value="ollama">Ollama (local)</option>
+            <option value="custom">Custom (OpenAI-compatible)</option>
+          </select>
           <input
             data-testid="setup-api-key"
             value={apiKey}
             onChange={(e) => setApiKey(e.target.value)}
-            placeholder="sk-or-... / sk-ant-... / sk-... / gsk_..."
+            placeholder={isAzure ? "Azure API key" : "sk-or-... / sk-ant-... / sk-... / gsk_... / AIza..."}
             disabled={readOnly}
             className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
           />
@@ -1216,12 +1255,42 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
             className="text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
           />
           <input
+            data-testid="setup-base-url"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder="Custom base URL (optional, e.g. http://localhost:11434/v1 for Ollama)"
+            placeholder={isAzure
+              ? "Azure endpoint — account root only, e.g. https://my-resource.openai.azure.com"
+              : "Custom base URL (optional, e.g. http://localhost:11434/v1 for Ollama)"}
             disabled={readOnly}
             className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
           />
+          {isAzure && (
+            <>
+              <input
+                data-testid="setup-azure-deployment"
+                value={azureDeployment}
+                onChange={(e) => setAzureDeployment(e.target.value)}
+                placeholder="Deployment name (e.g. gpt-5.1) — the name you chose in Azure"
+                disabled={readOnly}
+                className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+              />
+              <input
+                data-testid="setup-azure-api-version"
+                value={azureApiVersion}
+                onChange={(e) => setAzureApiVersion(e.target.value)}
+                placeholder="API version (e.g. 2023-07-01-preview)"
+                disabled={readOnly}
+                className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+              />
+              <div className="lg:col-span-3 text-[11px] text-[#747480] bg-[#F6F6FA] border-l-2 border-[#FFE600] px-3 py-2">
+                The endpoint is the <strong>account root</strong>. LAMA appends
+                {" "}<code className="font-mono">/openai/deployments/&lt;deployment&gt;</code>{" "}
+                and sends the API version as a query parameter, so do not paste a
+                full chat-completions URL. An enterprise gateway URL that already
+                contains <code className="font-mono">/deployments/</code> is left as-is.
+              </div>
+            </>
+          )}
           <Button data-testid="setup-btn" onClick={onSetup} disabled={busy || readOnly} className="bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-bold">
             {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />} Auto-configure
           </Button>
