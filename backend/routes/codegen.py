@@ -8898,11 +8898,20 @@ async def _update_codegen_state(project_id: str, **fields) -> None:
 
 async def _audit_multi_agent(project_id: str, action: str, details: Optional[dict] = None) -> None:
     """Every state-mutating multi-agent endpoint calls this so admins can
-    reconstruct the pipeline from the audit log alone."""
+    reconstruct the pipeline from the audit log alone.
+
+    `project_id` is written as well as `entity_id`, and that is the whole
+    point: `routes/audit.py::list_audit` filters on `project_id`, so without
+    it the Audit page returned NONE of these rows. On a live fixture run 29 of
+    the 30 unretrievable rows in `audit_log` were exactly this entity — the
+    entire pipeline trail existed and no operator could see any of it.
+    `entity_id` is kept so existing rows and any other consumer still work.
+    """
     try:
         await audit_log.insert_one({
             "entity": "codegen_multi_agent",
             "entity_id": project_id,
+            "project_id": project_id,
             "action": action,
             "actor": "system",
             "at": _now_iso(),
