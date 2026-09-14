@@ -1226,7 +1226,6 @@ async def fabric_chat_with_failover(
             "type":     (first_provider or {}).get("provider_type", "openrouter"),
             "error":    msg,
         })
-        first_err: Exception = exc
 
     # Walk every other active provider, skipping ANY id we already tried
     # (both the default AND the pre-existing pin — otherwise a pinned-but-

@@ -660,7 +660,6 @@ async def compute_stage_confidence(project_id: str, stage: str,
     rows.sort(key=lambda r: order.get(r.get("key"), 999))
 
     scored = [r["score"] for r in rows if not r.get("missing")]
-    overall_pool = [r["score"] for r in rows]
     # iter-14.8 — `overall_score` is the LATEST run's score. See high-water
     # mark note below for why we also persist `best_overall_score`.
     overall = round(sum(scored) / len(scored), 2) if scored else 0.0

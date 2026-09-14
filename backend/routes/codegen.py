@@ -927,13 +927,11 @@ def _slice_api_contract_for_resource(yaml_text: str, resource: str) -> str:
     out: list[str] = []
     in_paths = False
     keep_path_block = False
-    paths_indent = 0
     res_lc = resource.lower()
     for ln in lines:
         stripped = ln.lstrip()
         if stripped.startswith("paths:") and ln.find("paths:") == 0:
             in_paths = True
-            paths_indent = 0
             out.append(ln)
             continue
         if in_paths and ln and not ln.startswith(" "):
@@ -1241,7 +1239,6 @@ def _java_scaffold(file_def: dict, svc: dict, proj: dict) -> Optional[str]:
     pk_col = next((c for c in cols if c.get("pk")), None)
     pk_jtype = _java_type_for_sql(pk_col["sql_type"]) if pk_col else "Long"
     pk_jname = _camel(pk_col["name"]) if pk_col else "id"
-    pk_col_name = pk_col["name"] if pk_col else "id"
 
     # ─── Entity ──────────────────────────────────────────────────────
     if ftype == "entity":
@@ -1400,7 +1397,6 @@ def _java_dto_scaffold(cls: str, pkg: str,
 def _java_mapper_scaffold(cls: str, pkg: str,
                           cols: List[Dict[str, Any]]) -> str:
     """toEntity / toDto / applyUpdate with real field copies."""
-    non_pk = [c for c in cols if not c.get("pk")]
     to_entity_lines: List[str] = []
     to_dto_args: List[str] = []
     apply_update_lines: List[str] = []
@@ -1725,7 +1721,6 @@ def _java_test_scaffold(cls: str, pkg: str, endpoints: List[str]) -> str:
         # Replace path vars with placeholder `1` so the URL is callable.
         url = re.sub(r"\{\w+\}", "1", p)
         body_send = ""
-        expected = "isOk(), isCreated(), isNoContent(), isNotFound(), isBadRequest()"
         if verb == "POST":
             body_send = "                .contentType(org.springframework.http.MediaType.APPLICATION_JSON)\n" \
                         "                .content(\"{}\")\n"
@@ -4014,7 +4009,10 @@ async def _run_codegen_job(
     # generate every service (back-compat with "Generate All").
     try:
         _job_update(jid, status="running", step="Loading architecture context…", pct=1)
-        arch_ctx = await require_stage_context(project_id, "Architecture", "CodeGen")
+        # Called for its side effect: raises HTTP 400 when Architecture is
+        # not frozen. The returned context is not needed here -- this is
+        # the stage gate, not a data read. Do NOT drop the call.
+        await require_stage_context(project_id, "Architecture", "CodeGen")
         proj = await projects.find_one({"id": project_id}, {"_id": 0})
         # iter-14.20.9 — Bind the active Java group / project slug BEFORE
         # any scaffold is planned so every subsequent `package com.<x>...`

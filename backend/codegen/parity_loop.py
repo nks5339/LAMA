@@ -493,7 +493,6 @@ async def score_run(
     if only_service:
         svc_q["name"] = only_service
     services_list = await arch_services.find(svc_q, {"_id": 0}).to_list(200)
-    svc_by_name = {s["name"]: s for s in services_list}
 
     dm = await stage_context_col.find_one(
         {"project_id": project_id, "stage": "DataModel"}, {"_id": 0, "outputs": 1},

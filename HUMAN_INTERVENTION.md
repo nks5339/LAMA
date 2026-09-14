@@ -130,3 +130,50 @@ them.** This is not something I can or should do for you.
 
 Also note `backend/.env` is destroyed by `docker compose up` — the entrypoint writes a
 runtime `.env` through the bind-mount. Keep `backend/.env.mine` as a copy.
+
+---
+
+### DEC-6 — Synthetic filenames never reached tech detection
+
+**Raised:** Phase 2, while auditing unused variables.
+
+`routes/kb.py` builds a `synthetic_files` list (filenames recovered from
+archive members that have no real file row), then had:
+
+```python
+# Merge: real files first (they own the chunks for content scan),
+# synthetic files only contribute filenames for the language tally.
+files_for_detect = files + synthetic_files
+...
+tech = detect_tech_stack(files, chunks_by_file)     # <- `files`, not the merge
+```
+
+The merged list was assigned and never used. The comment describes an intent
+that the code does not carry out: those synthetic filenames have never
+contributed to the language tally.
+
+This is a dropped assignment, not dead weight — the variable is waste, but the
+*absence* of its use is a latent bug. Wiring it in is a one-word change:
+
+```python
+tech = detect_tech_stack(files_for_detect, chunks_by_file)
+```
+
+I did **not** make that change. It alters tech-detection results on every
+existing project — a project whose language was detected as one thing could
+flip to another, which changes target-stack suggestions and every prompt that
+carries `source_tech`. That is a behaviour change, and the refactor rules
+forbid making one. The dead variable is removed and a comment now records the
+discrepancy at the site.
+
+**What I need from you — one of:**
+
+1. **Wire it in.** Pass `files + synthetic_files` to `detect_tech_stack`, and
+   accept that existing projects may re-detect differently on their next KB
+   build. Best done with a before/after comparison on a real pilot project.
+2. **Leave it.** Detection uses real files only, deliberately. I delete the
+   synthetic-file construction too, since nothing else consumes it.
+
+*Recommendation: 1, but measured first.* The comment suggests someone
+concluded the tally was incomplete without them. Worth confirming on the PMIS
+pilot before flipping it for everyone.

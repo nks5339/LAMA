@@ -1137,9 +1137,13 @@ async def _build_kb_impl(project_id: str, files: list, force: bool, build_finger
             continue
         seen_inner.add(inner)
         synthetic_files.append({"id": f"synthetic::{inner}", "filename": inner, "filetype": "", "size": 0})
-    # Merge: real files first (they own the chunks for content scan),
-    # synthetic files only contribute filenames for the language tally.
-    files_for_detect = files + synthetic_files
+    # NOTE: `synthetic_files` is built above but is NOT passed to
+    # detect_tech_stack below -- only the real `files` list is. A merged
+    # list was once assigned here and never used, so the filenames those
+    # synthetic entries contribute have never reached the language tally.
+    # Wiring them in would change detection results on existing projects,
+    # so it is raised as a decision (HUMAN_INTERVENTION.md DEC-6) rather
+    # than changed silently during a refactor.
     await _set_build_phase(project_id, "tech_detect")
     try:
         tech = detect_tech_stack(files, chunks_by_file)
@@ -2722,7 +2726,7 @@ async def scan_for_foreign_paths(project_id: str):
         "foreign_paths_by_source": {
             "legacy_analysis": la_foreign,
             "kb_toon": toon_foreign,
-            "chat_messages": _scan("\n".join(convo)),
+            "chat_messages": convo_foreign,
             "kb_chunks_sample": sorted(set(chunk_foreign))[:40],
             "srs_documents": srs_foreign,
         },

@@ -4074,7 +4074,6 @@ async def _regenerate_single_file_impl(
         except Exception:
             kb_ctx = ""
 
-    transforms_map = transform.get("transforms") or {}
     content = source.get("content", "")
     target_stack = _resolve_target_stack(transform, original_path, content)
     target_info = SUPPORTED_TRANSFORMATIONS.get(target_stack, {})
@@ -6879,7 +6878,6 @@ def _detect_corrupted_source_error_groups(
         text = f"{f.get('stdout_tail','')}\n{f.get('stderr_tail','')}\n{f.get('reason','')}"
         if not _CORRUPTED_SOURCE_SIGNATURE_RE.search(text):
             continue
-        cwd = (f.get("cwd") or "").strip("/")
         # Try to pin down WHICH file is corrupted from any `Name.ext:...`
         # mention near the corruption signature, even without a full
         # `[line,col]` match (e.g. path formatting the main regex missed).
@@ -8773,7 +8771,6 @@ async def _run_multi_agent_transformation(
             return
 
         detected_stack = transform.get("source_stack") or {}
-        target_stack = transform.get("transforms") or {}
         source_files_docs = await transform_files.find(
             {"transform_id": transform_id, "type": "source"}
         ).to_list(2000)
@@ -8798,8 +8795,11 @@ async def _run_multi_agent_transformation(
 
         envelopes = await _run_context_manager(transform_id, src_files, detected_stack, model)
 
-        # Build KB for later use
-        kb_ctx = ""
+        # Build and PERSIST the KB so the UI can render it and later phases
+        # can read it back. Nothing is rendered into a prompt here -- the
+        # rendered form is produced per task by `_slim_kb_ctx_for_task`,
+        # which slices it to the file being transformed instead of carrying
+        # the whole thing.
         try:
             kb = build_tools_kb(src_files, [])
             kb_summary = summarize_kb_for_ui(kb)
@@ -8814,7 +8814,6 @@ async def _run_multi_agent_transformation(
                 }},
                 upsert=True,
             )
-            kb_ctx = render_kb_for_prompt(kb, max_chars=15000)
         except Exception as e:
             print(f"[transformer:{transform_id}] KB build failed: {e}")
 

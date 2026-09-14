@@ -804,7 +804,6 @@ async def _run_oltp_job(job_id: str, project_id: str, model: str,
             )
 
             # Optional polish passes (small LLM calls — opt-in via flags).
-            polish_tokens = 0
             if modes.get("enum_polish"):
                 _job_update(job_id, step="Polish: ENUM types via LLM…", pct=72)
                 try:
