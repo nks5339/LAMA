@@ -98,7 +98,10 @@ at all. Compose-only host-path vars (`LAMA_IMAGE`, `LAMA_DROID_BIN_HOST`,
 
 ## Defects found
 
-Four, all confirmed by reading the code rather than inferred from a tool.
+Six. D1–D4 were found by reading the code. **D5 and D6 were found only by
+running it** — driving a local model and a live Azure deployment through the real
+fabric. Neither is visible to any static sweep, and D5 had been losing every
+single verifier verdict.
 
 ### D1 — `response_format` never reaches any provider
 
@@ -169,8 +172,62 @@ No Python file reads it. The only occurrence under `backend/` is a docstring in
 only on `OPENROUTER_API_KEY` being non-empty
 ([`llm.py:1597`](../backend/llm.py#L1597)). Operators believe spend is capped; it is not.
 
-Classification: the *documentation* is reachable, the *behaviour* is absent. Fix by
-implementing the read, not by deleting the docs.
+Classification: the *documentation* is reachable, the *behaviour* is absent.
+
+**Corrected on closer reading.** The original conclusion here — "implement the
+read" — was wrong. iter-14.31 did not leave the fallback configurable, it removed
+it: `_fabric_call_impl` now tries a Console-registered Ollama provider and then
+raises. The guardrail is unconditional, which is *stronger* than the flag
+promised. So the code is right and the documentation is the bug, and restoring
+configurability would reintroduce the silent spend the hard kill exists to
+prevent. The six docs were corrected instead.
+
+### D5 — `_extract_json_object` could not read a fenced JSON block
+
+**Severity: high. Found by measurement, not by reading.**
+
+Not visible in Phase 0's static sweep — it is a logic error, not an
+unreachable symbol. It surfaced when a local model was driven through the real
+fabric while verifying the D1 fix.
+
+`routes/codegen.py::_extract_json_object` stripped fences with
+`s.split("```", 2)[-1]`. On a correctly fenced block that returns the empty
+string following the **closing** fence:
+
+```python
+'```json\n{...}\n```'.split('```', 2)
+# -> ['', 'json\n{...}\n', '']      and [-1] is ''
+```
+
+so the brace scan that followed had nothing to scan, and the single most common
+shape an LLM emits parsed as `None`.
+
+Measured impact on `codegen.verifier` with `qwen2.5-coder:7b`, 6 runs: the old
+extractor parsed **0 of 6** replies. Each failure became `confidence 0.0`,
+`verdict REJECT`, and a task marked `VERIFY_FAILED` — a good file reported as
+bad. Full numbers in [`docs/quality/OLLAMA_BASELINE.md`](quality/OLLAMA_BASELINE.md).
+
+`routes/tools.py` has a separate implementation that handles fences correctly,
+so the Transformer pipeline was unaffected. That is the clearest argument yet
+for the *Duplicates* catalogue below: the same helper, two implementations, one
+silently broken for months.
+
+### D6 — Azure's live API rejects what the fabric always sent
+
+**Severity: high for the primary provider. Found only by calling it.**
+
+Two hard 400s, neither inferable from the code:
+
+1. `gpt-5.1` rejects `max_tokens` and requires `max_completion_tokens`. The
+   fabric hardcoded `max_tokens` in both payload builders, so every call to a
+   reasoning-class deployment failed outright. Applies to the whole o1/o3/o4 and
+   gpt-5 family on any provider, not just Azure.
+2. OpenAI-style `json_object` mode refuses to run unless the literal word
+   "json" appears in the messages. Enabling JSON mode without a guard would
+   have turned working calls into 400s for any agent whose prompt did not
+   happen to say it.
+
+Both are pinned by `backend/tests/test_provider_azure.py`.
 
 ### D4 — two dead frontend API helpers
 
@@ -277,7 +334,11 @@ logging) are near-identical and are the only honest consolidation candidates.
 
 | Item | Class | Action |
 |---|---|---|
-| `_todo_hits` at codegen.py:3751 | **live defect** | fix (P1.0) |
+| `_todo_hits` at codegen.py:3751 | **live defect** | fixed (P1.0) |
+| `_extract_json_object` fence handling | **live defect (D5)** | fixed (P1.18) |
+| `max_tokens` on reasoning models | **live defect (D6)** | fixed (P1.16) |
+| `json_object` without the word "json" | **live defect (D6)** | fixed (P1.17) |
+| `llm.chat_completion` | `dead(safe)` — unreachable since iter-14.31 | **Phase 2 decision** |
 | `response_format` kwarg, 15 sites | **live defect** | make reachable (P1.1) |
 | `LAMA_DISABLE_OPENROUTER_FALLBACK` | **live defect** | implement the read (P1.6) |
 | `rebuildKbGraph`, `getKbGraph` | `dead(safe)` | remove with evidence (P1.5) |
