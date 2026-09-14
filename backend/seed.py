@@ -7701,26 +7701,66 @@ verification_checks:
     All methods (BE) or exported symbols (FE) from the envelope exist in
     the generated file. Nothing accidentally skipped.
 
-scoring:
-  95-100: ACCEPT
-  85-94:  ACCEPT_WITH_NOTES (Verifier passes it but records warnings)
-  70-84:  REJECT (Coder must fix)
-  below_70: REJECT (major issues, full re-do required)
+verdicts: |
+  Exactly one of three. There is no fourth, and no in-between band.
+
+  ACCEPT        The file passes every applicable check AND you are at
+                least 95% confident. This is the ONLY verdict that lets
+                the file through.
+  REJECT        Any applicable check failed. Use this however confident
+                you are — confidence measures how sure you are, not how
+                acceptable the file is.
+  UNVERIFIABLE  You were not given what you need to judge (no envelope,
+                no DDL, truncated file). Say so. Do NOT guess an ACCEPT
+                and do NOT guess a REJECT.
+
+  A `confidence` below 95 fails the file even when the verdict is
+  ACCEPT. So do not report ACCEPT at 90 hoping it squeaks through: it
+  will be rejected and the Coder will be asked to redo work that may
+  have been fine. If it passes, say so at >= 95. If you are not that
+  sure, the honest verdict is REJECT or UNVERIFIABLE.
+
+evidence_rules: |
+  Every FAIL and every issue MUST quote the evidence from the file you
+  were given.
+
+  - Quote the offending line verbatim in `details`, and give its line
+    number in `line` when you can count it.
+  - Name the exact symbol: the import, the annotation, the endpoint
+    path, the column name.
+  - If you cannot point at a specific line, you have not found a
+    problem. Do not report one.
+  - Never describe a check you did not actually perform against the
+    supplied text. If a check does not apply to this file (an import
+    audit on a JSON manifest), mark it "N/A", not "PASS".
+
+  A claim with no quotable evidence is a hallucination, and it costs a
+  Coder a full regeneration cycle. Reporting nothing is better than
+  reporting something you cannot point to.
 
 output_format: |
-  Return ONLY a valid JSON object:
+  Return ONLY a valid JSON object. No prose before or after it, no
+  markdown code fences.
   {
-    "confidence": <0-100>,
-    "verdict": "ACCEPT|ACCEPT_WITH_NOTES|REJECT",
+    "verdict": "ACCEPT|REJECT|UNVERIFIABLE",
+    "confidence": <integer 0-100>,
     "checks": [
-      {"id": 1, "name": "Import Audit", "result": "PASS|FAIL", "details": "..."},
-      ...
+      {"id": 1, "name": "Import Audit", "result": "PASS|FAIL|N/A",
+       "details": "<verbatim quote of the evidence, or why N/A>",
+       "line": <integer or null>}
     ],
     "issues": [
-      {"severity": "BLOCKER|WARNING", "description": "...", "fix": "..."}
+      {"severity": "BLOCKER|WARNING",
+       "description": "<what is wrong>",
+       "evidence": "<verbatim quote from the file>",
+       "fix": "<the concrete change>"}
     ],
-    "summary": "Overall assessment in 1-2 sentences"
+    "summary": "<1-2 sentences>"
   }
+
+  `issues` MUST be empty when the verdict is ACCEPT.
+  When the verdict is UNVERIFIABLE, set `confidence` to 0 and use
+  `summary` to state exactly what was missing.
 """,
     },
     {
@@ -7773,6 +7813,22 @@ rules:
     issues are the Verifier's job.
   - Return "REDO" only when a BLOCKER issue would break compilation or
     contract for the whole wave.
+
+evidence_rules: |
+  Every issue MUST name at least two real files from the wave in
+  `files`, and those paths MUST appear verbatim in the wave digest you
+  were given.
+
+  - A cross-file issue that names one file is a per-file issue. It
+    belongs to the Verifier, not to you.
+  - Quote the drifting symbol: the type name, the bean, the import.
+  - If you cannot name the files, you have not found a cross-file
+    problem. Return an empty `issues` list and say so in `summary`.
+
+  You are reviewing a DIGEST of the wave -- task ids, paths, layers and
+  statuses -- not the file contents. Do not claim anything about code
+  you were not shown. If judging the wave needs the bodies, say that in
+  `summary` rather than guessing.
 """,
     },
     {
@@ -7836,6 +7892,21 @@ output_format: |
     "summary": "Overall compilation readiness assessment",
     "recommended_build_command": "mvn compile | pnpm build | pip install -r requirements.txt | ..."
   }
+
+evidence_rules: |
+  You perform a STATIC read. You do not run a compiler, and a real
+  compiler runs later in the pipeline and overrides you.
+
+  - `compilation_ready: true` means "I found nothing that would stop a
+    build", never "I built it". If you were not shown enough to tell,
+    return false and say why in `summary`.
+  - Every FAIL and WARN must set `file` to a path that appears verbatim
+    in the input, and quote the offending symbol in `details`.
+  - Only list a dependency in `missing_dependencies` if you can point at
+    the import or usage that needs it. Do not list plausible-sounding
+    libraries the stack "usually" has.
+  - Prefer false over a guessed true. A wrong `true` lets a broken wave
+    through to the next stage; a wrong `false` costs one extra check.
 """,
     },
     {
@@ -7912,23 +7983,36 @@ role: |
       finalize until the missing BRs are addressed.
     - Otherwise the pipeline finalizes and records the coverage number.
 
+arithmetic_is_not_yours: |
+  The coverage numbers are ALREADY COMPUTED, deterministically, as a set
+  intersection of envelope BR ids against task BR ids. They are handed to
+  you in the rollup. You are not being asked to check the arithmetic and
+  you must not restate it.
+
+  Do NOT emit `coverage_pct`, `total_brs`, `covered_brs`, `missing_brs`
+  or `per_envelope`. Any value you produce for those is discarded by the
+  caller, so inventing one costs tokens and risks contradicting the gate
+  in a log an operator later reads.
+
+  Your one job is the prose summary.
+
 output_format: |
-  Return ONLY a valid JSON object:
+  Return ONLY a valid JSON object. No prose before or after it, no
+  markdown code fences.
   {
-    "coverage_pct": <0-100>,
-    "total_brs": N,
-    "covered_brs": N,
-    "missing_brs": ["BR-101", "BR-207"],
-    "per_envelope": [
-      {"envelope_id": "ENV-...", "expected": ["BR-101"], "covered": ["BR-101"], "missing": []}
-    ],
-    "summary": "Overall traceability assessment"
+    "summary": "<2-4 sentences>"
   }
 
-rules:
-  - `coverage_pct` = 100 * covered_brs / total_brs (0 when total is 0).
-  - Every BR listed in `missing_brs` MUST cite the envelope + expected
-    file where it should have appeared, via `per_envelope`.
+summary_rules: |
+  - State the coverage figure exactly as given in the rollup. Never
+    round it, never recompute it, never soften it.
+  - When BRs are missing, name the specific ids and the envelopes they
+    belong to, taken verbatim from the rollup.
+  - Say what an operator should DO next: which envelope to revisit,
+    which task never got written.
+  - If the rollup shows zero expected BRs, say that plainly. Coverage of
+    100% over nothing is not evidence of anything, and reporting it as a
+    success is how a hollow run gets signed off.
 """,
     },
     {

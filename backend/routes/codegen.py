@@ -10204,6 +10204,64 @@ async def _continue_multi_agent_codegen_after_task_confirm(
         )
 
 
+_VERIFIER_SCORE_FLOOR = 95.0
+
+# Anything that is not an unqualified acceptance fails the gate. Listed
+# explicitly rather than inferred so a new verdict string a model invents
+# cannot accidentally land in the passing branch.
+_VERIFIER_PASSING_VERDICTS = frozenset({"ACCEPT"})
+
+
+def _verifier_outcome(parsed: Dict[str, Any]) -> Tuple[str, float, str]:
+    """Decide a task's fate from the Verifier's parsed reply.
+
+    Returns ``(status, score, fail_reason)`` where status is ``VERIFIED``
+    or ``VERIFY_FAILED`` and ``fail_reason`` is empty on success.
+
+    Extracted from the call site so the decision is testable on its own —
+    it is a quality gate, and a gate whose logic can only be exercised by
+    standing up Mongo and an LLM is a gate nobody checks.
+
+    Two defects this corrects:
+
+    * The verdict used to be parsed into a local and then never consulted;
+      only the score was. A model replying ``{"verdict": "REJECT",
+      "confidence": 97}`` — "this file is wrong and I am confident" — was
+      marked VERIFIED. Confidence measures certainty, not approval, so a
+      confident rejection is the strongest possible reason to fail.
+    * The seeded prompt advertised an ``ACCEPT_WITH_NOTES`` band at 85-94
+      as passing, while the code failed everything under 95. The floor is
+      the documented contract, so the band was removed from the prompt.
+
+    Fails closed throughout. ``parsed`` is ``{}`` when the reply could not
+    be parsed at all, and a verifier that could not answer must never
+    silently approve a file.
+    """
+    raw_verdict = parsed.get("verdict")
+    verdict = str(raw_verdict or "").strip().upper()
+
+    try:
+        score = float(parsed.get("confidence") or 0.0)
+    except (TypeError, ValueError):
+        score = 0.0
+    score = max(0.0, min(100.0, score))
+
+    if not verdict:
+        return "VERIFY_FAILED", score, "no verdict returned"
+    if verdict not in _VERIFIER_PASSING_VERDICTS:
+        # Covers REJECT, UNVERIFIABLE, ACCEPT_WITH_NOTES and anything a
+        # model invents. UNVERIFIABLE is the honest answer when the
+        # evidence was not supplied; it fails rather than forcing the
+        # model to invent an ACCEPT or a REJECT.
+        return "VERIFY_FAILED", score, f"verdict {verdict}"
+    if score < _VERIFIER_SCORE_FLOOR:
+        return (
+            "VERIFY_FAILED", score,
+            f"confidence {score:.0f} below the {_VERIFIER_SCORE_FLOOR:.0f} floor",
+        )
+    return "VERIFIED", score, ""
+
+
 async def _run_verifier_for_codegen_task(
     project_id: str,
     task: Dict[str, Any],
@@ -10244,23 +10302,23 @@ async def _run_verifier_for_codegen_task(
         return
     text = resp.get("content", "") if isinstance(resp, dict) else str(resp)
     parsed = _extract_json_object(text) or {}
-    score = float(parsed.get("confidence", 0.0))
-    verdict = str(parsed.get("verdict", "REJECT"))
-    passing = score >= 95.0
-    final_status = "VERIFIED" if passing else "VERIFY_FAILED"
+    final_status, score, fail_reason = _verifier_outcome(parsed)
+    verdict = str(parsed.get("verdict") or "REJECT")
     await codegen_tasks.update_one(
         {"project_id": project_id, "task_id": task_id},
         {"$set": {
             "status": final_status,
             "verifier_score": score,
             "verifier_checks": parsed,
+            "verifier_reason": fail_reason,
             "confidence": score / 100.0,
             "updated_at": _now_iso(),
         }},
     )
     await _update_codegen_agent_run(
         run_id, status="completed", score=score,
-        output_summary=f"{verdict} {score:.0f}%",
+        output_summary=(f"{verdict} {score:.0f}%"
+                        + (f" — {fail_reason}" if fail_reason else "")),
     )
 
 
