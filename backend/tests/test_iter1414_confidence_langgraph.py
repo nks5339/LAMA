@@ -331,9 +331,31 @@ async def test_score_section_now_strict_hf_blocks_fabric_fallback(monkeypatch):
     assert r["score"] == 0.0
 
 
+@pytest.mark.parametrize(
+    "droid_connected, expected_engine",
+    [(True, "fabric"), (False, "langgraph")],
+)
 @pytest.mark.asyncio
-async def test_score_section_now_uses_legacy_when_flag_unset(monkeypatch):
+async def test_score_section_now_auto_mode_follows_droid_availability(
+    monkeypatch, droid_connected, expected_engine,
+):
+    """With the flag unset, the engine depends on whether Factory.ai is connected.
+
+    This test used to assert `engine == "fabric"` unconditionally, under the
+    name `..._uses_legacy_when_flag_unset`. That was the pre-iter-14.29
+    contract. iter-14.29 turned `LAMA_CONFIDENCE_ENGINE` from an on/off switch
+    into a three-way resolve, and `resolve_confidence_engine`'s own docstring
+    spells out the auto branch: unset means LangGraph IF it is importable AND
+    the droid CLI is not connected, else fabric.
+
+    So the old assertion only held on a machine that had the droid CLI on PATH.
+    Pinning one arm of a two-arm branch is what let this sit red. Both arms are
+    pinned here, and `_factory_cli_ready` is controlled explicitly rather than
+    left to whatever the host happens to have installed.
+    """
     monkeypatch.delenv("LAMA_CONFIDENCE_ENGINE", raising=False)
+    monkeypatch.setattr(clg, "is_available", lambda: True)
+    monkeypatch.setattr(clg, "_factory_cli_ready", lambda: droid_connected)
 
     from routes import srs as srs_mod
 
@@ -344,7 +366,7 @@ async def test_score_section_now_uses_legacy_when_flag_unset(monkeypatch):
 
     async def _fake_lg(*a, **kw):
         called["lg"] += 1
-        return {"score": 99.0, "engine": "langgraph"}
+        return {"score": 99.0, "engine": "langgraph", "route_taken": "hf_accept"}
     monkeypatch.setattr(clg, "score_section_langgraph", _fake_lg)
 
     async def _fake_multi(*args, **kwargs):
@@ -367,8 +389,8 @@ async def test_score_section_now_uses_legacy_when_flag_unset(monkeypatch):
         kb_summary="BR-01: validate.",
         ground_truth="UC-05: happy path.",
     )
-    assert called["lg"] == 0
-    assert r["engine"] == "fabric"
+    assert r["engine"] == expected_engine
+    assert called["lg"] == (0 if droid_connected else 1)
 
 
 # ---------------------------------------------------------------------------
@@ -420,10 +442,20 @@ async def test_multi_model_langgraph_returns_verdict_shape(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_maybe_score_uses_legacy_when_flag_unset(monkeypatch):
-    """When `LAMA_CONFIDENCE_ENGINE` is unset, the helper defers to legacy
-    `confidence.score_artifact_multi_model` and NEVER touches the graph."""
+async def test_maybe_score_uses_legacy_in_auto_mode_when_droid_is_connected(monkeypatch):
+    """Auto mode with Factory.ai connected defers to legacy and never touches the graph.
+
+    Renamed from `..._when_flag_unset`: an unset flag is not on its own enough
+    to predict the engine after iter-14.29. `resolve_confidence_engine` only
+    picks fabric in auto mode when the droid CLI IS connected, which this test
+    now states explicitly instead of inheriting it from the host's PATH.
+
+    The LangGraph arm of the same branch is covered by
+    `test_score_section_now_auto_mode_follows_droid_availability`.
+    """
     monkeypatch.delenv("LAMA_CONFIDENCE_ENGINE", raising=False)
+    monkeypatch.setattr(clg, "is_available", lambda: True)
+    monkeypatch.setattr(clg, "_factory_cli_ready", lambda: True)
 
     called = {"legacy": 0, "lg": 0}
 

@@ -153,12 +153,21 @@ def client(monkeypatch):
     return TestClient(app)
 
 
-def test_list_agents_returns_all_six_with_global_default(client):
+def test_list_agents_returns_the_full_roster_with_global_default(client):
+    """The roster is seven agents, not six.
+
+    Renamed from `..._returns_all_six_...`: iter-15.62 added `devops_expert`
+    as a stagnation-triggered escalation (routes/tools.py:257,270,279 and the
+    escalation at :7780), and `test_iter1562_fix_loop_iterations.py:201`
+    asserts its presence positively. The two suites contradicted each other and
+    this one was the stale side -- its own name gave it away.
+    """
     res = client.get("/tools/transformer/tx-1/agents")
     assert res.status_code == 200
     agents = {a["agent"]: a for a in res.json()["agents"]}
     assert set(agents.keys()) == {
-        "super_agent", "context_manager", "planner", "coder", "verifier", "tester",
+        "super_agent", "context_manager", "planner", "coder", "verifier",
+        "tester", "devops_expert",
     }
     cm = agents["context_manager"]
     assert cm["base_template"] == "GLOBAL DEFAULT CONTEXT MANAGER PROMPT"

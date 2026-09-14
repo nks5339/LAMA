@@ -98,7 +98,12 @@ def loop_wired(monkeypatch):
     # scores across iterations so the loop can prove it converges.
     seq = {"i": 0, "scores": [50.0, 78.0, 97.0]}
 
-    async def _fake_compute(project_id, stage, jid=None):
+    # `**_kw` matters: iter-14.11 added `only_sections=` to
+    # `compute_stage_confidence` for lean delta scoring, and the improve loop
+    # passes it. A stub frozen at the old signature raises TypeError, which the
+    # loop records as `status: "error"` rather than propagating -- so this read
+    # as a convergence failure instead of a stale stub.
+    async def _fake_compute(project_id, stage, jid=None, **_kw):
         seq["i"] += 1
         s = seq["scores"][min(seq["i"] - 1, len(seq["scores"]) - 1)]
         rows = [
@@ -154,9 +159,23 @@ def test_improve_loop_converges_and_records_trajectory(loop_wired):
     # Terminal state must be `complete`, with a converged flag on the result.
     assert job["status"] == "complete", job
     assert job["result"]["converged"] is True
-    # Trajectory must show at least 3 iterations because 3rd score is 97%.
+    # Trajectory must show 3 scoring iterations because the 3rd score is 97%,
+    # plus the iter-14.11 "final seal" pass. The seal is not a wasted call:
+    # iterations 2+ score with a single cheap evaluator over only the sections
+    # just regenerated (lean-delta), so the loop re-scores once with the full
+    # multi-model panel to make the persisted number match what a fresh
+    # Recompute would produce. See routes/pipeline.py:1484.
+    #
+    # This assertion read `== 3` and predated that seal, so it had never been
+    # exercised against current code -- the suite was failing earlier, on a
+    # stale `_fake_compute` signature, and never reached this line.
     trajectory = job["result"]["trajectory"]
-    assert len(trajectory) == 3
+    assert len(trajectory) == 4, trajectory
+    assert [it["scoring_mode"] for it in trajectory] == [
+        "full", "lean-delta", "lean-delta", "final-seal",
+    ]
+    # The seal must not regenerate anything -- it only re-scores.
+    assert trajectory[-1]["regenerated"] == []
     # Scores strictly ascending in this fixture: 25 → 68 → 97 (avg of pair)
     scores = [it["overall_score"] for it in trajectory]
     assert scores[-1] >= 95.0

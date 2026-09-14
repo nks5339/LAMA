@@ -57,9 +57,28 @@ def _grab_def(src: str, name: str) -> str:
     return m.group(0)
 
 
+def _grab_assign(src: str, name: str) -> str:
+    """Extract a module-level constant assignment, e.g. `_FOO: str = "bar"`.
+
+    The extracted helpers read module globals that the exec namespace does not
+    otherwise contain. Hardcoding their values here would silently rot the day
+    someone changes them in codegen.py, so read the real assignment instead --
+    the whole point of this harness is to test the real source.
+    """
+    m = re.search(rf"^{name}\s*(?::[^=]+)?=\s*.+$", src, re.MULTILINE)
+    assert m, f"could not find module global {name} in routes/codegen.py"
+    return m.group(0)
+
+
 def _load_codegen_helpers():
     text = (_BACKEND / "routes" / "codegen.py").read_text()
     ns: dict = {"re": re, "Dict": dict, "List": list}
+    # The scaffolds read these module globals (codegen.py:81-83). Without them
+    # every extracted function raises NameError at call time.
+    for const in (
+        "_ACTIVE_PROJECT_SLUG", "_ACTIVE_JAVA_GROUP", "_ACTIVE_JAVA_GROUP_PATH",
+    ):
+        exec(_grab_assign(text, const), ns)
     # Order matters — helpers depend on each other.
     for fn in (
         "_pascal", "_kebab", "_resource_of", "_group_endpoints_by_resource",

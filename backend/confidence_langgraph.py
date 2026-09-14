@@ -54,8 +54,22 @@ legacy path plus ~250ms of CPU per section for the HF pass.
 
 Feature flag
 ------------
-Off by default. Turn on with `LAMA_CONFIDENCE_ENGINE=langgraph`.
-Falls back to legacy path on any import / graph-build failure.
+`LAMA_CONFIDENCE_ENGINE` selects the engine. iter-14.29 made this a
+three-way resolve, not an on/off switch -- see `resolve_confidence_engine`,
+which is the single authority:
+
+    langgraph  -> force LangGraph + HF
+    fabric     -> force the legacy multi-model fabric_call panel
+    unset/auto -> LangGraph IF it is importable AND the Factory.ai droid
+                  CLI is not connected; otherwise fabric
+
+So unset does NOT mean off. On a machine with langgraph installed and no
+droid CLI on PATH -- the common local-dev shape -- auto resolves to
+LangGraph. This docstring claimed "off by default" until 2026-09; that was
+true before iter-14.29 and had been wrong ever since, and two tests were
+pinning the obsolete promise rather than the shipped behaviour.
+
+Falls back to the legacy path on any import / graph-build failure.
 
 Public API
 ----------

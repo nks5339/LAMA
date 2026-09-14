@@ -442,11 +442,31 @@ def test_heartbeat_events_fire_during_slow_section(srs_env, monkeypatch):
                 break
 
     assert sections_done >= 12
-    # During the 8-second first section we expect AT LEAST one
-    # section_progress heartbeat (broadcast every 5 s by the bg job).
-    assert section_progress_events >= 1, (
-        f"no section_progress heartbeat fired during slow section "
-        f"(got {section_progress_events}) — proxy will time out the connection in production"
+    # During the 8-second stall the stream must emit SOME keep-alive traffic,
+    # or a proxy with a 15-60s idle timeout will reap the connection.
+    #
+    # This asserted specifically on `section_progress` and had been red for a
+    # while. That was a stale assertion, not a missing heartbeat. The
+    # `section_progress` event belongs to the per-section generator and its
+    # `_gen_with_heartbeat` wrapper (routes/srs.py:6485); /generate/stream now
+    # runs the BATCHED generator, which emits `batch_start`/`batch_complete`
+    # and never enters that wrapper. Observed event stream for this test:
+    #
+    #   start, batch_start, batch_complete, section_complete,
+    #   batch_repair_start, batch_repair_complete, section_repair,
+    #   ping, ping, ... (12x section_complete, 11x section_repair), complete
+    #
+    # Keep-alive is alive and well -- it comes from the SSE writer at
+    # routes/srs.py:7373-7378, which emits `ping` every 4s whenever the event
+    # queue is idle. Two fired inside the 8s window.
+    #
+    # So assert the guarantee (liveness traffic during a stall) rather than one
+    # path's event name, which is what let this rot in the first place.
+    keepalive = section_progress_events + ping_events
+    assert keepalive >= 1, (
+        f"no keep-alive event fired during the 8s slow section "
+        f"(section_progress={section_progress_events}, ping={ping_events}) "
+        f"— a proxy would time out the connection in production"
     )
 
 

@@ -90,6 +90,20 @@ class _FakeColl:
 @pytest.fixture
 def wired(monkeypatch):
     """Import `routes.pipeline` with every external side-effect stubbed."""
+    # These tests exercise the high-water-mark bookkeeping around the fabric
+    # multi-model scorer, so the engine must be fabric. Leaving the flag unset
+    # does NOT give you that: since iter-14.29 an unset flag means *auto*, and
+    # auto resolves to langgraph whenever langgraph is importable and the droid
+    # CLI is absent -- true on any dev box with the venv installed. That makes
+    # `strict_hf_only()` true, which blocks the fabric fallback at
+    # routes/pipeline.py:576 and returns a 0.0 `engine_unavailable` stub, so
+    # every assertion here saw 0.0 instead of the stubbed score.
+    #
+    # Pin it rather than inherit it -- the result should not depend on whether
+    # the machine running the suite happens to have a droid binary on PATH.
+    monkeypatch.setenv("LAMA_CONFIDENCE_ENGINE", "fabric")
+    monkeypatch.setenv("LAMA_CONFIDENCE_STRICT_HF", "0")
+
     fake_conf = _FakeColl()
     fake_audit = _FakeColl()
 
@@ -109,7 +123,12 @@ def wired(monkeypatch):
     async def _fake_kb(_pid): return {"summary": "kb"}
     async def _fake_gt(_pid): return {"gt": "x"}
     async def _fake_pick(): return ["stub-model-A", "stub-model-B"]
-    async def _fake_collect(_pid, _keys): return "SOME ARTIFACT TEXT"
+    # `**_kw` matters: production calls this with `max_chars=` (pipeline.py:518).
+    # A stub that only accepts two positionals raises TypeError, which the
+    # gather turns into a 0.0 "missing" row -- so every score assertion in this
+    # file failed with `assert 0.0 == <expected>` and looked like a scoring bug
+    # rather than a stale stub. Accept whatever production passes.
+    async def _fake_collect(_pid, _keys, **_kw): return "SOME ARTIFACT TEXT"
 
     monkeypatch.setattr(pipeline, "_kb_summary_for_eval", _fake_kb, raising=True)
     monkeypatch.setattr(pipeline, "_ground_truth_for_eval", _fake_gt, raising=True)

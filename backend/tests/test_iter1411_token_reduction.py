@@ -84,6 +84,15 @@ class _FakeColl:
 @pytest.fixture(autouse=True)
 def _patch_pipeline(monkeypatch):
     """Wire pipeline's module-level globals to fakes."""
+    # Pin the engine to fabric. These tests assert on calls to
+    # `score_artifact_multi_model`, which is only reached on the fabric path.
+    # With the flag unset, iter-14.29 auto-mode resolves to langgraph on any box
+    # where langgraph imports and the droid CLI is absent, `strict_hf_only()`
+    # then blocks the fabric fallback (routes/pipeline.py:576), and the scorer
+    # is never called -- which showed up here as `scorer_calls == []`.
+    monkeypatch.setenv("LAMA_CONFIDENCE_ENGINE", "fabric")
+    monkeypatch.setenv("LAMA_CONFIDENCE_STRICT_HF", "0")
+
     fake_stage_conf = _FakeColl()
     fake_projects = _FakeColl()
     fake_audit = _FakeColl()
@@ -130,6 +139,8 @@ def test_only_sections_delta_scoring_merges_with_prior(monkeypatch, _patch_pipel
     }))
 
     sections_stub = [
+        # Arbitrary catalogue keys are fine here: this test exercises the
+        # only_sections merge, which never consults _srs_keys_for_report_row.
         {"key": "workflow", "label": "Workflow", "source_keys": ["srs.workflow"],
          "what_to_check": "…", "stage": "Discovery"},
         {"key": "actors", "label": "Actors", "source_keys": ["srs.actors_use_case_inventory"],
@@ -230,9 +241,16 @@ def test_improve_loop_uses_lean_delta_scoring_and_tracks_tokens(monkeypatch, _pa
 
     # A minimal Discovery catalogue: 2 rows.
     sections_stub = [
-        {"key": "actors", "label": "Actors", "source_keys": ["srs.actors_use_case_inventory"],
+        # iter-14.23 renamed Discovery report rows to the 12 IEEE-830 SRS
+        # section keys. These stubs used the pre-rename short keys "actors" and
+        # "nfr", which `_srs_keys_for_report_row` maps to [] -- so the improve
+        # loop resolved no regeneration work, exited after a single iteration,
+        # and every multi-iteration assertion below was unreachable.
+        {"key": "actors_use_case_inventory", "label": "Actors",
+         "source_keys": ["srs.actors_use_case_inventory"],
          "what_to_check": "…", "stage": "Discovery"},
-        {"key": "nfr", "label": "NFR", "source_keys": ["srs.nfr"],
+        {"key": "non_functional_requirements", "label": "NFR",
+         "source_keys": ["srs.non_functional_requirements"],
          "what_to_check": "…", "stage": "Discovery"},
     ]
     monkeypatch.setattr(pl, "_sections_for_stage", lambda _s: sections_stub)
@@ -260,15 +278,15 @@ def test_improve_loop_uses_lean_delta_scoring_and_tracks_tokens(monkeypatch, _pa
         # Section-by-section fixed scores driven by state.
         out = []
         for s in sections:
-            if s["key"] == "actors":
+            if s["key"] == "actors_use_case_inventory":
                 # Sequence: 40 (iter1), 70 (iter2), 96 (iter3), 96 (seal)
                 actors_scores = [40.0, 70.0, 96.0, 96.0]
-                idx = min(len([c for c in call_log if "actors" in c["section_keys"]]) - 1,
+                idx = min(len([c for c in call_log if "actors_use_case_inventory" in c["section_keys"]]) - 1,
                           len(actors_scores) - 1)
-                out.append(_make_row("actors", actors_scores[idx]))
-            elif s["key"] == "nfr":
+                out.append(_make_row("actors_use_case_inventory", actors_scores[idx]))
+            elif s["key"] == "non_functional_requirements":
                 # Always 30 with KB-gap rationale.
-                out.append(_make_row("nfr", 30.0, kb_gap=True))
+                out.append(_make_row("non_functional_requirements", 30.0, kb_gap=True))
         return {"sections": out}
     monkeypatch.setattr(pl, "score_artifact_multi_model", _fake_score)
 
@@ -294,23 +312,31 @@ def test_improve_loop_uses_lean_delta_scoring_and_tracks_tokens(monkeypatch, _pa
     trajectory = job.get("iterations") or []
     assert len(trajectory) >= 2, f"expected multi-iter trajectory, got {trajectory}"
 
-    # Iter 1 = full panel over BOTH sections.
+    # `compute_stage_confidence` fans out one `_score_one_section` task per
+    # section, and each task calls the scorer with a single-element `sections`
+    # list. So call_log has one entry PER SECTION, not one per iteration --
+    # these assertions were written against a batched scorer that no longer
+    # exists, and could not have passed regardless of the key rename.
+    ACTORS = "actors_use_case_inventory"
+    NFR = "non_functional_requirements"
+
+    # Iter 1 = full panel over BOTH sections, one scorer call each.
     iter1 = trajectory[0]
     assert iter1["scoring_mode"] == "full"
-    # First scorer call must have hit both sections with the full 3-model panel.
-    assert call_log[0]["section_keys"] == ["actors", "nfr"]
-    assert call_log[0]["models"] == ["opus", "sonnet", "cheap"]
+    iter1_calls = call_log[:2]
+    assert sorted(c["section_keys"][0] for c in iter1_calls) == sorted([ACTORS, NFR])
+    for c in iter1_calls:
+        assert c["models"] == ["opus", "sonnet", "cheap"]
 
-    # Iter 2 = lean-delta over ONLY actors, single-model.
+    # Iter 2 = lean-delta over ONLY actors, single cheap model.
     iter2 = trajectory[1]
     assert iter2["scoring_mode"] == "lean-delta", iter2
-    assert call_log[1]["section_keys"] == ["actors"]
-    assert call_log[1]["models"] == pl._IMPROVE_INTRA_MODELS
+    assert call_log[2]["section_keys"] == [ACTORS]
+    assert call_log[2]["models"] == pl._IMPROVE_INTRA_MODELS
 
     # NFR (KB-gap) was regenerated exactly once (in iter 1's regen phase),
     # then skipped for the rest of the loop.
-    nfr_srs = "nfr"  # per _srs_keys_for_report_row mapping
-    nfr_regens = [k for k in regen_calls if k == nfr_srs]
+    nfr_regens = [k for k in regen_calls if k == NFR]
     assert len(nfr_regens) <= 1, f"KB-gap section regenerated {len(nfr_regens)}x, must be ≤1"
 
     # Token counter is non-zero and monotonically non-decreasing.
