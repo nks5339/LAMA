@@ -4,9 +4,9 @@ A layered verification of the whole application, not just the changes made in
 this session. Static bars, the full suite, a live backend, and the real
 pipelines driven end to end against live providers.
 
-**Headline: four more defects found, all by running the code rather than
+**Headline: six more defects found, every one by running the code rather than
 reading it, and seven guards restored that had gone stale and were protecting
-nothing.**
+nothing. One finding needs your decision before it can be fixed.**
 
 ---
 
@@ -153,6 +153,80 @@ if a failover still happens the pin is released so the next call returns to the
 primary. `"quota exceeded"` stays on the billing path, because a hard cap does
 not heal by waiting. The two stale pins this bug had already written were
 released.
+
+### D12 — the multi-agent audit trail was invisible
+
+`_audit_multi_agent` wrote the project id as `entity_id` and never set
+`project_id`. `routes/audit.py::list_audit` filters on `project_id`. So every
+state change the pipeline recorded could not be retrieved by the one consumer
+that reads it.
+
+```
+audit_log rows total              117
+rows WITH project_id               87
+rows invisible to the Audit page   30
+   29x codegen_multi_agent      <- the entire pipeline trail
+    1x auth.login               <- correctly has no project
+```
+
+The helper's own docstring states the goal: *"so admins can reconstruct the
+pipeline from the audit log alone"*. They could not. The rows existed, the
+iter-17 contract was satisfied on paper, and none of it was reachable.
+
+This is the shape of bug that static analysis and unit tests both miss: the
+writer works, the reader works, and they disagree about one field name. It only
+appears when you query the way the product does.
+
+**Fixed**, and the 29 rows already written were backfilled from their own
+`entity_id`, so the accumulated trail becomes visible rather than staying a
+blind spot.
+
+### D13 — provider endpoint emitted 12 characters of the API key
+
+`GET /api/console/providers` returned, for a real 32-character Azure key:
+
+```
+api_key            'yuATf0...p6pG'     6 leading + 4 trailing
+detected_from_key  'yuATf0sx...'       8 leading, not masked at all
+```
+
+Twelve of 32 characters, next to the full endpoint URL and deployment name.
+`_serialize_provider` masked `api_key` and forgot `detected_from_key`, which
+`setup_default_provider` populates as `api_key[:8]`.
+
+Twelve characters will not let anyone brute-force the key, but it is enough to
+confirm a key someone already holds, it survives into logs and screenshots, and
+no caller needs it.
+
+**Fixed.** Masking reveals a 4-character trailing fragment at most, and
+`detected_from_key` is masked at serialization so rows already in Mongo are
+covered without a migration.
+
+---
+
+## Needs your decision — DEC-7
+
+**~287 routes accept requests with no bearer token.** Only the `admin`, `auth`
+and `projects` routers enforce authentication. Everything else answers an
+anonymous caller:
+
+```
+GET /api/projects                         401   <- enforced
+GET /api/kb/{pid}/status                  200
+GET /api/codegen/{pid}/files              200   <- generated source code
+GET /api/console/providers                200   <- provider configuration
+GET /api/audit?project_id=...             200
+```
+
+`CLAUDE.md` contract #3 states the intent: *"New routes that read project data
+must scope by tenant, not just `project_id`."* Outside those three routers it
+is not implemented. With `CORS_ORIGINS=*`, a browser on any origin can read it.
+
+The fix is a global dependency and `lib/api.js` already attaches a bearer token
+to every request, so the UI would not break. I did not apply it: it flips ~287
+endpoints from open to closed in one commit, and anything of yours that calls
+LAMA without a token stops working. Options are costed in
+`HUMAN_INTERVENTION.md` DEC-7.
 
 ---
 
