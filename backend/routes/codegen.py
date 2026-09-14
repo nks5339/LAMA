@@ -3747,10 +3747,9 @@ async def _gen_one_file(project_id: str, svc: dict, file_def: dict, model: str, 
                                        file_def["path"], _se)
                     if scaffold and len(scaffold) >= 80:
                         return (
-                            f"// LAMA: deterministic scaffold (LLM emitted "
-                            f"{_todo_hits} TODO/Unsupported placeholders — "
-                            f"replaced with DDL-grounded scaffold). Run Gap Recovery to "
-                            f"enrich with legacy logic.\n" + scaffold
+                            f"// LAMA: deterministic scaffold (LLM output failed structural validation "
+                            f"— missing {', '.join(missing)}; replaced with DDL-grounded scaffold). "
+                            f"Run Gap Recovery to enrich with legacy logic.\n" + scaffold
                         )
                     # Scaffold also failed → last resort: tag the broken
                     # LLM content so the user can at least see what we got.
