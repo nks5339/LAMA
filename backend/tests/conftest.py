@@ -30,6 +30,8 @@ discarded.
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 # The eight suites that require a live HTTP server. Identified by importing
@@ -83,3 +85,65 @@ def pytest_collection_modifyitems(config, items):
         item.add_marker(pytest.mark.integration)
         if not run_integration:
             item.add_marker(skip)
+
+
+# ---------------------------------------------------------------------------
+# Bearer auth for the live-server suites.
+#
+# All eight predate iter-13.68, which introduced JWT auth and multi-tenancy.
+# They build their own `requests.Session` and call /api/projects directly, so
+# against a current backend every one of them dies in a fixture with:
+#
+#     AssertionError: {"detail":"Missing Authorization header"}
+#     assert 401 == 200
+#
+# Rather than edit eight suites, attach the header centrally. This runs ONLY
+# in integration mode, so it cannot affect the in-process suites.
+#
+# Credentials come from the same env vars seed.py::seed_tenancy reads when it
+# creates the super-admin, with the same dev fallback, so a stock local stack
+# works with no configuration.
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="session", autouse=True)
+def _authenticate_live_server_suites(request):
+    if not _integration_requested(request.config):
+        yield
+        return
+
+    import requests
+
+    base = (os.environ.get("REACT_APP_BACKEND_URL") or "http://localhost:8382").rstrip("/")
+    user = os.environ.get("LAMA_SUPERADMIN_USER") or "superadmin"
+    pwd = os.environ.get("LAMA_SUPERADMIN_PASS") or "lama-admin-2026"
+
+    token = ""
+    try:
+        r = requests.post(f"{base}/api/auth/login",
+                          json={"username": user, "password": pwd}, timeout=15)
+        if r.status_code == 200:
+            # The login route returns {"token": ...}, not {"access_token": ...}.
+            token = (r.json() or {}).get("token") or ""
+    except Exception as exc:  # noqa: BLE001
+        pytest.skip(f"live backend not reachable at {base}: {exc}")
+
+    if not token:
+        pytest.skip(
+            f"could not authenticate against {base} as {user!r}. Set "
+            "LAMA_SUPERADMIN_USER / LAMA_SUPERADMIN_PASS to match your deploy."
+        )
+
+    original = requests.Session.request
+
+    def _with_bearer(self, method, url, **kw):
+        headers = kw.get("headers") or {}
+        if "Authorization" not in headers:
+            headers = {**headers, "Authorization": f"Bearer {token}"}
+            kw["headers"] = headers
+        return original(self, method, url, **kw)
+
+    requests.Session.request = _with_bearer
+    try:
+        yield
+    finally:
+        requests.Session.request = original
