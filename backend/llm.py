@@ -1,6 +1,8 @@
 """OpenRouter LLM client (OpenAI-compatible HTTP API via httpx)."""
 import os
 import contextvars
+import json as _json_std
+import logging
 import shutil
 import httpx
 from typing import List, Dict, Optional, Any
@@ -1002,6 +1004,93 @@ async def probe_generation_providers(project_id: str = "") -> dict:
     return {"chosen": chosen, "detail": detail, "checks": checks}
 
 
+def parses_as_json_object(text: str) -> bool:
+    """True when `text` is a single JSON object, with no salvaging.
+
+    Deliberately strict. The callers' own `_extract_json_object` helpers
+    already scrape the outermost braces out of prose, and that leniency is
+    exactly what let malformed output pass silently for so long: a model
+    that wraps its answer in an apology still "parses", so nobody noticed
+    the structured-output request was being dropped. This asks the
+    stricter question — did we get what we asked for — so the repair pass
+    below fires on the cases worth one extra call.
+    """
+    if not text or not text.strip():
+        return False
+    try:
+        return isinstance(_json_std.loads(text.strip()), dict)
+    except Exception:  # noqa: BLE001
+        return False
+
+
+_JSON_REPAIR_INSTRUCTION = (
+    "Your previous reply was not valid JSON and could not be parsed.\n"
+    "Parser error: {error}\n\n"
+    "Return the SAME answer again as a single valid JSON object. "
+    "Output only the object: no prose before or after it, no markdown "
+    "code fences, no trailing commas, and use double quotes for every "
+    "key and string value."
+)
+
+
+async def _repair_json_once(
+    messages: List[Dict],
+    result: Dict,
+    agent_key: str,
+    project_id: str,
+    kwargs: Dict,
+) -> Dict:
+    """One bounded re-ask when a JSON-mode call came back unparseable.
+
+    Small local models routinely ignore a structured-output request and
+    answer in prose, or wrap the object in ``` fences. A single re-ask that
+    shows the model its own output and the parser error recovers most of
+    those, and is far cheaper than the alternative the pipeline used to
+    take: score the file REJECT at confidence 0.0 and make a human look at
+    it.
+
+    Capped at exactly one extra call so a model that cannot produce JSON
+    costs one wasted round-trip rather than an unbounded loop. On failure
+    the ORIGINAL result is returned unchanged, so this can only add a
+    chance of success, never remove one.
+    """
+    content = (result or {}).get("content") or ""
+    try:
+        _json_std.loads(content.strip())
+        error = "no error"
+    except Exception as exc:  # noqa: BLE001
+        error = str(exc)[:200]
+
+    logging.getLogger("lama.llm").info(
+        "json-repair: agent=%s returned unparseable JSON (%s) — one re-ask",
+        agent_key or "unknown", error,
+    )
+
+    repair_messages = [
+        *messages,
+        {"role": "assistant", "content": content[:8000]},
+        {"role": "user", "content": _JSON_REPAIR_INSTRUCTION.format(error=error)},
+    ]
+    try:
+        repaired = await _fabric_call_impl(
+            messages=repair_messages,
+            agent_key=agent_key,
+            project_id=project_id,
+            **kwargs,
+        )
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("lama.llm").warning(
+            "json-repair: re-ask itself failed for agent=%s: %s",
+            agent_key or "unknown", str(exc)[:200],
+        )
+        return result
+
+    if isinstance(repaired, dict) and parses_as_json_object(repaired.get("content") or ""):
+        repaired["json_repaired"] = True
+        return repaired
+    return result
+
+
 async def fabric_call(
     messages: List[Dict],
     agent_key: str = "",
@@ -1013,7 +1102,13 @@ async def fabric_call(
     Audit page "Detail Log Trace" feature (iter-13.101).
 
     Behaviour is otherwise identical to the previous fabric_call —
-    same signature, same return shape, same exception propagation.
+    same signature, same return shape, same exception propagation — with
+    one addition: when the caller asked for `response_format` and the
+    reply does not parse as a JSON object, ONE repair re-ask is issued
+    before returning. This lives here rather than at the fifteen agent
+    call sites because this is the single choke point every LLM call
+    already passes through (contract #4), so all of them benefit without
+    fifteen edits and without any of them drifting apart later.
     """
     import time as _time
     from datetime import datetime as _dt
@@ -1028,6 +1123,14 @@ async def fabric_call(
             project_id=project_id,
             **kwargs,
         )
+        if (
+            kwargs.get("response_format")
+            and isinstance(result, dict)
+            and not parses_as_json_object(result.get("content") or "")
+        ):
+            result = await _repair_json_once(
+                messages, result, agent_key, project_id, kwargs,
+            )
         if isinstance(result, dict):
             result.setdefault("trace_id", trace_id)
         await _record_llm_trace(

@@ -8896,27 +8896,52 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
     """Best-effort JSON object extraction from an LLM response. The
     single-shot CodeGen flow has its own helpers; we deliberately don't
     reuse them because they carry a lot of gap-recovery baggage. Small
-    self-contained helper is easier to reason about here."""
+    self-contained helper is easier to reason about here.
+
+    Returns None rather than raising — every caller relies on that.
+
+    The previous fence handling did ``s.split("```", 2)[-1]``, which on a
+    CORRECTLY fenced block yields the empty string following the CLOSING
+    fence rather than the content between the fences:
+
+        '```json\\n{...}\\n```'.split('```', 2)
+            -> ['', 'json\\n{...}\\n', '']      and [-1] is ''
+
+    so the brace scan below had nothing left to scan. That is the single
+    most common shape an LLM emits — a local qwen2.5-coder:7b produced it
+    six times out of six when asked to score a file — and it silently cost
+    the verifier every one of those verdicts, marking good files
+    VERIFY_FAILED at confidence 0.0.
+
+    The brace scan alone already handles fenced, unfenced and
+    prose-wrapped replies, so the fence preamble is gone rather than
+    repaired: it was both wrong and unnecessary.
+    """
     if not text:
         return None
     s = text.strip()
-    # Strip triple-backtick fences.
-    if s.startswith("```"):
-        s = s.split("```", 2)[-1] if s.count("```") >= 2 else s.lstrip("`")
-        # Drop optional language tag at the start.
-        if "\n" in s:
-            first, rest = s.split("\n", 1)
-            if first.strip().lower() in ("json", "javascript", ""):
-                s = rest
-    # Find outermost braces.
+    if not s:
+        return None
+
+    # Fast path: the whole reply is the object (what JSON mode produces).
+    try:
+        parsed = json.loads(s)
+        return parsed if isinstance(parsed, dict) else None
+    except Exception:
+        pass
+
+    # Otherwise scan for the outermost braces. This covers ```json fences,
+    # bare fences, prose preambles and trailing chatter in one step, and is
+    # unaffected by a reply truncated mid-fence at max_tokens.
     start = s.find("{")
     end = s.rfind("}")
     if start == -1 or end == -1 or end < start:
         return None
     try:
-        return json.loads(s[start:end + 1])
+        parsed = json.loads(s[start:end + 1])
     except Exception:
         return None
+    return parsed if isinstance(parsed, dict) else None
 
 
 # ══════════════════════════════════════════════════════════════════════════
