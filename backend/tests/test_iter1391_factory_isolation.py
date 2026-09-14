@@ -87,27 +87,49 @@ def test_resolve_cwd_auto_scopes_per_tenant_project(monkeypatch):
     cwd1 = _resolve_cwd({"cwd": ""}, tenant_id="t1", project_id="p1")
     cwd2 = _resolve_cwd({"cwd": ""}, tenant_id="t1", project_id="p2")
     cwd3 = _resolve_cwd({"cwd": ""}, tenant_id="t2", project_id="p1")
-    assert cwd1 == "/srv/lama/t1/p1"
-    assert cwd2 == "/srv/lama/t1/p2"
-    assert cwd3 == "/srv/lama/t2/p1"
+    # iter-13.91.8 collapsed the nested `<base>/<tenant>/<project>` into a
+    # SINGLE-level `lama_<tenant>_<project>` directly under the base, because
+    # Factory's sidebar only auto-lists folders one level deep and the nested
+    # form left the project folder invisible. The shape changed; the guarantee
+    # this test exists for -- one distinct path per (tenant, project) -- did
+    # not. These assertions were never updated, so this suite has been red,
+    # and therefore guarding nothing, ever since.
+    assert cwd1 == "/srv/lama/lama_t1_p1"
+    assert cwd2 == "/srv/lama/lama_t1_p2"
+    assert cwd3 == "/srv/lama/lama_t2_p1"
+    # The point of the test: no two tuples may collide.
     assert len({cwd1, cwd2, cwd3}) == 3
 
 
-def test_resolve_cwd_default_is_empty_when_env_missing(monkeypatch):
-    """iter-13.91.2 — Factory's POST /sessions returns HTTP 400 for any
-    `cwd` that does not pre-exist on the Droid Computer, so auto-scoping
-    is OPT-IN (env-var must be set + path pre-created by the operator).
-    The safe default is empty string → Factory uses the Droid's default
-    home directory. Conversation-level isolation is still guaranteed by
-    the namespaced session_id (per (tenant, project, agent))."""
+def test_resolve_cwd_host_anchored_is_empty(monkeypatch):
+    """Factory's POST /sessions returns HTTP 400 for any `cwd` that does
+    not pre-exist on the Droid Computer, so there must be a way to send NO
+    cwd at all and let Factory default to the droid's HOME.
+
+    iter-13.91.2 expressed that as "empty unless the env-var is set".
+    iter-13.91.12 replaced it with an explicit `cfg["host_anchored"]` flag,
+    which is a better contract: the caller states its intent rather than
+    having it inferred from an absent env-var. This test follows the
+    guarantee, not the old mechanism -- what must never regress is that
+    SOME supported configuration yields an empty cwd.
+    """
     from factory_orchestrator import _resolve_cwd
     monkeypatch.delenv("LAMA_FACTORY_WORKSPACE_BASE", raising=False)
-    cwd = _resolve_cwd({"cwd": ""}, tenant_id="tenant_default", project_id="abc")
+    cwd = _resolve_cwd({"cwd": "", "host_anchored": True},
+                       tenant_id="tenant_default", project_id="abc")
     assert cwd == "", (
-        "Default cwd MUST be empty so Factory uses the Droid's home — "
-        "auto-scoping to a non-existent path triggers HTTP 400 "
-        'Invalid cwd "..." (regression: iter-13.91 and iter-13.91.1)'
+        "host_anchored MUST yield an empty cwd so the caller omits the field "
+        "and Factory uses the Droid's home — auto-scoping to a non-existent "
+        'path triggers HTTP 400 Invalid cwd "..." '
+        "(regression: iter-13.91 and iter-13.91.1)"
     )
+
+
+def test_resolve_cwd_without_project_is_empty(monkeypatch):
+    """The other path to an empty cwd: no project, nothing to scope to."""
+    from factory_orchestrator import _resolve_cwd
+    monkeypatch.delenv("LAMA_FACTORY_WORKSPACE_BASE", raising=False)
+    assert _resolve_cwd({"cwd": ""}, tenant_id="t1", project_id="") == ""
 
 
 def test_resolve_cwd_rejects_tilde_base_expands_or_falls_through(monkeypatch):
@@ -123,12 +145,22 @@ def test_resolve_cwd_rejects_tilde_base_expands_or_falls_through(monkeypatch):
 
 
 def test_resolve_cwd_rejects_relative_base_falls_through(monkeypatch):
-    """Misconfigured relative env-var → return empty (let Factory use
-    Droid's home) rather than send an invalid cwd."""
+    """A misconfigured relative env-var MUST NOT reach Factory.
+
+    iter-13.91.2 satisfied that by returning empty. iter-13.91.8 instead
+    substitutes the built-in absolute default, which is strictly better:
+    the operator still gets a working, isolated workspace rather than
+    silently losing scoping because of a typo. The guarantee this test
+    exists for is that the relative string never leaves the function.
+    """
     from factory_orchestrator import _resolve_cwd
     monkeypatch.setenv("LAMA_FACTORY_WORKSPACE_BASE", "relative/path")
     cwd = _resolve_cwd({"cwd": ""}, tenant_id="t1", project_id="p1")
-    assert cwd == ""
+
+    assert "relative/path" not in cwd, f"relative base leaked into cwd: {cwd}"
+    assert cwd.startswith("/"), f"cwd must be absolute, got: {cwd}"
+    # Per-(tenant, project) scoping survives the fallback.
+    assert cwd.endswith("/lama_t1_p1")
 
 
 def test_resolve_cwd_expands_tilde_in_explicit_user_override(monkeypatch):

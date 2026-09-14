@@ -188,7 +188,14 @@ def test_fix_loop_escalates_to_devops_expert_and_recovers(monkeypatch):
             return _failing_compile_result(reason="invalid target release: 21")
         return _passing_compile_result()
 
-    async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder"):
+    # `**kw` is load-bearing. `_coder_apply_fix` later gained an `on_stage`
+    # progress callback, and this stub was never updated. The call therefore
+    # raised TypeError inside the loop's per-file try/except, which logged
+    # "fix_error" and moved on -- so agent_calls stayed empty and the test
+    # failed while the PRODUCT was working correctly. Absorbing new keyword
+    # arguments keeps the stub from going stale the next time the signature
+    # grows; the assertions below still pin the behaviour that matters.
+    async def _tracking_coder_apply_fix(transform_id, task_row, detected_stack, target_stack, model, agent_name="coder", **kw):
         agent_calls.append(agent_name)
         return True
 

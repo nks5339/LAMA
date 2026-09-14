@@ -17,7 +17,7 @@ Forensic context (do not delete):
     The tests below lock in:
       • The workspace block is scoped per (tenant, project).
       • The pseudo-root path is namespaced
-        (`/lama-workspace/<tenant>/<project>`).
+        (`/lama-workspaces/<tenant>__<project>`, iter-13.99 format).
       • Empty project_id → empty string (never a leak).
       • The signal-ranker prefers controllers/actions over tests/mocks.
       • Both prompt builders are wired to inject the workspace block.
@@ -38,9 +38,15 @@ def test_workspace_root_namespaces_by_tenant_and_project():
     r1 = _workspace_root("tenant_default", "pid-A")
     r2 = _workspace_root("tenant_default", "pid-B")
     r3 = _workspace_root("tenant_other",   "pid-A")
-    assert r1 == "/lama-workspace/tenant_default/pid-A"
-    assert r2 == "/lama-workspace/tenant_default/pid-B"
-    assert r3 == "/lama-workspace/tenant_other/pid-A"
+    # iter-13.99 renamed this format deliberately (see the docstring on
+    # routes/srs.py::_workspace_root): the root moved to `/lama-workspaces/`
+    # (plural) and the separator became a DOUBLE underscore, so that an id
+    # containing a single underscore cannot collide with another tuple.
+    # These assertions were never updated, so this suite has been red --
+    # and therefore guarding nothing -- ever since.
+    assert r1 == "/lama-workspaces/tenant_default__pid-A"
+    assert r2 == "/lama-workspaces/tenant_default__pid-B"
+    assert r3 == "/lama-workspaces/tenant_other__pid-A"
     # Three distinct scopes → three distinct roots — guarantees no
     # cross-project filename collision in citations.
     assert len({r1, r2, r3}) == 3
@@ -48,7 +54,7 @@ def test_workspace_root_namespaces_by_tenant_and_project():
 
 def test_workspace_root_falls_back_to_default_slugs():
     from routes.srs import _workspace_root
-    assert _workspace_root("", "") == "/lama-workspace/default/default"
+    assert _workspace_root("", "") == "/lama-workspaces/default__default"
 
 
 def test_signal_ranker_prefers_controllers_over_tests():
@@ -94,6 +100,8 @@ def test_workspace_block_renders_inline_filesystem_directive():
     with open(src_path, "r", encoding="utf-8") as f:
         src = f.read()
     assert "VIRTUAL LEGACY WORKSPACE" in src
-    assert "Do NOT invoke shell tools" in src
-    assert "/lama-workspace/" in src
+    # The rendered directive is upper-case "DO NOT" (routes/srs.py:840).
+    # The assertion's mixed case never matched.
+    assert "DO NOT invoke shell tools" in src
+    assert "/lama-workspaces/" in src
 
