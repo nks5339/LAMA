@@ -9303,6 +9303,226 @@ async def _run_multi_agent_codegen(project_id: str, model: Optional[str] = None)
         )
 
 
+def _plan_tasks_for_envelopes(
+    approved: List[Dict[str, Any]],
+    arch_services: Optional[List[Dict[str, Any]]],
+    be_target: Dict[str, str],
+    fe_target: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    """Deterministic, LLM-free task fan-out for a set of approved envelopes.
+
+    Extracted from `_continue_multi_agent_codegen_after_envelope_confirm`
+    so the planner can be tested without Mongo and without an LLM. It had
+    no direct coverage, which is how the service-attribution bug below
+    survived: the only way to see it was to run the whole pipeline and
+    read the resulting paths.
+
+    Each envelope's tasks are emitted under ITS OWN service, taken from
+    the `_service_name` the envelope builder records. Previously ONE
+    `be_service_name` (the first backend service found) was used for every
+    envelope in the project, so a two-service architecture collapsed into
+    one: every file for `claims-service` was written into
+    `services/panel-service/` with package `com.lama.panelservice`. That
+    silently undoes the Stage-3 decomposition, and the result still
+    compiles, so nothing downstream notices.
+
+    Returns [] when there is nothing to expand; the caller then falls back
+    to the LLM planner.
+    """
+
+    def _slugify_path(p: str) -> str:
+        import re as _re
+        out = _re.sub(r"[^A-Za-z0-9]+", "_", (p or "root").strip("/")).strip("_")
+        return (out or "root").lower()
+
+    det_tasks: List[Dict[str, Any]] = []
+    _seen_be_services: set = set()
+    _seen_fe_services: set = set()
+    seq = 0
+
+    # iter-17.14 — Resolve concrete BE / FE service names from
+    # arch_services so the deterministic planner can emit each
+    # generated file under `services/<svc>/…`. Falls back to sensible
+    # defaults when Architecture didn't name the services OR when
+    # the arch_services collection is unreachable (fake-DB tests).
+    _arch_svcs = list(arch_services or [])
+    be_service_name = ""
+    fe_service_name = ""
+    for _s in _arch_svcs:
+        _sd = (_s.get("side") or "").lower()
+        _nm = _s.get("name") or ""
+        if _sd == "frontend" or "front" in (_s.get("kind") or "").lower() or _nm.lower() in {"frontend", "web", "ui", "client"}:
+            fe_service_name = fe_service_name or _nm
+        elif _sd == "backend" or _nm:
+            be_service_name = be_service_name or _nm
+    # If arch_services didn't tag a frontend explicitly, keep the
+    # BE service name for BE and default FE to "web".
+    if not be_service_name:
+        be_service_name = "api"
+    if not fe_service_name:
+        fe_service_name = "web"
+
+    # iter-17.14 — Emit ONE build-manifest task per service at Wave 1
+    # so pom.xml / build.gradle / package.json / pyproject.toml are
+    # produced BEFORE the source files (compilable snapshot after
+    # Wave 1) and every regeneration reuses the pinned versions from
+    # `_STACK_BASELINE` — no dep-drift wave-to-wave.
+
+    def _mk(layer: str, phase: str, wave: int, wave_name: str,
+            coder: str, target: str, title: str, desc: str,
+            env: Dict[str, Any], br_ids: List[str]) -> Dict[str, Any]:
+        nonlocal seq
+        seq += 1
+        return {
+            "task_id": f"TASK-{seq:04d}",
+            "envelope_id": env.get("envelope_id") or "",
+            "title": title,
+            "description": desc,
+            "phase": phase,
+            "layer": layer,
+            "action": env.get("action") or "NEW",
+            "wave": wave,
+            "wave_name": wave_name,
+            "target_path": target,
+            "assigned_to": coder,
+            "depends_on": [],
+            "br_ids": br_ids,
+        }
+
+    _synthetic_env = {"envelope_id": "MANIFEST", "action": "NEW"}
+
+    for env in approved:
+        env_id = env.get("envelope_id") or ""
+        side = (env.get("side") or "backend").lower()
+        path = env.get("endpoint_path") or ""
+        method = (env.get("endpoint_method") or "ANY").upper()
+        slug = _slugify_path(path) or env_id.lower().replace("-", "_")
+        br_ids = list(env.get("br_ids") or [])
+
+        if side == "frontend":
+            # iter-17.14 — Frontend files live under services/<fe_svc>/
+            # (was services/<svc>/frontend). Vue/Angular targets get
+            # their idiomatic layout via `_fe_task_layout`.
+            # Per-envelope service, not one name for the whole project.
+            _env_svc = (env.get("_service_name") or "").strip() or fe_service_name
+            _seen_fe_services.add(_env_svc)
+            fe_layout = _fe_task_layout(
+                fe_target["lang"], fe_target["framework"],
+                slug, method, path, service=_env_svc,
+            )
+            det_tasks.append(_mk(
+                "api_client", "scaffold", 1, "Wave 1 — Scaffolding",
+                "coder_fe", fe_layout["client"]["path"],
+                f"API client for {method} {path}",
+                f"{fe_layout['client']['desc']} Envelope {env_id}.",
+                env, br_ids,
+            ))
+            det_tasks.append(_mk(
+                "page", "logic", 2, "Wave 2 — Business Logic",
+                "coder_fe", fe_layout["page"]["path"],
+                f"Page for {method} {path}",
+                f"{fe_layout['page']['desc']}",
+                env, br_ids,
+            ))
+        else:
+            # iter-17.14 — Backend files live under services/<be_svc>/
+            # (was repo-root `backend/...`). Java/Kotlin/TS/Node/Go/
+            # .NET/Python targets each get framework-idiomatic paths
+            # via `_be_task_layout`.
+            # Per-envelope service, not one name for the whole project.
+            _env_svc = (env.get("_service_name") or "").strip() or be_service_name
+            _seen_be_services.add(_env_svc)
+            be_layout = _be_task_layout(
+                be_target["lang"], be_target["framework"],
+                slug, method, path, service=_env_svc,
+            )
+            biz_summary = env.get("business_logic_summary") or "migrate legacy behaviour."
+            det_tasks.append(_mk(
+                "entity", "scaffold", 1, "Wave 1 — Scaffolding",
+                "coder_be", be_layout["entity"]["path"],
+                f"Entity for {env_id}",
+                f"{be_layout['entity']['desc']}",
+                env, br_ids,
+            ))
+            det_tasks.append(_mk(
+                "repository", "scaffold", 1, "Wave 1 — Scaffolding",
+                "coder_be", be_layout["repository"]["path"],
+                f"Repository for {env_id}",
+                f"{be_layout['repository']['desc']} "
+                f"Tables: {env.get('db_tables') or []}.",
+                env, br_ids,
+            ))
+            # iter-17.17 — DTO + Mapper + Exception are ALWAYS emitted
+            # so controller/service can rely on typed request/response
+            # payloads and domain exceptions instead of raw entities.
+            if "dto" in be_layout:
+                det_tasks.append(_mk(
+                    "dto", "scaffold", 1, "Wave 1 — Scaffolding",
+                    "coder_be", be_layout["dto"]["path"],
+                    f"DTOs for {env_id}",
+                    f"{be_layout['dto']['desc']}",
+                    env, br_ids,
+                ))
+            if "exception" in be_layout:
+                det_tasks.append(_mk(
+                    "exception", "scaffold", 1, "Wave 1 — Scaffolding",
+                    "coder_be", be_layout["exception"]["path"],
+                    f"Domain exceptions for {env_id}",
+                    f"{be_layout['exception']['desc']}",
+                    env, br_ids,
+                ))
+            if "mapper" in be_layout:
+                det_tasks.append(_mk(
+                    "mapper", "logic", 2, "Wave 2 — Business Logic",
+                    "coder_be", be_layout["mapper"]["path"],
+                    f"Mapper for {env_id}",
+                    f"{be_layout['mapper']['desc']}",
+                    env, br_ids,
+                ))
+            det_tasks.append(_mk(
+                "service", "logic", 2, "Wave 2 — Business Logic",
+                "coder_be", be_layout["service"]["path"],
+                f"Service for {env_id}",
+                f"{be_layout['service']['desc']} Behaviour: {biz_summary}",
+                env, br_ids,
+            ))
+            det_tasks.append(_mk(
+                "controller", "logic", 2, "Wave 2 — Business Logic",
+                "coder_be", be_layout["controller"]["path"],
+                f"Route handler {method} {path}",
+                f"{be_layout['controller']['desc']}",
+                env, br_ids,
+            ))
+            det_tasks.append(_mk(
+                "test", "harden", 3, "Wave 3 — Hardening",
+                "coder_be", be_layout["test"]["path"],
+                f"Tests for {env_id}",
+                f"{be_layout['test']['desc']}",
+                env, br_ids,
+            ))
+
+
+    # One build manifest per service ACTUALLY used by the fan-out above.
+    # Emitting a single manifest for the first service left every other
+    # service with source files and no build file, so it could not compile.
+    for _svc in sorted(_seen_be_services):
+        _m = _be_manifest_task(be_target["lang"], be_target["framework"], _svc)
+        det_tasks.append(_mk(
+            "manifest", "scaffold", 1, "Wave 1 — Scaffolding",
+            "coder_be", _m["path"], f"Build manifest for {_svc}",
+            _m["desc"], _synthetic_env, [],
+        ))
+    for _svc in sorted(_seen_fe_services):
+        _m = _fe_manifest_task(fe_target["lang"], fe_target["framework"], _svc)
+        det_tasks.append(_mk(
+            "manifest", "scaffold", 1, "Wave 1 — Scaffolding",
+            "coder_fe", _m["path"], f"Build manifest for {_svc}",
+            _m["desc"], _synthetic_env, [],
+        ))
+
+    return det_tasks
+
+
 async def _continue_multi_agent_codegen_after_envelope_confirm(
     project_id: str,
     model: Optional[str] = None,
@@ -9422,13 +9642,6 @@ async def _continue_multi_agent_codegen_after_envelope_confirm(
             return (s or "root").lower()
 
         det_tasks: List[Dict[str, Any]] = []
-        seq = 0
-
-        # iter-17.14 — Resolve concrete BE / FE service names from
-        # arch_services so the deterministic planner can emit each
-        # generated file under `services/<svc>/…`. Falls back to sensible
-        # defaults when Architecture didn't name the services OR when
-        # the arch_services collection is unreachable (fake-DB tests).
         try:
             _arch_svcs = await arch_services.find(
                 {"project_id": project_id},
@@ -9436,168 +9649,9 @@ async def _continue_multi_agent_codegen_after_envelope_confirm(
             ).to_list(50)
         except Exception:
             _arch_svcs = []
-        be_service_name = ""
-        fe_service_name = ""
-        for _s in _arch_svcs:
-            _sd = (_s.get("side") or "").lower()
-            _nm = _s.get("name") or ""
-            if _sd == "frontend" or "front" in (_s.get("kind") or "").lower() or _nm.lower() in {"frontend", "web", "ui", "client"}:
-                fe_service_name = fe_service_name or _nm
-            elif _sd == "backend" or _nm:
-                be_service_name = be_service_name or _nm
-        # If arch_services didn't tag a frontend explicitly, keep the
-        # BE service name for BE and default FE to "web".
-        if not be_service_name:
-            be_service_name = "api"
-        if not fe_service_name:
-            fe_service_name = "web"
-
-        # iter-17.14 — Emit ONE build-manifest task per service at Wave 1
-        # so pom.xml / build.gradle / package.json / pyproject.toml are
-        # produced BEFORE the source files (compilable snapshot after
-        # Wave 1) and every regeneration reuses the pinned versions from
-        # `_STACK_BASELINE` — no dep-drift wave-to-wave.
-        be_manifest = _be_manifest_task(be_target["lang"], be_target["framework"], be_service_name)
-        fe_manifest = _fe_manifest_task(fe_target["lang"], fe_target["framework"], fe_service_name)
-
-        def _mk(layer: str, phase: str, wave: int, wave_name: str,
-                coder: str, target: str, title: str, desc: str,
-                env: Dict[str, Any], br_ids: List[str]) -> Dict[str, Any]:
-            nonlocal seq
-            seq += 1
-            return {
-                "task_id": f"TASK-{seq:04d}",
-                "envelope_id": env.get("envelope_id") or "",
-                "title": title,
-                "description": desc,
-                "phase": phase,
-                "layer": layer,
-                "action": env.get("action") or "NEW",
-                "wave": wave,
-                "wave_name": wave_name,
-                "target_path": target,
-                "assigned_to": coder,
-                "depends_on": [],
-                "br_ids": br_ids,
-            }
-
-        _synthetic_env = {"envelope_id": "MANIFEST", "action": "NEW"}
-        det_tasks.append(_mk(
-            "manifest", "scaffold", 1, "Wave 1 — Scaffolding",
-            "coder_be", be_manifest["path"],
-            f"Build manifest for {be_service_name}",
-            be_manifest["desc"], _synthetic_env, [],
-        ))
-        det_tasks.append(_mk(
-            "manifest", "scaffold", 1, "Wave 1 — Scaffolding",
-            "coder_fe", fe_manifest["path"],
-            f"Build manifest for {fe_service_name}",
-            fe_manifest["desc"], _synthetic_env, [],
-        ))
-
-        for env in approved:
-            env_id = env.get("envelope_id") or ""
-            side = (env.get("side") or "backend").lower()
-            path = env.get("endpoint_path") or ""
-            method = (env.get("endpoint_method") or "ANY").upper()
-            slug = _slugify_path(path) or env_id.lower().replace("-", "_")
-            br_ids = list(env.get("br_ids") or [])
-
-            if side == "frontend":
-                # iter-17.14 — Frontend files live under services/<fe_svc>/
-                # (was services/<svc>/frontend). Vue/Angular targets get
-                # their idiomatic layout via `_fe_task_layout`.
-                fe_layout = _fe_task_layout(
-                    fe_target["lang"], fe_target["framework"],
-                    slug, method, path, service=fe_service_name,
-                )
-                det_tasks.append(_mk(
-                    "api_client", "scaffold", 1, "Wave 1 — Scaffolding",
-                    "coder_fe", fe_layout["client"]["path"],
-                    f"API client for {method} {path}",
-                    f"{fe_layout['client']['desc']} Envelope {env_id}.",
-                    env, br_ids,
-                ))
-                det_tasks.append(_mk(
-                    "page", "logic", 2, "Wave 2 — Business Logic",
-                    "coder_fe", fe_layout["page"]["path"],
-                    f"Page for {method} {path}",
-                    f"{fe_layout['page']['desc']}",
-                    env, br_ids,
-                ))
-            else:
-                # iter-17.14 — Backend files live under services/<be_svc>/
-                # (was repo-root `backend/...`). Java/Kotlin/TS/Node/Go/
-                # .NET/Python targets each get framework-idiomatic paths
-                # via `_be_task_layout`.
-                be_layout = _be_task_layout(
-                    be_target["lang"], be_target["framework"],
-                    slug, method, path, service=be_service_name,
-                )
-                biz_summary = env.get("business_logic_summary") or "migrate legacy behaviour."
-                det_tasks.append(_mk(
-                    "entity", "scaffold", 1, "Wave 1 — Scaffolding",
-                    "coder_be", be_layout["entity"]["path"],
-                    f"Entity for {env_id}",
-                    f"{be_layout['entity']['desc']}",
-                    env, br_ids,
-                ))
-                det_tasks.append(_mk(
-                    "repository", "scaffold", 1, "Wave 1 — Scaffolding",
-                    "coder_be", be_layout["repository"]["path"],
-                    f"Repository for {env_id}",
-                    f"{be_layout['repository']['desc']} "
-                    f"Tables: {env.get('db_tables') or []}.",
-                    env, br_ids,
-                ))
-                # iter-17.17 — DTO + Mapper + Exception are ALWAYS emitted
-                # so controller/service can rely on typed request/response
-                # payloads and domain exceptions instead of raw entities.
-                if "dto" in be_layout:
-                    det_tasks.append(_mk(
-                        "dto", "scaffold", 1, "Wave 1 — Scaffolding",
-                        "coder_be", be_layout["dto"]["path"],
-                        f"DTOs for {env_id}",
-                        f"{be_layout['dto']['desc']}",
-                        env, br_ids,
-                    ))
-                if "exception" in be_layout:
-                    det_tasks.append(_mk(
-                        "exception", "scaffold", 1, "Wave 1 — Scaffolding",
-                        "coder_be", be_layout["exception"]["path"],
-                        f"Domain exceptions for {env_id}",
-                        f"{be_layout['exception']['desc']}",
-                        env, br_ids,
-                    ))
-                if "mapper" in be_layout:
-                    det_tasks.append(_mk(
-                        "mapper", "logic", 2, "Wave 2 — Business Logic",
-                        "coder_be", be_layout["mapper"]["path"],
-                        f"Mapper for {env_id}",
-                        f"{be_layout['mapper']['desc']}",
-                        env, br_ids,
-                    ))
-                det_tasks.append(_mk(
-                    "service", "logic", 2, "Wave 2 — Business Logic",
-                    "coder_be", be_layout["service"]["path"],
-                    f"Service for {env_id}",
-                    f"{be_layout['service']['desc']} Behaviour: {biz_summary}",
-                    env, br_ids,
-                ))
-                det_tasks.append(_mk(
-                    "controller", "logic", 2, "Wave 2 — Business Logic",
-                    "coder_be", be_layout["controller"]["path"],
-                    f"Route handler {method} {path}",
-                    f"{be_layout['controller']['desc']}",
-                    env, br_ids,
-                ))
-                det_tasks.append(_mk(
-                    "test", "harden", 3, "Wave 3 — Hardening",
-                    "coder_be", be_layout["test"]["path"],
-                    f"Tests for {env_id}",
-                    f"{be_layout['test']['desc']}",
-                    env, br_ids,
-                ))
+        det_tasks = _plan_tasks_for_envelopes(
+            approved, _arch_svcs, be_target, fe_target,
+        )
 
         tasks: List[Dict[str, Any]] = []
         if det_tasks:
