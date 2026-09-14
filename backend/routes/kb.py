@@ -1579,6 +1579,9 @@ async def _build_kb_impl(project_id: str, files: list, force: bool, build_finger
         "detected_tech": tech,
         "graph": graph_stats,
     }
+
+
+@router.get("/{project_id}/build-progress")
 async def build_progress(project_id: str):
     """Return the current/last KB-build phase for a project.
 
