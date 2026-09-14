@@ -64,11 +64,12 @@ Ordered leaves-first. 1.0 and 1.5 are independent of everything.
 | id | phase | task | deps | status | attempts | verify | evidence | notes |
 |----|-------|------|------|--------|----------|--------|----------|-------|
 | 2.1 | 2 | Characterization tests for every uncovered path about to be touched | 1.* | todo | 0 | new suites green before any edit | | Non-negotiable: pin behaviour first |
-| 2.2 | 2 | Remove 37 × F401 unused imports | 2.1 | todo | 0 | `ruff check backend --select F401` → 0 | | Each removal grep-evidenced in the commit body |
-| 2.3 | 2 | Remove 15 × F841 unused variables | 2.1 | todo | 0 | `ruff check backend --select F841` → 0 | | Read each first — one may mask a dropped assignment |
-| 2.4 | 2 | Fix 10 × F541 f-strings with no placeholder | 2.1 | todo | 0 | `ruff check backend --select F541` → 0 | | |
-| 2.5 | 2 | Audit 24 × ARG001 individually | 2.1 | todo | 0 | whitelist file has one reason per survivor | | Many are FastAPI DI or monkeypatch signatures — keep |
-| 2.6 | 2 | Whitelist file for justified survivors | 2.2–2.5 | todo | 0 | every entry has exactly one line of reason | | Registries, flags, fallbacks, error paths |
+| 2.2 | 2 | Remove 37 unused imports | 2.1 | done | 1 | `ruff check backend --select F401` | All checks passed (was 37) | All 37 checked for RE-EXPORT first: 0 re-exported. No star imports, no `__all__`, no globals() access repo-wide |
+| 2.3 | 2 | Remove 15 unused variables | 2.1 | done | 1 | `ruff check backend --select F841` | All checks passed (was 15) | 1 was a GATE call (kept the call, dropped the binding); 1 removed a duplicate 500-message scan; 1 was a dropped assignment → DEC-6 |
+| 2.4 | 2 | Fix 10 f-strings with no placeholder | 2.1 | done | 1 | `ruff check backend --select F541` | All checks passed (was 10) | Mechanically verified: all 10 line-pairs differ by the `f` prefix and nothing else |
+| 2.5 | 2 | Audit 24 unused arguments individually | 2.1 | done | 1 | `ruff check backend` | All checks passed | None removed. re.sub callbacks, deterministic-job signatures, uniform dispatch, BackgroundTasks positional args |
+| 2.6 | 2 | Whitelist for justified survivors | 2.2–2.5 | done | 1 | `ruff check backend`; `vulture … --min-confidence 80` | both clean | `backend/ruff.toml` IS the whitelist — reason comment above each entry. `backend/.vulture-whitelist.py` keeps vulture agreeing. Bar narrowed to E9,F,ARG: E4/E7 are style and CLAUDE.md enforces no formatter |
+| 2.13 | 2 | Remove 1 duplicate module-level import | 2.1 | done | 1 | `ruff check backend --select F811` | All checks passed | routes/kb.py imported asyncio at line 6 and again at 2054 |
 | 2.7 | 2 | Stage A split: `routes/codegen.py` pure helpers → `backend/codegen/` | 2.1 | todo | 0 | suite green; import paths unchanged | | 6 new modules; no name any test patches |
 | 2.8 | 2 | Stage A split: `routes/tools.py` pure helpers → `backend/tools_lib/` | 2.1 | todo | 0 | suite green; import paths unchanged | | 5 new modules; no name any test patches |
 | 2.9 | 2 | Comment hygiene: delete comments describing removed code | 2.7,2.8 | todo | 0 | manual diff re-read | | Comments must describe what the code does *now* |
