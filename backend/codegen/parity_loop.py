@@ -34,15 +34,12 @@ from __future__ import annotations
 
 import logging
 import re
-from dataclasses import dataclass, field, asdict
+from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple
 
 from db import (
     codegen_files,
     arch_services,
-    arch_documents,
-    # iter-13.119 — db.py exports the collection as `stage_context`; every
-    # other consumer aliases it. Mirror that here.
     stage_context as stage_context_col,
     kb_entities,
 )

@@ -39,12 +39,10 @@ from db import (
     codegen_files,
     legacy_analysis as legacy_analysis_col,
     data_models as data_models_col,
-    olap_models,
     living_reports,
-    stage_confidence,
 )
 from llm import fabric_call
-from pipeline import require_stage_context, save_stage_context
+from pipeline import require_stage_context
 from confidence import (
     score_artifact_multi_model,
     pick_evaluator_models,

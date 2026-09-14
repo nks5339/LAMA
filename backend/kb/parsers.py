@@ -2,7 +2,6 @@
 import io
 import csv
 import zipfile
-from typing import Optional
 
 
 def parse_php(content: bytes) -> str:

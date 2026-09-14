@@ -3,7 +3,6 @@ import os
 from datetime import datetime, timezone
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Optional
 
 import requests
 from requests.auth import HTTPBasicAuth

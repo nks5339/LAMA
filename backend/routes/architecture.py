@@ -13,7 +13,7 @@ from datetime import datetime, timezone
 from typing import List, Dict, Any
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 
 from db import (
     projects,
@@ -41,7 +41,7 @@ from llm import TransportError  # iter-13.50 — abort jobs cleanly on DNS / con
 from fabric.model_fabric import _is_billing_error, _is_auth_error  # iter-13.51 — abort on 402/401 too
 from kb.vector_store import search as qdrant_search
 from kb.legacy_tables import build_oltp_ddl_from_kb  # iter-14.33 — legacy-table harvest
-from pipeline import require_stage_context, save_stage_context, get_module_context
+from pipeline import require_stage_context, save_stage_context
 # iter-14.20 — deterministic Python generators for HLD / LLD / API Contracts.
 # These replace the LLM-driven jobs at the bottom of this file. The
 # `arch.hld`, `arch.lld`, `arch.api_contracts` prompts are left in seed.py

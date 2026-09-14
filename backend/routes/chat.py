@@ -8,7 +8,7 @@ from models import ChatRequest, ChatMessage
 from llm import (
     fabric_call as chat_completion,
     fabric_call_with_session,
-    estimate_tokens, AVAILABLE_MODELS, get_available_models,
+    estimate_tokens, get_available_models,
 )
 from kb.vector_store import search as qdrant_search
 

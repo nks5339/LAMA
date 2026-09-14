@@ -18,7 +18,7 @@ from kb.parsers import parse_file, chunk_text
 from kb.owl_extractor import extract, aggregate_stats, enrich_routes
 from kb.toon import serialise, summarise
 from kb.vector_store import index_chunks as qdrant_index, delete_project_vectors
-from kb.owl_export import export_owl, export_kb_yaml
+from kb.owl_export import export_kb_yaml
 from kb.module_inventory_parser import parse_module_inventory, generate_module_text_summary
 from kb.tech_detector import detect_tech_stack
 from kb.stack_suggester import suggest_target_stacks

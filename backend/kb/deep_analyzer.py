@@ -23,9 +23,8 @@ import json
 import logging
 import re
 from datetime import datetime, timezone
-from typing import Any
 
-from db import kb_toon, kb_entities, projects, kb_files
+from db import kb_toon, kb_entities, kb_files
 from llm import fabric_call as chat_completion
 from kb.vector_store import search as qdrant_search
 

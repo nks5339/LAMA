@@ -56,7 +56,6 @@ from db import (
     olap_models,
     arch_documents,
     arch_services,
-    codegen_files,
     legacy_analysis,
     business_ontologies,
     stage_context,

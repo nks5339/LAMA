@@ -28,7 +28,7 @@ What this generator deliberately does NOT do (handled by optional polish calls):
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 
 # ----------------------------------------------------------------------------

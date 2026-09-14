@@ -16,16 +16,11 @@ from db import (
     kb_toon,
 )
 from fabric.model_fabric import (
-    PROVIDER_PRESETS,
-    AGENT_COMPLEXITY,
     setup_default_provider,
-    detect_provider_from_key,
     fabric_chat,
-    estimate_prompt_tokens,
     estimate_cost,
     resolve_model,
     _rewrite_local_url_for_docker,
-    _resolve_ollama_endpoint,
 )
 from factory_orchestrator import (
     get_project_factory_orchestrator_config,

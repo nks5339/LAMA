@@ -15,7 +15,7 @@ from db import (
     projects, audit_log, prompts as prompts_col, project_prompts,
     arch_documents, arch_services, codegen_files, codegen_runs,
     messages as messages_col, conversations, stage_context as stage_context_col,
-    data_models, kb_entities, srs_documents, kb_chunks, kb_files,
+    kb_entities, srs_documents, kb_chunks, kb_files,
     # iter-13.115 — codegen now grounds the LLM in the KB (business
     # ontology + deep legacy-analysis) in addition to graph/RAG/legacy
     # source. Without these the LLM has no idea which business entity

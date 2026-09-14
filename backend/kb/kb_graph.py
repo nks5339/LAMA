@@ -25,7 +25,7 @@ import json
 import logging
 import os
 import re
-from collections import defaultdict, deque
+from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any
 

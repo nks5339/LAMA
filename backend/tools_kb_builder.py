@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import os
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from kb.owl_extractor import extract, enrich_routes, aggregate_stats, _collect_string_constants
 

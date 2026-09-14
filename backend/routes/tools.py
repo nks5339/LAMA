@@ -11,7 +11,6 @@ GitHub push for generated artifacts.
 import asyncio
 import contextlib
 import csv
-import hashlib
 import io
 import json
 import logging

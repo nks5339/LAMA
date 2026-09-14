@@ -30,8 +30,8 @@ import uuid
 from db import codegen_files, project_integrations, projects, audit_log
 from integrations.catalog import CATALOG, get_entry
 from integrations.live_impls import (
-    JAVA_IMPLS, JAVA_UTIL, JAVA_UTIL_PATH,
-    NODE_IMPLS, NODE_UTIL, NODE_UTIL_PATH,
+    JAVA_UTIL, JAVA_UTIL_PATH,
+    NODE_UTIL, NODE_UTIL_PATH,
     render_java_controller, render_node_router,
 )
 

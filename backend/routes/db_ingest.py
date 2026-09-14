@@ -47,7 +47,6 @@ import os
 import socket
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field

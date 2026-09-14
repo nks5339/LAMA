@@ -11,7 +11,7 @@ import logging
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import StreamingResponse
 
 from db import (
     projects,

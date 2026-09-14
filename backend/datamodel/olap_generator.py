@@ -12,7 +12,7 @@ left to make once the matrix is in. Hence no LLM needed.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Iterable, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 
 # ----------------------------------------------------------------------------

@@ -56,7 +56,6 @@ import re
 import tarfile
 import time
 from typing import Any, Dict, List, Optional, Tuple
-from urllib.parse import quote
 
 import httpx
 
