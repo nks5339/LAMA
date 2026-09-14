@@ -692,7 +692,7 @@ docker volume rm lama_wheels && docker compose up -d
 | LAMA_FACTORY_CONFIG_HOST | Host Factory config directory mounted into the container. |
 | LAMA_FACTORY_MODE | Marks deploy as CLI-first; default `cli` in compose. |
 | LAMA_FACTORY_CLI_SLIM | Strips large KB blocks from Factory prompts; default on. |
-| LAMA_DISABLE_OPENROUTER_FALLBACK | Prevents silent expensive fallback after Factory failures; default on. |
+| LAMA_DISABLE_OPENROUTER_FALLBACK | **Vestigial — read by no code.** iter-14.31 removed the OpenRouter fallback for every generation path, so it is unconditionally off. |
 | LAMA_DISABLE_SSL_VERIFY | Development-only TLS bypass for Python HTTP clients behind SSL interception. |
 | LAMA_CA_BUNDLE | Python/httpx corporate CA bundle path. |
 | NODE_EXTRA_CA_CERTS | Node/Factory CLI corporate CA bundle path. |

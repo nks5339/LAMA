@@ -3969,7 +3969,7 @@ Catalog below is read from `docker-compose.yml` environment entries. Defaults ar
 | NO_PROXY |  | Proxy bypass list. | 151 |
 | LAMA_FACTORY_CLI_BIN | /usr/local/bin/droid | Factory.ai Droid CLI path inside container. | 163 |
 | LAMA_FACTORY_CLI_SLIM | 1 | Slim prompt mode for Factory CLI. | 182 |
-| LAMA_DISABLE_OPENROUTER_FALLBACK | 1 | Kill-switch for silent env OpenRouter fallback. | 183 |
+| LAMA_DISABLE_OPENROUTER_FALLBACK | 1 | **Vestigial — read by no code.** The fallback it gated was removed in iter-14.31. | 183 |
 | LAMA_FACTORY_MODE | cli | Marks deployment as CLI-first/factory mode. | 184 |
 | LAMA_FACTORY_CLI_DUMP_PROMPT |  | Optional prompt dump flag for Factory CLI diagnostics. | 185 |
 | LAMA_FACTORY_CLI_TIMEOUT_SEC |  | Factory CLI timeout override. | 186 |

@@ -208,7 +208,8 @@ fails. Edit the repo-root `.env`:
 ```bash
 LAMA_FACTORY_MODE=                 # blank — disable droid CLI mode
 LAMA_DEFAULT_MODEL=                # blank — let Console routing decide
-LAMA_DISABLE_OPENROUTER_FALLBACK=0 # allow the OpenRouter fallback
+# LAMA_DISABLE_OPENROUTER_FALLBACK has no effect -- no code reads it.
+# iter-14.31 removed the OpenRouter fallback for every generation path.
 ```
 
 To reach an Ollama running on the **host**, use Docker's host alias:

@@ -180,6 +180,10 @@ services:
       #  * LAMA_FACTORY_CLI_DUMP_PROMPT       — write the exact prompt sent
       #    to droid under /tmp/droid-debug for post-mortem.
       LAMA_FACTORY_CLI_SLIM:            ${LAMA_FACTORY_CLI_SLIM:-1}
+      # VESTIGIAL -- no code reads this. iter-14.31 removed the OpenRouter
+      # fallback for every generation path, so it is unconditionally off.
+      # Kept exported so an operator who set it in .env sees no change in
+      # behaviour, and so the name stays greppable against the docs.
       LAMA_DISABLE_OPENROUTER_FALLBACK: ${LAMA_DISABLE_OPENROUTER_FALLBACK:-1}
       LAMA_FACTORY_MODE:                ${LAMA_FACTORY_MODE:-cli}
       LAMA_FACTORY_CLI_DUMP_PROMPT:     ${LAMA_FACTORY_CLI_DUMP_PROMPT:-}

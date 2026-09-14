@@ -167,9 +167,12 @@ AGENTS.md                    # Exhaustive operational rules (this file is the su
    data must scope by tenant, not just `project_id`.
 4. **All LLM calls go through `llm.fabric_call()`** — never `httpx` directly.
    Stage routes use `from llm import fabric_call as chat_completion`.
-   `fabric_call` falls back to env-var OpenRouter when the configured fabric
-   provider is unconfigured OR returns empty / raises (disable that fallback
-   with `LAMA_DISABLE_OPENROUTER_FALLBACK=1`).
+   **There is no OpenRouter env-var fallback.** iter-14.31 removed it for
+   every generation path: when the configured provider and Factory both
+   fail, `fabric_call` tries a Console-registered Ollama provider and then
+   raises. `LAMA_DISABLE_OPENROUTER_FALLBACK` is vestigial — no code reads
+   it (verified in `docs/RECON.md` §D3). It survives only in compose and
+   the docs; the behaviour it described is now unconditional.
    **Three execution modes** resolve inside `fabric_call` — know which one is
    live before debugging a prompt:
    a. **Console routing** (default) — `AGENT_COMPLEXITY[agent_key]` picks a
@@ -271,7 +274,9 @@ LAMA_SESSION_SIGNING_KEY=                   # HMAC for agent_memory summaries �
 LAMA_FACTORY_MODE=                          # "cli" → drive local `droid` via fabric/factory_cli.py
 FACTORY_API_BASE_URL=https://api.factory.ai/api/v0
 LAMA_FACTORY_CLI_SLIM=1                     # iter-14.10 token-spend guardrail
-LAMA_DISABLE_OPENROUTER_FALLBACK=1          # iter-14.10 — stop silent fallback spend
+# LAMA_DISABLE_OPENROUTER_FALLBACK        # VESTIGIAL — read by no code.
+                                            #   iter-14.31 removed the fallback
+                                            #   outright, so it is always off.
 LAMA_CONFIDENCE_ENGINE=                     # toggle the multi-model confidence vote
 
 MONGO_URL=mongodb://127.0.0.1:27017         # bundled mongod in single-image deploy
