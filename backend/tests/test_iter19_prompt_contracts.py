@@ -152,6 +152,49 @@ def test_diff_srs_keeps_every_heading_even_when_empty():
     assert 'write "none"' in flat("diff.srs")
 
 
+# ── retired prompts must be gone from BOTH places ─────────────────────
+
+def test_retired_prompts_are_removed_from_the_seed():
+    """Four one-line stubs with no call site. Leaving them in the Prompt
+    Library advertises a capability that does not exist."""
+    for key in ("arch.decompose", "code.generate", "datamodel.optimise", "test.unit"):
+        assert f'"key": "{key}"' not in SEED, f"{key} is still seeded"
+
+
+def test_retired_prompts_are_actively_pruned_from_mongo():
+    """`seed_prompts` only inserts and updates. Removing an entry from
+    GLOBAL_PROMPTS leaves the row in the database forever, so the Prompt
+    Library would keep listing it — the delete has to be explicit."""
+    import seed
+    assert set(seed.RETIRED_PROMPT_KEYS_19) == {
+        "arch.decompose", "code.generate", "datamodel.optimise", "test.unit",
+    }
+    assert "await prune_retired_prompts_19()" in SEED, "prune is never called"
+
+
+def test_no_agent_tier_survives_without_a_call_site():
+    """`arch.decompose` held an AGENT_COMPLEXITY tier with no invoking
+    code — the same defect shape as the Validator before iter-18, which
+    sat seeded and unreachable for two iterations. This catches the next
+    one."""
+    import re as _re
+    from pathlib import Path as _P
+    from fabric.model_fabric import AGENT_COMPLEXITY
+
+    backend = _P(__file__).resolve().parent.parent
+    haystack = "\n".join(
+        p.read_text(errors="replace")
+        for d in ("routes", "kb", "codegen", "fabric")
+        for p in (backend / d).rglob("*.py")
+    ) + (backend / "llm.py").read_text() + (backend / "confidence.py").read_text()
+
+    orphans = [
+        k for k in AGENT_COMPLEXITY
+        if not _re.search(r'["\']' + _re.escape(k) + r'["\']', haystack)
+    ]
+    assert orphans == [], f"agent tiers with no call site: {orphans}"
+
+
 # ── every prompt parsed as JSON declares its shape ────────────────────
 
 _JSON_PARSED_AGENTS = [

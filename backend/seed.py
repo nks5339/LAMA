@@ -1806,12 +1806,6 @@ footer_hygiene:
         ),
     },
     {
-        "key": "datamodel.optimise",
-        "stage": "DataModel",
-        "description": "Refactors legacy schema into normalised target schema.",
-        "template": "Optimise the data model from {toon_context} targeting {target_tech}.",
-    },
-    {
         "key": "datamodel.oltp",
         "stage": "DataModel",
         "description": "Generates normalised 3NF PostgreSQL OLTP DDL from legacy schema + SRS functional requirements.",
@@ -4903,24 +4897,6 @@ failure_conditions:
   - "As an AI" disclaimer / model name / vendor name leaked
 
 output:  Return markdown only. No preamble outside the doc body.""",
-    },
-    {
-        "key": "arch.decompose",
-        "stage": "Architecture",
-        "description": "Decomposes the legacy monolith into target microservices.",
-        "template": "Decompose the system in {toon_context} into microservices for {target_tech}.",
-    },
-    {
-        "key": "code.generate",
-        "stage": "CodeGen",
-        "description": "Generates target code for a chosen module.",
-        "template": "Generate {target_tech} code for module {module} using context: {toon_context}.",
-    },
-    {
-        "key": "test.unit",
-        "stage": "CodeGen",
-        "description": "Generates unit tests for the generated module.",
-        "template": "Write unit tests for module {module} ({target_tech}).",
     },
     {
         "key": "test.selenium",
@@ -8857,6 +8833,54 @@ _STALE_AZURE_API_VERSIONS = frozenset({
 _AZURE_API_VERSION_19 = "2024-12-01-preview"
 
 
+# iter-19.2 — prompts retired because nothing invoked them.
+#
+# Each was a single unparameterised sentence with no role, no output
+# contract and no grounding rule — e.g. "Generate {target_tech} code for
+# module {module} using context: {toon_context}." Three had no call site
+# anywhere. `arch.decompose` was worse: it held an AGENT_COMPLEXITY tier
+# with no invoking code at all, the same shape of defect as the Validator
+# before iter-18 ("seeded with a prompt and a Console row since iter-16
+# but never reachable"). Service decomposition is already done properly
+# by `arch.recommend`.
+#
+# `seed_prompts` only inserts and updates, so removing an entry from
+# GLOBAL_PROMPTS leaves the row in Mongo forever and the Prompt Library
+# keeps advertising a capability that does not exist. Hence this prune.
+RETIRED_PROMPT_KEYS_19 = (
+    "arch.decompose",
+    "code.generate",
+    "datamodel.optimise",
+    "test.unit",
+)
+
+
+async def prune_retired_prompts_19():
+    """Delete prompts that were removed from GLOBAL_PROMPTS.
+
+    Idempotent: after the first run there is nothing left to match. Also
+    clears any per-project override of a retired key, which would
+    otherwise outlive the global row it overrode.
+    """
+    from db import prompts as _pr, project_prompts as _pp
+    removed = {}
+    try:
+        r = await _pr.delete_many({"key": {"$in": list(RETIRED_PROMPT_KEYS_19)}})
+        removed["prompts"] = getattr(r, "deleted_count", 0)
+        r2 = await _pp.delete_many({"key": {"$in": list(RETIRED_PROMPT_KEYS_19)}})
+        removed["project_prompts"] = getattr(r2, "deleted_count", 0)
+    except Exception as exc:  # noqa: BLE001 — never block a boot on cleanup
+        import logging as _lg
+        _lg.getLogger("lama.seed").warning("iter-19.2 prompt prune skipped: %s", exc)
+        return {}
+    if any(removed.values()):
+        try:
+            print(f"[seed] iter-19.2 — retired unreachable prompts: {removed}")
+        except Exception:
+            pass
+    return removed
+
+
 async def migrate_transformer_tiers_19():
     """Reconcile `agent_configs.complexity` with AGENT_COMPLEXITY for the
     transformer agents, preserving operator overrides."""
@@ -8975,6 +8999,9 @@ async def migrate_provider_tier_ladder_19():
 
 async def run_seed():
     await seed_prompts()
+    # Must follow seed_prompts: it is the write pass, this is the delete
+    # pass for keys that pass no longer knows about.
+    await prune_retired_prompts_19()
     await seed_pilot_project()
     await seed_agents()
     # Must run AFTER seed_agents so new installs already have their rows.

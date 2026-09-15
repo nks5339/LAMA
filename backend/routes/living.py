@@ -1084,38 +1084,6 @@ def _chunk(lst: list, n: int) -> list[list]:
     return [lst[i:i + n] for i in range(0, len(lst), n)] or [[]]
 
 
-def _render_endpoint_batch(endpoints: list[dict]) -> str:
-    return "\n".join(
-        f"- {ep['method']} {ep['path']}" + (f"  (from {ep['source']})" if ep.get('source') else "")
-        for ep in endpoints
-    ) or "(empty batch)"
-
-
-def _clean_jmeter_fragment(raw: str) -> str:
-    """Strip markdown fences / prose that the LLM sometimes wraps
-    around the XML. Keeps everything from the first `<GenericController`
-    (or `<HTTPSamplerProxy`) to the last closing tag."""
-    if not raw:
-        return ""
-    txt = raw.strip()
-    # Unwrap ```xml … ``` fence
-    m = re.match(r"^\s*```[a-zA-Z0-9_+\-]*\s*\n(.*?)\n\s*```\s*$", txt, re.DOTALL)
-    if m:
-        txt = m.group(1)
-    # Trim to the first XML tag opener
-    first = min(
-        (idx for idx in (txt.find("<GenericController"), txt.find("<HTTPSamplerProxy"), txt.find("<hashTree>")) if idx >= 0),
-        default=-1,
-    )
-    if first > 0:
-        txt = txt[first:]
-    # Trim trailing prose after last `</hashTree>`
-    last = txt.rfind("</hashTree>")
-    if last > 0:
-        txt = txt[:last + len("</hashTree>")]
-    return txt.strip()
-
-
 def _build_jmeter_envelope(project_name: str, base_url: str,
                            samplers_xml: str, personas: list[str],
                            n_endpoints: int, n_samplers: int) -> str:

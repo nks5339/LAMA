@@ -424,7 +424,6 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     "arch.sequence":      "medium",
     "arch.api_contracts": "high",
     "arch.chat":          "medium",
-    "arch.decompose":     "high",
     # ── CodeGen ──────────────────────────────────────────────────────
     "codegen.service":     "medium",  # first-time backend file → Sonnet
     "codegen.frontend":    "medium",  # first-time frontend file → Sonnet
