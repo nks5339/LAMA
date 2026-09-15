@@ -62,7 +62,7 @@ through the 5 stages:
 |-------|------|
 | Backend | Python 3.11, FastAPI 0.110, Motor 3.3, Pydantic 2.13, httpx 0.28, PyYAML 6.0, PyGithub 2.9 |
 | LLM    | OpenRouter / Anthropic / OpenAI / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. Tiers: `low / medium / high` per `PROVIDER_PRESETS.default_models`. |
-| Vector DB | Qdrant (`QDRANT_URL` / `QDRANT_API_KEY`) — auto-created on Build KB |
+| Vector DB | Qdrant — the collection is auto-created on Build KB, but the whole subsystem is **inert** unless `QDRANT_URL` **or** `QDRANT_PATH` is set (`kb/vector_store.py:44-48`); callers then degrade to TOON-only. `QDRANT_PATH` selects the embedded on-disk engine — no server needed. |
 | Mongo   | MongoDB 7 — system of record for LAMA itself (PostgreSQL is the migration *target*, not the store) |
 | Frontend| React 19, react-router-dom 7, Tailwind 3.4, Radix UI (9 packages — 22 unused ones removed 2026-09), D3 7.9, Mermaid 11, Monaco, `react-resizable-panels@2.1.7` *(pinned — do not upgrade)* |
 | Build   | CRA 5 via `@craco/craco 7`, **yarn 1.22 (corepack)** — **never `npm install`** |
@@ -131,7 +131,8 @@ bars are currently clean: 0 ruff findings, 0 eslint errors.
 
 ```
 backend/                     # FastAPI app
-  server.py                  # mounts every /api router (20 routers)
+  server.py                  # 21 router mounts from 20 route modules
+                             #   (datamodel.py exports router AND factory_router)
   db.py                      # Motor + all 59 collection accessors — SINGLE SOURCE OF TRUTH
   pipeline.py                # Inter-stage handoff (get/require/save_stage_context)
   llm.py                     # fabric_call() — the ONLY LLM entry point (3 modes, contract #4)
@@ -285,8 +286,11 @@ LAMA_BR_ENFORCE=                            # iter-13.30: "1" → block SRS/Arch
 LAMA_BR_MIN_COVERAGE=100                    # iter-13.30: minimum BR coverage % required when LAMA_BR_ENFORCE=1
 LAMA_GAP_ANALYSIS_MODEL=                    # codegen gap-recovery override; empty = cross-tier from Console
 
-QDRANT_URL=http://<host>:6333               # required for RAG chat / SRS RAG
+QDRANT_URL=http://<host>:6333               # remote Qdrant; required for RAG chat / SRS RAG
 QDRANT_API_KEY=...
+QDRANT_PATH=                                # embedded on-disk engine instead of a server.
+                                            #   Set EITHER this or QDRANT_URL — with neither,
+                                            #   vector search is off and callers fall back to TOON.
 
 # Auth / multi-tenancy (iter-13.68)
 LAMA_JWT_SECRET=                            # HS256 signing key for bearer tokens

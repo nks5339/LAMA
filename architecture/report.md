@@ -1,8 +1,9 @@
 # Verification Report
 
 **Author:** Nikunj
-**Date:** 2026-09-14
-**Repository revision:** `30b8ef0845b0545a1c890524b0d47614914cdce8` (branch `main`)
+**Date:** 2026-09-14 · **diagrams refreshed 2026-09-15**
+**Repository revision:** `43af5b8cd68735e67dac9d1e2b0f681ed6f03f73` (branch `refactor/zero-waste`)
+**Previously verified at:** `30b8ef0845b0545a1c890524b0d47614914cdce8` (branch `main`)
 **Archify version:** 2.17 (`tt-a1i/archify`, MIT), installed at `.claude/skills/archify`
 **Node:** v26.8.2
 
@@ -160,13 +161,22 @@ natural next addition.
 | Finding | Status |
 |---|---|
 | `CLAUDE.md`: "59 collections" | **Accurate** — 59 accessors in `backend/db.py` |
-| `CLAUDE.md`: "mounts every /api router (**20 routers**)" | **Imprecise** — there are **21 mounts from 20 modules**; `backend/routes/datamodel.py` exports both `router` and `factory_router` |
+| `CLAUDE.md`: "mounts every /api router (**20 routers**)" | **Imprecise** — there are **21 mounts from 20 modules**; `backend/routes/datamodel.py` exports both `router` and `factory_router`. **Fixed 2026-09-15.** |
 | Two `/kb` routers (`kb.py`, `db_ingest.py`) and two `/projects` routers (`projects.py`, `datamodel.py::factory_router`) share prefixes | **Real**, intentional — not a diagram error |
 | `docs/ARCHITECTURE.md` self-declares iteration **14.27**; `memory/PRD.md` is at **17.18** | **Stale by ~3 major iterations.** Its own header already defers to `memory/PRD.md` on conflict |
-| `CLAUDE.md`: Qdrant "auto-created on Build KB" | **Needs qualification** — the subsystem is inert unless `QDRANT_URL` or `QDRANT_PATH` is set (`vector_store.py:44-48`); `QDRANT_PATH` (embedded mode) is not documented in `CLAUDE.md`'s env block |
+| `CLAUDE.md`: Qdrant "auto-created on Build KB" | **Needs qualification** — the subsystem is inert unless `QDRANT_URL` or `QDRANT_PATH` is set (`vector_store.py:44-48`); `QDRANT_PATH` (embedded mode) was not documented in `CLAUDE.md`'s env block. **Fixed 2026-09-15** — the row is qualified and `QDRANT_PATH` was added to the env block. |
 
-None of these were changed. They are reported, not fixed, because `CLAUDE.md` and `memory/PRD.md`
-are owned documents outside this exercise's scope.
+These were originally reported and not fixed, because `CLAUDE.md` and `memory/PRD.md` were
+outside that exercise's scope.
+
+**Updated 2026-09-15.** The two `CLAUDE.md` findings have since been fixed during a separate
+maintenance pass on that file — the router count is now stated as "21 router mounts from 20 route
+modules" with the `datamodel.py` reason inline, and the Qdrant row is qualified with the
+`vector_store.py:44-48` condition plus a `QDRANT_PATH` entry in the env block.
+
+Still open, and still deliberately not fixed here: `docs/ARCHITECTURE.md` self-declares iteration
+**14.27** while `memory/PRD.md` is at **17.18**. That is a whole-document refresh, not a line edit,
+and the file's own header already defers to `PRD.md` on conflict.
 
 ---
 
@@ -177,9 +187,9 @@ All five diagrams: **9/9 artifact checks, 0 composition errors, 0 warnings**, `d
 
 | Diagram | Spec SHA-256 (first 16) | Artifact SHA-256 (first 16) | Bytes |
 |---|---|---|---|
-| `lama-runtime` | `fcdf375c6c93914c` | `f049693d4fcea163` | 812 212 |
+| `lama-runtime` | `33d7467dc7fb09d6` | `aa3c9416b65f84ec` | 812 195 |
 | `lama-pipeline` | `d1b0e57465873abc` | `08935f7d17446228` | 810 345 |
-| `lama-fabric-call` | `c37ec5c69a00e45c` | `83a55cd890ab627b` | 812 939 |
+| `lama-fabric-call` | `0c436d1fede6e39b` | `bfcf5a33dddc46c9` | 812 954 |
 | `lama-discovery-kb` | `770de0d701ceb7e0` | `41387ebf96175156` | 806 664 |
 | `lama-codegen-multiagent` | `266583ae2412678d` | `285161df56ce5bd3` | 807 793 |
 
@@ -233,13 +243,65 @@ Recorded because they explain why the specs look the way they do:
 
 ---
 
+## Part D2 — 2026-09-15 refresh
+
+The codebase changed after this report was first written, so the two affected
+specs were corrected and all five diagrams re-delivered.
+
+### Diagram claims that had gone stale
+
+| Diagram | Was | Now | Evidence |
+|---|---|---|---|
+| `lama-runtime` | node sublabel "5 vendor presets"; card listed OpenRouter, Anthropic, OpenAI, Groq, Ollama | "8 provider presets"; card names all eight | `backend/fabric/model_fabric.py` → `PROVIDER_PRESETS` has 8 keys. Azure and Gemini were added after the original authoring |
+| `lama-fabric-call` | "Probe order is Factory, Anthropic, OpenAI, Groq, then Ollama" | "Probe order is Factory, then Azure, Anthropic, OpenAI, Gemini, Groq, Ollama" | `backend/llm.py:923` `_preferred_order` |
+
+The other three specs were not edited. Their HTML re-delivered **byte-identical**
+(`lama-pipeline` and `lama-codegen-multiagent` artifact SHAs are unchanged in the
+table above), which is the renderer behaving deterministically on unchanged input.
+
+### A containment regression, caused and fixed here
+
+Naming all eight presets on the `lama-runtime` Model routing card wrapped the
+bullet to a third line and pushed the artifact **15 px past the 1440×900 fold**:
+
+```
+viewer/viewport-overflow (error)
+  innerHeight 900, scrollHeight 915, overflowY true
+```
+
+`visual-check` caught it — the receipt went `ok: false`, `containment: fail` — and
+it would have shipped unnoticed had the receipt not been re-read. This is exactly
+the failure mode [`README.md`](README.md) §5 warns about ("Watch vertical
+overflow… reducing card rows are the two effective levers").
+
+Fixed by merging two bullets that already read as a pair —
+"fabric_call() is a tracing wrapper only" and "Routing decisions live in
+_fabric_call_impl" became "fabric_call() only traces; routing lives in
+_fabric_call_impl" — which bought the line back without dropping a fact. The card
+went from 5 items to 4. Re-checked: `scrollHeight` 900, containment `pass`,
+0 diagnostics.
+
+### Re-acceptance
+
+All five: `validate` 9/9 showcase checks with 0 errors and 0 warnings, `deliver`
+exit 0, `visual-check` `ok: true` with containment and readability `pass` and zero
+error diagnostics. Both `deliver` and `visual-check` receipts in `evidence/` were
+regenerated; every receipt's recorded spec and artifact SHA-256 was re-verified
+against the files on disk.
+
+The five `<name>.png` stills were deleted and regenerated. Each is 1440×900 with
+corner pixels RGB (248, 250, 252), and all five were visually inspected rather
+than accepted on file size alone.
+
+---
+
 ## Part E — Repository impact
 
 Nothing under `backend/` or `frontend/` was touched. The full footprint of this exercise:
 
 | Path | Status | Size |
 |---|---|---|
-| `architecture/` | new, committed | 6.2 MB — 3.9 MB delivered HTML, 1.4 MB handbook PDF, 724 KB diagram renders, 160 KB specs/docs/receipts |
+| `architecture/` | committed | 6.3 MB — 3.9 MB delivered HTML, 1.4 MB handbook PDF, 732 KB diagram renders, 204 KB specs/docs/receipts (measured 2026-09-15) |
 | `.claude/skills/archify/` | new, **not** committed | 8.4 MB — excluded by the `.claude/` rule below |
 | `.gitignore` | **modified by the `skills` CLI**, not by hand | +3 lines |
 | `skills-lock.json` | new, untracked | pins `tt-a1i/archify` by content hash |
@@ -250,8 +312,11 @@ Two consequences worth a decision:
   tracked file made by the installer as a side effect, not a deliberate edit. Its effect is that
   the vendored skill is **not** version-controlled, so a fresh clone must re-run the install before
   regenerating anything. The delivered HTML is self-contained and readable without any tooling.
-  The rule it added is preceded by a comment carrying an absolute local path
-  (`# /Users/nikunj/Desktop/lama/.claude`), which is worth tidying before committing.
+  The rule it added was preceded by a comment carrying an absolute local path
+  (`# /Users/nikunj/Desktop/lama/.claude`) and had landed in the *Secrets* block.
+  **Tidied 2026-09-15:** the absolute path is gone and `.claude/` now sits under
+  *Caches / scratch* with a comment explaining why the skill is not committed.
+  Verified with `git check-ignore -v` that the ignore behaviour is unchanged.
 - **Only one render per flow is retained.** `visual-check` writes four screenshots per diagram
   (1440×900 and 2048×1320, each light and dark) plus a contact sheet, and it also drops a receipt
   copy next to the artifact that is byte-identical to the one in `evidence/`. Twenty near-identical

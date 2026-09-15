@@ -95,11 +95,11 @@ light-theme still `diagrams/<name>.png`; machine-readable receipts live in
 ### The handbook
 
 [`handbook.pdf`](handbook.pdf) is the printable companion to these diagrams — a
-15-page architecture manual covering what LAMA is, its technology stack with
+17-page architecture manual covering what LAMA is, its technology stack with
 pinned versions, the runtime topology, the pipeline and its freeze gates, the
-LLM fabric, the knowledge base, multi-agent CodeGen, the data model, the API
-surface, deployment, configuration, and the known footguns. All five diagrams
-are embedded.
+LLM fabric and its provider probe order, the knowledge base, multi-agent
+CodeGen, the data model, the API surface, deployment, the test and lint bars,
+configuration, and the known footguns. All five diagrams are embedded.
 
 It is authored in [`handbook.html`](handbook.html), which shares its stylesheet
 with `docs/setup-guide.html` so both PDFs carry the same visual identity.

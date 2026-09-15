@@ -5574,8 +5574,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         </div>
         <ul>
           <li>&bull; Presets: OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq, Ollama, custom</li>
-          <li>&bull; fabric_call() is a tracing wrapper only</li>
-          <li>&bull; Routing decisions live in _fabric_call_impl</li>
+          <li>&bull; fabric_call() only traces; routing lives in _fabric_call_impl</li>
           <li>&bull; Factory is reached over HTTP or the local droid CLI</li>
           <li>&bull; Every call is probed for a healthy provider first</li>
         </ul>

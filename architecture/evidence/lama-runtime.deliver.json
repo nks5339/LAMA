@@ -6,12 +6,12 @@
   "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-runtime.architecture.json",
   "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-runtime.html",
   "specification": {
-    "sha256": "7546e5d27500916ba56ba37cfe55b97032b277e639a4a899844d40281c6ffb61",
-    "bytes": 4994
+    "sha256": "33d7467dc7fb09d67225ee93cd51e58f25f7b3e52d201a6f9bbc5e5c2b688c70",
+    "bytes": 5944
   },
   "artifact": {
-    "sha256": "2fc751d92c8c37c8c2960978fb8e02c4e0cff2a1db2490c3e29bab494a9c697e",
-    "bytes": 812243
+    "sha256": "aa3c9416b65f84ec2caa3c6ce326158e2f49cdb5f4034abdfcb9ab2849a60c94",
+    "bytes": 812195
   },
   "validation": {
     "checksPassed": 9,

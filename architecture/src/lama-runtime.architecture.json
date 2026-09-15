@@ -2,26 +2,41 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "LAMA — Runtime Architecture",
+    "title": "LAMA \u2014 Runtime Architecture",
     "output": "lama-runtime.html",
     "quality_profile": "showcase",
     "views": [
       {
         "id": "request-path",
         "label": "Primary request path",
-        "focus": ["browser", "nginx", "api", "mongo"],
+        "focus": [
+          "browser",
+          "nginx",
+          "api",
+          "mongo"
+        ],
         "note": "A studio request from the React SPA through nginx to FastAPI and durable state."
       },
       {
         "id": "llm-routing",
         "label": "LLM routing",
-        "focus": ["api", "fabric", "providers", "factory", "droid"],
+        "focus": [
+          "api",
+          "fabric",
+          "providers",
+          "factory",
+          "droid"
+        ],
         "note": "Every model call leaves the API through one fabric entry point."
       },
       {
         "id": "knowledge-base",
         "label": "Knowledge base",
-        "focus": ["api", "mongo", "qdrant"],
+        "focus": [
+          "api",
+          "mongo",
+          "qdrant"
+        ],
         "note": "Mongo is the system of record; Qdrant is an optional semantic index."
       }
     ]
@@ -32,8 +47,14 @@
       "type": "external",
       "label": "Operator Browser",
       "sublabel": "React 19 SPA",
-      "pos": [40, 330],
-      "size": [140, 64]
+      "pos": [
+        40,
+        330
+      ],
+      "size": [
+        140,
+        64
+      ]
     },
     {
       "id": "nginx",
@@ -41,8 +62,14 @@
       "label": "nginx",
       "sublabel": "edge :8382",
       "tag": "only public port",
-      "pos": [280, 330],
-      "size": [150, 64]
+      "pos": [
+        280,
+        330
+      ],
+      "size": [
+        150,
+        64
+      ]
     },
     {
       "id": "api",
@@ -50,24 +77,42 @@
       "label": "FastAPI",
       "sublabel": "uvicorn :8001",
       "tag": "21 router mounts",
-      "pos": [540, 330],
-      "size": [160, 64]
+      "pos": [
+        540,
+        330
+      ],
+      "size": [
+        160,
+        64
+      ]
     },
     {
       "id": "fabric",
       "type": "backend",
       "label": "LLM Fabric",
       "sublabel": "in-process router",
-      "pos": [810, 330],
-      "size": [150, 64]
+      "pos": [
+        810,
+        330
+      ],
+      "size": [
+        150,
+        64
+      ]
     },
     {
       "id": "providers",
       "type": "external",
       "label": "LLM Providers",
       "sublabel": "8 provider presets",
-      "pos": [1080, 330],
-      "size": [220, 64]
+      "pos": [
+        1080,
+        330
+      ],
+      "size": [
+        220,
+        64
+      ]
     },
     {
       "id": "qdrant",
@@ -75,24 +120,42 @@
       "label": "Qdrant",
       "sublabel": "vector index",
       "tag": "optional",
-      "pos": [540, 120],
-      "size": [160, 64]
+      "pos": [
+        540,
+        120
+      ],
+      "size": [
+        160,
+        64
+      ]
     },
     {
       "id": "factory",
       "type": "external",
       "label": "Factory.ai",
       "sublabel": "api.factory.ai",
-      "pos": [810, 120],
-      "size": [150, 64]
+      "pos": [
+        810,
+        120
+      ],
+      "size": [
+        150,
+        64
+      ]
     },
     {
       "id": "droid",
       "type": "external",
       "label": "droid CLI",
       "sublabel": "local subprocess",
-      "pos": [1080, 120],
-      "size": [220, 64]
+      "pos": [
+        1080,
+        120
+      ],
+      "size": [
+        220,
+        64
+      ]
     },
     {
       "id": "mongo",
@@ -100,35 +163,106 @@
       "label": "MongoDB 7",
       "sublabel": "59 collections",
       "tag": "system of record",
-      "pos": [540, 500],
-      "size": [160, 64]
+      "pos": [
+        540,
+        500
+      ],
+      "size": [
+        160,
+        64
+      ]
     },
     {
       "id": "github",
       "type": "external",
       "label": "GitHub API",
       "sublabel": "PyGithub",
-      "pos": [1080, 500],
-      "size": [220, 64]
+      "pos": [
+        1080,
+        500
+      ],
+      "size": [
+        220,
+        64
+      ]
     }
   ],
   "boundaries": [
     {
       "kind": "region",
-      "label": "Single container · supervisord",
-      "wraps": ["nginx", "api", "fabric", "mongo"]
+      "label": "Single container \u00b7 supervisord",
+      "wraps": [
+        "nginx",
+        "api",
+        "fabric",
+        "mongo"
+      ]
     }
   ],
   "connections": [
-    { "id": "browser-to-nginx", "from": "browser", "to": "nginx", "label": "HTTPS :8382", "variant": "emphasis" },
-    { "id": "nginx-to-api", "from": "nginx", "to": "api", "label": "proxy /api/" },
-    { "id": "api-to-fabric", "from": "api", "to": "fabric", "label": "fabric_call()" },
-    { "id": "fabric-to-providers", "from": "fabric", "to": "providers", "label": "chat/completions", "variant": "emphasis" },
-    { "id": "api-to-mongo", "from": "api", "to": "mongo", "label": "Motor (async)", "labelDy": 40 },
-    { "id": "api-to-qdrant", "from": "api", "to": "qdrant", "label": "semantic search", "variant": "dashed" },
-    { "id": "fabric-to-factory", "from": "fabric", "to": "factory", "label": "brokered session", "labelDx": -60 },
-    { "id": "fabric-to-droid", "from": "fabric", "to": "droid", "label": "droid exec", "variant": "dashed", "fromSide": "top", "toSide": "left" },
-    { "id": "api-to-github", "from": "api", "to": "github", "label": "push generated repo", "variant": "dashed" }
+    {
+      "id": "browser-to-nginx",
+      "from": "browser",
+      "to": "nginx",
+      "label": "HTTPS :8382",
+      "variant": "emphasis"
+    },
+    {
+      "id": "nginx-to-api",
+      "from": "nginx",
+      "to": "api",
+      "label": "proxy /api/"
+    },
+    {
+      "id": "api-to-fabric",
+      "from": "api",
+      "to": "fabric",
+      "label": "fabric_call()"
+    },
+    {
+      "id": "fabric-to-providers",
+      "from": "fabric",
+      "to": "providers",
+      "label": "chat/completions",
+      "variant": "emphasis"
+    },
+    {
+      "id": "api-to-mongo",
+      "from": "api",
+      "to": "mongo",
+      "label": "Motor (async)",
+      "labelDy": 40
+    },
+    {
+      "id": "api-to-qdrant",
+      "from": "api",
+      "to": "qdrant",
+      "label": "semantic search",
+      "variant": "dashed"
+    },
+    {
+      "id": "fabric-to-factory",
+      "from": "fabric",
+      "to": "factory",
+      "label": "brokered session",
+      "labelDx": -60
+    },
+    {
+      "id": "fabric-to-droid",
+      "from": "fabric",
+      "to": "droid",
+      "label": "droid exec",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "left"
+    },
+    {
+      "id": "api-to-github",
+      "from": "api",
+      "to": "github",
+      "label": "push generated repo",
+      "variant": "dashed"
+    }
   ],
   "cards": [
     {
@@ -156,8 +290,7 @@
       "title": "Model routing",
       "items": [
         "Presets: OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq, Ollama, custom",
-        "fabric_call() is a tracing wrapper only",
-        "Routing decisions live in _fabric_call_impl",
+        "fabric_call() only traces; routing lives in _fabric_call_impl",
         "Factory is reached over HTTP or the local droid CLI",
         "Every call is probed for a healthy provider first"
       ]

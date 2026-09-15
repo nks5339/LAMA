@@ -3,9 +3,6 @@
 # ---------------------------------------------------------------------------
 # Root `.env` IS committed — its header documents it as non-secret compose
 # defaults only. `backend/.env` holds real OPENROUTER / QDRANT keys.
-# /Users/nikunj/Desktop/lama/.claude
-
-.claude/
 backend/.env
 frontend/.env.local
 frontend/.env.*.local
@@ -46,6 +43,14 @@ npm-debug.log*
 # ---------------------------------------------------------------------------
 hf_cache/
 .lama-git-cache/
+# Agent tooling. The `skills` CLI added `.claude/` here during install (it
+# arrived in the Secrets block above with an absolute local path as its only
+# comment — see architecture/report.md Part E). The vendored archify skill is
+# 8.4 MB and is deliberately NOT committed: a fresh clone re-runs
+#   npx skills add tt-a1i/archify -a claude-code -s '*' --copy -y
+# before regenerating a diagram. The delivered HTML in architecture/diagrams/
+# is self-contained and needs no tooling to read.
+.claude/
 .claude/worktrees/
 # Embedded (offline) Qdrant store — see QDRANT_PATH in backend/.env
 .qdrant_local/
