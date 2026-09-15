@@ -1080,10 +1080,6 @@ def _parse_endpoint_lines(legacy_endpoints_text: str) -> list[dict]:
     return out
 
 
-def _chunk(lst: list, n: int) -> list[list]:
-    return [lst[i:i + n] for i in range(0, len(lst), n)] or [[]]
-
-
 def _build_jmeter_envelope(project_name: str, base_url: str,
                            samplers_xml: str, personas: list[str],
                            n_endpoints: int, n_samplers: int) -> str:
