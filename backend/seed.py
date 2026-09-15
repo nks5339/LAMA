@@ -1781,10 +1781,27 @@ footer_hygiene:
             "CURRENT SECTION CONTENT:\n{current_content}\n\n"
             "RELEVANT KB CONTEXT:\n{toon_context}\n\n"
             "USER INSTRUCTION: {asked_questions}\n\n"
-            "Rewrite the section incorporating the change. "
-            "Preserve all existing content not mentioned in the instruction. "
-            "Continue FR-IDs from the highest existing number. "
-            "Reference real class/table/method names from the KB. "
+            "HARD RULES — this is an EDIT, not a rewrite:\n"
+            "1. PRESERVE every requirement, sentence and table row the "
+            "instruction does not ask you to change. Reproduce them "
+            "verbatim. Silently dropping content is the failure mode that "
+            "matters here: the section is frozen downstream, and anything "
+            "you omit disappears from the data model and the generated "
+            "code without anyone being told.\n"
+            "2. NEVER renumber, reword or re-ID an existing requirement. "
+            "FR/NFR/BR ids are cited by the data model, the architecture "
+            "and the traceability gate; changing one breaks those links.\n"
+            "3. New requirements CONTINUE the numbering from the highest "
+            "existing id in this section. Never reuse a retired id.\n"
+            "4. Every class, table, column, endpoint and method name you "
+            "write must appear in the KB CONTEXT above, spelled exactly as "
+            "it is there. If the instruction needs something the KB does "
+            "not contain, write the requirement in business terms rather "
+            "than inventing a technical name.\n"
+            "5. If the instruction is ambiguous or would contradict "
+            "existing content, apply the smallest reading that does not "
+            "break rule 1 and note the ambiguity in ONE trailing line "
+            "beginning '> NOTE:'.\n\n"
             "Return ONLY the updated markdown for this section. No preamble. No code fences."
         ),
     },
@@ -3262,6 +3279,24 @@ RELEVANT KB CONTEXT:
 {rag_context}
 
 USER REQUEST: {message}
+
+GROUNDING — these are hard rules, not preferences:
+- Every service, module, endpoint, table and interface you NAME must
+  already appear in CURRENT ARCHITECTURE or RELEVANT KB CONTEXT above.
+  Anything else is an invention, and the operator will only discover it
+  when CodeGen tries to build a service that was never designed.
+- Use each name exactly as it is written there. Do not tidy casing, do
+  not pluralise, do not translate a name into what you think it "should"
+  be called.
+- When the request cannot be answered from the context you were given,
+  SAY SO and name what is missing. Do not design the missing part and
+  present it as if it were the existing system.
+- When you propose something genuinely new (a service that does not yet
+  exist), mark it as NEW in your prose before the change marker so the
+  operator knows it is a proposal rather than a description.
+- Never state a fact about the legacy system that is not in the KB
+  context. "The legacy app probably does X" is not an architecture
+  finding.
 
 Instructions:
 - Answer architecture questions directly and concisely.
@@ -5446,7 +5481,31 @@ Be ruthless and specific. Cite the exact SRS-FR-XX id on every row.""",
         "stage": "Living",
         "force_update": True,
         "description": "Diffs two SRS versions and produces a change report.",
-        "template": """Compare two SRS versions and produce a precise change report.
+        "template": """# SRS Diff — Change Report Between Two Frozen Versions
+# Version: 2.0
+
+role: |
+  You are a requirements analyst producing a change report between two
+  SRS snapshots. An operator uses this report to decide which downstream
+  artifacts to REGENERATE — a regeneration costs real time and money, so
+  a change you report that did not happen sends them to redo work for
+  nothing, and one you miss ships a stale data model or service.
+
+grounding: |
+  Both documents are given to you IN FULL below. Everything you report
+  must be verifiable by reading them.
+
+  - Quote requirement IDs (FR-*, NFR-*, BR-*) and section names VERBATIM
+    from whichever version they appear in. Never reformat, renumber or
+    tidy an id.
+  - NEVER invent an id or a section that is not present in A or B.
+  - A requirement that is textually identical in both versions is NOT a
+    change. Do not list rewording that does not alter meaning as Modified
+    — say so under Impact Assessment instead if it matters.
+  - If a section exists in both but you cannot tell whether it changed,
+    put it under Modified and say what is ambiguous. Do not guess.
+  - If there are no changes in a category, write "None" under that
+    heading. Never omit a heading, and never pad it to look thorough.
 
 OLD (Version A):
 {srs_a}
@@ -5454,15 +5513,17 @@ OLD (Version A):
 NEW (Version B):
 {srs_b}
 
-OUTPUT — markdown:
+OUTPUT — markdown, these EXACT headings, nothing before or after:
 ## Added
-- Section, Requirement-ID, summary
+- `<Section>` · `<Requirement-ID>` — what it now requires
 ## Removed
-- ...
+- `<Section>` · `<Requirement-ID>` — what it used to require
 ## Modified
-- ...
+- `<Section>` · `<Requirement-ID>` — old behaviour → new behaviour
 ## Impact Assessment
-- Which downstream artifacts (data model, code, tests) need regeneration?
+- State which downstream artifacts need regeneration (data model, service
+  code, API contracts, tests) and name the requirement id that forces
+  each one. If nothing downstream is affected, say that plainly.
 """,
     },
     {
@@ -7922,73 +7983,97 @@ evidence_rules: |
             "tools.transformer.tester, applied to legacy_migration."
         ),
         "force_update": True,  # iter-17 rev-bump
-        "template": """# CodeGen Tester — Compilation Verification & Static Analysis
+        "template": """# CodeGen Tester — Wave Completion Review
+# Version: 2.0
 
 role: |
-  You are the CodeGen Tester — the final quality gate for each wave.
-  You analyze the wave's generated files for compilation readiness
-  using static analysis. You check for missing imports, unresolved
-  references, type mismatches, and framework configuration issues.
+  You are the CodeGen Tester. After each wave of generated files you
+  review whether that wave is COMPLETE and INTERNALLY CONSISTENT enough
+  for the next wave to build on top of it.
 
-analysis_checks:
-  compilation_readiness: |
-    - All imports resolve to real modules/classes in the target stack
-    - No undefined variables, methods, or types
-    - All method signatures match their callers
-    - All interface implementations are complete
-    - Build file dependencies cover every imported package
+  Read your input carefully before you answer. You are given the wave's
+  TASK LEDGER — one row per task: `task_id`, `target_path`, `layer`,
+  `status`. You are NOT given file contents.
 
-  dependency_check: |
-    - All required dependencies declared in build file (BE + FE)
-    - Version compatibility between dependencies
-    - No conflicting dependency versions
+  That bounds your job precisely, and the bound is the point:
 
-  configuration_check: |
-    - All environment variable placeholders have defaults or docs
-    - Database connection config complete
-    - Security configuration complete
+    - You CANNOT check imports, types, method signatures or dependency
+      versions. Nothing about them is in your input. Do not claim to
+      have checked them, and do not report findings about them. An
+      invented import error sends an operator to a file that is fine.
+    - A REAL compiler runs later (`mvn` / `gradle` / `npm` / `pip`) and
+      is the authority on whether the code builds. You are not it, and
+      you are not the last gate either — a traceability gate and a
+      finalizer run after you.
 
-  cross_file_consistency: |
-    - Import paths consistent across all files in the wave
-    - DI pattern consistent (all constructor injection, OR all
-      annotation)
-    - Naming conventions consistent
-    - No circular dependencies introduced
+what_you_can_actually_check: |
+  All of these are decidable from the ledger alone:
+
+  - COMPLETENESS: every task reached a terminal status. Any task still
+    pending, in-progress, skipped or failed is the finding that matters
+    most — it means a file the next wave expects was never written.
+  - PATH COLLISIONS: two tasks writing the same `target_path`. The
+    second silently overwrites the first.
+  - LAYER COVERAGE: the layers present relative to what this wave
+    claims to deliver. A wave with a controller and no service, or an
+    entity with no repository, is an incomplete vertical slice.
+  - PATH PLAUSIBILITY: a `target_path` that contradicts its `layer`
+    (a file tagged `repository` written into a controllers package), or
+    that breaks the naming convention the other rows in this wave use.
+  - DUPLICATE WORK: two tasks with different ids describing the same
+    artifact.
+
+  If the ledger shows none of these, say so plainly and score high.
+  A clean wave is a real result, not a failure to find something.
 
 output_format: |
-  Return ONLY a valid JSON object:
+  Return ONLY a valid JSON object. No prose before or after it, no
+  markdown code fences.
   {
     "compilation_ready": true|false,
     "overall_score": <0-100>,
     "checks": [
       {
-        "category": "imports|types|dependencies|config|consistency",
+        "category": "completeness|collisions|layers|paths|duplicates",
         "status": "PASS|WARN|FAIL",
-        "file": "path/to/file",
+        "file": "the target_path this finding is about",
         "details": "...",
         "fix_suggestion": "..."
       }
     ],
-    "missing_dependencies": ["dep1"],
-    "missing_configs": ["config1"],
-    "summary": "Overall compilation readiness assessment",
-    "recommended_build_command": "mvn compile | pnpm build | pip install -r requirements.txt | ..."
+    "incomplete_tasks": ["task_id of every task not in a terminal status"],
+    "summary": "Is this wave complete and consistent enough to build on?",
+    "recommended_build_command": ""
   }
 
-evidence_rules: |
-  You perform a STATIC read. You do not run a compiler, and a real
-  compiler runs later in the pipeline and overrides you.
+field_types: |
+  The frontend renders these fields directly as text, so a nested object
+  where a string belongs throws React error #31 and blanks the page.
 
-  - `compilation_ready: true` means "I found nothing that would stop a
-    build", never "I built it". If you were not shown enough to tell,
-    return false and say why in `summary`.
-  - Every FAIL and WARN must set `file` to a path that appears verbatim
-    in the input, and quote the offending symbol in `details`.
-  - Only list a dependency in `missing_dependencies` if you can point at
-    the import or usage that needs it. Do not list plausible-sounding
-    libraries the stack "usually" has.
-  - Prefer false over a guessed true. A wrong `true` lets a broken wave
-    through to the next stage; a wrong `false` costs one extra check.
+  - `category`, `status`, `file`, `details`, `fix_suggestion` are PLAIN
+    STRINGS. Never an object, never an array, never null.
+  - `summary` and `recommended_build_command` are PLAIN STRINGS.
+  - `incomplete_tasks` is an array OF STRINGS (task ids, verbatim).
+  - `overall_score` is a bare number, not "85%" and not {"value": 85}.
+  - `checks` is always a LIST. Never replace it with a roll-up object
+    like {"total": N, "passed": N} — counts belong in `summary` as prose.
+  - Leave `recommended_build_command` as "": you were not told the build
+    tooling, and guessing it sends an operator to run the wrong command.
+
+evidence_rules: |
+  - `compilation_ready` here means "this WAVE is complete and consistent
+    enough for the next wave to build on", NOT "the project compiles".
+    You have not seen any code. Never imply that you have.
+  - Every finding must name the `task_id` or `target_path` it came from,
+    copied verbatim from the ledger. A finding an operator cannot locate
+    in the ledger is noise.
+  - Never name a file that is not in the ledger.
+  - If the ledger is empty, say exactly that and return
+    `compilation_ready: false` — an empty wave is not a passing wave.
+  - Every FAIL and WARN must set `file` to a `target_path` that appears
+    verbatim in the ledger.
+  - Prefer false over a guessed true. A wrong `true` lets an incomplete
+    wave through to the next one; a wrong `false` costs one extra check.
 """,
     },
     {
@@ -8139,14 +8224,36 @@ output_format: |
             "and generates compilation readiness reports."
         ),
         "force_update": True,
-        "template": """# Tester — Compilation Verification & Static Analysis
-# Stack-agnostic: analyzes transformed code for compilation readiness.
+        "template": """# Tester — Static Analysis Narrative
+# Version: 2.0
+# Stack-agnostic: reads transformed code and reports what a build is
+# likely to complain about.
 
 role: |
-  You are the Tester — the final quality gate. You analyze transformed
-  code for compilation readiness using static analysis. You check for
-  missing imports, unresolved references, type mismatches, and framework
-  configuration issues.
+  You are the Tester. You read transformed code and report what a build
+  would likely complain about: missing imports, unresolved references,
+  type mismatches, and framework configuration gaps.
+
+  You are NOT the final quality gate, and you are not the compiler.
+  Since iter-15.44 the authoritative compile signal is a REAL native
+  build (`mvn` / `gradle` / `npm` / `pip` / `dotnet` / `go`) run as a
+  subprocess by the pipeline. Your output is a supplementary narrative
+  that runs alongside it and is stored under `static_analysis`.
+
+  This matters for how you answer. A real compiler sees the whole
+  classpath, every transitive dependency and the actual toolchain
+  version; you see a truncated slice of files as text. So you are the
+  weaker signal, and you must read as the weaker signal:
+
+    - When the native build has already run, NEVER contradict its
+      verdict. If it passed and you suspect a problem, report the
+      suspicion as a WARN with your reasoning — do not set
+      `compilation_ready: false`.
+    - `compilation_ready` is your READING of the code as supplied, not a
+      guarantee. Set it false only for something you can actually point
+      at in the files you were given.
+    - Say "not visible in the provided files" rather than guessing. A
+      missing import you cannot see is not evidence of a missing import.
 
 analysis_checks:
   compilation_readiness: |
@@ -8173,8 +8280,17 @@ analysis_checks:
     - Naming conventions consistent
     - No circular dependencies introduced
 
+grounding: |
+  - Report ONLY on files present in the input. Never name a path you were
+    not given, and never infer one from a package or class name.
+  - Quote the symbol, import or key you are talking about, verbatim from
+    the file. A check an operator cannot locate is noise.
+  - The file list you receive is TRUNCATED for large projects. Absence of
+    a file is not evidence of a missing file.
+
 output_format: |
-  Return ONLY a valid JSON object:
+  Return ONLY a valid JSON object. No prose before or after it, no
+  markdown code fences.
   {
     "compilation_ready": true|false,
     "overall_score": <0-100>,
@@ -8192,6 +8308,24 @@ output_format: |
     "summary": "Overall compilation readiness assessment",
     "recommended_build_command": "mvn compile | npm run build | pip install -r requirements.txt | etc"
   }
+
+field_types: |
+  These are not style preferences — the frontend renders these fields
+  directly as text, and a nested object where a string belongs throws
+  React error #31 ("objects are not valid as a React child") and blanks
+  the whole page for the operator.
+
+  - `category`, `status`, `file`, `details`, `fix_suggestion` are PLAIN
+    STRINGS. Never an object, never an array, never null.
+  - `summary` and `recommended_build_command` are PLAIN STRINGS.
+  - `missing_dependencies` and `missing_configs` are arrays OF STRINGS.
+  - `overall_score` is a bare number, not "85%" and not {"value": 85}.
+  - Do NOT invent extra keys, and do NOT replace `checks[]` with a
+    self-made roll-up object like
+    {"total_checks": N, "passed": N, "failed": N}. Counts belong in
+    `summary` as prose; `checks` is always a LIST.
+  - One finding per `checks[]` entry. Do not pack several problems into
+    one `details` string.
 """,
     },
 ]
