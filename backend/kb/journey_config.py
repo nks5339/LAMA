@@ -64,7 +64,14 @@ def _env_default_enabled() -> bool:
         return False
     if raw in _TRUTHY:
         return True
-    return False  # default OFF — opt-in, matches Graph-KB precedent
+    # iter-18.1 — default ON. Journeys are now the unit of work for
+    # multi-agent CodeGen task division (`_journey_codegen_envelopes`),
+    # not just a prompt-context slice, so an opt-in default meant the
+    # richer graph-derived envelopes were never reachable out of the box.
+    # Materialisation is deterministic (no LLM) and callers degrade to
+    # the arch_services path when `kb_journeys` is empty, so defaulting
+    # on cannot break a project that has not built a graph.
+    return True
 
 
 def _env_default_stages() -> list[str]:

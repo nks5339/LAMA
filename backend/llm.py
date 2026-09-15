@@ -5,7 +5,7 @@ import json as _json_std
 import logging
 import shutil
 import httpx
-from typing import List, Dict, Optional, Any
+from typing import List, Dict, Optional, Any, Set
 
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
 OPENROUTER_BASE_URL = os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
@@ -430,12 +430,51 @@ def _env_default_model() -> str:
 #
 # Opt out with LAMA_OLLAMA_FIRST_FALLBACK=0 to restore the prior
 # behaviour (straight env-var OpenRouter fallback).
+def _is_ollama_shaped(provider: Optional[Dict]) -> bool:
+    """True when a provider doc is Ollama or points at a local endpoint.
+
+    Extracted so the fallback selector (below) and the iter-13.114
+    local-provider guards further down agree on one definition.
+    """
+    if not provider:
+        return False
+    ptype = (provider.get("provider_type") or "").lower()
+    burl = (provider.get("base_url") or "").lower()
+    return (
+        ptype == "ollama"
+        or "localhost" in burl
+        or "127.0.0.1" in burl
+        or "host.docker.internal" in burl
+        or "0.0.0.0" in burl
+    )
+
+
+async def active_default_provider_is_local() -> bool:
+    """True when the active default provider runs on this machine.
+
+    Callers use this to size their fan-out. A local engine (Ollama)
+    serves far fewer concurrent generations than a cloud endpoint, and a
+    queued request still burns its own timeout while it waits — so
+    over-fanning a local daemon converts throughput into timeouts rather
+    than speed. Best-effort: returns False if the lookup fails.
+    """
+    try:
+        from db import model_providers as _mp_col
+        return _is_ollama_shaped(await _mp_col.find_one(
+            {"is_default": True, "is_active": True},
+            {"_id": 0, "provider_type": 1, "base_url": 1},
+        ))
+    except Exception:  # noqa: BLE001 — never block a caller on this
+        return False
+
+
 async def _try_ollama_fallback(
     *,
     messages: List[Dict],
     agent_key: str,
     project_id: str,
     kwargs: Dict,
+    exclude_provider_ids: Optional[Set[str]] = None,
 ) -> Optional[Dict]:
     """Attempt one LLM call via the first active Ollama-shaped provider.
 
@@ -450,16 +489,14 @@ async def _try_ollama_fallback(
         return None
     try:
         ollama_prov = None
+        _excluded = exclude_provider_ids or set()
         async for p in mp_col.find({"is_active": True}, {"_id": 0}).sort([("priority", 1)]):
-            ptype = (p.get("provider_type") or "").lower()
-            burl = (p.get("base_url") or "").lower()
-            if (
-                ptype == "ollama"
-                or "localhost" in burl
-                or "127.0.0.1" in burl
-                or "host.docker.internal" in burl
-                or "0.0.0.0" in burl
-            ):
+            # Skip any provider the primary route already attempted and
+            # failed on. Re-issuing the identical prompt to the same
+            # endpoint cannot succeed and costs another full timeout.
+            if (p.get("id") or "") in _excluded:
+                continue
+            if _is_ollama_shaped(p):
                 ollama_prov = p
                 break
         if not ollama_prov:
@@ -1776,10 +1813,42 @@ async def _fabric_call_impl(
     # provider BEFORE the env-var OpenRouter path (operator preference:
     # "when factory is not reachable, do not try to connect openrouter,
     # better connect ollama"). No-op when no Ollama provider exists.
+    #
+    # `fabric_chat_with_failover` re-raises timeouts/5xx WITHOUT walking
+    # the remaining providers, so on a timeout only the pinned/default
+    # provider was actually attempted. When that provider is itself the
+    # Ollama one this fallback would pick, re-issuing the identical
+    # prompt to the same endpoint cannot succeed — it just burns a
+    # second full timeout (600s by default) before failing anyway.
+    # Exclude it so a local timeout fails fast instead of doubling.
     if fabric_err is not None:
+        _tried_ids: Set[str] = set()
+        try:
+            from db import model_providers as _mp_col, agent_configs as _ac_col
+            _pin = ""
+            if agent_key:
+                _adoc = await _ac_col.find_one(
+                    {"key": agent_key}, {"_id": 0, "provider_id": 1},
+                )
+                _pin = (_adoc or {}).get("provider_id", "") or ""
+            _attempted = None
+            if _pin:
+                _attempted = await _mp_col.find_one(
+                    {"id": _pin, "is_active": True}, {"_id": 0, "id": 1},
+                )
+            if not _attempted:
+                _attempted = await _mp_col.find_one(
+                    {"is_default": True, "is_active": True}, {"_id": 0, "id": 1},
+                )
+            if _attempted and (_attempted.get("id") or ""):
+                _tried_ids.add(_attempted["id"])
+        except Exception:  # noqa: BLE001 — never block the call on this
+            _tried_ids = set()
+
         _o = await _try_ollama_fallback(
             messages=messages, agent_key=agent_key,
             project_id=project_id, kwargs=kwargs,
+            exclude_provider_ids=_tried_ids,
         )
         if _o is not None:
             return _o
@@ -1821,13 +1890,7 @@ async def _fabric_call_impl(
             if _default:
                 _ptype = (_default.get("provider_type") or "").lower()
                 _burl = (_default.get("base_url") or "").lower()
-                _is_local = (
-                    _ptype == "ollama"
-                    or "localhost" in _burl
-                    or "127.0.0.1" in _burl
-                    or "host.docker.internal" in _burl
-                    or "0.0.0.0" in _burl
-                )
+                _is_local = _is_ollama_shaped(_default)
         except Exception:  # noqa: BLE001 — DB lookup must never block the call
             _is_local = False
         # IMPORTANT: the raise must live OUTSIDE the try/except above,
@@ -1880,15 +1943,7 @@ async def _fabric_call_impl(
                 {"_id": 0, "provider_type": 1, "base_url": 1},
             )
             if _d2:
-                _pt2 = (_d2.get("provider_type") or "").lower()
-                _bu2 = (_d2.get("base_url") or "").lower()
-                _default_is_local = (
-                    _pt2 == "ollama"
-                    or "localhost" in _bu2
-                    or "127.0.0.1" in _bu2
-                    or "host.docker.internal" in _bu2
-                    or "0.0.0.0" in _bu2
-                )
+                _default_is_local = _is_ollama_shaped(_d2)
         except Exception:  # noqa: BLE001
             _default_is_local = False
         if _default_is_local:

@@ -44,7 +44,7 @@ from db import (
     transformer_agent_runs,
     transformer_agent_configs,
 )
-from llm import fabric_call, _http_verify
+from llm import fabric_call, _http_verify, active_default_provider_is_local
 
 # iter-15.51 — In-process cache mapping transform_id → project_id so the
 # transformer pipeline can plumb `project_id` into every `fabric_call` and
@@ -255,6 +255,14 @@ AGENT_PROMPT_KEYS = {
     "verifier": "tools.transformer.verifier",
     "tester": "tools.transformer.tester",
     "devops_expert": "tools.transformer.devops_expert",
+    # Plan gate between Planner and Coder. Was seeded with a prompt and a
+    # Console row since iter-16 but never reachable, because it had no
+    # entry here — `_get_effective_prompt` resolved it to "".
+    "validator": "tools.transformer.validator",
+    # The DevOps agent's second mode: a proactive dependency audit of the
+    # generated build manifests, distinct from its escalation persona in
+    # the compile-fix loop.
+    "devops_audit": "tools.transformer.devops_audit",
 }
 # super_agent is pure orchestration today (it logs a completed run but
 # never calls an LLM), so an edited prompt/model has no runtime effect
@@ -268,6 +276,8 @@ AGENT_LLM_BACKED = {
     "verifier": True,
     "tester": True,
     "devops_expert": True,
+    "validator": True,
+    "devops_audit": True,
 }
 AGENT_LABELS = {
     "super_agent": "Super Agent",
@@ -277,6 +287,8 @@ AGENT_LABELS = {
     "verifier": "Verifier",
     "tester": "Tester",
     "devops_expert": "DevOps Expert",
+    "validator": "Validator",
+    "devops_audit": "DevOps Expert (dependency audit)",
 }
 
 
@@ -8748,6 +8760,338 @@ Return ONLY valid JSON matching the output schema."""
         return {"compilation_ready": False, "overall_score": 0, "checks": [], "summary": f"Analysis failed: {e}"}
 
 
+# ── Plan gate: Validator ──────────────────────────────────────────────
+async def _run_validator(
+    transform_id: str,
+    task_docs: List[Dict[str, Any]],
+    envelopes: List[Dict[str, Any]],
+    model: str = None,
+) -> Dict[str, Any]:
+    """Validate the Planner's task list BEFORE any coder token is spent.
+
+    Sits between Planner and Coder. Deterministic checks run first and are
+    authoritative for the things that are decidable without a model
+    (missing target path, duplicate targets, orphaned envelope refs,
+    unreachable wave ordering). The LLM then reviews what is left --
+    decomposition quality, missed envelopes, wrong ordering.
+
+    Returns {verdict, confidence, issues[], deterministic[], summary}.
+    `verdict` is ACCEPT or REJECT; REJECT never hard-stops the run (the
+    operator already confirmed these tasks at the iter-15.28 gate), it is
+    surfaced as a warning so the plan can be corrected on a rerun.
+    """
+    run_id = await _log_agent_run(
+        transform_id, "validator", "plan-validation",
+        input_summary=f"Validating {len(task_docs)} task(s) against {len(envelopes)} envelope(s)",
+    )
+    t0 = datetime.now(timezone.utc)
+
+    # ── Deterministic gate ────────────────────────────────────────────
+    det: List[Dict[str, str]] = []
+    seen_targets: Dict[str, str] = {}
+    env_ids = {e.get("envelope_id") for e in envelopes if e.get("envelope_id")}
+    covered_envs: Set[str] = set()
+
+    for t in task_docs:
+        tid = t.get("task_id", "") or "?"
+        target = (t.get("target_path") or "").strip()
+        if not target:
+            det.append({"severity": "critical", "task_id": tid,
+                        "issue": "Task has no target_path — the Coder has nowhere to write."})
+        elif target in seen_targets:
+            det.append({"severity": "critical", "task_id": tid,
+                        "issue": f"Duplicate target_path '{target}' (also produced by {seen_targets[target]}) — the later task silently overwrites the earlier one."})
+        else:
+            seen_targets[target] = tid
+
+        eid = t.get("envelope_id") or ""
+        if eid:
+            covered_envs.add(eid)
+            if env_ids and eid not in env_ids:
+                det.append({"severity": "critical", "task_id": tid,
+                            "issue": f"Task references envelope '{eid}' which does not exist."})
+
+    missing = sorted(env_ids - covered_envs) if env_ids else []
+    for eid in missing[:25]:
+        det.append({"severity": "major", "task_id": "",
+                    "issue": f"Envelope '{eid}' has no task — that unit of work would be silently dropped."})
+
+    waves = sorted({int(t.get("wave", 0) or 0) for t in task_docs})
+    if waves and waves != list(range(waves[0], waves[0] + len(waves))):
+        det.append({"severity": "minor", "task_id": "",
+                    "issue": f"Wave numbers are not contiguous ({waves}) — later waves may start before their inputs exist."})
+
+    det_critical = sum(1 for d in det if d["severity"] == "critical")
+
+    # ── LLM review ────────────────────────────────────────────────────
+    llm_result: Dict[str, Any] = {}
+    try:
+        prompt_template = await _get_effective_prompt(transform_id, "validator")
+        if not prompt_template:
+            prompt_template = (
+                "You are a Plan Validation Engine. Review a transformation "
+                "task plan for completeness and correct ordering. Return JSON."
+            )
+        model = await _get_effective_model(transform_id, "validator", model)
+
+        plan_digest = [
+            {
+                "task_id": t.get("task_id", ""),
+                "wave": t.get("wave", 0),
+                "source": t.get("source_path", ""),
+                "target": t.get("target_path", ""),
+                "envelope_id": t.get("envelope_id", ""),
+                "kind": t.get("kind", "") or t.get("type", ""),
+            }
+            for t in task_docs[:200]
+        ]
+        env_digest = [
+            {"envelope_id": e.get("envelope_id", ""),
+             "name": e.get("name", "") or e.get("title", ""),
+             "kind": e.get("kind", "")}
+            for e in envelopes[:200]
+        ]
+
+        response = await fabric_call(
+            messages=[
+                {"role": "system", "content": prompt_template},
+                {"role": "user", "content":
+                    "Validate this transformation plan.\n\n"
+                    f"===== ENVELOPES ({len(envelopes)}) =====\n"
+                    f"{json.dumps(env_digest)[:12000]}\n\n"
+                    f"===== PLANNED TASKS ({len(task_docs)}) =====\n"
+                    f"{json.dumps(plan_digest)[:12000]}\n\n"
+                    "Return ONLY the JSON described in your system prompt."},
+            ],
+            model=model,
+            agent_key="tools.transformer.validator",
+            project_id=await _project_id_for_transform(transform_id),
+            temperature=0.1,
+            max_tokens=6000,
+            response_format={"type": "json_object"},
+        )
+        text = response.get("content", "") if isinstance(response, dict) else str(response)
+        llm_result = _extract_json_object(text) or {}
+    except Exception as exc:  # noqa: BLE001 — the deterministic gate still stands
+        llm_result = {"summary": f"LLM plan review unavailable: {str(exc)[:200]}"}
+
+    issues = llm_result.get("issues") if isinstance(llm_result.get("issues"), list) else []
+    for _i in issues:
+        if isinstance(_i, dict):
+            for _f in ("description", "fix", "severity"):
+                _v = _i.get(_f)
+                if _v is not None and not isinstance(_v, str):
+                    _i[_f] = json.dumps(_v) if isinstance(_v, (dict, list)) else str(_v)
+
+    # Deterministic criticals are authoritative — the LLM cannot vote them away.
+    verdict = "REJECT" if det_critical else str(llm_result.get("verdict", "ACCEPT")).upper()
+    if verdict not in {"ACCEPT", "REJECT"}:
+        verdict = "ACCEPT"
+
+    summary = llm_result.get("summary")
+    if summary is not None and not isinstance(summary, str):
+        summary = json.dumps(summary)
+    if not summary:
+        summary = (f"{det_critical} critical plan defect(s) found deterministically."
+                   if det_critical else "Plan accepted.")
+
+    result = {
+        "verdict": verdict,
+        "confidence": llm_result.get("confidence", 100 if not det else 60),
+        "deterministic": det,
+        "issues": issues,
+        "summary": summary,
+        "tasks_checked": len(task_docs),
+        "envelopes_without_task": missing,
+    }
+
+    await _update_agent_run(
+        run_id, status="completed",
+        output_summary=f"{verdict} — {len(det)} deterministic, {len(issues)} model-reported",
+        duration_ms=int((datetime.now(timezone.utc) - t0).total_seconds() * 1000),
+    )
+    await transformations.update_one(
+        {"_id": transform_id}, {"$set": {"plan_validation": result}},
+    )
+    return result
+
+
+# ── Production gate: DevOps dependency audit ──────────────────────────
+_MANIFEST_NAMES = (
+    "pom.xml", "build.gradle", "build.gradle.kts", "package.json",
+    "requirements.txt", "pyproject.toml", "go.mod", "Gemfile", "Cargo.toml",
+)
+
+
+def _collect_manifests(files: List[Dict[str, str]]) -> List[Dict[str, str]]:
+    """Pick out build manifests from the generated tree."""
+    out = []
+    for f in files:
+        path = f.get("path", "") or ""
+        base = path.rsplit("/", 1)[-1]
+        if base in _MANIFEST_NAMES or base.endswith(".csproj"):
+            out.append({"path": path, "content": f.get("content", "") or ""})
+    return out
+
+
+async def _run_devops_dependency_check(
+    transform_id: str,
+    compile_result: Dict[str, Any],
+    model: str = None,
+) -> Dict[str, Any]:
+    """Audit the generated build manifests for production readiness.
+
+    This is the DevOps agent's *proactive* mode, distinct from the
+    escalation persona the compile-fix loop pulls in on a stagnant build.
+    A green compile only proves the code builds on this machine today; it
+    says nothing about unpinned versions or duplicate/conflicting
+    declarations that make the build irreproducible tomorrow.
+
+    Deterministic first (unpinned + duplicate detection is decidable),
+    then an LLM pass for judgement calls.
+    """
+    run_id = await _log_agent_run(
+        transform_id, "devops_expert", "dependency-audit",
+        input_summary="Auditing generated build manifests for production readiness",
+    )
+    t0 = datetime.now(timezone.utc)
+
+    cursor = transform_files.find(
+        {"transform_id": transform_id, "type": "transformed"},
+        {"path": 1, "content": 1},
+    )
+    all_files = [{"path": d.get("path", ""), "content": d.get("content", "")}
+                 async for d in cursor]
+    manifests = _collect_manifests(all_files)
+
+    findings: List[Dict[str, str]] = []
+    if not manifests:
+        findings.append({
+            "severity": "major", "manifest": "",
+            "issue": "No build manifest found in the generated tree — the output cannot be built reproducibly.",
+        })
+
+    # ── Deterministic checks ──────────────────────────────────────────
+    for m in manifests:
+        path, content = m["path"], m["content"]
+        base = path.rsplit("/", 1)[-1]
+
+        if base == "requirements.txt":
+            for line in content.splitlines():
+                dep = line.strip()
+                if not dep or dep.startswith("#") or dep.startswith("-"):
+                    continue
+                if not re.search(r"[=<>~!]=|@", dep):
+                    findings.append({
+                        "severity": "major", "manifest": path,
+                        "issue": f"'{dep}' is unpinned — the build is not reproducible.",
+                    })
+        elif base == "package.json":
+            try:
+                pkg = json.loads(content) if content.strip() else {}
+                for sect in ("dependencies", "devDependencies"):
+                    for name, ver in (pkg.get(sect) or {}).items():
+                        if isinstance(ver, str) and ver.strip() in {"*", "latest", ""}:
+                            findings.append({
+                                "severity": "critical", "manifest": path,
+                                "issue": f"{sect}.{name} is '{ver}' — a floating version can change the build without a code change.",
+                            })
+            except Exception:  # noqa: BLE001
+                findings.append({
+                    "severity": "critical", "manifest": path,
+                    "issue": "package.json is not valid JSON — npm/yarn cannot install.",
+                })
+        elif base == "pom.xml":
+            arts = re.findall(r"<artifactId>\s*([^<]+?)\s*</artifactId>", content)
+            dupes = sorted({a for a in arts if arts.count(a) > 1})
+            for a in dupes:
+                findings.append({
+                    "severity": "major", "manifest": path,
+                    "issue": f"artifactId '{a}' is declared more than once — Maven resolves one and silently drops the other.",
+                })
+
+    det_critical = sum(1 for f in findings if f["severity"] == "critical")
+
+    # ── LLM judgement pass ────────────────────────────────────────────
+    llm_result: Dict[str, Any] = {}
+    try:
+        prompt_template = await _get_effective_prompt(transform_id, "devops_audit")
+        if not prompt_template:
+            prompt_template = (
+                "You are a DevOps engineer auditing build manifests for "
+                "production readiness. Return JSON."
+            )
+        model = await _get_effective_model(transform_id, "devops_audit", model)
+        digest = "\n\n".join(
+            f"===== {m['path']} =====\n{m['content'][:4000]}" for m in manifests[:8]
+        )
+        response = await fabric_call(
+            messages=[
+                {"role": "system", "content": prompt_template},
+                {"role": "user", "content":
+                    "Audit these generated build manifests for production readiness.\n\n"
+                    f"Compile status: {'PASSED' if compile_result.get('compilation_ready') else 'FAILED'}\n"
+                    f"Deterministic findings already known: {json.dumps(findings)[:3000]}\n\n"
+                    f"{digest[:20000]}\n\n"
+                    "Return ONLY the JSON described in your system prompt."},
+            ],
+            model=model,
+            agent_key="tools.transformer.devops_expert",
+            project_id=await _project_id_for_transform(transform_id),
+            temperature=0.1,
+            max_tokens=6000,
+            response_format={"type": "json_object"},
+        )
+        text = response.get("content", "") if isinstance(response, dict) else str(response)
+        llm_result = _extract_json_object(text) or {}
+    except Exception as exc:  # noqa: BLE001
+        llm_result = {"summary": f"LLM dependency audit unavailable: {str(exc)[:200]}"}
+
+    extra = llm_result.get("findings") if isinstance(llm_result.get("findings"), list) else []
+    for _f in extra:
+        if isinstance(_f, dict):
+            for _k in ("issue", "fix", "severity", "manifest"):
+                _v = _f.get(_k)
+                if _v is not None and not isinstance(_v, str):
+                    _f[_k] = json.dumps(_v) if isinstance(_v, (dict, list)) else str(_v)
+
+    production_ready = bool(
+        compile_result.get("compilation_ready")
+        and det_critical == 0
+        and not any((f or {}).get("severity") == "critical" for f in extra if isinstance(f, dict))
+    )
+
+    summary = llm_result.get("summary")
+    if summary is not None and not isinstance(summary, str):
+        summary = json.dumps(summary)
+    if not summary:
+        summary = (
+            f"{len(manifests)} manifest(s) audited; "
+            f"{det_critical} critical, {len(findings) - det_critical} non-critical finding(s)."
+        )
+
+    result = {
+        "production_ready": production_ready,
+        "manifests_audited": [m["path"] for m in manifests],
+        "deterministic": findings,
+        "findings": extra,
+        "summary": summary,
+    }
+
+    await _update_agent_run(
+        run_id, status="completed",
+        output_summary=(
+            f"{'production-ready' if production_ready else 'NOT production-ready'} — "
+            f"{len(findings)} deterministic, {len(extra)} model-reported"
+        ),
+        duration_ms=int((datetime.now(timezone.utc) - t0).total_seconds() * 1000),
+    )
+    await transformations.update_one(
+        {"_id": transform_id}, {"$set": {"dependency_audit": result}},
+    )
+    return result
+
+
 async def _run_multi_agent_transformation(
     transform_id: str,
     model: str = None,
@@ -8981,6 +9325,36 @@ async def _continue_multi_agent_after_task_confirm(
         envelope_docs = await transformer_envelopes.find({"transform_id": transform_id}).to_list(500)
         envelopes_by_id = {e.get("envelope_id"): e for e in envelope_docs if e.get("envelope_id")}
 
+        # Load task docs from DB (persisted by planner, already reviewed)
+        task_cursor = transformer_tasks.find(
+            {"transform_id": transform_id}
+        ).sort("wave", 1)
+        task_docs = await task_cursor.to_list(2000)
+
+        # ── Phase 2.5: Validator — gate the plan before spending coder
+        # tokens. Never hard-stops (the operator already confirmed these
+        # tasks at the iter-15.28 gate); a REJECT is surfaced as a
+        # warning on the transformation so it can be fixed on a rerun.
+        await _update_progress(
+            transform_id,
+            status="running",
+            phase="validator",
+            phase_label="Validator: Checking the task plan",
+            progress_pct=24,
+        )
+        try:
+            _plan_check = await _run_validator(
+                transform_id, task_docs, envelope_docs, model,
+            )
+            if _plan_check.get("verdict") == "REJECT":
+                _emit_log(
+                    transform_id, "warn",
+                    f"Validator rejected the plan: {_plan_check.get('summary', '')}",
+                    agent="validator", phase="plan-validation",
+                )
+        except Exception as _ve:  # noqa: BLE001 — a gate must not kill the run
+            log.warning("Validator skipped for %s: %s", transform_id, _ve)
+
         # ── Phase 3: Coder + Verifier (wave by wave) ────────────────
         await _update_progress(
             transform_id,
@@ -8992,12 +9366,6 @@ async def _continue_multi_agent_after_task_confirm(
 
         # Build source file index for fast lookup
         src_by_path = {f.get("path", ""): f.get("content", "") for f in src_files}
-
-        # Load task docs from DB (persisted by planner, already reviewed)
-        task_cursor = transformer_tasks.find(
-            {"transform_id": transform_id}
-        ).sort("wave", 1)
-        task_docs = await task_cursor.to_list(2000)
 
         # Clear any previous transformed/error files
         await transform_files.delete_many({
@@ -9020,10 +9388,20 @@ async def _continue_multi_agent_after_task_confirm(
         # wall-clock of a 200-file wave by ~80% on Factory Droid and by
         # ~65% on an OpenRouter provider (bottleneck flips from LLM
         # round-trip latency to provider rate-limits).
-        try:
-            _coder_concurrency = int(os.environ.get("LAMA_CODER_MAX_CONCURRENCY", "6") or "6")
-        except ValueError:
-            _coder_concurrency = 6
+        # The default of 6 is sized for a cloud endpoint. A local Ollama
+        # daemon serves far fewer concurrent generations and QUEUES the
+        # rest — and a queued request still burns its own timeout while
+        # it waits, so over-fanning a local engine turns throughput into
+        # 600s timeouts. Drop to 2 when the default provider is local.
+        # An explicit LAMA_CODER_MAX_CONCURRENCY always wins.
+        _conc_env = os.environ.get("LAMA_CODER_MAX_CONCURRENCY", "")
+        if _conc_env.strip():
+            try:
+                _coder_concurrency = int(_conc_env)
+            except ValueError:
+                _coder_concurrency = 6
+        else:
+            _coder_concurrency = 2 if await active_default_provider_is_local() else 6
         _coder_concurrency = max(1, min(_coder_concurrency, 32))
         coder_semaphore = asyncio.Semaphore(_coder_concurrency)
 
@@ -9443,6 +9821,33 @@ async def _continue_multi_agent_after_task_confirm(
             "Pipeline finished — compilation errors remain, click Rerun compile"
         )
 
+        # ── Phase 4.5: DevOps dependency audit ──────────────────────
+        # A green compile proves the code builds here today; it says
+        # nothing about unpinned or conflicting dependency declarations
+        # that make the build irreproducible tomorrow. This is the DevOps
+        # agent's proactive mode (its other mode is the escalation
+        # persona inside the compile-fix loop).
+        dependency_audit = None
+        try:
+            await _update_progress(
+                transform_id,
+                status="running",
+                phase="devops",
+                phase_label="DevOps: Auditing dependencies",
+                progress_pct=97,
+            )
+            dependency_audit = await _run_devops_dependency_check(
+                transform_id, compilation_result or {}, model,
+            )
+            if not dependency_audit.get("production_ready"):
+                _emit_log(
+                    transform_id, "warn",
+                    f"DevOps audit: not production-ready — {dependency_audit.get('summary', '')}",
+                    agent="devops_expert", phase="dependency-audit",
+                )
+        except Exception as _de:  # noqa: BLE001 — a gate must not kill the run
+            log.warning("DevOps dependency audit skipped for %s: %s", transform_id, _de)
+
         result = {
             "files_processed": total,
             "files_transformed": done_count,
@@ -9450,6 +9855,8 @@ async def _continue_multi_agent_after_task_confirm(
             "avg_confidence": avg_confidence,
             "compilation_result": compilation_result,
             "compile_green": compile_green,
+            "dependency_audit": dependency_audit,
+            "production_ready": bool((dependency_audit or {}).get("production_ready")),
             "status": final_status,
         }
 

@@ -29,6 +29,7 @@ from llm import fabric_call as chat_completion
 from llm import fabric_call_with_session  # iter-13.100 — rolling-memory sessions
 from llm import set_current_project_id  # iter-13.38 — Factory.ai context propagation
 from llm import set_current_agent_key   # iter-13.81.3 — per-pipeline-step Factory bucket override
+from llm import active_default_provider_is_local  # fan-out sizing for local engines
 from kb.vector_store import (
     search as qdrant_search,
     search_by_entities as qdrant_search_by_entities,
@@ -8991,6 +8992,139 @@ def _extract_json_object(text: str) -> Optional[Dict[str, Any]]:
 # Core coroutines — invoked as FastAPI background tasks
 # ══════════════════════════════════════════════════════════════════════════
 
+def _split_pivot_route(pivot: str) -> tuple:
+    """'POST /api/register' -> ('POST', '/api/register'). Verb optional."""
+    parts = (pivot or "").strip().split(None, 1)
+    if len(parts) == 2 and parts[0].isalpha():
+        return parts[0].upper(), parts[1]
+    return "ANY", (parts[0] if parts else "")
+
+
+async def _journey_codegen_envelopes(project_id: str) -> List[Dict[str, Any]]:
+    """iter-18.1 — Build envelopes from `kb_journeys` (the graph walk).
+
+    A journey is a *vertical migration unit* materialised deterministically
+    from `kb_graph` + `kb_entities`: it inherits, for one route or one
+    screen, the whole chain the legacy code actually used --
+    controller -> service -> repository -> tables -> columns, plus the
+    roles guarding the route and the business-rule ids attached to those
+    sources. That is strictly richer than the `arch_services` path, which
+    knows the endpoint list but has to leave `db_tables` best-effort and
+    `br_ids` EMPTY.
+
+    The empty `br_ids` mattered more than it looked: the traceability gate
+    computes coverage as `envelope.br_ids & task.br_ids`, so with every
+    envelope carrying `[]` the expected set was empty and the gate scored
+    a vacuous 100% on every run. Journey-derived envelopes give it real
+    ids to check.
+
+    Returns [] when the journey KB is off or nothing has been
+    materialised, so the caller falls through to `arch_services`.
+    """
+    try:
+        from kb.journey_config import is_journey_kb_enabled
+        if not await is_journey_kb_enabled(project_id):
+            return []
+        from kb.journey_materializer import load_journeys
+        journeys = await load_journeys(project_id, limit=2000)
+    except Exception as exc:  # noqa: BLE001 — never block CodeGen on the graph
+        logger.debug("journey envelopes unavailable for %s: %s", project_id, exc)
+        return []
+
+    if not journeys:
+        return []
+
+    envelopes: List[Dict[str, Any]] = []
+    seq = 0
+    for j in journeys:
+        kind = (j.get("kind") or "").lower()
+        if kind not in ("api", "ui"):
+            continue  # `column` journeys belong to DataModel, not CodeGen
+
+        verb, path = _split_pivot_route(j.get("pivot_route") or "")
+        if not path:
+            continue
+
+        classes = list(j.get("classes_touched") or [])
+        tables = list(j.get("tables") or [])
+        roles = list(j.get("roles") or [])
+        brs = list(j.get("business_rules") or [])
+        columns = list(j.get("columns") or [])
+        is_ui = kind == "ui"
+        side = "frontend" if is_ui else "backend"
+
+        # The graph walk gives us the inheritance chain in order:
+        # classes_touched is [controller, service, repository, ...].
+        controller = classes[0] if classes else ""
+        service = classes[1] if len(classes) > 1 else ""
+        repository = classes[2] if len(classes) > 2 else ""
+
+        trace_steps = [
+            str(t.get("name") or t.get("node_type") or "")
+            for t in (j.get("trace") or [])
+            if isinstance(t, dict)
+        ]
+        chain = " -> ".join([c for c in trace_steps if c][:8])
+
+        acceptance = [
+            f"Endpoint {verb} {path} responds with the target contract shape."
+        ]
+        if tables:
+            acceptance.append(
+                f"Persistence covers {', '.join(tables[:6])} with equivalent semantics."
+            )
+        if roles:
+            acceptance.append(
+                f"Access remains restricted to {', '.join(roles[:6])}."
+            )
+        if brs:
+            acceptance.append(
+                f"Business rules {', '.join(brs[:8])} are enforced."
+            )
+        if is_ui and j.get("ui_fields"):
+            acceptance.append(
+                f"Form fields {', '.join(list(j['ui_fields'])[:8])} are present and validated."
+            )
+
+        seq += 1
+        envelopes.append({
+            "envelope_id": j.get("journey_id") or f"ENV-J-{seq:04d}",
+            "endpoint_method": verb,
+            "endpoint_path": path,
+            "controller_class": controller,
+            "controller_file": "",
+            "service_class": service,
+            "service_file": "",
+            "service_method": "",
+            "business_logic_summary": (
+                f"Migrated from the legacy {kind} journey {j.get('journey_id', '')} "
+                f"({verb} {path}). Graph chain: {chain or 'not traced'}. "
+                f"Touches {len(tables)} table(s), {len(columns)} column(s)."
+            ),
+            "repository_class": repository,
+            "repository_file": "",
+            "db_tables": tables,
+            "db_operations": [],
+            "external_calls": [],
+            "files_affected": [],
+            "action": "NEW",
+            "risk_level": "high" if len(brs) > 3 else ("medium" if brs or tables else "low"),
+            "layer": "page" if is_ui else "controller",
+            "side": side,
+            "acceptance_criteria": acceptance,
+            # The whole point: real ids, so the traceability gate is not vacuous.
+            "br_ids": brs,
+            "_service_name": "",
+            "_backend_lang": "",
+            "_journey_id": j.get("journey_id") or "",
+            "_journey_kind": kind,
+            "_roles": roles,
+            "_columns": columns[:60],
+        })
+
+    return envelopes
+
+
 async def _deterministic_codegen_envelopes(project_id: str) -> List[Dict[str, Any]]:
     """iter-17.2 — Build envelopes directly from `arch_services` (which
     already carries the frozen Legacy → New API mapping produced during
@@ -9172,21 +9306,38 @@ async def _run_multi_agent_codegen(project_id: str, model: Optional[str] = None)
         # against Ollama at the 600s ceiling.
         det_run_id = await _log_codegen_agent_run(
             project_id, "context_manager", "discover",
-            input_summary="Deterministic pass over arch_services.api_endpoints + routes_detail",
+            input_summary="Deterministic pass: kb_journeys graph walk, else arch_services",
         )
+        # iter-18.1 — Journeys first. A journey carries the whole
+        # inherited chain for one route/screen (controller -> service ->
+        # repository -> tables -> columns, plus roles and BR ids), so the
+        # envelope it produces is strictly richer than the arch_services
+        # one — which has to leave `br_ids` empty and `db_tables`
+        # best-effort. Falls through when the graph has not been built.
+        _envelope_source = "journeys"
         try:
-            det_envelopes = await _deterministic_codegen_envelopes(project_id)
-        except Exception as _det_exc:  # never let the deterministic path kill the pipeline
-            logger.exception("deterministic envelope build failed: %s", _det_exc)
+            det_envelopes = await _journey_codegen_envelopes(project_id)
+        except Exception as _j_exc:  # noqa: BLE001
+            logger.exception("journey envelope build failed: %s", _j_exc)
             det_envelopes = []
+
+        if len(det_envelopes) < 3:
+            _envelope_source = "arch_services"
+            try:
+                det_envelopes = await _deterministic_codegen_envelopes(project_id)
+            except Exception as _det_exc:  # never let the deterministic path kill the pipeline
+                logger.exception("deterministic envelope build failed: %s", _det_exc)
+                det_envelopes = []
 
         if len(det_envelopes) >= 3:
             envelopes = det_envelopes
+            _with_brs = sum(1 for e in envelopes if e.get("br_ids"))
             await _update_codegen_agent_run(
                 det_run_id, status="completed",
                 output_summary=(
                     f"Discovered {len(envelopes)} envelope(s) deterministically "
-                    "from Architecture mapping — no LLM call needed."
+                    f"from {_envelope_source} — no LLM call needed. "
+                    f"{_with_brs} carry business-rule ids."
                 ),
                 details={"source": "deterministic", "envelope_count": len(envelopes)},
             )
@@ -10218,12 +10369,19 @@ async def _continue_multi_agent_codegen_after_task_confirm(
             # LLM provider and trip rate limits, but still get real
             # concurrency inside a wave. Tune via `LAMA_CODEGEN_PARALLELISM`
             # (default 6).
-            try:
-                _parallelism = int(
-                    os.environ.get("LAMA_CODEGEN_PARALLELISM") or "6"
-                )
-            except Exception:
-                _parallelism = 6
+            # 6 is sized for a cloud endpoint. A local Ollama daemon
+            # queues what it cannot serve concurrently, and a queued
+            # request still burns its own timeout — so over-fanning a
+            # local engine produces timeouts, not speed. An explicit
+            # LAMA_CODEGEN_PARALLELISM always wins.
+            _par_env = os.environ.get("LAMA_CODEGEN_PARALLELISM", "")
+            if _par_env.strip():
+                try:
+                    _parallelism = int(_par_env)
+                except Exception:
+                    _parallelism = 6
+            else:
+                _parallelism = 2 if await active_default_provider_is_local() else 6
             _parallelism = max(1, min(_parallelism, 32))
             _sem = asyncio.Semaphore(_parallelism)
 

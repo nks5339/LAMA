@@ -11735,3 +11735,357 @@ nested collapsible directory tree + Monaco editor + Code Chat panel.
 **Operator:** Reload the Code Generation page — the Multi-Agent viewer
 now shows the nested folder tree matching Quick Generate and the Code
 Chat panel is available for on-file refactors.
+
+---
+
+## iter-18 — Local-provider survivability + Validator and DevOps dependency gates
+
+**Trigger:** An operator's Transformer run against a local Ollama sat for
+~80 minutes making no progress. The backend log showed the same prompts
+being re-issued on a 600-second cadence.
+
+### 18.1 — The futile retry (the actual bug)
+
+`fabric_chat_with_failover` deliberately re-raises timeouts/5xx **without**
+walking the remaining providers ("Bugs, 5xx and timeouts get re-raised so
+they're not silently masked"). So on a timeout only the pinned/default
+provider was ever attempted.
+
+The iter-13.115 Ollama-first fallback then fired with no check on *which*
+provider had just failed. When the default provider already **was** the
+Ollama one the fallback selects, it re-issued the identical prompt to the
+identical endpoint — which cannot succeed and costs a second full
+timeout. Evidence from the operator's log, fallback lines landing exactly
+600 s after the primary call with byte-identical prompt sizes:
+
+```
+06:24:15.295  primary   11220-char prompt, qwen3:4b
+06:34:15.334  fallback  11220-char prompt, qwen3:4b     Δ 600.04s
+06:41:06.243  primary    7915-char prompt, qwen3:4b
+06:51:06.337  fallback   7915-char prompt, qwen3:4b     Δ 600.09s
+06:07:57.446  WARNING   "Ollama fallback via Ollama (local) failed:
+                         Agent 'tools.transformer.coder' timed out after 600.0s"
+```
+
+**Fix** (`backend/llm.py`): `_try_ollama_fallback` takes
+`exclude_provider_ids`; the call site resolves the provider fabric
+actually attempted (pinned → default) and excludes it. A local timeout
+now fails fast instead of doubling. The legitimate case — a *cloud*
+primary failing over to local Ollama — is unaffected and pinned by test.
+
+Also extracted `_is_ollama_shaped()`; the same five-line predicate had
+been copy-pasted three times (the fallback selector plus both iter-13.114
+guards) and could have drifted apart.
+
+### 18.2 — Fan-out sized for the engine, not the cloud
+
+Root cause of the timeouts themselves: `LAMA_CODER_MAX_CONCURRENCY` and
+`LAMA_CODEGEN_PARALLELISM` both default to **6**, sized against cloud
+rate limits. A single Ollama daemon queues what it cannot serve, and a
+queued request still burns its own timeout while waiting — so the fan-out
+converted throughput into timeouts. Six simultaneous calls are visible in
+the operator's log at 05:47:57.
+
+New `llm.active_default_provider_is_local()`; both pipelines now default
+to **2** when the active default provider is local, 6 otherwise. An
+explicit env var always wins — this only changes the *default*.
+
+### 18.3 — Validator wired in (was dead since iter-16)
+
+`tools.transformer.validator` had a seeded prompt AND a Console
+`agent_configs` row, but no entry in `AGENT_PROMPT_KEYS` — so
+`_get_effective_prompt` resolved it to `""` and nothing ever called it.
+
+Now a real **plan gate between Planner and Coder**, which is where it
+earns its keep (the Verifier already checks generated code, so validating
+code here would have duplicated it). Deterministic checks run first and
+are authoritative — missing/duplicate `target_path`, orphaned envelope
+refs, uncovered envelopes, non-contiguous waves — then an LLM pass
+reviews decomposition quality. A deterministic CRITICAL cannot be voted
+away by the model. Prompt rev'd 1.0 → 2.0 to match the new role.
+
+**Non-fatal by contract**: a REJECT is surfaced as a warning, never
+raised, because the operator already confirmed these tasks at the
+iter-15.28 gate.
+
+### 18.4 — DevOps dependency audit (new stage, Phase 4.5)
+
+The DevOps agent previously existed only as a stagnation-triggered
+escalation persona *inside* the compile-fix loop. It now also has a
+proactive mode after compilation: a green compile proves the code builds
+on one machine today, and says nothing about unpinned or conflicting
+declarations that make the build irreproducible tomorrow.
+
+Deterministic first (unpinned pip deps, floating npm versions, duplicate
+Maven artifactIds, missing manifests), then an LLM pass for the judgement
+calls static parsing cannot make (cross-module conflicts, scope errors,
+EOL majors). Writes `transformation.dependency_audit` and surfaces
+`result.production_ready`. A red compile is **never** production-ready
+regardless of what the model says.
+
+New prompt key `tools.transformer.devops_audit` (tier `high`), kept
+separate from `devops_expert` whose prompt is explicitly written around
+"the Coder already tried and failed".
+
+### Verification
+
+- `pytest backend/tests/` → **857 passed, 129 skipped** (was 847 before
+  the two new suites).
+- `ruff check backend` → clean. `pyflakes` on all changed files → clean
+  (the one `_severity_for` warning predates this work, confirmed against
+  `git show HEAD`).
+- New: `test_iter13115_ollama_fallback_guard.py` (10), 
+  `test_iter18_validator_devops_stages.py` (10).
+- `test_iter1519_agent_pipeline_config.py` roster updated 7 → 9. That
+  assertion has expanded deliberately before (6 → 7 at iter-15.62); the
+  docstring now records both expansions.
+
+**Operator:** if a run still times out on a local engine, set
+`LAMA_CODER_MAX_CONCURRENCY=1`. The fallback no longer doubles the wait,
+so a genuine local timeout now surfaces in ~600 s instead of ~1200 s.
+
+---
+
+## iter-18.1 — Journeys become the unit of work for CodeGen task division
+
+**Why now:** the journey KB has existed since iter-14.24 but was opt-in
+(`LAMA_USE_JOURNEY_KB` default OFF) and, when on, only injected a *prompt
+context slice*. Task division still came from `arch_services`. So the
+graph walk — the richest structure in the KB — was never the unit of work
+it was designed to be.
+
+### The vacuous traceability gate
+
+`_deterministic_codegen_envelopes` sets `"br_ids": []` on **every**
+envelope (routes/codegen.py). The traceability gate computes
+
+```
+expected        = union(envelope.br_ids)
+coverage_pct    = 100.0 if not expected else ...
+```
+
+With `expected` always empty, the gate scored a **vacuous 100% on every
+run**. It was not measuring anything. This is the concrete cost of not
+using journeys: they are the only structure carrying real BR ids.
+
+### What a journey inherits
+
+`kb/journey_materializer.py` walks `kb_graph` + `kb_entities`
+deterministically (no LLM) and emits one vertical unit per route or
+screen, carrying the whole chain the legacy code actually used:
+
+```
+Route  ->  controller -> service -> repository  ->  tables -> columns
+           + roles guarding the route
+           + business-rule ids attached to those sources
+```
+
+`classes_touched` is ordered, so `[0]/[1]/[2]` map cleanly onto
+`controller_class` / `service_class` / `repository_class` — fields the
+arch_services path left blank.
+
+### Changes
+
+- `kb/journey_config.py::_env_default_enabled` → default **ON**.
+  Materialisation is deterministic and callers degrade to arch_services
+  when `kb_journeys` is empty, so this cannot break a project with no
+  graph.
+- New `routes/codegen.py::_journey_codegen_envelopes(project_id)`.
+  `api` journeys → backend envelopes, `ui` → frontend, `column` skipped
+  (those belong to DataModel). Roles/tables/BRs become real acceptance
+  criteria; `risk_level` keys off BR count.
+- Envelope selection is now journeys → arch_services → LLM. The
+  context_manager run summary reports which source won and how many
+  envelopes carry BR ids.
+
+---
+
+## iter-18.2 — Azure primary, Ollama fallback, seeded at startup
+
+**Ask:** "ensure azure as the primary llm used and ollama as fallback
+while the application starts, if some changes is done by the user then
+act accordingly."
+
+`model_providers` had **no** seeding at all — providers were Console-only,
+so a fresh install booted with zero providers and every generation call
+failed until an operator configured one by hand.
+
+New `seed.py::seed_providers()`, called from `run_seed()`. Contract is
+*the operator always wins*:
+
+- An existing provider of a given type is **never** modified — not its
+  key, not its routing, not its active flag.
+- `is_default` is only set when **no** provider currently holds it. A
+  deliberate Console choice is never overridden on the next restart.
+- Azure seeds **active only when `AZURE_API_KEY` + `AZURE_ENDPOINT` are
+  actually present**. Seeding an active provider with no credentials
+  would reproduce the documented footgun (`is_active=True` + invalid key
+  → cascade of 401s). Without them it lands inactive and pre-filled.
+- Ollama needs no key, so it seeds active at priority 2 and is
+  immediately usable as the fallback `_try_ollama_fallback` looks for.
+
+Note `priority` is set on the dict *after* `model_dump()` — `ModelProvider`
+is `extra="ignore"`, so assigning it before would silently drop it. It is
+a Mongo-only field that `fabric_chat_with_failover` sorts on.
+
+With iter-18's exclusion guard, the chain now behaves correctly: Azure
+fails → fallback picks Ollama (a *different* provider, so not excluded)
+→ real failover. Previously, had both been local, it would have retried
+the same endpoint.
+
+### Verification
+
+- `pytest backend/tests/` → **869 passed, 129 skipped**.
+- `ruff check backend` → clean.
+- New `test_iter18_providers_and_journeys.py` (12) pins: the inherited
+  chain, BR ids reaching the envelope, ui→frontend, column journeys
+  excluded, toggle default, graph failure never blocking CodeGen, and
+  all four seeding contracts including idempotency across three runs.
+
+**Correction to the architecture docs:** `PROVIDER_PRESETS` has **8**
+keys (`openrouter, anthropic, openai, azure, gemini, groq, ollama,
+custom`), not the "5 vendor presets" an earlier windowed grep reported.
+Azure and Gemini were missed. The operator corrected the diagram source,
+delivered HTML, handbook and report before this entry was written.
+
+---
+
+## iter-18.3 — Azure tier map, overflow failover, sanctioned codegen models
+
+Operator supplied the Azure deployment list (13 deployments, 250k TPM) and
+the approved local model set, and asked for complexity-based assignment
+with an automatic fall back to Ollama on context / output limits.
+
+### Azure catalogue and tiers
+
+`PROVIDER_PRESETS["azure"]` carried `model_catalogue: []` and empty
+`default_models`, because Azure's routable id is the operator-chosen
+DEPLOYMENT name and there was no vendor-fixed catalogue to seed. Now
+populated with the operator's ten chat deployments and mapped by tier:
+
+| tier | deployment |
+|---|---|
+| low | `gpt-4.1-mini` |
+| medium | `gpt-4.1` |
+| high | `gpt-5.1` |
+
+`AZURE_DEPLOYMENT` still overrides all three, so a single-deployment
+account behaves exactly as before. `seed_providers` now seeds the
+catalogue and the tier map instead of pointing all three tiers at one
+deployment.
+
+The two embedding deployments live in a separate `embedding_catalogue`.
+They are NOT chat models and `resolve_model` routes `/chat/completions`
+only — embeddings still run through sentence-transformers or Ollama
+(`nomic-embed-text`, already the default). `dall-e-3` is omitted: LAMA
+has no image path.
+
+Reasoning handling was already correct — `_is_reasoning_model` matches
+`o1/o3/o4` and gpt-5, and `token_limit_field()` sends
+`max_completion_tokens`, which those deployments require.
+
+### Context / output overflow now fails over
+
+`fabric_chat_with_failover` recovered from exactly three error classes:
+billing, auth, rate limit. A context-length or max-output error was
+re-raised — so an oversized Azure prompt never reached Ollama, which is
+precisely the case the operator asked to be covered.
+
+New `_is_context_error()` + `_CONTEXT_MARKERS`, added to the recoverable
+set at BOTH failover sites (first attempt and the provider walk). It keys
+off the provider's own error text rather than a hardcoded context table,
+because published limits drift and the provider is authoritative. The
+catalogue's `context_window` is therefore display/sizing only.
+
+Timeouts deliberately still re-raise: a timeout is not fixed by trying a
+different model, and iter-18 already proved retrying one costs a second
+full 600s.
+
+### Sanctioned local code-generation models
+
+`OLLAMA_CODEGEN_MODELS = (qwen3.5:latest, llama3.1:latest, gpt-oss:latest)`
+with `_coerce_ollama_codegen_model()` applied inside `resolve_model`. A
+codegen agent on a LOCAL provider is forced onto this set whatever
+routing or an override resolved to — a 4B general model can hold a
+conversation but emits code that does not compile.
+
+Two deliberate exemptions:
+- **Cloud providers** are never coerced. Azure's tier map already sends
+  codegen to a capable deployment; overriding an operator's cloud choice
+  would be overreach.
+- **Ollama `-cloud` models** are exempt. `gpt-oss:120b-cloud` and
+  `deepseek-v3.1:671b-cloud` are large and require cloud auth, so they
+  are a deliberate choice, not the weak-local-model case this guards.
+  This surfaced as a real regression: the first implementation broke
+  `test_iter1421_codegen_ownership.py` by swapping `gpt-oss:20b-cloud`
+  for `qwen3.5:latest`. Same `-cloud` exemption
+  `_check_and_upgrade_model_for_context` already makes.
+
+Verifier / reviewer / tester are NOT codegen agents — they read code but
+emit JSON verdicts, so they stay on the light models.
+
+Ollama tiers rebalanced to the approved set: `low=qwen3:4b`,
+`medium=qwen2.5-coder:7b`, `high=qwen3.5:latest`. Catalogue gains
+`qwen3.5:latest`, `llama3.1:latest`, `gpt-oss:latest`,
+`nomic-embed-text:latest`.
+
+### Verification
+
+- `pytest backend/tests/` → **905 passed, 129 skipped**.
+- `ruff check backend` → clean.
+- New `test_iter183_azure_tiers_and_fallback.py` (36) pins the catalogue,
+  the tier ladder, `max_completion_tokens` for reasoning deployments,
+  seven overflow phrasings recognised and five unrelated errors rejected,
+  the timeout non-regression, codegen coercion for five agent keys, both
+  exemptions, and the embedding default.
+
+### iter-18.3 addendum — deep-test finding: AZURE_DEPLOYMENT flattened the ladder
+
+Caught on a live boot, not by the unit tests. The operator's `backend/.env`
+carries `AZURE_DEPLOYMENT=gpt-5.1`, and both the preset and
+`seed_providers` treated it as a uniform override:
+
+```
+routing = {'low': 'gpt-5.1', 'medium': 'gpt-5.1', 'high': 'gpt-5.1'}
+```
+
+Every agent — `srs.gap_question`, `codegen.finalizer`, everything — resolved
+to gpt-5.1. Complexity-based routing was present in the code and dead in
+practice. The tests passed because they asserted on the preset default,
+which is only reached when `AZURE_DEPLOYMENT` is unset.
+
+Precedence is now, highest first:
+
+1. `AZURE_DEPLOYMENT_{LOW,MEDIUM,HIGH}` — per-tier, explicit
+2. the ladder — `gpt-4.1-mini` / `gpt-4.1` / `gpt-5.1`
+3. `AZURE_DEPLOYMENT` — fills only a tier the ladder left empty
+
+Verified live against a booted instance with the operator's real `.env`:
+
+```
+srs.gap_question        -> gpt-4.1-mini  [azure]
+srs.generate            -> gpt-4.1       [azure]
+codegen.coder_be        -> gpt-5.1       [azure]
+base_url .../openai/deployments/gpt-5.1   params {'api-version': '2023-07-01-preview'}
+GET /api/health/providers -> {"generation":{"chosen":"azure", ...}}
+```
+
+Codegen coercion verified live too: with a codegen agent pinned to Ollama
+and routing forced to `qwen3:4b`, `resolve_model` returned
+`qwen3.5:latest`, while `codegen.verifier` on the same provider correctly
+kept `qwen2.5-coder:7b`.
+
+Two regression tests added (38 in the suite): AZURE_DEPLOYMENT must not
+flatten the ladder, and per-tier env vars win.
+
+### Deep-test sweep
+
+- `pytest backend/tests/` → **907 passed, 129 skipped**
+- `ruff check backend` → clean; `pyflakes` on changed files → clean
+  (`_severity_for` predates this work)
+- `import server` → 312 routes registered
+- live `uvicorn` boot → `/api/health` ok, **0 tracebacks** in the boot log
+- `yarn lint` → 0 errors (44 pre-existing warnings)
+- `yarn build` → succeeds
+- test DB `lama_deeptest` dropped; the real `lama` database was never
+  written to during the sweep

@@ -91,28 +91,66 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
         # prefix, so they cannot be auto-detected from the key alone.
         # Selecting "azure" in the Console is required.
         "key_prefix": "",
-        # On Azure the routable identifier is the DEPLOYMENT name, which the
-        # operator chooses. There is no vendor-fixed catalogue to seed, so
-        # all three tiers default to the configured deployment and the
-        # operator splits them later if they deploy more than one.
+        # iter-18.3 — Tier map for the operator's actual deployment set.
+        # On Azure the routable identifier is the DEPLOYMENT name; these
+        # are the conventional names matching the published model ids, so
+        # they work as-is when deployments are named after their model.
+        # AZURE_DEPLOYMENT still overrides all three when set, which keeps
+        # a single-deployment account working exactly as before.
+        # Precedence, highest first:
+        #   1. AZURE_DEPLOYMENT_{LOW,MEDIUM,HIGH} — per-tier, explicit.
+        #   2. the ladder below — the point of complexity-based routing.
+        #   3. AZURE_DEPLOYMENT — single-deployment accounts only, and it
+        #      fills a tier ONLY if the ladder left it empty.
+        # AZURE_DEPLOYMENT deliberately does NOT collapse all three tiers:
+        # doing so silently defeats tier routing on a multi-deployment
+        # account, which is the normal case for this operator.
         "default_models": {
-            "low": os.environ.get("AZURE_DEPLOYMENT", ""),
-            "medium": os.environ.get("AZURE_DEPLOYMENT", ""),
-            "high": os.environ.get("AZURE_DEPLOYMENT", ""),
+            "low": os.environ.get("AZURE_DEPLOYMENT_LOW", "") or "gpt-4.1-mini",
+            "medium": os.environ.get("AZURE_DEPLOYMENT_MEDIUM", "") or "gpt-4.1",
+            "high": os.environ.get("AZURE_DEPLOYMENT_HIGH", "") or "gpt-5.1",
         },
         # Cost is billed per-deployment at rates that depend on the
         # operator's agreement, so zeros here are honest rather than a
         # guess. The token counts in token_usage_log stay accurate; only
         # the dollar column is unknown until the operator fills it in.
-        "model_catalogue": (
-            [{
-                "id": os.environ.get("AZURE_DEPLOYMENT", ""),
-                "label": f"{os.environ.get('AZURE_DEPLOYMENT', '')} (Azure deployment)",
-                "context_window": 128000,
-                "cost_per_1k_input": 0.0,
-                "cost_per_1k_output": 0.0,
-            }] if os.environ.get("AZURE_DEPLOYMENT") else []
-        ),
+        #
+        # `context_window` is the published limit and drives only the
+        # Console display and pre-flight sizing. It is deliberately NOT
+        # what triggers the Ollama fallback — that keys off the provider's
+        # own context/output error (`_is_context_error`), which is
+        # authoritative and cannot drift out of date.
+        "model_catalogue": [
+            {"id": "gpt-5.1", "label": "GPT-5.1 (high) — newest, 2025-11-13",
+             "context_window": 400000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-5", "label": "GPT-5 (high) — 2025-08-07",
+             "context_window": 400000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-5-mini", "label": "GPT-5 mini (low/medium) — 2025-08-07",
+             "context_window": 400000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "o3", "label": "o3 (high) — reasoning, 2025-04-16",
+             "context_window": 200000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "o4-mini", "label": "o4 mini (medium) — reasoning, 2025-04-16",
+             "context_window": 200000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "o3-mini", "label": "o3 mini (medium) — reasoning, 2025-01-31",
+             "context_window": 200000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-4.1", "label": "GPT-4.1 (medium) — 2025-04-14",
+             "context_window": 1047576, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-4.1-mini", "label": "GPT-4.1 mini (low) — 2025-04-14",
+             "context_window": 1047576, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-4o", "label": "GPT-4o (medium) — 2024-08-06",
+             "context_window": 128000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-4o-mini", "label": "GPT-4o mini (low) — 2024-07-18",
+             "context_window": 128000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+        ],
+        # Embedding deployments on the same account. Not part of the chat
+        # catalogue — `resolve_model` routes /chat/completions only. Kept
+        # here so the Console can offer them once an embeddings backend
+        # that targets Azure exists (today embeddings run through
+        # sentence-transformers or Ollama/nomic-embed-text).
+        "embedding_catalogue": [
+            {"id": "text-embedding-3-large", "dimensions": 3072},
+            {"id": "text-embedding-ada-002", "dimensions": 1536},
+        ],
     },
     "gemini": {
         # Google's OpenAI-compatibility surface, NOT the native
@@ -167,11 +205,29 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
         # iter-14.23 — Updated defaults based on available models Aug 2026.
         # iter-14.24 — Defaulting to LOCAL models only (no subscription needed).
         # Cloud models (-cloud suffix) require Ollama subscription.
-        "default_models": {"low": "qwen3:4b", "medium": "qwen2.5-coder:32b", "high": "qwen3-coder:30b"},
+        # iter-18.3 — Operator-approved local set.
+        #   high    -> code generation. Only llama3.1:latest, gpt-oss:latest
+        #              and qwen3.5:latest are sanctioned for generating code;
+        #              `_coerce_ollama_codegen_model` enforces that for every
+        #              codegen agent regardless of what routing says.
+        #   low/med -> lightweight work (classification, short JSON, gates).
+        "default_models": {"low": "qwen3:4b", "medium": "qwen2.5-coder:7b", "high": "qwen3.5:latest"},
         # Seed the catalogue with validated models only. Retired models
         # (qwen3-coder:480b-cloud) removed. Run `ollama list` to verify
         # local availability; cloud models require Ollama Cloud auth.
         "model_catalogue": [
+            {"id": "qwen3.5:latest",
+             "label": "Qwen 3.5 (high) \u2014 sanctioned for code generation",
+             "context_window": 32000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "llama3.1:latest",
+             "label": "Llama 3.1 (high) \u2014 sanctioned for code generation",
+             "context_window": 128000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "gpt-oss:latest",
+             "label": "GPT-OSS (high) \u2014 sanctioned for code generation",
+             "context_window": 128000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
+            {"id": "nomic-embed-text:latest",
+             "label": "Nomic Embed Text \u2014 embeddings only",
+             "context_window": 8192, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
             # ── Local models (cost=0, run on your GPU) ────────────────────
             {"id": "qwen3:4b", "label": "Qwen 3 4B (low) — fast local",
              "context_window": 32000, "cost_per_1k_input": 0.0, "cost_per_1k_output": 0.0},
@@ -281,6 +337,7 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     "tools.transformer.coder":           "high",
     "tools.transformer.pattern":         "high",
     "tools.transformer.devops_expert":   "high",
+    "tools.transformer.devops_audit":    "high",
     "tools.transformer.verifier":        "high",
     "tools.transformer.planner":         "medium",
     "tools.transformer.context_manager": "medium",
@@ -695,6 +752,57 @@ async def setup_default_provider(api_key: str, name: str = "", base_url: str = "
     return d
 
 
+# iter-18.3 — Local models sanctioned for GENERATING CODE. A 4B general
+# model can hold a conversation but produces code that does not compile,
+# so codegen agents are pinned to this set even if routing/an override
+# says otherwise. Ordered: first entry is the default substitute.
+OLLAMA_CODEGEN_MODELS = ("qwen3.5:latest", "llama3.1:latest", "gpt-oss:latest")
+
+# Agent keys whose OUTPUT IS SOURCE CODE. Verifier/reviewer/tester read
+# code but emit JSON verdicts, so they are deliberately absent — they are
+# light enough for the small models and gain nothing from a coder model.
+_CODEGEN_AGENT_MARKERS = (
+    "codegen.coder", "codegen.service", "codegen.frontend",
+    "codegen.regenerate", "codegen.gap_recovery",
+    "tools.transformer.coder", "tools.transformer.pattern",
+    "tools.transformer.devops_expert",
+)
+
+
+def _is_codegen_agent(agent_key: str) -> bool:
+    k = (agent_key or "").lower()
+    return any(k.startswith(m) or k == m for m in _CODEGEN_AGENT_MARKERS)
+
+
+def _coerce_ollama_codegen_model(model_id: str, agent_key: str, ptype: str,
+                                 base_url: str = "") -> str:
+    """Force a codegen agent onto a sanctioned local coder model.
+
+    Only applies to Ollama-shaped providers. Cloud providers are left
+    alone — Azure's own tier map already sends codegen to a capable
+    deployment, and second-guessing an operator's cloud choice here would
+    be overreach.
+    """
+    if not _is_codegen_agent(agent_key):
+        return model_id
+    # Ollama CLOUD models are a deliberate operator choice requiring cloud
+    # auth, and they are large (gpt-oss:120b-cloud, deepseek-v3.1:671b).
+    # The restriction exists to keep a 4B LOCAL model off code generation,
+    # not to override a cloud deployment. Same `-cloud` exemption that
+    # `_check_and_upgrade_model_for_context` already makes.
+    if (model_id or "").strip().endswith("-cloud"):
+        return model_id
+    burl = (base_url or "").lower()
+    looks_local = (ptype or "").lower() == "ollama" or any(
+        h in burl for h in ("localhost", "127.0.0.1", "host.docker.internal", "0.0.0.0")
+    )
+    if not looks_local:
+        return model_id
+    if (model_id or "").strip() in OLLAMA_CODEGEN_MODELS:
+        return model_id
+    return OLLAMA_CODEGEN_MODELS[0]
+
+
 async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
     """Resolve which model and provider to use for an agent.
 
@@ -783,6 +891,18 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
 
     ptype = provider.get("provider_type", "openrouter")
     base_url = provider.get("base_url", "")
+    # iter-18.3 — a codegen agent on a local provider must use a model
+    # sanctioned for generating code, whatever routing resolved to.
+    _coerced = _coerce_ollama_codegen_model(model_id, agent_key, ptype, base_url)
+    if _coerced != model_id:
+        try:
+            logging.getLogger("lama.fabric").info(
+                "iter-18.3: agent=%s is a codegen agent \u2014 substituting local "
+                "model %s with sanctioned %s", agent_key, model_id, _coerced,
+            )
+        except Exception:  # noqa: BLE001
+            pass
+        model_id = _coerced
     # iter-14.34 — honour the key_enabled on/off toggle at call time.
     api_key = provider.get("api_key", "") if provider.get("key_enabled", True) else ""
     is_ollama_cloud = False
@@ -1264,6 +1384,42 @@ def _retry_after_seconds(msg: str) -> float:
 
 _AUTH_MARKERS = ("401", "unauthorized", "invalid api key", "incorrect api key", "no auth credentials")
 
+# iter-18.3 — The prompt (or the requested completion) does not fit the
+# model. Unlike a timeout this IS worth failing over: a different model
+# with a bigger window, or the local Ollama fallback, may well serve it.
+# Keyed off the provider's own error rather than a hardcoded context
+# table, because published limits drift and the provider is authoritative.
+_CONTEXT_MARKERS = (
+    "context_length_exceeded",
+    "maximum context length",
+    "maximum context",
+    "context window",
+    "context length",
+    "too many tokens",
+    "reduce the length",
+    "reduce your prompt",
+    "prompt is too long",
+    "input is too long",
+    "input too long",
+    "string too long",
+    "max_tokens is too large",
+    "max_completion_tokens is too large",
+    "exceeds the maximum",
+    "requested too many tokens",
+)
+
+
+def _is_context_error(msg: str) -> bool:
+    """True when the request exceeded the model's context or output budget.
+
+    Distinct from a rate limit (wait and retry) and from a timeout (the
+    provider never answered). Here the provider answered clearly: this
+    prompt will never fit this model, so retrying it unchanged against
+    the same deployment is pointless — fail over to the next provider,
+    which on this deployment means the local Ollama fallback.
+    """
+    return any(tok in (msg or "").lower() for tok in _CONTEXT_MARKERS)
+
 
 def _is_auth_error(msg: str) -> bool:
     m = (msg or "").lower()
@@ -1315,8 +1471,11 @@ async def fabric_chat_with_failover(
         # error reaches here, so by now the provider is persistently throttled.
         # Falling over lets the wave finish; the pin is released afterwards on
         # the success path so the operator's primary stays primary.
+        # iter-18.3 — context/output overflow joins the recoverable set.
+        # It cannot clear by waiting, but a different provider (or the
+        # local Ollama fallback) may have the headroom to serve it.
         if not (_is_billing_error(msg) or _is_auth_error(msg)
-                or _is_rate_limit_error(msg)):
+                or _is_rate_limit_error(msg) or _is_context_error(msg)):
             raise
         # Record which provider failed first so the user sees the chain.
         if pinned_id:
@@ -1395,7 +1554,10 @@ async def fabric_chat_with_failover(
                 "type":     prov.get("provider_type", ""),
                 "error":    str(exc),
             })
-            if not (_is_billing_error(str(exc)) or _is_auth_error(str(exc))):
+            # iter-18.3 — keep walking on a context/output overflow too: the
+            # next provider in priority order may have the headroom.
+            if not (_is_billing_error(str(exc)) or _is_auth_error(str(exc))
+                    or _is_context_error(str(exc))):
                 # A non-billing error → restore default provider pin and
                 # re-raise so the caller sees the actual fault.
                 await ac_col.update_one(

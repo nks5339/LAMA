@@ -154,21 +154,29 @@ def client(monkeypatch):
 
 
 def test_list_agents_returns_the_full_roster_with_global_default(client):
-    """The roster is seven agents, not six.
+    """The roster is nine agents.
 
-    Renamed from `..._returns_all_six_...`: iter-15.62 added `devops_expert`
-    as a stagnation-triggered escalation (routes/tools.py:257,270,279 and the
-    escalation at :7780), and `test_iter1562_fix_loop_iterations.py:201`
-    asserts its presence positively. The two suites contradicted each other and
-    this one was the stale side -- its own name gave it away.
+    History of this assertion -- each expansion was deliberate:
+      • six  -> seven (iter-15.62) `devops_expert`, the stagnation-triggered
+        escalation persona inside the compile-fix loop.
+      • seven -> nine (iter-18):
+          - `validator`    the plan gate between Planner and Coder. It had
+            been seeded with a prompt and a Console row since iter-16 but
+            was missing from AGENT_PROMPT_KEYS, so `_get_effective_prompt`
+            resolved it to "" and the pipeline never invoked it.
+          - `devops_audit` the DevOps agent's proactive mode: a dependency
+            /production-readiness audit of the GENERATED build manifests
+            after compilation, distinct from the escalation persona above.
     """
     res = client.get("/tools/transformer/tx-1/agents")
     assert res.status_code == 200
     agents = {a["agent"]: a for a in res.json()["agents"]}
     assert set(agents.keys()) == {
         "super_agent", "context_manager", "planner", "coder", "verifier",
-        "tester", "devops_expert",
+        "tester", "devops_expert", "validator", "devops_audit",
     }
+    assert agents["validator"]["llm_backed"] is True
+    assert agents["devops_audit"]["llm_backed"] is True
     cm = agents["context_manager"]
     assert cm["base_template"] == "GLOBAL DEFAULT CONTEXT MANAGER PROMPT"
     assert cm["effective_template"] == "GLOBAL DEFAULT CONTEXT MANAGER PROMPT"

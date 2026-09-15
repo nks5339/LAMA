@@ -6143,55 +6143,137 @@ output:
         "key": "tools.transformer.validator",
         "stage": "Tools",
         "description": (
-            "Transformation Validator — validates transformed code for syntax "
-            "correctness and semantic equivalence to the original."
+            "Plan Validator — reviews the Planner's task list BEFORE any code "
+            "is generated. Checks that every envelope is covered, that targets "
+            "are unique, and that wave ordering is buildable. Runs between "
+            "Planner and Coder."
         ),
         "force_update": True,
         "template": """# ===========================================================
-# tools.transformer.validator — Transformed Code Validation
+# tools.transformer.validator — Transformation Plan Validation
+# Version: 2.0
+# ===========================================================
+
+role: |
+  You are a Plan Validation Engine. You review a transformation TASK PLAN
+  before any code is written. You are NOT reviewing code — the Verifier
+  does that after the Coder runs. Your job is to catch a bad decomposition
+  while it is still cheap to fix.
+
+context: |
+  The Context Manager discovered ENVELOPES (units of work, each anchored
+  on a route or a screen). The Planner turned those into TASKS, each with
+  a source path, a target path, and a wave number. Waves run in order;
+  everything inside one wave may run in parallel.
+
+validation_checks:
+  coverage:
+    - Every envelope has at least one task
+    - No task references an envelope that does not exist
+    - Tasks that silently drop a unit of work are a CRITICAL defect
+  targets:
+    - Every task has a target_path
+    - No two tasks write the same target_path
+  ordering:
+    - A task that consumes another task's output is in a LATER wave
+    - Shared/base types are created before the files that import them
+    - Build manifests exist in an early wave
+  decomposition:
+    - One task is one coherent file, not a whole subsystem
+    - No task is so broad the Coder cannot finish it in one pass
+
+severity_rules: |
+  CRITICAL — the run will produce a broken or incomplete tree
+  MAJOR    — the run will need manual repair afterwards
+  MINOR    — stylistic or efficiency concern only
+
+output: |
+  {
+    "verdict": "ACCEPT | REJECT",
+    "confidence": <0-100>,
+    "issues": [
+      {
+        "severity": "CRITICAL | MAJOR | MINOR",
+        "task_id": "<id or empty>",
+        "description": "<what is wrong>",
+        "fix": "<concrete correction>"
+      }
+    ],
+    "summary": "<one sentence>"
+  }
+
+rules:
+  - Return ONLY the JSON object. No prose, no code fences.
+  - REJECT only for CRITICAL issues. MAJOR/MINOR still ACCEPT with issues.
+  - Do not invent tasks or envelopes that were not given to you.
+""",
+    },
+    {
+        "key": "tools.transformer.devops_audit",
+        "stage": "Tools",
+        "description": (
+            "DevOps Expert (dependency audit) — proactive production-readiness "
+            "audit of the GENERATED build manifests after compilation. Distinct "
+            "from the devops_expert escalation persona used inside the "
+            "compile-fix loop."
+        ),
+        "force_update": True,
+        "template": """# ===========================================================
+# tools.transformer.devops_audit — Dependency & Production Readiness
 # Version: 1.0
 # ===========================================================
 
 role: |
-  You are a Code Validation Engine checking transformed code for
-  correctness and equivalence to the original implementation.
+  You are a senior DevOps engineer auditing the build manifests of a
+  freshly generated application. A green compile proves the code builds
+  on ONE machine TODAY. Your job is to decide whether it will build the
+  same way on a clean CI runner next month.
 
-validation_checks:
-  syntax:
-    - Valid syntax for target language/framework
-    - Correct import statements
-    - Proper annotation usage
-    - Balanced braces/brackets
-  
-  semantic:
-    - Business logic preserved
-    - Method signatures compatible (or documented if changed)
-    - Exception handling maintained
-    - Logging preserved
-  
+scope: |
+  You audit manifests only — pom.xml, build.gradle, package.json,
+  requirements.txt, pyproject.toml, go.mod, *.csproj. You do not review
+  application source; the Verifier and Tester already did.
+
+audit_checks:
+  reproducibility:
+    - Every dependency has an explicit, pinned version
+    - No floating specifiers ("latest", "*", open-ended ranges)
+    - A lockfile is present where the ecosystem expects one
+  consistency:
+    - No duplicate declarations of the same artifact
+    - No two modules pinning conflicting versions of one dependency
+    - Declared language/runtime level matches the toolchain configured
   completeness:
-    - All source methods have target equivalents
-    - No TODO/FIXME markers without explanation
-    - No placeholder implementations
-  
-  best_practices:
-    - Idiomatic target stack patterns used
-    - Proper dependency injection
-    - Appropriate exception types
+    - Every third-party import in the target stack has a declaration
+    - Test-only dependencies are in the test scope, not compile scope
+  operability:
+    - No dependency pinned to a known end-of-life major version
+    - No SNAPSHOT / nightly / pre-release in a production manifest
 
-output:
-  validation_result: "PASS | PASS_WITH_WARNINGS | FAIL"
-  issues: |
-    [
+grounding: |
+  You are given the deterministic findings already computed by the
+  pipeline. Do not repeat them. Report only what static parsing could
+  NOT decide — conflicts across modules, scope errors, EOL versions,
+  and missing declarations implied by the stack.
+
+output: |
+  {
+    "production_ready": true | false,
+    "findings": [
       {
-        "severity": "ERROR | WARNING | INFO",
-        "line": N,
-        "message": "<issue description>",
-        "suggestion": "<fix recommendation>"
+        "severity": "CRITICAL | MAJOR | MINOR",
+        "manifest": "<path>",
+        "issue": "<what is wrong>",
+        "fix": "<concrete change>"
       }
-    ]
-  equivalence_score: <0-100>
-  recommendation: "<overall assessment>"
+    ],
+    "summary": "<one sentence>"
+  }
+
+rules:
+  - Return ONLY the JSON object. No prose, no code fences.
+  - production_ready is false if ANY finding is CRITICAL.
+  - Never claim a dependency is missing without naming what needs it.
 """,
     },
     # ═══════════════════════════════════════════════════════════════
@@ -8381,8 +8463,11 @@ async def seed_agents():
          "label": "Transformation Pattern Applier", "description": "Applies specific transformation patterns to source files.",
          "complexity": "medium", "max_tokens": 8000},
         {"key": "tools.transformer.validator", "agent_type": "task", "stage": "Tools",
-         "label": "Transformation Validator", "description": "Validates transformed code for syntax errors and semantic equivalence.",
+         "label": "Plan Validator", "description": "Gates the Planner's task list before any code is generated \u2014 coverage, unique targets, buildable wave order.",
          "complexity": "medium", "max_tokens": 6000},
+        {"key": "tools.transformer.devops_audit", "agent_type": "task", "stage": "Tools",
+         "label": "DevOps Expert (dependency audit)", "description": "Audits the generated build manifests for reproducibility and production readiness after compilation.",
+         "complexity": "high", "max_tokens": 6000},
         # Multi-Agent Transformer pipeline (iter-16)
         {"key": "tools.transformer.super_agent", "agent_type": "orchestrator", "stage": "Tools",
          "label": "Transformer Super Agent", "description": "Orchestrates the multi-agent code transformation pipeline. Manages phase transitions, escalation, and progress.",
@@ -8594,6 +8679,101 @@ async def run_seed():
     # iter-13.68 — Multi-tenant baseline. Idempotent. Backfills any
     # legacy projects without `tenant_id` to the default tenant.
     await seed_tenancy()
+    # iter-18.2 — Azure primary, Ollama fallback. Idempotent and
+    # non-destructive: never edits a provider the operator already has.
+    await seed_providers()
+
+
+async def seed_providers():
+    """Ensure Azure is the primary LLM and Ollama the local fallback.
+
+    Contract — the operator always wins:
+      • An existing provider of a given type is NEVER modified. Not its
+        key, not its routing, not its active flag.
+      • `is_default` is only ever set when NO provider currently holds
+        it. A deliberate choice in the Console is never overridden on
+        the next restart.
+      • Azure is seeded ACTIVE only when an API key and endpoint are
+        actually present in the environment. Seeding an active provider
+        with no credentials would reproduce the documented footgun where
+        `is_active=True` + an invalid key yields a cascade of 401s.
+        Without credentials it lands inactive, pre-filled, ready for the
+        operator to complete in the Console.
+      • Ollama needs no key, so it is seeded active and is immediately
+        usable as the fallback `_try_ollama_fallback` looks for.
+    """
+    import os as _os
+    import logging as _lg
+    from db import model_providers as _mp
+    from models import ModelProvider as _MP
+    from fabric.model_fabric import PROVIDER_PRESETS as _PRESETS
+
+    _log = _lg.getLogger("lama.seed")
+
+    existing = await _mp.find({}, {"_id": 0, "provider_type": 1, "is_default": 1}).to_list(100)
+    have_types = {(p.get("provider_type") or "").lower() for p in existing}
+    someone_is_default = any(p.get("is_default") for p in existing)
+
+    # ── Azure — primary ───────────────────────────────────────────────
+    if "azure" not in have_types:
+        az_key = (_os.environ.get("AZURE_API_KEY")
+                  or _os.environ.get("AZURE_OPENAI_API_KEY") or "").strip()
+        az_base = (_os.environ.get("AZURE_ENDPOINT")
+                   or _os.environ.get("AZURE_OPENAI_ENDPOINT") or "").strip()
+        az_deploy = (_os.environ.get("AZURE_DEPLOYMENT") or "").strip()
+        az_version = (_os.environ.get("AZURE_API_VERSION") or "2024-02-15-preview").strip()
+        configured = bool(az_key and az_base)
+
+        # iter-18.3 — tier map from the preset, which already honours the
+        # per-tier AZURE_DEPLOYMENT_{LOW,MEDIUM,HIGH} overrides.
+        # AZURE_DEPLOYMENT only fills a tier the ladder left empty; it must
+        # NOT collapse all three, or a multi-deployment account silently
+        # loses complexity-based routing.
+        routing = dict(_PRESETS.get("azure", {}).get("default_models") or {})
+        if az_deploy:
+            routing = {t: (routing.get(t) or az_deploy) for t in ("low", "medium", "high")}
+        doc = _MP(
+            name="Azure OpenAI",
+            provider_type="azure",
+            base_url=az_base or _PRESETS.get("azure", {}).get("base_url", ""),
+            api_key=az_key,
+            azure_deployment=az_deploy,
+            azure_api_version=az_version,
+            is_default=(not someone_is_default),
+            is_active=configured,
+            models=list(_PRESETS.get("azure", {}).get("model_catalogue") or []),
+            routing=routing,
+        ).model_dump()
+        doc["priority"] = 1
+        await _mp.insert_one(doc)
+        if not someone_is_default:
+            someone_is_default = True
+        _log.info(
+            "iter-18.2: seeded Azure OpenAI as primary (active=%s). %s",
+            configured,
+            "" if configured else
+            "Set AZURE_API_KEY + AZURE_ENDPOINT (+ AZURE_DEPLOYMENT) and "
+            "activate it in the Console.",
+        )
+
+    # ── Ollama — local fallback ───────────────────────────────────────
+    if "ollama" not in have_types:
+        preset = _PRESETS.get("ollama", {})
+        base = (_os.environ.get("LAMA_OLLAMA_BASE_URL")
+                or preset.get("base_url") or "http://localhost:11434/v1").strip()
+        doc = _MP(
+            name="Ollama (local)",
+            provider_type="ollama",
+            base_url=base,
+            api_key="",
+            is_default=(not someone_is_default),
+            is_active=True,
+            models=list(preset.get("model_catalogue") or []),
+            routing=dict(preset.get("default_models") or {}),
+        ).model_dump()
+        doc["priority"] = 2
+        await _mp.insert_one(doc)
+        _log.info("iter-18.2: seeded Ollama (local) as the fallback provider at %s", base)
 
 
 async def seed_tenancy():
