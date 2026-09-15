@@ -169,7 +169,7 @@ td code{font-size:8pt}
     <tr><th style="width:24%">Software</th><th style="width:36%">Needed for</th><th>Install</th></tr>
     <tr><td><b>Python 3.11+</b><span class="pill">3.14 ok</span></td><td>Backend runtime</td><td><code>brew install python@3.14</code></td></tr>
     <tr><td><b>MongoDB 7 / 8</b></td><td><b>Required</b> — system of record</td><td><code>brew tap mongodb/brew &amp;&amp; brew install mongodb-community</code></td></tr>
-    <tr><td><b>Node 20+</b></td><td>Frontend build &amp; dev server</td><td><code>brew install node</code></td></tr>
+    <tr><td><b>Node 20+</b><span class="pill">image uses 24 LTS</span></td><td>Frontend build &amp; dev server</td><td><code>brew install node</code></td></tr>
     <tr><td><b>yarn 1.22</b></td><td>Frontend packages — never npm</td><td><code>corepack enable</code></td></tr>
     <tr><td><b>LLM provider</b></td><td>All generation features</td><td>Ollama (below) or an OpenRouter key</td></tr>
     <tr><td>Maven · Gradle<br>Go · .NET</td><td>CodeGen compile &amp; test agent</td><td><code>brew install maven gradle go dotnet</code></td></tr>
@@ -377,7 +377,6 @@ LAMA_OLLAMA_EMBED_MODEL=nomic-embed-text</pre>
     <pre><span class="c"># repo-root .env</span>
 LAMA_FACTORY_MODE=                 <span class="c"># blank — disable droid mode</span>
 LAMA_DEFAULT_MODEL=                <span class="c"># blank — use Console routing</span>
-LAMA_DISABLE_OPENROUTER_FALLBACK=0
 
 <span class="c"># reach an Ollama running on the HOST</span>
 LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1</pre>
@@ -416,19 +415,34 @@ LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1</pre>
     <tr><td><code>./scripts/doctor.sh</code></td><td>Checks MongoDB, Ollama, build toolchains, Qdrant, Docker — read-only</td></tr>
     <tr><td><code>./scripts/run-backend.sh</code></td><td>Starts the API with hot reload</td></tr>
     <tr><td><code>./scripts/run-frontend.sh</code></td><td>Starts the UI on :3000</td></tr>
+    <tr><td><code>./scripts/clear-caches.sh</code></td><td>Clears observability rows and build caches so a demo instance looks fresh. Dry-run by default; <code>--apply</code> to act. Never touches providers, projects or their artifacts.</td></tr>
+    <tr><td><code>./scripts/build-docs-pdf.sh</code></td><td>Re-renders this guide to <code>docs/LAMA-Setup-Guide.pdf</code></td></tr>
   </table>
 
   <h3>Tests</h3>
-  <pre><span class="p">$</span> ./.venv/bin/python -m pytest backend/tests/ -q
+  <pre><span class="p">$</span> ./.venv/bin/python -m pytest              <span class="c"># 837 passed, 129 gated</span>
 <span class="p">$</span> ./.venv/bin/python -m pytest backend/tests/test_lama_v4.py -k test_chat -x
-<span class="p">$</span> ./.venv/bin/python -m pyflakes backend/routes/codegen.py
 
-<span class="c"># suites that call a live server need one running:</span>
-<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8000 \
-    ./.venv/bin/python -m pytest backend/tests/ -q</pre>
-  <div class="note"><b>Expected failures.</b> Suites written before multi-tenant
-  auth call the API without a bearer token and fail with <code>401</code>. That is the
-  API behaving correctly, not a regression.</div>
+<span class="c"># the 8 live-server suites, against a running backend:</span>
+<span class="p">$</span> (cd backend &amp;&amp; ../.venv/bin/uvicorn server:app --port 8382 &amp;)
+<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8382 \
+    ./.venv/bin/python -m pytest --run-integration</pre>
+
+  <div class="note"><b>A bare <code>pytest</code> run should be green.</b> Eight
+  suites drive the app over HTTP and are marked <code>integration</code>, so they
+  are skipped unless you pass <code>--run-integration</code>. They also predate
+  multi-tenant auth, so <code>conftest.py</code> logs in and attaches a bearer
+  token for you using <code>LAMA_SUPERADMIN_USER</code> /
+  <code>LAMA_SUPERADMIN_PASS</code> — you no longer have to expect
+  <code>401</code>s.</div>
+
+  <h3>Lint</h3>
+  <pre><span class="p">$</span> ruff check backend
+<span class="p">$</span> ./.venv/bin/vulture backend backend/.vulture-whitelist.py --min-confidence 80
+<span class="p">$</span> cd frontend &amp;&amp; yarn lint</pre>
+  <div class="note">Pass the vulture whitelist as an <b>input path</b>, not
+  <code>--exclude</code> — <code>--exclude</code> only stops vulture reading it, and
+  the bar then reports entries that are already whitelisted.</div>
 
   <h3>Troubleshooting</h3>
   <table>

@@ -6,12 +6,12 @@
   "input": "/Users/nikunj/Desktop/lama/architecture/src/lama-fabric-call.sequence.json",
   "output": "/Users/nikunj/Desktop/lama/architecture/diagrams/lama-fabric-call.html",
   "specification": {
-    "sha256": "c37ec5c69a00e45c85a229891a54745e7a5628856cec0404222ca2170a2cd76a",
-    "bytes": 5675
+    "sha256": "0c436d1fede6e39b3cdb4a7c5483d852b81941b31fa162c3c37a531ce3ac6bb3",
+    "bytes": 5690
   },
   "artifact": {
-    "sha256": "83a55cd890ab627bffb35507653e2246e0b358b02fac3b5a81cba0ccd242ace5",
-    "bytes": 812939
+    "sha256": "bfcf5a33dddc46c9469f1d13b728c8efd05468d13e5423fe0ab87f073ddb1b01",
+    "bytes": 812954
   },
   "validation": {
     "checksPassed": 9,

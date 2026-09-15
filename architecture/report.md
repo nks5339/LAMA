@@ -71,12 +71,12 @@ are the cost of a high-level, ≤12-node view.
 | `mongo` | MongoDB, **59 collections**, system of record | `backend/db.py` — 59 `<name> = db.<name>` accessors; client at `db.py:6` |
 | `qdrant` (dashed, "optional") | off unless `QDRANT_URL` **or** `QDRANT_PATH` is set | `backend/kb/vector_store.py:44-48` `return bool(QDRANT_URL or QDRANT_PATH)` |
 | `fabric` | "in-process router" | `backend/llm.py:1043` `_fabric_call_impl` — a module in the uvicorn process, **not** a separate service |
-| `providers` | "5 vendor presets" | `backend/fabric/model_fabric.py` → `openrouter, anthropic, openai, groq, ollama` (+ a 6th `custom` scaffold, not a vendor) |
+| `providers` | "8 provider presets" | `backend/fabric/model_fabric.py` → `PROVIDER_PRESETS` has 8 keys: `openrouter, anthropic, openai, azure, gemini, groq, ollama, custom`. Azure and Gemini were added after this diagram was first authored; the label said "5 vendor presets" until 2026-09. |
 | `factory` / `droid` | two Factory transports | `factory_orchestrator.py:22` (`FACTORY_API_BASE`); `fabric/factory_cli.py:667` (`route_via_factory_cli`) |
 | `github` | PyGithub | `backend/routes/github.py:289` |
 
-**Deliberate simplifications.** 21 router mounts collapse into one `FastAPI` node. The five LLM
-vendors collapse into one `LLM Providers` node (named individually on the violet card). `LLM Fabric`
+**Deliberate simplifications.** 21 router mounts collapse into one `FastAPI` node. The eight provider
+presets collapse into one `LLM Providers` node (named individually on the violet card). `LLM Fabric`
 is drawn as a distinct box for legibility although it is in-process with the API — the sublabel
 says "in-process router" so the diagram does not imply a separate service.
 
@@ -104,7 +104,7 @@ into "Stage Handoff" to remove a lane and fix a 68px vertical overflow (Part D).
 | `wrapper` | `fabric_call()` is a **tracing wrapper only** | `backend/llm.py:986` — mints `trace_id`, delegates, records; no routing |
 | `impl` | all routing lives here | `backend/llm.py:1043` `_fabric_call_impl` |
 | `probe` | every call probes providers first, else hard-fails | `backend/llm.py:1071` then `:1078-1100` raising `RuntimeError` |
-| probe order | Factory → Anthropic → OpenAI → Groq → Ollama | `backend/llm.py:869-890` |
+| probe order | Factory → Azure → Anthropic → OpenAI → Gemini → Groq → Ollama | `backend/llm.py:923` `_preferred_order = ["azure", "anthropic", "openai", "gemini", "groq", "ollama"]`. Ollama is last of the configured providers on purpose — free and local, so the right thing to fall back *to* and the wrong thing to prefer over a paid endpoint (`llm.py:918-922`). |
 | `factory` | one Factory door from `llm.py` | `backend/llm.py:1406` `route_via_factory_orchestrator(...)` |
 | API vs CLI split | happens **inside the orchestrator**, not in `llm.py` | `backend/factory_orchestrator.py:2049-2063` |
 | `console` | failover across active providers | `backend/llm.py:1584-1592` → `fabric_chat_with_failover` |

@@ -241,9 +241,10 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
     <tr><td>sentence-transformers</td><td><code>5.5.0</code></td><td>Local embeddings</td></tr>
     <tr><td>PyGithub</td><td><code>2.9.1</code></td><td>Repository push</td></tr>
     <tr><td>PyYAML</td><td><code>6.0.3</code></td><td>KB context export</td></tr>
-    <tr><td>python-jose · passlib</td><td><code>3.5.0</code> · <code>1.7.4</code></td><td>JWT and bcrypt</td></tr>
-    <tr><td>langgraph · langchain-core</td><td><code>0.2.60</code> · <code>0.3.29</code></td><td>Opt-in confidence engine</td></tr>
+    <tr><td>PyJWT · passlib</td><td><code>2.12.1</code> · <code>1.7.4</code></td><td>JWT and bcrypt. <code>backend/auth.py</code> imports <code>jwt</code>; <code>python-jose</code> was pinned but never imported and was dropped in 2026-09.</td></tr>
+    <tr><td>langgraph · langchain-core</td><td><code>0.2.60</code> · <code>0.3.29</code></td><td>Confidence engine. <b>Not opt-in</b> — see <code>LAMA_CONFIDENCE_ENGINE</code> in §11.</td></tr>
     <tr><td>dulwich</td><td><code>&gt;=1.2.5,&lt;2.0</code></td><td>Pure-Python git fallback</td></tr>
+    <tr><td>Declared dependencies</td><td><code>38</code></td><td>Direct only; pip resolves 122 with the transitives. Was a 176-line <code>pip freeze</code> from a CUDA workstation, including 19 nvidia/cuda pins that the CPU-only image never needed.</td></tr>
   </table>
 
   <h3>Frontend</h3>
@@ -252,13 +253,14 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
     <tr><td>React · React DOM</td><td><code>^19.0.0</code></td><td>UI runtime</td></tr>
     <tr><td>react-router-dom</td><td><code>^7.5.1</code></td><td>Routing</td></tr>
     <tr><td>CRA · CRACO</td><td><code>5.0.1</code> · <code>^7.1.0</code></td><td>Build toolchain</td></tr>
-    <tr><td>Tailwind CSS</td><td><code>^3.4.17</code></td><td>Styling, with Radix UI + shadcn/ui</td></tr>
+    <tr><td>Tailwind CSS</td><td><code>^3.4.17</code></td><td>Styling. 9 Radix primitives and 9 shadcn/ui components — the 22 Radix packages and 37 shadcn files that nothing imported were removed in 2026-09.</td></tr>
     <tr><td>axios</td><td><code>^1.8.4</code></td><td>API client, 600&nbsp;s timeout</td></tr>
     <tr><td>D3 · Mermaid</td><td><code>7.9.0</code> · <code>^11.15.0</code></td><td>ER diagrams and rendered diagrams</td></tr>
     <tr><td>Monaco Editor</td><td><code>^4.7.0</code></td><td>Generated-code editing</td></tr>
     <tr><td>Recharts</td><td><code>^3.6.0</code></td><td>Admin analytics</td></tr>
     <tr><td>react-resizable-panels</td><td><code>2.1.7</code> <span class="pill">pinned</span></td><td>Panel layout</td></tr>
     <tr><td>yarn</td><td><code>1.22.22</code></td><td>Package manager — <b>never npm</b></td></tr>
+    <tr><td>Total dependencies</td><td><code>26</code></td><td>Down from 59; every one is imported by <code>frontend/src</code> or a build config.</td></tr>
   </table>
 
   <h3>Data and models</h3>
@@ -266,7 +268,7 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
     <tr><th style="width:30%">Component</th><th>Role</th></tr>
     <tr><td><b>MongoDB 7</b></td><td>LAMA's own system of record — 59 collections. PostgreSQL is the migration <i>target</i>, never LAMA's store.</td></tr>
     <tr><td><b>Qdrant</b></td><td>Optional semantic index. Inert unless <code>QDRANT_URL</code> or <code>QDRANT_PATH</code> is set; callers degrade to TOON-only.</td></tr>
-    <tr><td><b>LLM providers</b></td><td>Five vendor presets — OpenRouter, Anthropic, OpenAI, Groq, Ollama — plus a <code>custom</code> scaffold.</td></tr>
+    <tr><td><b>LLM providers</b></td><td>Eight presets in <code>PROVIDER_PRESETS</code> — OpenRouter, Anthropic, OpenAI, <b>Azure</b>, <b>Gemini</b>, Groq, Ollama, plus a <code>custom</code> scaffold. Azure carries the deployment in the URL path, the API version as a query parameter and an <code>api-key</code> header rather than a bearer token; Gemini is reached through its OpenAI-compatible endpoint, so neither needs a vendor SDK.</td></tr>
     <tr><td><b>Factory.ai</b></td><td>Optional per-project brokered execution, over HTTP API or the local <code>droid</code> CLI.</td></tr>
   </table>
 </div>
@@ -370,6 +372,16 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
     <tr><td><b>Factory API</b></td><td>Brokered to <code>api.factory.ai</code> when the project enables it. Poll-based; slow agents get a longer timeout and a shrink-and-retry path.</td></tr>
     <tr><td><b>Factory CLI</b></td><td><code>LAMA_FACTORY_MODE=cli</code> drives the local <code>droid</code> binary. The API-versus-CLI choice is made inside the orchestrator — from <code>llm.py</code> there is one Factory door.</td></tr>
   </table>
+
+  <h3>Provider probe order</h3>
+  <p>Every call probes for a healthy provider before it routes. Factory is
+  tried first when the project enables it, then the Console-registered
+  providers in this order (<code>llm.py:923</code>):</p>
+  <p><code>azure → anthropic → openai → gemini → groq → ollama</code></p>
+  <p>Ollama is deliberately last of the configured providers: it is free and
+  local, so it is the right thing to fall back <i>to</i> and the wrong thing to
+  prefer over a paid endpoint an operator deliberately set up. With nothing
+  healthy the call raises rather than guessing.</p>
 
   <h3>Complexity tiers</h3>
   <p>Each agent key carries a tier that the Console maps to a concrete model —
@@ -597,14 +609,50 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
   tenancy, then building indexes.</p>
 
   <h3>Tests</h3>
-<pre><span class="p">$</span> pytest backend/tests/                  <span class="c"># ~70 suites</span>
-<span class="p">$</span> pytest backend/tests/test_lama_v4.py -k test_chat -x
-<span class="p">$</span> pyflakes backend/routes/codegen.py     <span class="c"># standing verification step</span></pre>
+<pre><span class="p">$</span> pytest                                 <span class="c"># 837 passed, 129 gated</span>
+<span class="p">$</span> pytest --run-integration               <span class="c"># + the 8 live-server suites</span>
+<span class="p">$</span> pytest backend/tests/test_lama_v4.py -k test_chat -x</pre>
 
   <div class="note">Suites are named <code>test_iter&lt;N&gt;_&lt;topic&gt;.py</code>
   and pin <b>one</b> iteration's behaviour — read the matching
   <code>memory/PRD.md</code> entry first. A <code>502</code> on chat-edit tests is
   acceptable; they assert <code>in (200, 502)</code>.</div>
+
+  <p>Eight suites drive the app over HTTP with <code>requests</code> and need a
+  live backend. They are marked <code>integration</code> by
+  <code>backend/tests/conftest.py</code> and <b>skipped by default</b>, so a bare
+  <code>pytest</code> run is expected to be green and a new failure means
+  something. Before this gating existed the suite was permanently 131-red —
+  110 of those were nothing but a server that was not running, and 21 genuine
+  failures sat unnoticed underneath.</p>
+
+  <p>The same conftest attaches a bearer token in integration mode: all eight
+  predate iter-13.68 (JWT auth) and otherwise die in their first fixture on
+  <code>401 Missing Authorization header</code>. Credentials come from
+  <code>LAMA_SUPERADMIN_USER</code> / <code>LAMA_SUPERADMIN_PASS</code>, the same
+  vars <code>seed.py</code> uses to create the super-admin.</p>
+
+  <div class="warn"><b><code>asyncio_mode = strict</code> is load-bearing.</b>
+  It is set in <code>pytest.ini</code>. Left unset, an
+  <code>@pytest.mark.asyncio</code> coroutine is never awaited when
+  <code>pytest-asyncio</code> is absent — the test then passes without running a
+  single assertion. The plugin is pinned in both requirements files for the
+  same reason.</div>
+
+  <h3>Lint</h3>
+<pre><span class="p">$</span> ruff check backend                     <span class="c"># waste bar: E9, F, ARG</span>
+<span class="p">$</span> vulture backend backend/.vulture-whitelist.py --min-confidence 80
+<span class="p">$</span> cd frontend &amp;&amp; yarn lint               <span class="c"># flat config, 0 errors</span></pre>
+
+  <div class="note">The vulture whitelist is an <b>input path</b>, not
+  <code>--exclude</code>. Passing it via <code>--exclude</code> only stops vulture
+  reading it, and the bar then reports findings that are already whitelisted.</div>
+
+  <p><code>yarn lint</code> is deliberately separate from the build.
+  <code>DISABLE_ESLINT_PLUGIN=true</code> stays set because yarn hoists
+  eslint&nbsp;9 while <code>react-scripts</code> nests its own eslint&nbsp;8, and CRA
+  resolves the nested one — flat config and eslintrc cannot be shared between
+  them, so wiring lint into the build would mean downgrading it.</p>
 </div>
 
 <!-- ══════════════════ 11 CONFIGURATION ══════════════════ -->
@@ -616,7 +664,7 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
   <table>
     <tr><th style="width:42%">Variable</th><th>Purpose</th></tr>
     <tr><td><code>MONGO_URL</code> · <code>DB_NAME</code></td><td><b>Required.</b> System of record.</td></tr>
-    <tr><td><code>OPENROUTER_API_KEY</code></td><td>Needed for any meaningful LLM call via the env fallback path.</td></tr>
+    <tr><td><code>OPENROUTER_API_KEY</code></td><td>Used only when OpenRouter is registered as a Console provider. There is no env-var fallback path — iter-14.31 removed it for every generation route.</td></tr>
     <tr><td><code>LAMA_DEFAULT_MODEL</code></td><td>Deliberately empty — the Console's routing table picks per agent key.</td></tr>
     <tr><td><code>QDRANT_URL</code> · <code>QDRANT_API_KEY</code></td><td>Remote vector index. Optional.</td></tr>
     <tr><td><code>QDRANT_PATH</code></td><td>Embedded on-disk vector engine — no server needed.</td></tr>
@@ -624,8 +672,7 @@ figcaption{font-family:var(--mono);font-size:7.2pt;color:var(--muted);
     <tr><td><code>LAMA_SESSION_SIGNING_KEY</code></td><td>HMAC for agent-memory summaries. A mismatch wipes the summary by design.</td></tr>
     <tr><td><code>LAMA_FACTORY_MODE</code></td><td><code>cli</code> drives the local <code>droid</code> binary.</td></tr>
     <tr><td><code>FACTORY_API_BASE_URL</code></td><td>Defaults to <code>https://api.factory.ai/api/v0</code>.</td></tr>
-    <tr><td><code>LAMA_DISABLE_OPENROUTER_FALLBACK</code></td><td><code>1</code> stops silent fallback spend.</td></tr>
-    <tr><td><code>LAMA_CONFIDENCE_ENGINE</code></td><td><code>langgraph</code> selects the opt-in alternative engine.</td></tr>
+    <tr><td><code>LAMA_CONFIDENCE_ENGINE</code></td><td><code>langgraph</code> | <code>fabric</code> | unset. Unset means <b>auto</b>, not off: since iter-14.29 it picks LangGraph whenever that imports and the droid CLI is not connected.</td></tr>
     <tr><td><code>LAMA_BR_ENFORCE</code> · <code>LAMA_BR_MIN_COVERAGE</code></td><td>Block freeze when business-rule coverage is below threshold.</td></tr>
     <tr><td><code>CORS_ORIGINS</code></td><td>Wide open by default. <b>Tighten in production.</b></td></tr>
     <tr><td><code>LAMA_DISABLE_SSL_VERIFY</code> · <code>LAMA_CA_BUNDLE</code></td><td>For corporate TLS proxies.</td></tr>

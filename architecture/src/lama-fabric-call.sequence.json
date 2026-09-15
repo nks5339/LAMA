@@ -249,7 +249,7 @@
       "title": "Health gate",
       "items": [
         "Every call probes for a healthy provider first",
-        "Probe order is Factory, Anthropic, OpenAI, Groq, then Ollama",
+        "Probe order is Factory, then Azure, Anthropic, OpenAI, Gemini, Groq, Ollama",
         "With nothing healthy the call raises instead of guessing"
       ]
     },

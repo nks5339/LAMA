@@ -180,9 +180,10 @@ AGENTS.md                    # Exhaustive operational rules (this file is the su
    **There is no OpenRouter env-var fallback.** iter-14.31 removed it for
    every generation path: when the configured provider and Factory both
    fail, `fabric_call` tries a Console-registered Ollama provider and then
-   raises. `LAMA_DISABLE_OPENROUTER_FALLBACK` is vestigial — no code reads
-   it (verified in `docs/RECON.md` §D3). It survives only in compose and
-   the docs; the behaviour it described is now unconditional.
+   raises. `LAMA_DISABLE_OPENROUTER_FALLBACK` was removed outright in
+   2026-09 — no code had read it since iter-14.31 (verified in
+   `docs/RECON.md` §D3), and it is no longer exported by compose or `.env`
+   either. The behaviour it described is unconditional.
    **Three execution modes** resolve inside `fabric_call` — know which one is
    live before debugging a prompt:
    a. **Console routing** (default) — `AGENT_COMPLEXITY[agent_key]` picks a

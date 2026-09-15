@@ -65,7 +65,7 @@
       "id": "providers",
       "type": "external",
       "label": "LLM Providers",
-      "sublabel": "5 vendor presets",
+      "sublabel": "8 provider presets",
       "pos": [1080, 330],
       "size": [220, 64]
     },
@@ -155,7 +155,7 @@
       "dot": "violet",
       "title": "Model routing",
       "items": [
-        "Presets: OpenRouter, Anthropic, OpenAI, Groq, Ollama",
+        "Presets: OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq, Ollama, custom",
         "fabric_call() is a tracing wrapper only",
         "Routing decisions live in _fabric_call_impl",
         "Factory is reached over HTTP or the local droid CLI",

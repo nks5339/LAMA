@@ -102,6 +102,8 @@ Backend routes currently include: `admin`, `architecture`, `audit`, `auth`, `cha
 
 Versions below are read from `backend/requirements.txt` and `frontend/package.json`. Do not silently bump the pins called out in the right column.
 
+> **2026-09:** `requirements.txt` was pruned from a 176-line `pip freeze` (taken on a Linux CUDA workstation) to 38 direct dependencies, which pip resolves to 122 with transitives and **zero** nvidia/cuda packages. Transitive pins such as numpy, scipy, lxml and orjson are no longer declared here — they arrive via the packages that need them. See `docs/verification/requirements-resolution.txt`.
+
 | Backend package | Pinned requirement | Notes |
 | --- | --- | --- |
 | fastapi | fastapi==0.110.1 |  |
@@ -116,10 +118,10 @@ Versions below are read from `backend/requirements.txt` and `frontend/package.js
 | torch | torch==2.12.0 | DO NOT bump casually |
 | langgraph | langgraph==0.2.60 | DO NOT bump casually |
 | langchain-core | langchain-core==0.3.29 |  |
-| uvicorn | uvicorn==0.25.0 |  |
+| uvicorn | uvicorn[standard]==0.25.0 | the `[standard]` extra is pinned here now; the Dockerfile used to reinstall it unpinned AFTER requirements.txt, silently upgrading past this pin |
 | pytest | pytest==9.0.3 |  |
-| python-jose | python-jose==3.5.0 |  |
-| PyJWT | PyJWT==2.12.1 |  |
+| pytest-asyncio | pytest-asyncio>=1.0 | mandatory — without it every `@pytest.mark.asyncio` coroutine is silently never awaited and passes without asserting |
+| PyJWT | PyJWT==2.12.1 | the JWT library actually imported (`backend/auth.py:19`) |
 | bcrypt | bcrypt==4.0.1 | pinned for passlib 1.7.4 compatibility |
 | dulwich | dulwich>=1.2.5,<2.0 |  |
 
@@ -3969,7 +3971,6 @@ Catalog below is read from `docker-compose.yml` environment entries. Defaults ar
 | NO_PROXY |  | Proxy bypass list. | 151 |
 | LAMA_FACTORY_CLI_BIN | /usr/local/bin/droid | Factory.ai Droid CLI path inside container. | 163 |
 | LAMA_FACTORY_CLI_SLIM | 1 | Slim prompt mode for Factory CLI. | 182 |
-| LAMA_DISABLE_OPENROUTER_FALLBACK | 1 | **Vestigial — read by no code.** The fallback it gated was removed in iter-14.31. | 183 |
 | LAMA_FACTORY_MODE | cli | Marks deployment as CLI-first/factory mode. | 184 |
 | LAMA_FACTORY_CLI_DUMP_PROMPT |  | Optional prompt dump flag for Factory CLI diagnostics. | 185 |
 | LAMA_FACTORY_CLI_TIMEOUT_SEC |  | Factory CLI timeout override. | 186 |
