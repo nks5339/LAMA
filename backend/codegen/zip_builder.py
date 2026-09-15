@@ -16,5 +16,3 @@ def build_zip(project_name: str, files: List[Dict[str, Any]]) -> bytes:
     return buf.read()
 
 
-def estimate_zip_size(files: List[Dict[str, Any]]) -> int:
-    return sum(len((f.get("content") or "")) for f in files)

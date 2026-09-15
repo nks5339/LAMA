@@ -66,10 +66,6 @@ def serialise_route(entity: Dict[str, Any]) -> str:
     return f"[ROUTE:{entity.get('name')}] handler={entity.get('handler','')}"
 
 
-def serialise_individual(entity: Dict[str, Any]) -> str:
-    return f"[INDIVIDUAL:{entity.get('name')}] in={entity.get('category','')}"
-
-
 def serialise_module(entity: Dict[str, Any]) -> str:
     """User-imported business module: '[MODULE:Name] src=excel components=12 tables=45'
     followed by up to 10 top components by table_count."""

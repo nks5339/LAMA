@@ -816,67 +816,6 @@ def _job_finish(jid, status, **kw):
         _JOBS[jid].update(kw)
 
 
-# iter-13.50 — Transport-failure circuit breaker for arch sub-jobs.
-#
-# WHY: Sequence/HLD/LLD/API-contracts jobs fan out N parallel LLM calls
-# (one per use-case / service / section). Until iter-13.50, each call had
-# its own `except Exception as e: content = f"... error: {e}"` which baked
-# the raw error string (commonly the glibc `[Errno -2] Name or service
-# not known`) into the artifact. The user then saw 10 sequence diagrams
-# that contained nothing but the DNS error message.
-#
-# Now each call uses `_safe_llm_call` which:
-#   • Distinguishes TransportError (DNS / connect / SSL) from model errors
-#   • Records every failure into a job-scoped list
-#   • Returns "" content + the error object so callers can SKIP the
-#     section instead of polluting it with the error text
-# After fanout finishes, callers check `_should_abort_for_transport` and
-# call `_job_finish(jid, "error", error=...)` rather than persisting a
-# fake artifact.
-async def _safe_llm_call(jid: str, label: str, **kwargs) -> tuple[dict | None, Exception | None]:
-    """Wrap a chat_completion call so transport errors are recorded on the
-    job and never leak into artifact content. Returns (response, error).
-    On any failure: response is None and error is the captured exception.
-    """
-    try:
-        r = await chat_completion(**kwargs)
-        return r, None
-    except TransportError as te:
-        logger.error("arch job=%s section=%s transport error: %s", jid, label, te)
-        if jid in _JOBS:
-            _JOBS[jid].setdefault("section_errors", []).append(
-                {"section": label, "kind": "transport", "error": str(te)}
-            )
-        return None, te
-    except Exception as e:  # noqa: BLE001
-        logger.warning("arch job=%s section=%s LLM error: %s", jid, label, e)
-        if jid in _JOBS:
-            _JOBS[jid].setdefault("section_errors", []).append(
-                {"section": label, "kind": "model", "error": str(e)[:300]}
-            )
-        return None, e
-
-
-def _should_abort_for_transport(jid: str) -> str:
-    """If ANY section failed with TransportError, return a human-readable
-    abort message; else "". Used by job runners to bail out cleanly
-    rather than persisting a broken artifact.
-    """
-    j = _JOBS.get(jid) or {}
-    errs = j.get("section_errors") or []
-    transports = [e for e in errs if e.get("kind") == "transport"]
-    if not transports:
-        return ""
-    # Dedupe identical messages
-    unique = sorted({(e.get("error") or "") for e in transports})
-    head = unique[0] if unique else "Transport failure"
-    n = len(transports)
-    return (
-        f"{n} section(s) failed with a network/DNS error — aborting before "
-        f"writing a broken artifact. First error: {head}"
-    )
-
-
 # iter-13.51 — extend abort logic to billing/auth (402/401) errors too.
 # Previously the per-section catch classified an OpenRouter 402 as
 # kind="model" and inlined the verbose 402 JSON into the sequence
@@ -902,7 +841,8 @@ _FATAL_ERROR_KINDS = {"transport", "billing", "auth"}
 def _should_abort_job(jid: str) -> str:
     """Return a human-readable abort message if any section failed with a
     JOB-FATAL error (transport / billing / auth) — empty string otherwise.
-    Superset of `_should_abort_for_transport` and the preferred caller.
+    Supersedes an earlier transport-only variant, removed at iter-19.3
+    once it had no callers left: every job runner routes through here.
     """
     j = _JOBS.get(jid) or {}
     errs = j.get("section_errors") or []

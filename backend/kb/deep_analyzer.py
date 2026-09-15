@@ -582,21 +582,3 @@ def _generate_summary_md(analysis: dict, project_id: str) -> str:
     return "\n".join(lines)
 
 
-async def get_analysis_summary(project_id: str) -> str | None:
-    """Retrieve the cached analysis summary MD for a project."""
-    from db import kb_deep_analysis
-    doc = await kb_deep_analysis.find_one(
-        {"project_id": project_id},
-        {"_id": 0, "summary_md": 1},
-    )
-    return (doc or {}).get("summary_md")
-
-
-async def get_analysis_json(project_id: str) -> dict | None:
-    """Retrieve the cached analysis JSON for a project."""
-    from db import kb_deep_analysis
-    doc = await kb_deep_analysis.find_one(
-        {"project_id": project_id},
-        {"_id": 0, "analysis": 1},
-    )
-    return (doc or {}).get("analysis")

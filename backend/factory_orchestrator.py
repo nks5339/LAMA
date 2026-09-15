@@ -232,10 +232,6 @@ def _classify_shell(text: str) -> str:
     return "posix"
 
 
-def _looks_like_windows_shell(text: str) -> bool:
-    return _classify_shell(text) in ("powershell", "cmd")
-
-
 def _safe_basename(cwd: str) -> str:
     """Extract the final segment of a POSIX or Windows cwd as a safe
     folder name we can drop under `$HOME` / `%USERPROFILE%` on any OS.
@@ -1182,11 +1178,6 @@ def _http_verify():
 
 def _estimate_tokens(text: str) -> int:
     return max(1, len(text or "") // 4)
-
-
-def _estimate_prompt_tokens(messages: List[Dict[str, Any]]) -> int:
-    total = sum(_estimate_tokens((m or {}).get("content", "")) for m in (messages or []))
-    return total + 4 * len(messages or [])
 
 
 # ─────────────────────────────────────────────────────────────────────────

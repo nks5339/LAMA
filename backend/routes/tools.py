@@ -1520,60 +1520,6 @@ def _compute_test_accuracy(test_cases: List[dict]) -> Dict[str, Any]:
     }
 
 
-def _summarize_code_entities(entities: List[Dict], limit: int = 200) -> str:
-    """Build a compact LLM-friendly summary of code entities."""
-    if not entities:
-        return "(no code entities extracted)"
-    by_type: Dict[str, List[str]] = {}
-    for e in entities:
-        et = e.get("type") or e.get("kind") or "other"
-        name = e.get("name") or e.get("path") or ""
-        src = e.get("source_file") or e.get("file") or ""
-        label = f"{name} @ {src}" if src else name
-        by_type.setdefault(et, []).append(label)
-    parts = []
-    for et, items in sorted(by_type.items()):
-        head = items[:limit]
-        parts.append(f"## {et} ({len(items)})\n" + "\n".join(f"- {x}" for x in head))
-        if len(items) > limit:
-            parts.append(f"  ... and {len(items) - limit} more")
-    return "\n\n".join(parts)
-
-
-def _extract_doc_requirements_local(doc_files: List[Dict]) -> List[Dict]:
-    """Heuristic requirement extractor: find lines that look like requirement IDs.
-
-    Looks for patterns like FR-XXX-001, NFR-001, REQ-001, US-001, or "shall/must"
-    imperative sentences. Runs before LLM call — cheap + deterministic.
-    """
-    req_pattern = re.compile(r"\b((?:FR|NFR|REQ|US|BR|UC|UI|SR|FRS|SRS)[-_ ]?[A-Z0-9]{1,10}[-_ ]?\d{1,4})\b", re.IGNORECASE)
-    shall_pattern = re.compile(r"(?im)^\s*(?:[-*\d.]+\s*)?(.{10,300}?\b(?:shall|must|should)\b.{5,400})$")
-    reqs: List[Dict] = []
-    seen_ids = set()
-    for f in doc_files:
-        path = f.get("path", "")
-        content = f.get("content", "") or ""
-        for m in req_pattern.finditer(content):
-            rid = m.group(1).upper().replace(" ", "-").replace("_", "-")
-            if rid in seen_ids:
-                continue
-            seen_ids.add(rid)
-            # Grab surrounding sentence for context
-            start = max(0, m.start() - 100)
-            end = min(len(content), m.end() + 300)
-            snippet = content[start:end].replace("\n", " ").strip()
-            reqs.append({"id": rid, "text": snippet[:400], "source": path})
-        # Also capture shall/must statements
-        for m in shall_pattern.finditer(content):
-            txt = m.group(1).strip()
-            reqs.append({"id": f"IMP-{len(reqs) + 1:03d}", "text": txt[:400], "source": path})
-            if len(reqs) > 400:
-                break
-        if len(reqs) > 400:
-            break
-    return reqs[:400]
-
-
 async def _run_gap_analysis_background(analysis_id: str, code_files: List[Dict], doc_files: List[Dict], model: str = None):
     """Two-phase gap analysis: build KB → verify against docs.
 

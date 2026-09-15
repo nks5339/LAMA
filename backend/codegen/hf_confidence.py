@@ -19,9 +19,11 @@ Design goals:
   of up to 2 KB each per project; per-file embedding is a single
   forward pass on ~4 KB of text. Cold-start ~5 s; steady-state ~15 ms
   per file on CPU.
-* **LangGraph friendly** — exposes a pure `async score_file(...)` and
-  a `preload(project_id)` warm-up hook the graph orchestrator can pin
-  to the loop's `START` node.
+* **LangGraph friendly** — exposes a pure `async score_file(...)` the
+  graph orchestrator calls per file. (A `preload(project_id)` warm-up
+  hook was offered here for pinning to the loop's `START` node; no
+  orchestrator ever pinned it, so it was removed at iter-19.3. The
+  corpus still warms lazily on the first `score_file`.)
 
 Env vars:
   LAMA_CODEGEN_HF_ENABLED=1        (default 1; set 0 to disable)
@@ -33,7 +35,7 @@ from __future__ import annotations
 
 import logging
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 logger = logging.getLogger("lama.codegen.hf_confidence")
 
@@ -119,16 +121,6 @@ async def _load_corpus(project_id: str) -> Optional[dict]:
     logger.info("hf_confidence: cached %d legacy chunks for project=%s",
                 len(chunks), project_id)
     return _CORPUS_CACHE[project_id]
-
-
-async def preload(project_id: str) -> Tuple[bool, str]:
-    """Warm up the embedder + corpus before the loop kicks off."""
-    if not is_enabled():
-        return False, "disabled (LAMA_CODEGEN_HF_ENABLED=0)"
-    corpus = await _load_corpus(project_id)
-    if not corpus or corpus.get("embeddings") is None:
-        return False, "no legacy corpus available (HF fallback active)"
-    return True, f"corpus loaded ({len(corpus.get('chunks') or [])} chunks)"
 
 
 async def score_file(

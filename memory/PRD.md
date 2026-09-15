@@ -12454,3 +12454,51 @@ was. `__aiter__` added.
 - ruff clean; pyflakes clean on srs.py (`_abort_i` predates this work and
   is present in the committed parent)
 - live boot 0 tracebacks / 0 ERRORs; 312 routes
+
+### iter-19.3 — zero dead code, and the report's own corrections
+
+The status report named 14 orphans and left them for "the next cleanup".
+Removed all of them, and in doing so found the report had undercounted.
+
+**18 orphans, not 14.** Two errors of my own:
+
+1. The headline said 14 while its own table listed 15 — an arithmetic slip
+   reading the subsystem breakdown.
+2. The list MISSED THREE. My scanner used `ast.walk`, which descends into
+   nested functions and diluted the reference counts. Restricting it to
+   top-level definitions surfaced `architecture.py::_safe_llm_call`,
+   `architecture.py::_should_abort_for_transport` and
+   `hf_confidence.py::preload`.
+
+Same habit behind both, and behind the `_chunk` miss two iterations back:
+trusting a quick count over a precise one. The final sweep resolves `Name`,
+`Attribute`, `ImportFrom` **and string constants** (so `getattr`-style
+dispatch counts as a use), over top-level defs only. Result: **0 orphans
+of 1,524 functions.**
+
+Three deserved more than deletion:
+
+- **`pipeline.py`'s five getters** — `get_toon_summary`, `get_srs_section`,
+  `get_domain_map`, `get_er_model`, `get_module_context` — a whole family
+  of stage-context accessors the live path abandoned in favour of
+  `get_stage_context` / `require_stage_context`.
+- **`_safe_llm_call` / `_should_abort_for_transport`** looked like a
+  MISSING SAFETY NET: a transport-error guard whose comment said callers
+  use it to avoid persisting a broken artifact after a network failure,
+  with no callers. It is not missing. iter-13.51 replaced it with a
+  superset — `_classify_llm_error_kind` (:4229) and `_should_abort_job`
+  (:4253), both live — and `_should_abort_job`'s docstring said so. These
+  were superseded leftovers. The docstring naming the removed function is
+  corrected.
+- **`hf_confidence.preload`** was an advertised LangGraph warm-up hook that
+  no orchestrator ever pinned. The corpus still warms lazily on the first
+  `score_file`, so removal is a no-op at runtime. Docstring corrected, and
+  the now-unused `typing.Tuple` import dropped.
+
+`_suppress_all.__enter__` / `__exit__` in `fabric/factory_cli.py` stay —
+invoked by the `with` protocol at line 559, not by name.
+
+**Deep test, re-run after every removal:** 1036 passed / 129 skipped; ruff
+clean; 312 routes; live boot 0 tracebacks / 0 ERRORs; 663 functions
+observed executing; 31 + 54 live GET routes with 0 responses >= 500;
+Test Connection ok:true on gpt-5.1; yarn lint 0 errors; yarn build ok.

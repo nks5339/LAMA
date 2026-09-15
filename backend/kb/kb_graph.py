@@ -593,18 +593,6 @@ async def load_kb_graph(project_id: str) -> dict | None:
     return legacy
 
 
-async def get_graph_summary(project_id: str) -> dict:
-    g = await load_kb_graph(project_id)
-    if not g:
-        return {"exists": False}
-    return {
-        "exists": True,
-        "version": g.get("version", 1),
-        "updated_at": g.get("updated_at"),
-        "stats": g.get("stats", {}),
-    }
-
-
 # ---------------------------------------------------------------------------
 # LLM enrichment ("graphify") — iter-13.32
 # ---------------------------------------------------------------------------

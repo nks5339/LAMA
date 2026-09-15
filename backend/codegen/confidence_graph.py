@@ -80,15 +80,6 @@ def default_max_iterations() -> int:
     return max(1, min(10, raw))
 
 
-def default_threshold() -> float:
-    """Read LAMA_CODEGEN_CONFIDENCE_THRESHOLD (default 95, clamp [50,100])."""
-    try:
-        raw = float(os.environ.get("LAMA_CODEGEN_CONFIDENCE_THRESHOLD", "95") or 95.0)
-    except ValueError:
-        raw = 95.0
-    return max(50.0, min(100.0, raw))
-
-
 def is_langgraph_available() -> bool:
     try:
         from langgraph.graph import StateGraph, END  # noqa: F401
