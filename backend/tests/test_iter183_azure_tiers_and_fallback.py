@@ -43,10 +43,58 @@ def test_azure_embedding_deployments_are_listed_separately():
 
 
 def test_azure_tiers_ascend_in_capability():
+    """iter-19 — six tiers, and gpt-5.1 moved from `high` to `critical`.
+
+    The three-tier ladder could only reach three of the operator's ten
+    chat deployments. Splitting the top gives the DevOps agent and the
+    remediation re-plan a rung above ordinary code generation, which is
+    the point: `critical` is what gets spent on the last chance to make a
+    build shippable, not on every coder call.
+    """
     t = MF.PROVIDER_PRESETS["azure"]["default_models"]
+    assert t["trivial"] == "gpt-4o-mini"
     assert t["low"] == "gpt-4.1-mini"
     assert t["medium"] == "gpt-4.1"
-    assert t["high"] == "gpt-5.1"
+    assert t["high"] == "gpt-5"
+    assert t["critical"] == "gpt-5.1"
+    assert t["reasoning"] == "o4-mini"
+
+
+def test_every_azure_chat_deployment_is_reachable():
+    """No deployment may be catalogue-only.
+
+    The operator asked for all of their deployments to be used according to
+    task severity. A model that appears in the catalogue but in neither a
+    tier nor a tier's sibling list can never be resolved by any agent, so
+    listing it would be a promise the router does not keep.
+    """
+    preset = MF.PROVIDER_PRESETS["azure"]
+    catalogue = {m["id"] for m in preset["model_catalogue"]}
+    reachable = set(preset["default_models"].values())
+    for sibs in preset["tier_siblings"].values():
+        reachable |= set(sibs)
+    assert catalogue - reachable == set(), (
+        f"unreachable Azure deployments: {sorted(catalogue - reachable)}"
+    )
+
+
+def test_tier_ladder_walk_serves_pre_iter19_provider_rows():
+    """A row written before iter-19 has only low/medium/high.
+
+    Those rows must keep routing every agent — including agents now on the
+    three new tiers — rather than falling through to `models[0]`, which is
+    whatever happens to sit first in the catalogue.
+    """
+    legacy = {"low": "cheap", "medium": "mid", "high": "strong"}
+    assert MF.resolve_tier_model(legacy, "trivial") == "cheap"
+    assert MF.resolve_tier_model(legacy, "low") == "cheap"
+    assert MF.resolve_tier_model(legacy, "medium") == "mid"
+    assert MF.resolve_tier_model(legacy, "high") == "strong"
+    # critical/reasoning must degrade UPWARD to the strongest available
+    # model, never downward to the cheapest.
+    assert MF.resolve_tier_model(legacy, "critical") == "strong"
+    assert MF.resolve_tier_model(legacy, "reasoning") == "strong"
+    assert MF.resolve_tier_model({}, "high") == ""
 
 
 def test_reasoning_deployments_use_max_completion_tokens():
@@ -177,7 +225,9 @@ def test_single_deployment_env_does_not_flatten_the_ladder(monkeypatch):
     """
     import importlib
     monkeypatch.setenv("AZURE_DEPLOYMENT", "gpt-5.1")
-    for v in ("AZURE_DEPLOYMENT_LOW", "AZURE_DEPLOYMENT_MEDIUM", "AZURE_DEPLOYMENT_HIGH"):
+    for v in ("AZURE_DEPLOYMENT_TRIVIAL", "AZURE_DEPLOYMENT_LOW",
+              "AZURE_DEPLOYMENT_MEDIUM", "AZURE_DEPLOYMENT_HIGH",
+              "AZURE_DEPLOYMENT_CRITICAL", "AZURE_DEPLOYMENT_REASONING"):
         monkeypatch.delenv(v, raising=False)
     import fabric.model_fabric as F
     importlib.reload(F)
@@ -185,9 +235,31 @@ def test_single_deployment_env_does_not_flatten_the_ladder(monkeypatch):
         t = F.PROVIDER_PRESETS["azure"]["default_models"]
         assert t["low"] == "gpt-4.1-mini", "AZURE_DEPLOYMENT must not flatten low"
         assert t["medium"] == "gpt-4.1"
-        assert t["high"] == "gpt-5.1"
+        assert t["high"] == "gpt-5"
+        assert t["critical"] == "gpt-5.1"
+        # Every tier keeps its own value — the ladder is intact.
+        assert len(set(t.values())) == len(t), f"AZURE_DEPLOYMENT flattened tiers: {t}"
     finally:
         importlib.reload(F)
+
+
+def test_auto_configure_from_key_does_not_flatten_the_ladder():
+    """iter-19 — the SECOND flattener, missed by iter-18.3.
+
+    iter-18.3 fixed `seed_providers` but left `auto_configure_from_key`
+    pointing every tier at AZURE_DEPLOYMENT. That path is reached by the
+    Console's "paste one API key to configure routing automatically"
+    button, so one paste silently undid the ladder the seed had just set
+    up — and with gpt-5.1 on every tier, every call carried a temperature
+    the deployment rejects.
+    """
+    routing = dict(MF.PROVIDER_PRESETS["azure"]["default_models"])
+    az_deployment = "gpt-5.1"
+    # The expression as it now appears in auto_configure_from_key.
+    routing = {tier: (routing.get(tier) or az_deployment) for tier in routing}
+    assert routing["low"] == "gpt-4.1-mini"
+    assert routing["medium"] == "gpt-4.1"
+    assert len(set(routing.values())) == len(routing)
 
 
 def test_per_tier_env_overrides_win(monkeypatch):

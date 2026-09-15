@@ -35,9 +35,25 @@ import { FACTORY_MODEL_OPTIONS } from "@/lib/factoryModels";
 
 const STAGES = ["Discovery", "DataModel", "Architecture", "CodeGen", "Living"];
 const COMPLEXITY_COLOR = {
+  trivial: "bg-slate-100 text-slate-600",
   low: "bg-emerald-100 text-emerald-700",
   medium: "bg-amber-100 text-amber-700",
   high: "bg-rose-100 text-rose-700",
+  critical: "bg-red-200 text-red-900",
+  reasoning: "bg-violet-100 text-violet-700",
+};
+// iter-19 — ordered cheapest → most capable. `reasoning` sits last as a
+// sideways step, not a seventh rung: it is a different SHAPE of model
+// (o-series) for diagnostic work, not a stronger one than `critical`.
+// Leaving a tier unset is fine — the backend walks down the ladder.
+const ROUTING_TIERS = ["trivial", "low", "medium", "high", "critical", "reasoning"];
+const TIER_HINT = {
+  trivial: "Labels, short summaries, one-line classifications",
+  low: "Narrative passes, docs, cheap gates",
+  medium: "Structural work — validation, envelopes, review",
+  high: "Code generation and planning",
+  critical: "DevOps, production-readiness, last-chance repairs",
+  reasoning: "Diagnosing build failures from raw tool output",
 };
 const STATUS_COLOR = {
   enabled: "bg-emerald-100 text-emerald-700",
@@ -1445,9 +1461,12 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
       {/* Routing table - Complexity based */}
       <div className="mt-3 border-t border-[#E6E6E6] pt-2">
         <div className="text-[10px] uppercase font-bold text-[#747480] mb-1">Complexity Routing</div>
-        {["low", "medium", "high"].map((tier) => (
+        {ROUTING_TIERS.map((tier) => (
           <div key={tier} className="flex items-center gap-2 mb-1">
-            <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm w-16 text-center ${COMPLEXITY_COLOR[tier]}`}>{tier}</span>
+            <span
+              className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm w-20 text-center ${COMPLEXITY_COLOR[tier]}`}
+              title={TIER_HINT[tier]}
+            >{tier}</span>
             <select
               data-testid={`routing-${provider.id}-${tier}`}
               value={provider.routing?.[tier] || ""}

@@ -13,7 +13,7 @@ import os
 import time
 import httpx
 import logging
-from typing import List, Dict, Tuple
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime, timezone
 
 # Centralised SSL-verify policy (LAMA_DISABLE_SSL_VERIFY / LAMA_CA_BUNDLE)
@@ -106,9 +106,26 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
         # doing so silently defeats tier routing on a multi-deployment
         # account, which is the normal case for this operator.
         "default_models": {
+            "trivial": os.environ.get("AZURE_DEPLOYMENT_TRIVIAL", "") or "gpt-4o-mini",
             "low": os.environ.get("AZURE_DEPLOYMENT_LOW", "") or "gpt-4.1-mini",
             "medium": os.environ.get("AZURE_DEPLOYMENT_MEDIUM", "") or "gpt-4.1",
-            "high": os.environ.get("AZURE_DEPLOYMENT_HIGH", "") or "gpt-5.1",
+            "high": os.environ.get("AZURE_DEPLOYMENT_HIGH", "") or "gpt-5",
+            "critical": os.environ.get("AZURE_DEPLOYMENT_CRITICAL", "") or "gpt-5.1",
+            "reasoning": os.environ.get("AZURE_DEPLOYMENT_REASONING", "") or "o4-mini",
+        },
+        # iter-19 — Sibling deployments for the same tier, tried in order
+        # when the primary returns 429. Each Azure deployment has its own
+        # quota bucket, so rotating to a sibling on the SAME account costs
+        # nothing and lands immediately, where sleeping the provider's
+        # `Retry-After` (observed up to 52s) stalls the whole wave and
+        # falling through to local Ollama costs a 600s timeout.
+        "tier_siblings": {
+            "trivial": ["gpt-4.1-mini"],
+            "low": ["gpt-4o-mini"],
+            "medium": ["gpt-4o", "gpt-5-mini"],
+            "high": ["gpt-5.1", "gpt-4.1"],
+            "critical": ["gpt-5"],
+            "reasoning": ["o3-mini", "o3"],
         },
         # Cost is billed per-deployment at rates that depend on the
         # operator's agreement, so zeros here are honest rather than a
@@ -211,7 +228,22 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
         #              `_coerce_ollama_codegen_model` enforces that for every
         #              codegen agent regardless of what routing says.
         #   low/med -> lightweight work (classification, short JSON, gates).
-        "default_models": {"low": "qwen3:4b", "medium": "qwen2.5-coder:7b", "high": "qwen3.5:latest"},
+        # iter-19 — six tiers, same vocabulary as every other preset. The
+        # sanctioned-code-generation set (qwen3.5, llama3.1, gpt-oss) backs
+        # the three top tiers; the lightweight pair backs the bottom three.
+        "default_models": {
+            "trivial": "qwen3:4b",
+            "low": "qwen3:4b",
+            "medium": "qwen2.5-coder:7b",
+            "high": "qwen3.5:latest",
+            "critical": "gpt-oss:latest",
+            "reasoning": "gpt-oss:latest",
+        },
+        "tier_siblings": {
+            "high": ["llama3.1:latest"],
+            "critical": ["qwen3.5:latest"],
+            "reasoning": ["llama3.1:latest"],
+        },
         # Seed the catalogue with validated models only. Retired models
         # (qwen3-coder:480b-cloud) removed. Run `ollama list` to verify
         # local availability; cloud models require Ollama Cloud auth.
@@ -261,6 +293,97 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
         "model_catalogue": [],
     },
 }
+
+
+# ── Tier ladder ───────────────────────────────────────────────────────
+# iter-19 — The three-tier vocabulary (low/medium/high) could not express
+# the spread of an account with ten chat deployments: seven of the
+# operator's Azure deployments were unreachable because no agent could
+# ever resolve to them. Six tiers do express it.
+#
+# Ordered cheapest → most capable, with `reasoning` at the end as a
+# SIDEWAYS step rather than a seventh rung: it is not "better than
+# critical", it is a different shape of model (o-series) for work that is
+# diagnostic rather than generative.
+TIER_ORDER = ("trivial", "low", "medium", "high", "critical", "reasoning")
+
+# iter-19 — the floor for the reasoning deployments (gpt-5.x, o1/o3/o4) and
+# for `response_format: json_object`. Exported because `routes/console.py`'s
+# Test Connection endpoint must use the SAME value: its contract is that it
+# tells the operator whether real calls will work, so a second literal that
+# drifts would make the button pass while generation fails.
+AZURE_API_VERSION_DEFAULT = "2024-12-01-preview"
+
+# What to fall back to when a provider row has no entry for a tier. Every
+# row written before iter-19 has exactly low/medium/high, and operators
+# may leave new tiers blank on purpose, so resolution must degrade rather
+# than fail. Each list is tried in order; the walk always terminates at a
+# tier that pre-iter-19 rows are guaranteed to carry.
+TIER_FALLBACK_CHAIN: Dict[str, Tuple[str, ...]] = {
+    "trivial":   ("low", "medium"),
+    "low":       ("medium",),
+    "medium":    ("high", "low"),
+    "high":      ("critical", "medium"),
+    "critical":  ("high", "medium"),
+    # A provider with no dedicated reasoning deployment should get its
+    # strongest general model, not its cheapest.
+    "reasoning": ("critical", "high", "medium"),
+}
+
+
+def resolve_tier_model(routing: Dict[str, str], tier: str) -> str:
+    """Pick the model for `tier` from a provider's routing map.
+
+    Walks `TIER_FALLBACK_CHAIN` when the tier is absent or blank, so a
+    provider row that predates the six-tier vocabulary keeps routing every
+    agent correctly instead of falling through to `models[0]`.
+    """
+    routing = routing or {}
+    direct = (routing.get(tier) or "").strip()
+    if direct:
+        return direct
+    for candidate in TIER_FALLBACK_CHAIN.get(tier, ()):
+        val = (routing.get(candidate) or "").strip()
+        if val:
+            return val
+    return ""
+
+
+def tier_siblings(
+    provider_type: str,
+    tier: str,
+    primary: str,
+    available_models: Optional[List[Dict]] = None,
+) -> List[str]:
+    """Alternate deployments for `tier`, in the order to try them.
+
+    Only meaningful where one account exposes several deployments that are
+    interchangeable for a tier — Azure is the motivating case, since each
+    deployment carries its own quota bucket. Returns `[]` for providers
+    where rotating would just hit the same upstream limit.
+
+    `available_models` is the provider row's own `models` catalogue; pass it
+    so rotation is confined to deployments the operator actually has.
+    """
+    preset = PROVIDER_PRESETS.get((provider_type or "").lower(), {})
+    sibs = [s for s in (preset.get("tier_siblings") or {}).get(tier, []) if s and s != primary]
+    if not sibs:
+        return []
+
+    # Only rotate to something this provider row actually offers. The
+    # preset lists what the vendor CAN deploy, not what this operator HAS:
+    # rotating onto a deployment their account lacks would turn a
+    # recoverable 429 into a 404 (`DeploymentNotFound`), which is worse
+    # than the throttle we were routing around. An operator who curates
+    # `models` therefore constrains rotation for free.
+    #
+    # An empty catalogue means "unknown", not "nothing" — several rows are
+    # created without one — so in that case the preset list stands.
+    catalogue = {(m or {}).get("id", "") for m in (available_models or [])}
+    catalogue.discard("")
+    if not catalogue:
+        return sibs
+    return [s for s in sibs if s in catalogue]
 
 
 # ── Complexity map for all agent keys ────────────────────────────────
@@ -334,16 +457,31 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     # Context-Manager / Validator are "medium" (structural, not
     # generative). Tester is "low" — iter-15.44 made it a thin narrative
     # supplement to the real subprocess compiler, not the source of truth.
+    #
+    # iter-19 — re-tiered onto the six-tier ladder. `resolve_model` reads
+    # `agent_configs.complexity` BEFORE this map, and the seeded rows had
+    # drifted apart from it on five of these ten keys (tester ran `medium`
+    # / gpt-4.1 here while this map said `low`). `seed.py`'s
+    # `migrate_transformer_tiers_19` reconciles the rows to these values,
+    # guarded on the old default so Console overrides survive.
+    #
+    # The DevOps agent gets `critical` in both its modes: it is the last
+    # gate before an operator is told the build is production-ready, and
+    # its re-plan round is the pipeline's one chance to repair a manifest
+    # the Coder already failed to fix.
     "tools.transformer.coder":           "high",
     "tools.transformer.pattern":         "high",
-    "tools.transformer.devops_expert":   "high",
-    "tools.transformer.devops_audit":    "high",
+    "tools.transformer.devops_expert":   "critical",
+    "tools.transformer.devops_audit":    "critical",
     "tools.transformer.verifier":        "high",
-    "tools.transformer.planner":         "medium",
+    "tools.transformer.planner":         "high",
     "tools.transformer.context_manager": "medium",
     "tools.transformer.validator":       "medium",
-    "tools.transformer.super_agent":     "medium",
+    "tools.transformer.super_agent":     "low",
     "tools.transformer.tester":          "low",
+    # Diagnosis, not generation — reads a wall of build output and works
+    # out what actually broke. That is what the o-series is for.
+    "tools.transformer.diagnostician":   "reasoning",
     "tools.gap_analyzer":            "high",
     "tools.gap_verifier":            "high",
     "tools.gap_analyzer.doc_parser": "medium",
@@ -478,17 +616,63 @@ def token_limit_field(model_id: str) -> str:
     return "max_completion_tokens" if _is_reasoning_model(model_id) else "max_tokens"
 
 
+def apply_temperature(payload: Dict, model_id: str, temperature: float) -> Dict:
+    """Set the sampling temperature, or omit it for models that reject one.
+
+    The same reasoning families that renamed the token budget also fixed
+    temperature at 1 and reject any other value:
+
+      HTTP 400  Unsupported value: 'temperature' does not support 0.1.
+                Only the default (1) is supported.
+
+    Every LAMA agent asks for a low temperature (0.1-0.3) because it wants
+    deterministic JSON, so without this guard a gpt-5 / o-series deployment
+    is a total outage — not a degradation — exactly like the `max_tokens`
+    case above. A 400 is not in `fabric_chat_with_failover`'s recoverable
+    set either, so it escapes to the Ollama fallback and the whole high
+    tier silently collapses onto a local model.
+
+    Omitting the key is preferred over sending `temperature: 1`: the
+    default is what these models use anyway, and an absent field cannot be
+    rejected by a gateway that validates the parameter differently.
+    """
+    payload.pop("temperature", None)
+    if not _is_reasoning_model(model_id):
+        payload["temperature"] = temperature
+    return payload
+
+
+# A reasoning model spends `max_completion_tokens` on its INTERNAL reasoning
+# first and only then on visible output, so a budget sized for the answer
+# alone is silently consumed before a single character is emitted. Verified
+# against the live deployments: at max_completion_tokens=16 both o4-mini and
+# gpt-5 report completion_tokens=16 and return content="". At 256 the same
+# prompt answers in 19.
+#
+# That failure mode is worse than an error — the call returns HTTP 200 with
+# an empty string, so `_extract_json_object` yields {} and the agent looks
+# like it produced nothing rather than like it failed. Every caller's number
+# was chosen assuming the budget was all visible output, so the floor is
+# applied here rather than by editing dozens of call sites. Nothing is
+# overpaid: billing follows tokens actually generated, not the ceiling.
+_REASONING_OUTPUT_FLOOR = 2000
+
+
 def apply_token_limit(payload: Dict, model_id: str, max_tokens: int) -> Dict:
     """Set the output-token budget under whichever name the model accepts.
 
     Mutates and returns `payload`. Always removes the other spelling, so a
     payload that already carries `max_tokens` cannot smuggle it through to a
-    model that rejects it.
+    model that rejects it. For reasoning models the budget is raised to
+    `_REASONING_OUTPUT_FLOOR` when the caller asked for less, so reasoning
+    tokens cannot eat the whole allowance.
     """
     field = token_limit_field(model_id)
     payload.pop("max_tokens", None)
     payload.pop("max_completion_tokens", None)
     if max_tokens:
+        if field == "max_completion_tokens":
+            max_tokens = max(max_tokens, _REASONING_OUTPUT_FLOOR)
         payload[field] = max_tokens
     return payload
 
@@ -714,9 +898,14 @@ async def setup_default_provider(api_key: str, name: str = "", base_url: str = "
     if ptype == "azure" and az_deployment:
         # The deployment IS the routable id on Azure, and the operator may
         # have supplied one that differs from AZURE_DEPLOYMENT in the env.
-        # Point every tier at it so the row can route immediately; the
-        # operator can split tiers later if they deploy more than one.
-        routing = {tier: az_deployment for tier in ("low", "medium", "high")}
+        # iter-19 — but it fills only the tiers the preset ladder left
+        # EMPTY. Pointing every tier at one deployment (what this did
+        # before) silently destroys complexity routing on a
+        # multi-deployment account, and this path is reached by the
+        # Console's "paste one API key to configure routing automatically"
+        # button — so a single paste used to undo the tier ladder that
+        # `seed_providers` had just set up correctly.
+        routing = {tier: (routing.get(tier) or az_deployment) for tier in routing}
         if not any(m.get("id") == az_deployment for m in catalogue):
             catalogue.append({
                 "id": az_deployment,
@@ -803,7 +992,10 @@ def _coerce_ollama_codegen_model(model_id: str, agent_key: str, ptype: str,
     return OLLAMA_CODEGEN_MODELS[0]
 
 
-async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
+async def resolve_model(
+    agent_key: str,
+    provider_override: Dict | None = None,
+) -> Tuple[str, str, Dict, Dict]:
     """Resolve which model and provider to use for an agent.
 
     Returns ``(model_id, provider_base_url, provider_headers, meta)`` where
@@ -839,8 +1031,16 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
         ".regenerate", ".gap_recovery", ".revalidation", "regen", "gap_recovery"
     ])
 
-    provider = None
-    if provider_id:
+    # iter-19 — an explicit provider from the caller wins outright and skips
+    # the pin lookup entirely. `fabric_chat_with_failover` used to express
+    # "try this other provider" by WRITING `agent_configs.provider_id` and
+    # restoring it afterwards; with several coroutines sharing one agent_key
+    # (a test-gen or coder wave is exactly that) they clobbered each other's
+    # pin mid-flight and calls landed on whichever provider the last writer
+    # happened to name. Passing the provider down the call chain removes the
+    # shared mutable state rather than trying to serialise access to it.
+    provider = dict(provider_override) if provider_override else None
+    if provider is None and provider_id:
         provider = await mp_col.find_one({"id": provider_id, "is_active": True}, {"_id": 0})
         # iter-13.34 fix — STALE-PIN CLEANUP. If the pinned provider is gone
         # or has been deactivated (Console reconfigure / new key paste /
@@ -885,7 +1085,11 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
         else:
             model_id = (provider.get("stage_routing_generate") or {}).get(stage, "")
     if not model_id:
-        model_id = provider.get("routing", {}).get(complexity, "")
+        # iter-19 — walk the tier ladder rather than a bare dict lookup, so
+        # a provider row written before the six-tier vocabulary (or one
+        # where the operator left a new tier blank) degrades to the nearest
+        # sensible tier instead of dropping to `models[0]`.
+        model_id = resolve_tier_model(provider.get("routing") or {}, complexity)
     if not model_id:
         model_id = (provider.get("models") or [{}])[0].get("id", "")
 
@@ -961,10 +1165,14 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
         # model name, which is why it is also left in the payload untouched
         # (Azure ignores it; some gateways echo it back for routing).
         deployment = model_id or provider.get("azure_deployment", "")
+        # iter-19 — the previous 2024-02-15-preview default predated the
+        # reasoning deployments and json_object mode, so a correctly-routed
+        # gpt-5.1 call still failed at the api-version gate before the model
+        # ever saw it. See AZURE_API_VERSION_DEFAULT.
         api_version = (
             provider.get("azure_api_version")
             or os.environ.get("AZURE_API_VERSION", "")
-            or "2024-02-15-preview"
+            or AZURE_API_VERSION_DEFAULT
         )
         root = (base_url or "").rstrip("/")
         # An operator may paste either the account root or a URL that already
@@ -995,6 +1203,14 @@ async def resolve_model(agent_key: str) -> Tuple[str, str, Dict, Dict]:
     return model_id, base_url, headers, {
         "provider_type": ptype,
         "request_params": request_params,
+        # iter-19 — what the 429 path needs to rotate within the tier
+        # instead of sleeping. `provider_id` keys the per-provider
+        # concurrency gate and the shared throttle cooldown.
+        "tier": complexity,
+        "tier_siblings": tier_siblings(
+            ptype, complexity, model_id, provider.get("models"),
+        ),
+        "provider_id": provider.get("id", ""),
     }
 
 
@@ -1007,8 +1223,14 @@ async def fabric_chat(
     temperature: float = 0.3,
     timeout: float = 120.0,
     response_format: Dict | None = None,
+    provider_override: Dict | None = None,
 ) -> Dict:
-    """Single entry point for all LLM calls. Resolves model, applies wraps, logs usage."""
+    """Single entry point for all LLM calls. Resolves model, applies wraps, logs usage.
+
+    `provider_override` lets a caller (today only
+    `fabric_chat_with_failover`) name the provider row to use for THIS call
+    without mutating shared state — see the note in `resolve_model`.
+    """
     from db import agent_configs as ac_col, token_usage_log as log_col, model_providers as mp_col
     from models import TokenUsageLog
     now = datetime.now(timezone.utc).isoformat()
@@ -1022,12 +1244,19 @@ async def fabric_chat(
         }
 
     if model_override:
-        _, base_url, headers, _meta = await resolve_model(agent_key)
+        _, base_url, headers, _meta = await resolve_model(agent_key, provider_override)
         model_id = model_override
     else:
-        model_id, base_url, headers, _meta = await resolve_model(agent_key)
+        model_id, base_url, headers, _meta = await resolve_model(agent_key, provider_override)
     resolved_ptype = _meta.get("provider_type", "openrouter")
     request_params = _meta.get("request_params") or {}
+    # iter-19 — pacing state. `_provider_row_id` keys both the concurrency
+    # gate and the shared throttle cooldown; `_siblings` are the alternate
+    # deployments this tier can rotate to on a 429.
+    _provider_row_id = _meta.get("provider_id", "") or ""
+    # An explicit model_override is the caller naming one specific model,
+    # so honouring tier siblings would silently substitute a different one.
+    _siblings: List[str] = [] if model_override else list(_meta.get("tier_siblings") or [])
 
     # Apply wrap prefix/suffix to first system message
     if status == "wrapped" and agent:
@@ -1099,12 +1328,16 @@ async def fabric_chat(
                 str(ctx_exc)[:200],
             )
     
-    payload = {"model": model_id, "messages": messages, "temperature": temperature}
+    payload = {"model": model_id, "messages": messages}
     # Output-token budget, under whichever name this model accepts. The
     # reasoning families (gpt-5, o1/o3/o4) reject `max_tokens` with a 400,
     # so hardcoding it made those deployments unusable rather than merely
     # degraded.
     payload = apply_token_limit(payload, model_id, effective_max)
+    # Same story for sampling temperature — those models accept only the
+    # default. Set here rather than in the literal above so both
+    # model-shaped constraints are applied in one place.
+    payload = apply_temperature(payload, model_id, temperature)
     # Structured output. Applied against the provider we actually RESOLVED
     # to, not the default provider row read below — an agent pinned via
     # `provider_id` can be talking to a different vendor entirely, and
@@ -1175,7 +1408,27 @@ async def fabric_chat(
             "iter-14.75: calling %s model=%s timeout=%s prompt_chars=%d",
             base_url[:40], model_id, timeout, sum(len(m.get("content", "")) for m in messages),
         )
-        async with httpx.AsyncClient(timeout=_timeout_cfg, verify=_http_verify()) as client:
+        # iter-19 — a deployment another coroutine just learned is throttled
+        # is not worth a round-trip to rediscover. Rotate to a free sibling
+        # BEFORE the first attempt when one is available.
+        _cool = deployment_cooldown_remaining(_provider_row_id, model_id)
+        if _cool > 0 and _siblings:
+            for _sib in _siblings:
+                if deployment_cooldown_remaining(_provider_row_id, _sib) <= 0:
+                    logging.getLogger("lama.fabric").info(
+                        "iter-19: %s is cooling down for %.1fs — starting agent=%s "
+                        "on tier sibling %s instead",
+                        model_id, _cool, agent_key, _sib,
+                    )
+                    base_url = _swap_azure_deployment(base_url, model_id, _sib)
+                    model_id = _sib
+                    payload["model"] = _sib
+                    payload = apply_token_limit(payload, _sib, effective_max)
+                    payload = apply_temperature(payload, _sib, temperature)
+                    break
+
+        async with httpx.AsyncClient(timeout=_timeout_cfg, verify=_http_verify()) as client, \
+                _provider_semaphore(_provider_row_id, _is_local_call):
             # A 429 states its own remedy ("try again in 67 seconds"), so wait
             # it out here rather than letting it escape as a failure. Escaping
             # is what sent transient throttles into the billing-failover path,
@@ -1183,24 +1436,96 @@ async def fabric_chat(
             # next. Bounded: a small number of attempts, each capped, so a
             # persistently throttled provider still surfaces as an error
             # instead of hanging the wave.
-            for _attempt in range(_RATE_LIMIT_MAX_RETRIES + 1):
+            #
+            # iter-19 — but waiting is now the SECOND choice. Each Azure
+            # deployment carries its own quota bucket, so a throttle on
+            # gpt-4.1 says nothing about gpt-4o. Rotating to a tier sibling
+            # turns a 52-second stall into a call that lands; we only sleep
+            # once every sibling is throttled too.
+            # Rotations and sleeps are counted SEPARATELY. Sharing one budget
+            # (the first cut of this) meant two siblings consumed all three
+            # attempts, so a call that rotated could never also wait — and on
+            # a busy endpoint it failed outright where the old code would at
+            # least have slept once. Rotation is a different remedy from
+            # waiting, so it gets its own allowance; the total is still
+            # bounded by len(siblings) + retries + 1.
+            _remaining_siblings = list(_siblings)
+            _sleeps_used = 0
+            _roomier_tried = False
+            while True:
                 resp = await client.post(
                     f"{base_url}/chat/completions",
                     headers=headers, json=payload,
                     params=request_params or None,
                 )
                 if resp.status_code != 429:
+                    # iter-19 — a context overflow is not a throttle, but a
+                    # tier sibling may still solve it: within `medium`,
+                    # gpt-4.1 has ~8x the window of gpt-4o. Without this the
+                    # call leaves the provider entirely and lands on a local
+                    # 32k model, which is the LEAST likely thing to fit a
+                    # prompt that just overflowed 128k.
+                    if resp.status_code != 200 and not _roomier_tried:
+                        _err = resp.text[:300]
+                        if _is_context_error(_err):
+                            _roomier = _roomiest_sibling(
+                                resolved_ptype, model_id, _remaining_siblings,
+                            )
+                            if _roomier:
+                                _roomier_tried = True
+                                logging.getLogger("lama.fabric").warning(
+                                    "context overflow on %s for agent=%s — retrying on "
+                                    "tier sibling %s, which has a larger window",
+                                    model_id, agent_key, _roomier,
+                                )
+                                _remaining_siblings = [
+                                    s for s in _remaining_siblings if s != _roomier
+                                ]
+                                base_url = _swap_azure_deployment(base_url, model_id, _roomier)
+                                model_id = _roomier
+                                payload["model"] = _roomier
+                                payload = apply_token_limit(payload, _roomier, effective_max)
+                                payload = apply_temperature(payload, _roomier, temperature)
+                                continue
                     break
                 _body = resp.text[:300]
                 if _is_billing_error(_body):
                     break  # a hard quota cap does not heal by waiting
-                if _attempt >= _RATE_LIMIT_MAX_RETRIES:
-                    break
                 _wait = _retry_after_seconds(_body)
+                # Tell every other in-flight coroutine what we just learned,
+                # so they route around this deployment instead of each
+                # spending a round-trip to find out for themselves.
+                mark_deployment_throttled(_provider_row_id, model_id, _wait)
+
+                # Prefer a sibling that is not itself in cooldown — another
+                # coroutine may already have found it throttled.
+                _next = ""
+                while _remaining_siblings:
+                    _cand = _remaining_siblings.pop(0)
+                    if deployment_cooldown_remaining(_provider_row_id, _cand) <= 0:
+                        _next = _cand
+                        break
+                if _next:
+                    logging.getLogger("lama.fabric").warning(
+                        "429 from %s for agent=%s on %s — rotating to tier "
+                        "sibling %s (no wait; separate quota bucket)",
+                        ptype or "provider", agent_key, model_id, _next,
+                    )
+                    base_url = _swap_azure_deployment(base_url, model_id, _next)
+                    model_id = _next
+                    payload["model"] = _next
+                    payload = apply_token_limit(payload, _next, effective_max)
+                    payload = apply_temperature(payload, _next, temperature)
+                    continue
+
+                if _sleeps_used >= _RATE_LIMIT_MAX_RETRIES:
+                    break
+                _sleeps_used += 1
                 logging.getLogger("lama.fabric").warning(
-                    "429 from %s for agent=%s — waiting %.1fs (attempt %d/%d)",
+                    "429 from %s for agent=%s — every tier sibling is throttled, "
+                    "waiting %.1fs (attempt %d/%d)",
                     ptype or "provider", agent_key, _wait,
-                    _attempt + 1, _RATE_LIMIT_MAX_RETRIES,
+                    _sleeps_used, _RATE_LIMIT_MAX_RETRIES,
                 )
                 await asyncio.sleep(_wait)
             if resp.status_code != 200:
@@ -1382,6 +1707,132 @@ def _retry_after_seconds(msg: str) -> float:
     return _RETRY_AFTER_DEFAULT
 
 
+# ── iter-19: provider pacing ──────────────────────────────────────────
+#
+# Before this, nothing in the fabric coordinated concurrent calls. A
+# wave fanned out N coroutines; each independently hit the same
+# deployment, independently got a 429, and independently slept its own
+# `Retry-After`. With waits observed up to 52s and two retries each, a
+# single call could hold a concurrency slot ~100s before it even reached
+# the failover path — which is what the operator experienced as "the LLM
+# is vacant".
+#
+# Three coordinated pieces replace that:
+#   1. a per-provider semaphore, so we stop issuing more in-flight
+#      requests than the endpoint will actually serve;
+#   2. a shared cooldown map, so when ONE coroutine learns a deployment
+#      is throttled the others skip it instead of each rediscovering it;
+#   3. deployment rotation within the tier (see `tier_siblings`), which
+#      is the only one of the three that turns a throttle into a
+#      completed call rather than a shorter wait.
+#
+# All three are in-process and deliberately not persisted: they describe
+# the state of THIS worker's traffic, and a stale cooldown surviving a
+# restart would be worse than rediscovering it.
+_PROVIDER_SEMAPHORES: Dict[str, "asyncio.Semaphore"] = {}
+_DEPLOYMENT_COOLDOWN: Dict[str, float] = {}
+
+_LOCAL_PROVIDER_CONCURRENCY = 2
+_CLOUD_PROVIDER_CONCURRENCY = 4
+
+
+def _provider_semaphore(provider_id: str, is_local: bool) -> "asyncio.Semaphore":
+    """One semaphore per provider row, created on first use.
+
+    Local engines serve far fewer concurrent generations and QUEUE the
+    rest — and a queued request burns its own timeout while it waits, so
+    over-fanning a local Ollama converts throughput into 600s timeouts.
+    """
+    key = provider_id or "__default__"
+    sem = _PROVIDER_SEMAPHORES.get(key)
+    if sem is None:
+        env = os.environ.get("LAMA_PROVIDER_MAX_CONCURRENCY", "").strip()
+        if env:
+            try:
+                limit = max(1, int(env))
+            except ValueError:
+                limit = _CLOUD_PROVIDER_CONCURRENCY
+        else:
+            limit = _LOCAL_PROVIDER_CONCURRENCY if is_local else _CLOUD_PROVIDER_CONCURRENCY
+        sem = asyncio.Semaphore(limit)
+        _PROVIDER_SEMAPHORES[key] = sem
+    return sem
+
+
+def _cooldown_key(provider_id: str, model_id: str) -> str:
+    return f"{provider_id or '_'}::{model_id or '_'}"
+
+
+def mark_deployment_throttled(provider_id: str, model_id: str, seconds: float) -> None:
+    """Record that this deployment is throttled until `now + seconds`.
+
+    Expired entries are swept on write. The map is bounded by
+    providers × deployments so it was never going to grow without limit,
+    but a long-lived worker should not carry a row per model it has ever
+    seen throttled either — and the sweep costs nothing at this size.
+    """
+    now = time.time()
+    if len(_DEPLOYMENT_COOLDOWN) > 32:
+        for k, until in list(_DEPLOYMENT_COOLDOWN.items()):
+            if until <= now:
+                _DEPLOYMENT_COOLDOWN.pop(k, None)
+    _DEPLOYMENT_COOLDOWN[_cooldown_key(provider_id, model_id)] = now + max(0.0, seconds)
+
+
+def deployment_cooldown_remaining(provider_id: str, model_id: str) -> float:
+    """Seconds left on this deployment's cooldown; 0.0 when it is free."""
+    until = _DEPLOYMENT_COOLDOWN.get(_cooldown_key(provider_id, model_id), 0.0)
+    return max(0.0, until - time.time())
+
+
+def _context_window(provider_type: str, model_id: str) -> int:
+    """Published context window for a model, from its preset catalogue.
+
+    0 when unknown. Used only to ORDER candidates on an overflow — never to
+    pre-emptively reject a call, because published limits drift and the
+    provider's own error is the authority (see `_is_context_error`).
+    """
+    preset = PROVIDER_PRESETS.get((provider_type or "").lower(), {})
+    for m in preset.get("model_catalogue") or []:
+        if (m or {}).get("id") == model_id:
+            try:
+                return int(m.get("context_window") or 0)
+            except (TypeError, ValueError):
+                return 0
+    return 0
+
+
+def _roomiest_sibling(provider_type: str, current: str, candidates: List[str]) -> str:
+    """The candidate with the largest context window, if any beats `current`.
+
+    Returns "" when none is roomier — rotating sideways or downward after an
+    overflow would just reproduce it.
+    """
+    here = _context_window(provider_type, current)
+    best, best_ctx = "", here
+    for c in candidates:
+        ctx = _context_window(provider_type, c)
+        if ctx > best_ctx:
+            best, best_ctx = c, ctx
+    return best
+
+
+def _swap_azure_deployment(base_url: str, old_model: str, new_model: str) -> str:
+    """Point an Azure base URL at a different deployment.
+
+    Azure is the one provider where the model id is part of the URL path
+    (`.../openai/deployments/<name>`), so rotating the model without
+    rewriting the URL would keep calling the throttled deployment with a
+    different name in the body.
+    """
+    if not base_url or not old_model or not new_model:
+        return base_url
+    marker = f"/deployments/{old_model}"
+    if marker not in base_url:
+        return base_url
+    return base_url.replace(marker, f"/deployments/{new_model}", 1)
+
+
 _AUTH_MARKERS = ("401", "unauthorized", "invalid api key", "incorrect api key", "no auth credentials")
 
 # iter-18.3 — The prompt (or the requested completion) does not fit the
@@ -1512,22 +1963,23 @@ async def fabric_chat_with_failover(
     for prov in others:
         if prov.get("id") in tried_ids:
             continue
-        # Pin the agent to this provider for the duration of the retry by
-        # writing provider_id; restore after. Cheaper than refactoring
-        # fabric_chat to accept an explicit provider arg.
-        await ac_col.update_one(
-            {"key": agent_key},
-            {"$set": {"provider_id": prov.get("id", "")}},
-            upsert=True,
-        )
+        # iter-19 — hand the provider to fabric_chat directly instead of
+        # writing `agent_configs.provider_id` and restoring it afterwards.
+        # The old write was global mutable state keyed by agent_key, and a
+        # wave runs many coroutines under ONE agent_key: their pins
+        # interleaved, so a call could be routed by a sibling's in-flight
+        # failover and the "restore" could land while another was still
+        # using the pin. Passing it as an argument makes the choice local
+        # to this call, which is what it always meant.
         try:
             result = await fabric_chat(
                 messages=messages, agent_key=agent_key, project_id=project_id,
                 model_override="",   # let resolve_model pick from this provider's routing
                 max_tokens=max_tokens, temperature=temperature, timeout=timeout,
                 response_format=response_format,
+                provider_override=prov,
             )
-            # Success. Keep the pin ONLY when the first provider failed for
+            # Success. Persist a pin ONLY when the first provider failed for
             # a durable reason (billing, auth) — then re-paying the failover
             # tax on every later call would be waste.
             #
@@ -1535,17 +1987,20 @@ async def fabric_chat_with_failover(
             # demoted agents to whichever provider happened to answer,
             # silently and across restarts: a live run left codegen.verifier
             # (the quality gate for every generated file) pinned from Azure
-            # gpt-5.1 to a local 4B model. So on a rate-limit failover the
-            # pin is released and the next call goes back to the operator's
-            # chosen primary.
+            # gpt-5.1 to a local 4B model. So a rate-limit failover now
+            # writes nothing at all — this call used `prov`, and the next
+            # call resolves the operator's primary again on its own.
             if _first_error_was_rate_limit:
-                await ac_col.update_one(
-                    {"key": agent_key}, {"$set": {"provider_id": pinned_id or ""}},
-                )
                 logging.getLogger("lama.fabric").warning(
-                    "agent=%s fell back to %s for ONE call after a 429; pin "
-                    "released so the next call returns to the primary provider",
+                    "agent=%s fell back to %s for ONE call after a 429; no pin "
+                    "written, so the next call returns to the primary provider",
                     agent_key, prov.get("name") or prov.get("id") or "?",
+                )
+            else:
+                await ac_col.update_one(
+                    {"key": agent_key},
+                    {"$set": {"provider_id": prov.get("id", "")}},
+                    upsert=True,
                 )
             return result
         except Exception as exc:
@@ -1558,19 +2013,15 @@ async def fabric_chat_with_failover(
             # next provider in priority order may have the headroom.
             if not (_is_billing_error(str(exc)) or _is_auth_error(str(exc))
                     or _is_context_error(str(exc))):
-                # A non-billing error → restore default provider pin and
-                # re-raise so the caller sees the actual fault.
-                await ac_col.update_one(
-                    {"key": agent_key},
-                    {"$set": {"provider_id": ""}},
-                )
+                # Re-raise so the caller sees the actual fault. iter-19 — no
+                # pin to undo: the walk passes the provider as an argument
+                # now, so there is nothing written here to roll back. The
+                # blanket `provider_id: ""` that used to sit here also
+                # erased a DELIBERATE operator pin whenever a call happened
+                # to fail, which was never the intent.
                 raise
 
-    # Every provider exhausted. Restore the default pin and raise CreditError.
-    await ac_col.update_one(
-        {"key": agent_key},
-        {"$set": {"provider_id": ""}},
-    )
+    # Every provider exhausted.
     raise CreditError(attempts)
 
 
@@ -1640,12 +2091,15 @@ async def fabric_chat_stream(
     payload = {
         "model": model_id,
         "messages": messages,
-        "temperature": temperature,
         "stream": True,
         # Many OpenAI-compatible providers honour this; safely ignored by the rest.
         "stream_options": {"include_usage": True},
     }
     payload = apply_token_limit(payload, model_id, effective_max)
+    # Streaming hits the same model-shaped constraint as the buffered path:
+    # a reasoning deployment rejects an explicit temperature whether or not
+    # the response is streamed.
+    payload = apply_temperature(payload, model_id, temperature)
     # Structured output works alongside streaming on the OpenAI shape: the
     # deltas simply arrive already constrained to JSON. Anthropic never
     # reaches here (it raises NotImplementedError above), so in practice

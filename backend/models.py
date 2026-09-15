@@ -354,7 +354,13 @@ class ModelProvider(BaseModel):
     key_enabled: bool = True
     detected_from_key: str = ""
     models: List[Dict[str, Any]] = Field(default_factory=list)
-    routing: Dict[str, str] = Field(default_factory=lambda: {"low": "", "medium": "", "high": ""})
+    # iter-19 — six tiers. A row may legitimately leave any of them blank;
+    # `resolve_tier_model` walks `TIER_FALLBACK_CHAIN` to fill the gap, so
+    # rows written before this (low/medium/high only) keep routing.
+    routing: Dict[str, str] = Field(default_factory=lambda: {
+        "trivial": "", "low": "", "medium": "",
+        "high": "", "critical": "", "reasoning": "",
+    })
     # iter-13.112 — Stage-wise model routing with generate/regenerate modes (just like Factory)
     # Each stage gets TWO model picks: one for first-time generation, one for regeneration.
     # Format: {"Discovery.generate": "model-id", "Discovery.regenerate": "model-id", ...}
@@ -377,7 +383,11 @@ class AgentConfig(BaseModel):
     stage: str  # "Discovery"|"DataModel"|"Architecture"|"CodeGen"|"Living"
     label: str
     description: str = ""
-    complexity: str = "medium"  # "low"|"medium"|"high"
+    # iter-19 — one of fabric.model_fabric.TIER_ORDER: trivial | low |
+    # medium | high | critical | reasoning. Deliberately not an Enum: a
+    # stored value the code no longer knows must degrade via the tier
+    # ladder, not 500 on read.
+    complexity: str = "medium"
     model_override: str = ""
     provider_id: str = ""
     max_tokens: int = 4096

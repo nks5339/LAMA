@@ -34,6 +34,7 @@ os.environ.setdefault("DB_NAME", "lama_test")
 
 from fabric.model_fabric import (  # noqa: E402
     PROVIDER_PRESETS,
+    TIER_ORDER,
     detect_provider_from_key,
     resolve_model,
 )
@@ -43,9 +44,19 @@ from fabric.model_fabric import (  # noqa: E402
 
 @pytest.mark.parametrize("ptype", ["azure", "gemini"])
 def test_preset_exists_with_required_shape(ptype: str):
+    """Every preset must carry the three ORIGINAL tiers.
+
+    iter-19 widened the vocabulary from {low, medium, high} to six tiers,
+    so this is a superset check now rather than an equality one. The three
+    original tiers stay REQUIRED: every provider row written before iter-19
+    has exactly those, and `resolve_tier_model`'s fallback chains all
+    terminate on one of them — a preset that dropped them would strand
+    those rows.
+    """
     preset = PROVIDER_PRESETS[ptype]
     assert set(preset) >= {"base_url", "key_prefix", "default_models", "model_catalogue"}
-    assert set(preset["default_models"]) == {"low", "medium", "high"}
+    assert set(preset["default_models"]) >= {"low", "medium", "high"}
+    assert set(preset["default_models"]) <= set(TIER_ORDER)
 
 
 def test_every_detected_provider_type_has_a_preset():

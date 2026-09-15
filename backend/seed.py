@@ -8461,35 +8461,44 @@ async def seed_agents():
          "complexity": "high", "max_tokens": 16000},
         {"key": "tools.transformer.pattern", "agent_type": "task", "stage": "Tools",
          "label": "Transformation Pattern Applier", "description": "Applies specific transformation patterns to source files.",
-         "complexity": "medium", "max_tokens": 8000},
+         "complexity": "high", "max_tokens": 8000},
         {"key": "tools.transformer.validator", "agent_type": "task", "stage": "Tools",
          "label": "Plan Validator", "description": "Gates the Planner's task list before any code is generated \u2014 coverage, unique targets, buildable wave order.",
          "complexity": "medium", "max_tokens": 6000},
         {"key": "tools.transformer.devops_audit", "agent_type": "task", "stage": "Tools",
          "label": "DevOps Expert (dependency audit)", "description": "Audits the generated build manifests for reproducibility and production readiness after compilation.",
-         "complexity": "high", "max_tokens": 6000},
+         "complexity": "critical", "max_tokens": 6000},
         # Multi-Agent Transformer pipeline (iter-16)
         {"key": "tools.transformer.super_agent", "agent_type": "orchestrator", "stage": "Tools",
          "label": "Transformer Super Agent", "description": "Orchestrates the multi-agent code transformation pipeline. Manages phase transitions, escalation, and progress.",
-         "complexity": "medium", "max_tokens": 4000},
+         "complexity": "low", "max_tokens": 4000},
         {"key": "tools.transformer.context_manager", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Context Manager", "description": "Scans source code, discovers APIs/services/tables, produces envelopes for review.",
-         "complexity": "high", "max_tokens": 16000},
+         "complexity": "medium", "max_tokens": 16000},
         {"key": "tools.transformer.planner", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Planner", "description": "Produces dependency-ordered task list with waves from Context Manager envelopes.",
          "complexity": "high", "max_tokens": 12000},
         {"key": "tools.transformer.coder", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Coder", "description": "Executes 3-pass code transformations (Scaffold → Logic → Harden). Behavior-preserving.",
          "complexity": "high", "max_tokens": 12000},
+        # iter-19 — split out of the Planner. Reading a wall of raw build
+        # output and working out which file actually broke is diagnosis,
+        # not planning, and it is the one job in the pipeline that suits a
+        # reasoning model. It shares the Planner's prompt; only the model
+        # differs, via the `reasoning` tier.
+        {"key": "tools.transformer.diagnostician", "agent_type": "task", "stage": "Tools",
+         "label": "Transformer Diagnostician",
+         "description": "Reads raw build output when no per-file diagnostic could be parsed and identifies which source file or build manifest needs editing.",
+         "complexity": "reasoning", "max_tokens": 3000},
         {"key": "tools.transformer.devops_expert", "agent_type": "task", "stage": "Tools",
          "label": "Transformer DevOps Expert", "description": "Build/infrastructure escalation specialist. Invoked when the default Coder's fix made zero difference on a recurring native build failure (release/toolchain mismatch, dependency-version, plugin/build-config).",
-         "complexity": "high", "max_tokens": 12000},
+         "complexity": "critical", "max_tokens": 12000},
         {"key": "tools.transformer.verifier", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Verifier", "description": "9-point quality gate. Inspects transformed code for correctness. Rejects if <95%.",
-         "complexity": "medium", "max_tokens": 8000},
+         "complexity": "high", "max_tokens": 8000},
         {"key": "tools.transformer.tester", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Tester", "description": "Static compilation analysis + dependency check + configuration completeness.",
-         "complexity": "medium", "max_tokens": 8000},
+         "complexity": "low", "max_tokens": 8000},
         # ─── Multi-Agent CodeGen pipeline (iter-17) ───────────────────
         {"key": "codegen.super_agent", "agent_type": "orchestrator", "stage": "CodeGen",
          "label": "CodeGen Super Agent",
@@ -8669,6 +8678,167 @@ async def migrate_srs_codegen_tiers_13_76():
     return applied
 
 
+# iter-19 — Transformer tier reconciliation.
+#
+# `resolve_model()` reads `agent_configs.complexity` BEFORE falling back to
+# `AGENT_COMPLEXITY`, so the DB row is what actually routes. Those rows had
+# drifted apart from the map on five of the ten transformer agents, and the
+# drift was not harmless: `tools.transformer.tester` carried "medium" and so
+# ran every generated test file through gpt-4.1, while the map said "low"
+# (gpt-4.1-mini). That is the exact behaviour visible in the operator's
+# 429 logs.
+#
+# Same safety contract as the iter-13.57 / iter-13.76 migrations: only flip a
+# row that still holds the OLD default, so any Console-side override the
+# operator made survives untouched. Idempotent — after the first run nothing
+# matches `old_c` any more.
+TRANSFORMER_TIER_MIGRATION_19: List[Dict[str, Any]] = [
+    # Diagnosis and the production-readiness gate move UP: the DevOps agent
+    # is the last word before an operator is told a build is shippable.
+    {"key": "tools.transformer.devops_expert",   "old_c": "high",   "new_c": "critical"},
+    {"key": "tools.transformer.devops_audit",    "old_c": "high",   "new_c": "critical"},
+    # The Planner decides how every downstream fix is attempted — including
+    # the new DevOps re-plan round — so it gets a generative-class model.
+    {"key": "tools.transformer.planner",         "old_c": "medium", "new_c": "high"},
+    # These two move DOWN: the row was overriding the map with a costlier
+    # tier than the work needs.
+    {"key": "tools.transformer.context_manager", "old_c": "high",   "new_c": "medium"},
+    {"key": "tools.transformer.super_agent",     "old_c": "medium", "new_c": "low"},
+    # The quality gate and the pattern applier were being under-served by
+    # the row relative to the map.
+    {"key": "tools.transformer.verifier",        "old_c": "medium", "new_c": "high"},
+    {"key": "tools.transformer.pattern",         "old_c": "medium", "new_c": "high"},
+    # The one that shows up in the operator's logs.
+    {"key": "tools.transformer.tester",          "old_c": "medium", "new_c": "low"},
+]
+
+# The api-version stored on an existing Azure provider row predates the
+# gpt-5.x / o-series deployments and `response_format: json_object`, so a
+# correctly-routed critical-tier call still failed at the api-version gate.
+# Only rows still carrying a known-stale value are touched.
+_STALE_AZURE_API_VERSIONS = frozenset({
+    "2023-05-15", "2023-07-01-preview", "2023-12-01-preview",
+    "2024-02-15-preview", "2024-02-01",
+})
+_AZURE_API_VERSION_19 = "2024-12-01-preview"
+
+
+async def migrate_transformer_tiers_19():
+    """Reconcile `agent_configs.complexity` with AGENT_COMPLEXITY for the
+    transformer agents, preserving operator overrides."""
+    from db import agent_configs as ac_col
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    applied: List[Dict[str, Any]] = []
+    for spec in TRANSFORMER_TIER_MIGRATION_19:
+        row = await ac_col.find_one({"key": spec["key"]}, {"_id": 0})
+        if not row:
+            continue  # seed_agents inserts it with the new default already
+        if row.get("complexity") == spec["old_c"]:
+            await ac_col.update_one(
+                {"key": spec["key"]},
+                {"$set": {"complexity": spec["new_c"], "updated_at": now}},
+            )
+            applied.append({"key": spec["key"], "complexity": spec["new_c"]})
+    if applied:
+        try:
+            print(f"[seed] iter-19 — reconciled transformer tiers: {applied}")
+        except Exception:
+            pass
+    return applied
+
+
+async def migrate_azure_api_version_19():
+    """Lift stale Azure api-versions to one that can serve the reasoning
+    deployments. Leaves any version the operator chose deliberately alone."""
+    from db import model_providers as mp_col
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    applied: List[str] = []
+    async for row in mp_col.find({"provider_type": "azure"}, {"_id": 0, "id": 1, "azure_api_version": 1}):
+        current = (row.get("azure_api_version") or "").strip()
+        if current in _STALE_AZURE_API_VERSIONS:
+            await mp_col.update_one(
+                {"id": row.get("id")},
+                {"$set": {"azure_api_version": _AZURE_API_VERSION_19, "updated_at": now}},
+            )
+            applied.append(f"{row.get('id')}: {current} → {_AZURE_API_VERSION_19}")
+    if applied:
+        try:
+            print(f"[seed] iter-19 — lifted stale Azure api-version: {applied}")
+        except Exception:
+            pass
+    return applied
+
+
+# When iter-19 split the top of the ladder, gpt-5.1 moved from `high` to
+# `critical`. A row seeded before that carries `high: gpt-5.1`, so
+# backfilling `critical` alone would leave the two tiers identical and
+# `gpt-5` unreachable — the ladder would look six-deep and route four-deep.
+#
+# These are OLD SEED DEFAULTS, not operator choices, which is the same
+# distinction `migrate_srs_codegen_tiers_13_76` makes: rewrite the tier only
+# while it still holds the value the seed gave it. Anything else the
+# operator has since chosen is left exactly alone.
+# Azure is the only provider whose ladder shifted: its `high` gained a rung
+# above it. Ollama's `high` keeps qwen3.5 and simply gained `critical`
+# (gpt-oss) and `reasoning` above it, which the backfill handles.
+_TIER_REHOME_19: Dict[str, List[Dict[str, str]]] = {
+    "azure": [{"tier": "high", "old": "gpt-5.1", "new": "gpt-5"}],
+}
+
+
+async def migrate_provider_tier_ladder_19():
+    """Backfill the three new routing tiers on existing provider rows.
+
+    ADDS any tier the row is missing, and re-homes a tier only while it
+    still carries the previous seed default (see `_TIER_REHOME_19`). An
+    operator's own pick is never rewritten. Rows keep working without this
+    — `resolve_model` walks the ladder — but backfilling means the Console
+    shows real values instead of three empty selects.
+    """
+    from db import model_providers as mp_col
+    from fabric.model_fabric import PROVIDER_PRESETS, TIER_ORDER
+    from datetime import datetime, timezone
+    now = datetime.now(timezone.utc).isoformat()
+    applied: List[str] = []
+    async for row in mp_col.find({}, {"_id": 0, "id": 1, "provider_type": 1, "routing": 1}):
+        ptype = (row.get("provider_type") or "").lower()
+        preset = PROVIDER_PRESETS.get(ptype, {})
+        defaults = preset.get("default_models") or {}
+        routing = dict(row.get("routing") or {})
+        changes: List[str] = []
+
+        # Re-home BEFORE backfilling, so `critical` is filled from the
+        # preset rather than from a value `high` is about to give up.
+        for spec in _TIER_REHOME_19.get(ptype, []):
+            tier, old, new = spec["tier"], spec["old"], spec["new"]
+            if old != new and (routing.get(tier) or "").strip() == old:
+                routing[tier] = new
+                changes.append(f"{tier}:{old}→{new}")
+
+        added = [t for t in TIER_ORDER
+                 if not (routing.get(t) or "").strip() and (defaults.get(t) or "").strip()]
+        for tier in added:
+            routing[tier] = defaults[tier]
+        if added:
+            changes.append(f"+{','.join(added)}")
+
+        if not changes:
+            continue
+        await mp_col.update_one(
+            {"id": row.get("id")},
+            {"$set": {"routing": routing, "updated_at": now}},
+        )
+        applied.append(f"{row.get('id')}: {' '.join(changes)}")
+    if applied:
+        try:
+            print(f"[seed] iter-19 — routing tiers: {applied}")
+        except Exception:
+            pass
+    return applied
+
+
 async def run_seed():
     await seed_prompts()
     await seed_pilot_project()
@@ -8676,12 +8846,17 @@ async def run_seed():
     # Must run AFTER seed_agents so new installs already have their rows.
     await migrate_arch_agent_tiers()
     await migrate_srs_codegen_tiers_13_76()
+    await migrate_transformer_tiers_19()
     # iter-13.68 — Multi-tenant baseline. Idempotent. Backfills any
     # legacy projects without `tenant_id` to the default tenant.
     await seed_tenancy()
     # iter-18.2 — Azure primary, Ollama fallback. Idempotent and
     # non-destructive: never edits a provider the operator already has.
     await seed_providers()
+    # iter-19 — must run AFTER seed_providers so a brand-new install's rows
+    # exist. Both only fill gaps or lift known-stale values.
+    await migrate_provider_tier_ladder_19()
+    await migrate_azure_api_version_19()
 
 
 async def seed_providers():
@@ -8731,7 +8906,13 @@ async def seed_providers():
         # loses complexity-based routing.
         routing = dict(_PRESETS.get("azure", {}).get("default_models") or {})
         if az_deploy:
-            routing = {t: (routing.get(t) or az_deploy) for t in ("low", "medium", "high")}
+            # iter-19 — iterate over `routing` itself, not a hardcoded
+            # 3-tuple. The literal ("low","medium","high") REBUILT the dict
+            # and silently dropped trivial/critical/reasoning, so a fresh
+            # install with AZURE_DEPLOYMENT set was seeded with a 3-tier row
+            # that `migrate_provider_tier_ladder_19` then had to repair on
+            # the next boot.
+            routing = {t: (routing.get(t) or az_deploy) for t in routing}
         doc = _MP(
             name="Azure OpenAI",
             provider_type="azure",

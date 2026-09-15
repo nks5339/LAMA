@@ -20,6 +20,8 @@ from fabric.model_fabric import (
     fabric_chat,
     estimate_cost,
     resolve_model,
+    resolve_tier_model,
+    AZURE_API_VERSION_DEFAULT,
     _rewrite_local_url_for_docker,
 )
 from factory_orchestrator import (
@@ -243,7 +245,15 @@ async def test_provider(provider_id: str):
     # iter-14.34 — honour the key_enabled toggle; when OFF, behave as if
     # no key were configured (no Bearer header, no Ollama cloud auto-flip).
     api_key = p.get("api_key", "") if p.get("key_enabled", True) else ""
-    model_id = (p.get("routing") or {}).get("low") or (p.get("models") or [{}])[0].get("id", "")
+    # iter-19 — walk the ladder rather than reading `low` directly, so a row
+    # whose cheap tiers are unset still has something to ping.
+    model_id = resolve_tier_model(p.get("routing") or {}, "trivial") \
+        or (p.get("models") or [{}])[0].get("id", "")
+    # The model that will ACTUALLY serve this request. On Azure the URL
+    # names the deployment, so `model_id` in the body is decorative and the
+    # deployment decides which parameters are legal. Reassigned in the azure
+    # branch below; for every other provider the two are the same.
+    wire_model = model_id
     if not model_id:
         return {"ok": False, "error": "No model configured for this provider."}
     is_cloud = False
@@ -256,10 +266,14 @@ async def test_provider(provider_id: str):
         # a different way here would make the button worse than useless: it
         # could pass while generation fails, or vice versa.
         deployment = p.get("azure_deployment", "") or model_id
+        # iter-19 — kept in lockstep with resolve_model's default. This
+        # endpoint's whole contract (see the comment above) is that it uses
+        # the same api-version real calls will; drifting apart makes the
+        # Test Connection button pass while generation fails.
         api_version = (
             p.get("azure_api_version")
             or os.environ.get("AZURE_API_VERSION", "")
-            or "2024-02-15-preview"
+            or AZURE_API_VERSION_DEFAULT
         )
         root = (base_url or "").rstrip("/")
         if deployment and "/deployments/" not in root:
@@ -267,6 +281,16 @@ async def test_provider(provider_id: str):
         base_url = root
         headers = {"api-key": api_key, "Content-Type": "application/json"}
         test_params = {"api-version": api_version}
+        # The deployment in the URL is what answers, so it decides which
+        # parameters are legal — not the `model` string in the body. With
+        # `azure_deployment=gpt-5.1` and a trivial-tier `model_id` of
+        # gpt-4o-mini, this endpoint was shaping the payload for
+        # gpt-4o-mini (max_tokens, temperature=0.1) and posting it to the
+        # gpt-5.1 deployment, which rejects both with a 400. Test
+        # Connection therefore reported the operator's working Azure
+        # account as broken.
+        if deployment:
+            wire_model = deployment
     elif ptype == "ollama":
         # iter-14.21 — auto-detect cloud endpoint + Bearer auth (same
         # rules as resolve_model). Test connection now reflects the
@@ -281,18 +305,23 @@ async def test_provider(provider_id: str):
     else:
         headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                    "HTTP-Referer": "https://lama.local", "X-Title": "LAMA"}
-    from fabric.model_fabric import apply_token_limit
+    from fabric.model_fabric import apply_temperature, apply_token_limit
     payload = {"model": model_id,
-               "messages": [{"role": "user", "content": "Say 'ok' in one word."}],
-               "temperature": 0.1}
+               "messages": [{"role": "user", "content": "Say 'ok' in one word."}]}
+    # Shape for `wire_model` — what actually answers — not for `model_id`.
+    #
     # The reasoning families reject `max_tokens` outright, so the shared
     # helper picks the field name. A budget of 10 is also too small for them:
     # reasoning tokens are drawn from the same allowance, so a tiny cap is
     # spent thinking and returns an empty string with finish_reason="length",
     # which reads as a dead provider. 2000 is enough to reason and still
-    # answer "ok".
-    _is_reasoning = apply_token_limit({}, model_id, 1).get("max_completion_tokens")
-    payload = apply_token_limit(payload, model_id, 2000 if _is_reasoning else 10)
+    # answer "ok" (apply_token_limit floors it there anyway).
+    _is_reasoning = apply_token_limit({}, wire_model, 1).get("max_completion_tokens")
+    payload = apply_token_limit(payload, wire_model, 2000 if _is_reasoning else 10)
+    # iter-19 — and those same models reject any temperature but the
+    # default. This was hardcoded to 0.1, so the button 400'd against every
+    # gpt-5.x / o-series deployment.
+    payload = apply_temperature(payload, wire_model, 0.1)
     t0 = time.time()
     # iter-14.25.6 — Ollama pre-flight: if the operator points at a local
     # Ollama endpoint but the requested model isn't pulled, the OpenAI-
@@ -326,7 +355,7 @@ async def test_provider(provider_id: str):
                                 f"{'…' if len(_installed) > 6 else ''}."
                             ),
                             "latency_ms": int((time.time() - t0) * 1000),
-                            "model_used": model_id,
+                            "model_used": wire_model,
                             "cloud": is_cloud,
                             "endpoint": base_url,
                         }
@@ -358,11 +387,11 @@ async def test_provider(provider_id: str):
             latency_ms = int((time.time() - t0) * 1000)
             if r.status_code != 200:
                 return {"ok": False, "error": f"HTTP {r.status_code}: {r.text[:200]}",
-                        "latency_ms": latency_ms, "model_used": model_id,
+                        "latency_ms": latency_ms, "model_used": wire_model,
                         "cloud": is_cloud, "endpoint": base_url}
             data = r.json()
             content = data.get("choices", [{}])[0].get("message", {}).get("content", "")
-            return {"ok": True, "model_used": model_id, "latency_ms": latency_ms,
+            return {"ok": True, "model_used": wire_model, "latency_ms": latency_ms,
                     "response": content[:100],
                     "cloud": is_cloud, "endpoint": base_url}
     except Exception as e:
@@ -387,7 +416,7 @@ async def test_provider(provider_id: str):
                 f"doesn't evict between tests."
             )
         return {"ok": False, "error": msg, "latency_ms": int((time.time() - t0) * 1000),
-                "model_used": model_id, "cloud": is_cloud, "endpoint": base_url}
+                "model_used": wire_model, "cloud": is_cloud, "endpoint": base_url}
 
 
 # iter-14.21 — /validate/{id} — alias of /test with a stable, normalised
@@ -668,7 +697,16 @@ async def list_agents():
                 if a.get("model_override"):
                     a["resolved_model"] = a["model_override"]
                 elif default_provider:
-                    a["resolved_model"] = (default_provider.get("routing") or {}).get(a.get("complexity", "medium"), "")
+                    # iter-19 — walk the tier ladder, exactly as
+                    # `resolve_model` does. A bare dict lookup showed a
+                    # BLANK model for any agent on a tier the provider row
+                    # does not carry (every pre-iter-19 row lacks
+                    # trivial/critical/reasoning), so the Console claimed
+                    # the DevOps agent had no model while it routed fine.
+                    a["resolved_model"] = resolve_tier_model(
+                        default_provider.get("routing") or {},
+                        a.get("complexity", "medium"),
+                    )
                 else:
                     a["resolved_model"] = ""
                 a["resolved_provider"] = (default_provider or {}).get("name", "(none)")
@@ -952,10 +990,13 @@ async def _current_usage(project_id: str = "") -> Dict[str, Any]:
             # keep showing the legacy LAMA_DEFAULT_MODEL ("deepseek/…")
             # right after a Refresh App / fresh deploy on an Anthropic
             # default. Env var is the last-resort fallback only.
+            # iter-19 — `critical` is the strongest tier now, so the
+            # hand-rolled high→medium→low chain here would under-report what
+            # actually runs. `resolve_tier_model` already encodes the
+            # degrade-upward order.
             picked = (
-                routing.get("high")
-                or routing.get("medium")
-                or routing.get("low")
+                resolve_tier_model(routing, "critical")
+                or resolve_tier_model(routing, "high")
                 or os.environ.get("LAMA_DEFAULT_MODEL", "")
                 or ""
             )

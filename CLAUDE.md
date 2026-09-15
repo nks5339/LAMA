@@ -61,7 +61,7 @@ through the 5 stages:
 | Layer | Tech |
 |-------|------|
 | Backend | Python 3.11, FastAPI 0.110, Motor 3.3, Pydantic 2.13, httpx 0.28, PyYAML 6.0, PyGithub 2.9 |
-| LLM    | OpenRouter / Anthropic / OpenAI / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. Tiers: `low / medium / high` per `PROVIDER_PRESETS.default_models`. |
+| LLM    | OpenRouter / Anthropic / OpenAI / Azure / Gemini / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. **iter-19:** six tiers — `trivial / low / medium / high / critical / reasoning` (`TIER_ORDER`). `resolve_tier_model` walks `TIER_FALLBACK_CHAIN` when a row lacks a tier, so pre-iter-19 rows (low/medium/high only) keep routing. `reasoning` is a sideways step for diagnosis (o-series), not a rung above `critical`. |
 | Vector DB | Qdrant — the collection is auto-created on Build KB, but the whole subsystem is **inert** unless `QDRANT_URL` **or** `QDRANT_PATH` is set (`kb/vector_store.py:44-48`); callers then degrade to TOON-only. `QDRANT_PATH` selects the embedded on-disk engine — no server needed. |
 | Mongo   | MongoDB 7 — system of record for LAMA itself (PostgreSQL is the migration *target*, not the store) |
 | Frontend| React 19, react-router-dom 7, Tailwind 3.4, Radix UI (9 packages — 22 unused ones removed 2026-09), D3 7.9, Mermaid 11, Monaco, `react-resizable-panels@2.1.7` *(pinned — do not upgrade)* |

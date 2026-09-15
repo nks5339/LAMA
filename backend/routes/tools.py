@@ -3857,6 +3857,9 @@ async def get_transformation_status(transform_id: str):
             # stdout/stderr, appended as the build runs).
             "compile_console": 1,
             "compile_console_updated_at": 1,
+            # iter-19 — DevOps gate verdict + its remediation trail.
+            "dependency_audit": 1,
+            "production_ready": 1,
         },
     )
     if not doc:
@@ -3922,6 +3925,11 @@ async def get_transformation_status(transform_id: str):
         # server restart killed it) so the FE can stop polling/spinning
         # immediately instead of waiting out its full client-side timeout.
         "compile_fix_stalled": compile_fix_stalled,
+        # iter-19 — the DevOps gate. `production_ready` is load-bearing now:
+        # a green compile with critical manifest findings ends the run as
+        # `completed_with_errors`, so the FE must be able to say WHY.
+        "dependency_audit": doc.get("dependency_audit") or None,
+        "production_ready": doc.get("production_ready"),
     }
 
 
@@ -7189,8 +7197,13 @@ async def _llm_diagnose_generic_failure(
         }
 
     try:
+        # iter-19 — the PROMPT is still the Planner's (the task is unchanged:
+        # read the failure, name the files to edit), but the MODEL is no
+        # longer the Planner's. Inheriting a per-transformation Planner
+        # override here would pin diagnosis to a generative model and
+        # defeat the `reasoning` tier this call now routes through.
         prompt_template = await _get_effective_prompt(transform_id, "planner")
-        eff_model = await _get_effective_model(transform_id, "planner", model)
+        eff_model = model
         if not prompt_template:
             return {"blocked": False, "root_cause": "no Planner prompt configured", "error_groups": []}
 
@@ -7266,7 +7279,15 @@ file doesn't exist yet — creating it is a normal, valid fix."""
                 {"role": "user", "content": user_prompt},
             ],
             model=eff_model,
-            agent_key="tools.transformer.planner",
+            # iter-19 — this call is DIAGNOSIS, not planning: it reads a
+            # wall of raw build output and works out what actually broke,
+            # which is what the o-series is good at and what the
+            # `reasoning` tier exists to route to. It kept the Planner's
+            # key only because there was no better one; it uses the
+            # Planner's prompt either way (see `eff_model` above), so the
+            # split changes which model reads the output, not what it is
+            # asked to do.
+            agent_key="tools.transformer.diagnostician",
             project_id=await _project_id_for_transform(transform_id),
             temperature=0.1,
             max_tokens=3000,
@@ -7948,6 +7969,260 @@ async def _run_compile_fix_loop(
 
 
 # ═══════════════════════════════════════════════════════════════════
+# iter-19 — DevOps → Planner remediation loop
+# ═══════════════════════════════════════════════════════════════════
+#
+# The DevOps audit used to be a dead end. It ran at 97%, AFTER the run's
+# status and result had already been decided, wrote its findings to a warn
+# line, and returned. `production_ready: false` changed nothing. So a
+# transformation could report `completed` while shipping a pom Maven
+# cannot resolve — which is exactly the "the build remains incomplete"
+# symptom.
+#
+# The remediation loop closes it: a finding becomes an error group, the
+# Planner turns that into a concrete FIX task, and the DevOps Expert
+# persona applies it — reusing, unchanged, the same
+# `_planner_fix_tasks_from_errors` → `_coder_apply_fix` machinery the
+# compile-fix loop already runs. Nothing new is invented for the repair
+# path; only the trigger is new.
+#
+# Bounded, because a loop that cannot make progress must stop rather than
+# burn tokens: a hard round cap AND a stagnation guard on the finding set
+# (the same idea as `_compile_failure_signature`, applied to audit
+# findings instead of compiler output).
+
+_DEVOPS_REMEDIABLE_SEVERITIES = ("critical", "major")
+
+
+def _devops_findings_signature(findings: List[Dict[str, Any]]) -> Tuple:
+    """Stable identity for a set of audit findings.
+
+    Two rounds producing the same signature means the repair changed
+    nothing measurable — the same stop condition the compile-fix loop uses,
+    and a better one than a bare round counter because it stops on the
+    first wasted round rather than the Nth.
+    """
+    return tuple(sorted(
+        (str(f.get("manifest", "")), str(f.get("severity", "")), str(f.get("issue", ""))[:200])
+        for f in (findings or []) if isinstance(f, dict)
+    ))
+
+
+def _devops_findings_to_error_groups(
+    findings: List[Dict[str, Any]],
+    build_tools_map: Dict[str, str],
+) -> List[Dict[str, Any]]:
+    """Convert audit findings into the error-group shape the Planner
+    consumes, one group per manifest.
+
+    Groups per FILE rather than per finding so the Coder sees every
+    problem with a manifest in one task and can fix them together — a
+    version-less dependency and an undefined property in the same pom are
+    one edit, and splitting them into two tasks would have the second
+    overwrite the first.
+    """
+    by_manifest: Dict[str, List[Dict[str, Any]]] = {}
+    for f in findings or []:
+        if not isinstance(f, dict):
+            continue
+        if (f.get("severity") or "").lower() not in _DEVOPS_REMEDIABLE_SEVERITIES:
+            continue
+        path = (f.get("manifest") or "").strip()
+        if not path:
+            # A finding with no manifest (e.g. "no build manifest found")
+            # names no file to edit, so there is nothing to route.
+            continue
+        by_manifest.setdefault(path, []).append(f)
+
+    groups: List[Dict[str, Any]] = []
+    for path, items in by_manifest.items():
+        component = ""
+        tool = ""
+        for comp, t in (build_tools_map or {}).items():
+            if path.replace("\\", "/").startswith(f"{comp}/") or path == f"{comp}/pom.xml":
+                component, tool = comp, t
+                break
+        lines: List[Tuple[int, str]] = []
+        for f in items[:8]:
+            fix = (f.get("fix") or "").strip()
+            lines.append((0, (
+                f"[{(f.get('severity') or '').upper()}] {f.get('issue', '')}"
+                + (f" SUGGESTED FIX: {fix}" if fix else "")
+            )))
+        groups.append({
+            "path": path,
+            "component": component or None,
+            "tool": tool or None,
+            # Reuses the compile-fix loop's build-manifest phrasing, which
+            # already tells the Coder to edit a manifest rather than source
+            # and not to churn unrelated dependencies.
+            "kind": "build_config",
+            "lines": lines,
+        })
+    return groups
+
+
+async def _run_devops_remediation_loop(
+    transform_id: str,
+    compile_result: Dict[str, Any],
+    build_tools_map: Dict[str, str],
+    model: Optional[str],
+    max_rounds: Optional[int] = None,
+) -> Dict[str, Any]:
+    """Audit → Planner → DevOps Expert → recompile, until the manifests are
+    production-ready, nothing changes, or the round cap is reached.
+
+    Returns the FINAL audit plus a `rounds` trail, and the (possibly
+    re-run) compile result so the caller's `compile_green` reflects any
+    repair made here.
+    """
+    if max_rounds is None:
+        try:
+            max_rounds = max(1, int(os.environ.get("LAMA_DEVOPS_REPLAN_MAX_ROUNDS", "2") or 2))
+        except ValueError:
+            max_rounds = 2
+
+    tx = await transformations.find_one({"_id": transform_id}) or {}
+    detected_stack = tx.get("detected_stack") or {}
+    target_stack = tx.get("target_stack") or tx.get("transforms") or {}
+
+    rounds: List[Dict[str, Any]] = []
+    audit = await _run_devops_dependency_check(transform_id, compile_result, model)
+    prev_sig: Optional[Tuple] = None
+
+    for rnd in range(1, max_rounds + 1):
+        if audit.get("production_ready"):
+            break
+
+        findings = audit.get("findings") or []
+        groups = _devops_findings_to_error_groups(findings, build_tools_map)
+        if not groups:
+            # Nothing actionable — e.g. every finding is advisory, or the
+            # only finding names no file. Reporting that honestly beats
+            # spending a round on tasks that cannot be written.
+            rounds.append({
+                "round": rnd, "status": "no_actionable_findings",
+                "findings": len(findings),
+                "summary": audit.get("summary", ""),
+            })
+            break
+
+        sig = _devops_findings_signature(findings)
+        if prev_sig is not None and sig == prev_sig:
+            rounds.append({
+                "round": rnd, "status": "stagnant",
+                "findings": len(findings),
+                "summary": "The previous remediation round left the audit findings unchanged.",
+            })
+            _emit_log(
+                transform_id, "warn",
+                "DevOps remediation made no difference — the identical findings recurred. "
+                "Stopping rather than spending another round.",
+                agent="devops_expert", phase="devops-remediation",
+            )
+            break
+        prev_sig = sig
+
+        await _update_progress(
+            transform_id,
+            status="running",
+            phase="devops_remediation",
+            phase_label=f"DevOps: Planning manifest repairs (round {rnd}/{max_rounds})",
+            progress_pct=95,
+        )
+        _emit_log(
+            transform_id, "info",
+            f"DevOps found {len(findings)} issue(s) across {len(groups)} manifest(s) — "
+            f"handing them to the Planner for repair (round {rnd}/{max_rounds})",
+            agent="devops_expert", phase="devops-remediation",
+        )
+
+        # The Planner decides HOW to fix each one; iteration 900+ keeps
+        # these tasks distinguishable from the compile-fix loop's in
+        # `transformer_tasks`.
+        fix_tasks = await _planner_fix_tasks_from_errors(transform_id, groups, 900 + rnd)
+        if not fix_tasks:
+            rounds.append({
+                "round": rnd, "status": "no_fix_tasks",
+                "findings": len(findings),
+                "summary": "The Planner produced no fix tasks for these findings.",
+            })
+            break
+
+        await _update_progress(
+            transform_id,
+            status="running",
+            phase="devops_remediation",
+            phase_label=f"DevOps Expert: Repairing {len(fix_tasks)} manifest(s)",
+            progress_pct=96,
+        )
+
+        try:
+            _conc = max(1, min(int(os.environ.get("LAMA_COMPILE_FIX_CONCURRENCY", "3") or "3"), 8))
+        except ValueError:
+            _conc = 3
+        sem = asyncio.Semaphore(_conc)
+        applied: List[Dict[str, Any]] = []
+
+        async def _apply(task: Dict[str, Any]):
+            async with sem:
+                try:
+                    ok = await _coder_apply_fix(
+                        transform_id, task, detected_stack, target_stack, model,
+                        # The DevOps Expert persona, not the default Coder —
+                        # a manifest is its domain, and this is the same
+                        # escalation the compile-fix loop performs.
+                        agent_name="devops_expert",
+                    )
+                except Exception as exc:  # noqa: BLE001 — one bad manifest must not kill the round
+                    log.warning("DevOps remediation failed for %s: %s", task.get("target_path"), exc)
+                    ok = False
+                applied.append({"path": task.get("target_path"), "fixed": bool(ok)})
+
+        await asyncio.gather(*[_apply(t) for t in fix_tasks])
+
+        # A manifest edit is only real if the build still stands, so
+        # recompile before re-auditing. Without this the second audit would
+        # grade a pom that may no longer compile.
+        if build_tools_map:
+            await _update_progress(
+                transform_id,
+                status="running",
+                phase="devops_remediation",
+                phase_label="DevOps: Recompiling after manifest repairs",
+                progress_pct=96,
+            )
+            try:
+                _cur = transform_files.find(
+                    {"transform_id": transform_id, "type": "transformed"},
+                    {"path": 1, "content": 1},
+                )
+                _files = [{"path": d.get("path", ""), "content": d.get("content", "")} async for d in _cur]
+                if _files:
+                    _ws = _write_transformed_workspace(_files)
+                    try:
+                        compile_result = await _run_compiler(transform_id, _ws, build_tools_map)
+                    finally:
+                        shutil.rmtree(_ws, ignore_errors=True)
+            except Exception as exc:  # noqa: BLE001
+                log.warning("DevOps remediation recompile failed for %s: %s", transform_id, exc)
+
+        audit = await _run_devops_dependency_check(transform_id, compile_result, model)
+        rounds.append({
+            "round": rnd,
+            "status": "remediated" if audit.get("production_ready") else "still_failing",
+            "findings_before": len(findings),
+            "findings_after": len(audit.get("findings") or []),
+            "manifests_touched": applied,
+            "compile_green": bool(compile_result.get("compilation_ready")),
+        })
+
+    audit["remediation_rounds"] = rounds
+    audit["remediation_rounds_used"] = len(rounds)
+    return {"audit": audit, "compile_result": compile_result}
+
+
+# ═══════════════════════════════════════════════════════════════════
 # iter-15.45 — Three-tier test generator + coverage runner
 # ═══════════════════════════════════════════════════════════════════
 #
@@ -8173,9 +8448,25 @@ async def _run_test_generator(
     )
 
     per_tier: Dict[str, int] = {t: 0 for t in tiers}
-    # Concurrency: 4 tests in-flight is enough to keep the LLM busy
-    # without stampeding the provider rate-limit.
-    sem = asyncio.Semaphore(int(os.environ.get("LAMA_TESTGEN_CONCURRENCY", "4") or "4"))
+    # Concurrency: 4 tests in-flight is enough to keep a cloud endpoint busy
+    # without stampeding its rate-limit. A local Ollama serves far fewer
+    # concurrent generations and QUEUES the rest, and a queued request burns
+    # its own timeout while it waits — so over-fanning a local engine turns
+    # throughput into 600s timeouts. Mirrors the same treatment the Coder
+    # wave already gets. An explicit env value always wins.
+    _tg_env = os.environ.get("LAMA_TESTGEN_CONCURRENCY", "")
+    if _tg_env.strip():
+        try:
+            _tg_conc = max(1, int(_tg_env))
+        except ValueError:
+            _tg_conc = 4
+    else:
+        try:
+            from llm import active_default_provider_is_local
+            _tg_conc = 2 if await active_default_provider_is_local() else 4
+        except Exception:  # noqa: BLE001 — pacing must never break the phase
+            _tg_conc = 4
+    sem = asyncio.Semaphore(_tg_conc)
 
     async def _emit(tier: str, env: Dict[str, Any], idx: int) -> None:
         async with sem:
@@ -8934,6 +9225,139 @@ def _collect_manifests(files: List[Dict[str, str]]) -> List[Dict[str, str]]:
     return out
 
 
+# iter-19 — Real Maven-resolution checks.
+#
+# The previous pom audit looked for exactly one thing: a duplicate
+# `<artifactId>`. That is a genuine problem but a rare one, and it is not
+# what actually breaks a generated pom. The two failures that do — both
+# seen on live transformer output — are:
+#
+#   1. a `<dependency>` with no `<version>` and nothing in the file able to
+#      supply one (no `<parent>`, no `<dependencyManagement>`). Maven fails
+#      with "'dependencies.dependency.version' is missing" before it ever
+#      reaches the network.
+#   2. `<version>${some.prop}</version>` where `some.prop` is not declared
+#      in `<properties>`. Maven does not interpolate it, and the literal
+#      string `${some.prop}` is then looked up as a version and not found.
+#
+# Both are decidable by reading the file, which is why they belong in the
+# deterministic pass rather than being left to the LLM's judgement.
+_POM_DEPENDENCY_RE = re.compile(r"<dependency>(.*?)</dependency>", re.S | re.I)
+_POM_PROPERTY_REF_RE = re.compile(r"\$\{([^}]+)\}")
+
+
+def _audit_pom(path: str, content: str) -> List[Dict[str, str]]:
+    """Deterministic production-readiness findings for one pom.xml."""
+    findings: List[Dict[str, str]] = []
+
+    # Everything `<dependencyManagement>` declares is a version SOURCE, not
+    # a dependency that itself needs a version — strip it before looking
+    # for version-less dependencies so a correct BOM isn't reported as a
+    # fault.
+    managed_block = "".join(
+        re.findall(r"<dependencyManagement>(.*?)</dependencyManagement>", content, re.S | re.I)
+    )
+    has_parent = bool(re.search(r"<parent>", content, re.I))
+    has_managed = bool(managed_block.strip())
+    body = content
+    if managed_block:
+        body = re.sub(r"<dependencyManagement>.*?</dependencyManagement>", "", content, flags=re.S | re.I)
+
+    declared_props = {
+        m.strip()
+        for block in re.findall(r"<properties>(.*?)</properties>", content, re.S | re.I)
+        for m in re.findall(r"<([A-Za-z0-9_.\-]+)>", block)
+    }
+    # Maven resolves these itself; they are never declared in <properties>.
+    builtin_props = {"project.version", "project.groupId", "project.artifactId", "pom.version"}
+
+    seen_coords: List[str] = []
+    for dep_body in _POM_DEPENDENCY_RE.findall(body):
+        gid = (re.search(r"<groupId>\s*([^<]+?)\s*</groupId>", dep_body, re.I) or [None, ""])
+        gid = gid.group(1) if hasattr(gid, "group") else ""
+        aid_m = re.search(r"<artifactId>\s*([^<]+?)\s*</artifactId>", dep_body, re.I)
+        aid = aid_m.group(1) if aid_m else ""
+        ver_m = re.search(r"<version>\s*([^<]+?)\s*</version>", dep_body, re.I)
+        ver = ver_m.group(1) if ver_m else ""
+        coord = f"{gid}:{aid}" if gid else aid
+        if aid:
+            seen_coords.append(coord)
+
+        if not ver and not has_parent and not has_managed:
+            findings.append({
+                "severity": "critical", "manifest": path,
+                "issue": (
+                    f"Dependency '{coord or '(unnamed)'}' declares no <version>, and this pom has "
+                    f"neither a <parent> nor a <dependencyManagement> section to supply one. "
+                    f"Maven fails resolution with "
+                    f"\"'dependencies.dependency.version' is missing\"."
+                ),
+                "fix": (
+                    "Either add an explicit <version>, or inherit one — add the "
+                    "spring-boot-starter-parent (or the appropriate BOM) as <parent>, "
+                    "or import the BOM under <dependencyManagement>."
+                ),
+            })
+
+        for prop in _POM_PROPERTY_REF_RE.findall(ver):
+            prop = prop.strip()
+            if prop in builtin_props or prop in declared_props:
+                continue
+            findings.append({
+                "severity": "critical", "manifest": path,
+                "issue": (
+                    f"Dependency '{coord or '(unnamed)'}' pins version '${{{prop}}}', but "
+                    f"'{prop}' is not declared in <properties>. Maven leaves the placeholder "
+                    f"uninterpolated and then cannot find that literal version."
+                ),
+                "fix": f"Add <{prop}>VERSION</{prop}> to <properties>, or replace the reference with a literal version.",
+            })
+
+    dupes = sorted({c for c in seen_coords if seen_coords.count(c) > 1})
+    for c in dupes:
+        findings.append({
+            "severity": "major", "manifest": path,
+            "issue": f"'{c}' is declared more than once — Maven resolves one and silently drops the other.",
+            "fix": "Remove the duplicate <dependency> block, keeping the one with the correct scope and version.",
+        })
+
+    # A parent with an unresolved property version is the same bug one
+    # level up, and it breaks the build harder (nothing resolves at all).
+    parent_block = re.search(r"<parent>(.*?)</parent>", content, re.S | re.I)
+    if parent_block:
+        pv = re.search(r"<version>\s*([^<]+?)\s*</version>", parent_block.group(1), re.I)
+        for prop in _POM_PROPERTY_REF_RE.findall(pv.group(1) if pv else ""):
+            if prop.strip() not in declared_props and prop.strip() not in builtin_props:
+                findings.append({
+                    "severity": "critical", "manifest": path,
+                    "issue": (
+                        f"The <parent> version references '${{{prop.strip()}}}', which is not declared "
+                        f"in <properties>. Nothing in this module can resolve until the parent does."
+                    ),
+                    "fix": "Give the <parent> a literal version — a parent POM cannot be resolved via a property it defines itself.",
+                })
+    return findings
+
+
+def _audit_gradle(path: str, content: str) -> List[Dict[str, str]]:
+    """The Gradle equivalent of the two pom checks above: a coordinate
+    whose version is an undefined variable."""
+    findings: List[Dict[str, str]] = []
+    declared = set(re.findall(r"^\s*(?:val|def|ext\.)?\s*([A-Za-z0-9_]+)\s*=", content, re.M))
+    declared |= set(re.findall(r"^\s*([A-Za-z0-9_.\-]+)\s*=", content, re.M))
+    for coord in re.findall(r"""['"]([\w.\-]+:[\w.\-]+:[^'"]*\$\{?[\w.]+\}?)['"]""", content):
+        for var in re.findall(r"\$\{?([\w.]+)\}?", coord):
+            root = var.split(".")[0]
+            if var in declared or root in declared:
+                continue
+            findings.append({
+                "severity": "critical", "manifest": path,
+                "issue": f"'{coord}' pins its version to '${var}', which is not defined in this build script.",
+                "fix": f"Declare {var} in the build script (or gradle.properties), or use a literal version.",
+            })
+    return findings
+
+
 async def _run_devops_dependency_check(
     transform_id: str,
     compile_result: Dict[str, Any],
@@ -9002,13 +9426,9 @@ async def _run_devops_dependency_check(
                     "issue": "package.json is not valid JSON — npm/yarn cannot install.",
                 })
         elif base == "pom.xml":
-            arts = re.findall(r"<artifactId>\s*([^<]+?)\s*</artifactId>", content)
-            dupes = sorted({a for a in arts if arts.count(a) > 1})
-            for a in dupes:
-                findings.append({
-                    "severity": "major", "manifest": path,
-                    "issue": f"artifactId '{a}' is declared more than once — Maven resolves one and silently drops the other.",
-                })
+            findings.extend(_audit_pom(path, content))
+        elif base in ("build.gradle", "build.gradle.kts"):
+            findings.extend(_audit_gradle(path, content))
 
     det_critical = sum(1 for f in findings if f["severity"] == "critical")
 
@@ -9054,6 +9474,15 @@ async def _run_devops_dependency_check(
                 _v = _f.get(_k)
                 if _v is not None and not isinstance(_v, str):
                     _f[_k] = json.dumps(_v) if isinstance(_v, (dict, list)) else str(_v)
+            # iter-19 — normalise severity case. The prompt asks for
+            # "CRITICAL | MAJOR | MINOR" while the deterministic pass emits
+            # lowercase, and the gate below compared lowercase only — so an
+            # LLM-reported CRITICAL never blocked production_ready. That was
+            # invisible while the verdict was advisory; now that it decides
+            # the run's final status, it has to be right.
+            _sev = _f.get("severity")
+            if isinstance(_sev, str):
+                _f["severity"] = _sev.strip().lower()
 
     production_ready = bool(
         compile_result.get("compilation_ready")
@@ -9073,8 +9502,22 @@ async def _run_devops_dependency_check(
     result = {
         "production_ready": production_ready,
         "manifests_audited": [m["path"] for m in manifests],
+        # Provenance: which findings were decided by parsing vs by the model.
         "deterministic": findings,
-        "findings": extra,
+        "model_reported": extra,
+        # iter-19 — `findings` is the UNION, deterministic first.
+        #
+        # It used to be `extra` alone, which meant the two consumers that
+        # matter both ignored every deterministic finding: the remediation
+        # loop saw nothing actionable and stopped, and the UI panel showed
+        # an empty list — for a pom that definitively cannot resolve. With
+        # the LLM unavailable the audit was silent about faults it had
+        # already proven.
+        #
+        # Deterministic first because they are decidable: a missing
+        # <version> is not a judgement call, and it should head the list the
+        # Coder is handed.
+        "findings": list(findings) + list(extra),
         "summary": summary,
     }
 
@@ -9672,6 +10115,7 @@ async def _continue_multi_agent_after_task_confirm(
         compile_result = None
         coverage_result = None
         test_gen_result = None
+        dependency_audit = None
         workspace_root = None
         try:
             if build_tools_map and transformed_files:
@@ -9683,6 +10127,33 @@ async def _continue_multi_agent_after_task_confirm(
                 compile_result = await _run_compile_fix_loop(
                     transform_id, build_tools_map, model,
                 )
+
+                # iter-19 — DevOps gate, moved here from the tail of the
+                # run. It used to execute at 97% AFTER `final_status` was
+                # already decided, which made its verdict decorative. Now
+                # it runs while there is still time to act on it: findings
+                # go back to the Planner, the DevOps Expert repairs the
+                # manifests, and the build is recompiled before test-gen
+                # and coverage see the tree.
+                await _update_progress(
+                    transform_id,
+                    phase="devops",
+                    phase_label="DevOps: Auditing build manifests",
+                    progress_pct=91,
+                    files_done=done_count,
+                )
+                _devops = await _run_devops_remediation_loop(
+                    transform_id, compile_result, build_tools_map, model,
+                )
+                dependency_audit = _devops["audit"]
+                compile_result = _devops["compile_result"]
+                if not dependency_audit.get("production_ready"):
+                    _emit_log(
+                        transform_id, "warn",
+                        f"DevOps audit: not production-ready — {dependency_audit.get('summary', '')}",
+                        agent="devops_expert", phase="dependency-audit",
+                    )
+
                 # Refresh transformed_files from Mongo — the fix loop may
                 # have rewritten some rows in place.
                 _cur = transform_files.find(
@@ -9814,39 +10285,26 @@ async def _continue_multi_agent_after_task_confirm(
         compile_green = True
         if build_tools_map:
             compile_green = bool((compilation_result or {}).get("compilation_ready"))
-        final_status = "completed" if compile_green else "completed_with_errors"
-        final_phase_label = (
-            "Multi-agent pipeline completed"
-            if compile_green else
-            "Pipeline finished — compilation errors remain, click Rerun compile"
-        )
 
-        # ── Phase 4.5: DevOps dependency audit ──────────────────────
-        # A green compile proves the code builds here today; it says
-        # nothing about unpinned or conflicting dependency declarations
-        # that make the build irreproducible tomorrow. This is the DevOps
-        # agent's proactive mode (its other mode is the escalation
-        # persona inside the compile-fix loop).
-        dependency_audit = None
-        try:
-            await _update_progress(
-                transform_id,
-                status="running",
-                phase="devops",
-                phase_label="DevOps: Auditing dependencies",
-                progress_pct=97,
+        # iter-19 — the DevOps verdict is now part of this gate rather than
+        # an observation made after it. `production_ready` was previously
+        # computed, stored, and ignored: a run could report the green
+        # `completed` while shipping a pom Maven cannot resolve. It is only
+        # consulted when an audit actually ran (no build_tools map means no
+        # manifests to audit, and absence of evidence must not fail a run).
+        production_ready = bool((dependency_audit or {}).get("production_ready"))
+        devops_blocked = bool(dependency_audit) and not production_ready
+
+        final_status = "completed" if (compile_green and not devops_blocked) else "completed_with_errors"
+        if not compile_green:
+            final_phase_label = "Pipeline finished — compilation errors remain, click Rerun compile"
+        elif devops_blocked:
+            final_phase_label = (
+                "Pipeline finished — the build compiles but its dependencies are not "
+                "production-ready; see the DevOps audit"
             )
-            dependency_audit = await _run_devops_dependency_check(
-                transform_id, compilation_result or {}, model,
-            )
-            if not dependency_audit.get("production_ready"):
-                _emit_log(
-                    transform_id, "warn",
-                    f"DevOps audit: not production-ready — {dependency_audit.get('summary', '')}",
-                    agent="devops_expert", phase="dependency-audit",
-                )
-        except Exception as _de:  # noqa: BLE001 — a gate must not kill the run
-            log.warning("DevOps dependency audit skipped for %s: %s", transform_id, _de)
+        else:
+            final_phase_label = "Multi-agent pipeline completed"
 
         result = {
             "files_processed": total,
@@ -9856,7 +10314,7 @@ async def _continue_multi_agent_after_task_confirm(
             "compilation_result": compilation_result,
             "compile_green": compile_green,
             "dependency_audit": dependency_audit,
-            "production_ready": bool((dependency_audit or {}).get("production_ready")),
+            "production_ready": production_ready,
             "status": final_status,
         }
 
@@ -9864,7 +10322,7 @@ async def _continue_multi_agent_after_task_confirm(
             {"_id": transform_id},
             {"$set": {
                 "status": final_status,
-                "phase": "completed" if compile_green else "completed_with_errors",
+                "phase": final_status,
                 "phase_label": final_phase_label,
                 "progress_pct": 100,
                 "files_done": total,
@@ -9875,17 +10333,29 @@ async def _continue_multi_agent_after_task_confirm(
                 "manual_review_count": manual_review_count,
                 "avg_confidence": avg_confidence,
                 "compile_green": compile_green,
+                "production_ready": production_ready,
+                "dependency_audit": dependency_audit,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
                 "error": None,
             }},
         )
 
+        if not compile_green:
+            _verdict = " — build is RED, awaiting rerun-compile"
+        elif devops_blocked:
+            _rounds = (dependency_audit or {}).get("remediation_rounds_used", 0)
+            _verdict = (
+                f" — build is GREEN but DevOps blocked production-readiness "
+                f"after {_rounds} remediation round(s)"
+            )
+        else:
+            _verdict = ""
         await _log_agent_run(transform_id, "super_agent", "finalize",
             status="completed",
             output_summary=(
                 f"Pipeline complete: {done_count} transformed, "
                 f"{manual_review_count} errors, avg confidence {avg_confidence}"
-                + ("" if compile_green else " — build is RED, awaiting rerun-compile")
+                + _verdict
             ),
         )
 

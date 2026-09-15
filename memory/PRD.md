@@ -12089,3 +12089,218 @@ flatten the ladder, and per-tier env vars win.
 - `yarn build` → succeeds
 - test DB `lama_deeptest` dropped; the real `lama` database was never
   written to during the sweep
+
+---
+
+## iter-19 — The DevOps agent gets a feedback loop, and Azure gets a ladder
+
+**Reported:** "the devops agent is not working properly as the pom
+dependencies are not getting resolved and the whole build remain
+incomplete… the process is that the devops agent find any error in the
+application then sent it back to the planner automatically… make sure you
+should utilise all the specified models according to the severity of the
+task… in the logs i can see that most of the time the llm is vacat due to
+timeout from both azure and ollama."
+
+Three separate faults, only one of which was the DevOps agent.
+
+### 1. The high tier was a total outage (`model_fabric.py`)
+
+`fabric_chat` built `payload = {"model", "messages", "temperature"}` with
+`temperature` set unconditionally. Azure's gpt-5.x and o-series
+deployments reject any temperature but the default with HTTP 400. Every
+transformer agent passes 0.1-0.2, and `high` routed to gpt-5.1 — so every
+high-tier call 400'd, escaped the recoverable set, and finished on local
+Ollama at a 600s timeout. That is the "llm is vacant" symptom: not a
+timeout, a rejected request that *looked* like one.
+
+The module already had `_is_reasoning_model` and applied it to the
+token-limit field; only temperature was unguarded. New `apply_temperature`
+omits the key for that family. The streaming path had the same bug and the
+same fix.
+
+Compounding it: `backend/.env` carried `AZURE_API_VERSION=2023-07-01-preview`,
+which predates gpt-5.x, the o-series **and** `response_format: json_object`.
+Lifted to `2024-12-01-preview`, with `migrate_azure_api_version_19` doing
+the same for stored provider rows that still hold a known-stale value.
+
+**A second, unfixed tier-flattener.** iter-18.3 stopped `seed_providers`
+collapsing all tiers onto `AZURE_DEPLOYMENT` but missed
+`auto_configure_from_key`, which is what the Console's "paste one API key"
+button calls. One paste undid the ladder.
+
+**Reasoning-token budget.** Measured live: at `max_completion_tokens=16`
+both o4-mini and gpt-5 return `completion_tokens=16` and `content=""` —
+reasoning tokens are spent from the same allowance. HTTP 200 with an empty
+string is worse than an error, because the agent looks like it produced
+nothing rather than like it failed. `apply_token_limit` now floors the
+budget at 2000 for that family.
+
+### 2. Six tiers, and all ten Azure deployments reachable
+
+The three-slot ladder could address three of the operator's ten chat
+deployments. `TIER_ORDER` is now
+`trivial / low / medium / high / critical / reasoning`, with
+`TIER_FALLBACK_CHAIN` so a pre-iter-19 row (low/medium/high only) still
+routes every agent — `critical` and `reasoning` degrade UPWARD to the
+strongest model present, never down to the cheapest.
+
+`reasoning` is a sideways step, not a seventh rung: a different shape of
+model for diagnosis. `tools.transformer.diagnostician` was split out of
+the Planner to use it — reading raw build output and naming the file that
+broke is diagnosis, not planning. It keeps the Planner's prompt.
+
+**The two complexity tables disagreed and the DB won.** `resolve_model`
+reads `agent_configs.complexity` before `AGENT_COMPLEXITY`, and five of ten
+transformer rows had drifted. `tools.transformer.tester` carried `medium`
+and so ran every generated test file through gpt-4.1 — exactly what the
+operator's 429 log shows. `migrate_transformer_tiers_19` reconciles them
+with the old-value guard from iter-13.76, so Console overrides survive.
+
+### 3. The 429 storm: rotate first, sleep last
+
+Nothing in the fabric coordinated concurrent calls — no semaphore, no
+shared throttle state, no way to use the account's other deployments.
+
+- **Sibling rotation.** Each Azure deployment has its own quota bucket, so
+  a 429 on gpt-4.1 says nothing about gpt-4o. On a throttle the call
+  rotates within the tier (rewriting the deployment path, which is where
+  Azure carries the model id) and only sleeps once every sibling is
+  throttled too.
+- **Rotations and sleeps have separate budgets.** The first cut shared one,
+  so two siblings consumed all three attempts and a rotating call could
+  never also wait. Found by live burst test: 10/16 succeeded. After the
+  split: **16/16**.
+- **Per-provider semaphore** (4 cloud / 2 local) and a **shared cooldown
+  map**, so one coroutine's discovery routes the others around a throttled
+  deployment instead of each spending a round-trip on it.
+- **The failover pin was a data race.** `fabric_chat_with_failover`
+  expressed "try this other provider" by WRITING `agent_configs.provider_id`
+  and restoring it. A wave runs many coroutines under one agent_key; their
+  pins interleaved. `resolve_model` / `fabric_chat` now take
+  `provider_override`, so the choice lives on the call stack. A rate-limit
+  failover writes nothing at all — which also means a deliberate operator
+  pin survives one.
+
+### 4. The DevOps → Planner remediation loop (`routes/tools.py`)
+
+The actual ask. `_run_devops_dependency_check` ran at 97%, *after*
+`final_status` was computed, logged a warning and returned;
+`production_ready: false` changed nothing. A run could report the green
+`completed` while shipping a pom Maven cannot resolve.
+
+- **The audit can now see what breaks Maven.** The old deterministic pass
+  checked one thing — duplicate `<artifactId>`. `_audit_pom` adds the two
+  failures that actually occur in generated poms: a `<dependency>` with no
+  `<version>` and no `<parent>`/`<dependencyManagement>` to supply one, and
+  `<version>${x}</version>` where `x` is undeclared. Both decidable by
+  reading the file. Verified to produce **zero** findings on the two
+  legitimate shapes (inherited parent, imported BOM) — a false positive now
+  costs a remediation round and an amber run. `_audit_gradle` does the
+  equivalent for undefined version variables.
+- **Findings reach the Planner.** `_devops_findings_to_error_groups` emits
+  the same shape `_detect_missing_dependency_error_groups` does, so
+  `_planner_fix_tasks_from_errors` → `_coder_apply_fix` are reused
+  unchanged under the `devops_expert` persona. One group per MANIFEST, not
+  per finding: two problems in one pom are one edit, and two tasks would
+  have the second overwrite the first.
+- **Bounded.** `LAMA_DEVOPS_REPLAN_MAX_ROUNDS` (default 2) plus a
+  stagnation guard on the finding signature — which stops on the first
+  wasted round rather than the Nth. Recompiles between rounds, because a
+  manifest edit is only real if the build still stands.
+- **The verdict is load-bearing.** `final_status` is computed after the
+  loop: green compile + critical findings ⇒ `completed_with_errors`.
+  Consulted only when an audit actually ran, so a project with no
+  build_tools map is not failed for absence of evidence.
+- **Latent bug this exposed.** `production_ready` compared
+  `severity == "critical"` while the prompt asks for `"CRITICAL"`, so an
+  LLM-reported critical never blocked. Invisible while advisory; not
+  invisible now. Severity is normalised on ingest.
+
+### Verification
+
+- `pytest backend/tests/` → **981 passed, 129 skipped** (was 907)
+- new suites: `test_iter19_reasoning_payload.py` (34),
+  `test_iter19_provider_pacing.py` (13), `test_iter19_devops_replan.py` (24)
+- `ruff check backend` → clean; `yarn lint` → 0 errors (44 pre-existing
+  warnings); `yarn build` → succeeds
+- live boot → 0 tracebacks; all three migrations applied to the real `lama`
+  DB; `/api/health/providers` → `{"chosen":"azure"}`
+- **live Azure probe** — every tier answers with `temperature=0.1`, the
+  exact shape that used to 400: gpt-5.1, gpt-5, o4-mini, gpt-4.1,
+  gpt-4.1-mini all return real content
+- all **10 of 10** chat deployments reachable across tiers + siblings
+
+### Four tests were deliberately changed, not repaired
+
+`test_preset_exists_with_required_shape` (3 tiers → superset),
+`test_azure_tiers_ascend_in_capability` (gpt-5.1 moved `high` → `critical`),
+`test_single_deployment_env_does_not_flatten_the_ladder` (six tiers), and
+`test_rate_limit_failover_releases_the_pin` → renamed
+`..._writes_no_pin_at_all`. The last is a stronger assertion than the one
+it replaces: not "cleared afterwards" but "never written".
+
+### iter-19.1 — bugs the deep test found
+
+Eight defects, five of them consequences of widening the tier vocabulary
+and three pre-existing. The pattern in the first group is worth naming:
+`resolve_tier_model` was correct everywhere it was called, and the bugs
+were all in **places that never called it**.
+
+| # | Site | Defect |
+|---|---|---|
+| 1 | `seed.py::seed_providers` | Rebuilt `routing` from a hardcoded `("low","medium","high")` tuple, DROPPING the three new tiers on a fresh install with `AZURE_DEPLOYMENT` set. The backfill migration repaired it next boot, which hid it. |
+| 2 | `console.py::list_agents` | Bare `routing[complexity]` lookup → **blank** `resolved_model` for every agent on a new tier. The Console claimed the DevOps agent had no model while it routed fine. |
+| 3 | `console.py` MiniConsole | Hand-rolled `high→medium→low` chain under-reported what runs now that `critical` exists. |
+| 4 | `console.py::test_provider` | Read `routing["low"]` directly. |
+| 5 | `models.py::ModelProvider` | `routing` default factory still declared three keys. |
+| 6 | `console.py::test_provider` | **Pre-existing.** Shaped the payload for `model_id` but posted it to `azure_deployment`. With `azure_deployment=gpt-5.1` it sent `max_tokens` + `temperature: 0.1` to a gpt-5.1 deployment → HTTP 400. **Test Connection reported this operator's healthy Azure account as broken**, and named a model it had never called. Fixed by shaping for `wire_model` — whatever the URL actually targets — and reporting that as `model_used`. |
+| 7 | `console.py::test_provider` | **Pre-existing.** `temperature: 0.1` hardcoded in the payload literal. |
+| 8 | `tools.py::_run_devops_dependency_check` | **The serious one.** Returned `"findings": extra` — the LLM's findings ALONE — with the deterministic ones under a separate `deterministic` key. Both consumers read `findings`, so the remediation loop saw nothing actionable and the UI panel rendered empty, for a pom that provably cannot resolve. With no LLM the audit was silent about faults it had already proven. `findings` is now the union, deterministic first. |
+
+**#8 was invisible to every unit test**, because they all stubbed
+`_run_devops_dependency_check`. It surfaced only once a test ran the real
+audit over a real broken pom and fed the result to the real group builder
+(`test_the_real_audit_feeds_the_real_planner_shape`). Worth remembering
+when adding gates: mocking the thing under test at its own boundary hides
+contract drift on that boundary.
+
+#6/#7 also explain an operator-visible symptom that predates iter-19: the
+Console's Test Connection button never worked against this Azure account.
+
+### iter-19.1 — improvements taken while in here
+
+- **Rotation is confined to deployments the operator actually has.** The
+  preset lists what the vendor CAN deploy; rotating onto one this account
+  lacks turns a recoverable 429 into a 404. `tier_siblings` now intersects
+  with the provider row's `models`. An empty catalogue means "unknown",
+  not "nothing", so rows without one keep rotating.
+- **Context overflow rotates UP before leaving the provider.** Within
+  `medium`, gpt-4.1 has ~8x the window of gpt-4o. Previously an overflow
+  went straight to provider failover and landed on a local 32k model —
+  the least likely thing to fit a prompt that just overflowed 128k.
+  `_roomiest_sibling` returns "" when nothing is roomier, so the call
+  leaves the provider rather than reproducing the overflow.
+- **The cooldown map sweeps expired entries** on write past 32 keys.
+- **One api-version constant.** `AZURE_API_VERSION_DEFAULT` is shared by
+  `resolve_model` and the Test Connection endpoint, whose own comment
+  promises they match. They had already drifted once.
+
+### iter-19.1 — deep test
+
+- `pytest backend/tests/` → **1005 passed, 129 skipped**
+- `ruff check backend` → clean; `pyflakes` on all changed files → clean
+  (`_severity_for` predates this work)
+- `import server` → 312 routes; live boot → **0 tracebacks, 0 ERROR lines**
+- API smoke: `/api/health`, `/api/health/providers`, `/api/console/*`,
+  `/api/tools/transformer/*`, `/api/prompts` all 200 (`/api/projects` 401
+  is correct — it is tenant-scoped)
+- **Console agents endpoint: 65 agents, 0 blank `resolved_model`**
+- **Test Connection: Azure `ok:true`, `model_used:gpt-5.1`** (was
+  `ok:false` + HTTP 400)
+- **Live round-trip for all 11 transformer agents** at `temperature=0.1`
+  — every tier returns real content; 10/10 deployments reachable
+- **JSON mode verified live** on o4-mini, gpt-5.1, gpt-5 and gpt-4.1 —
+  the diagnostician, devops_audit, planner and validator all depend on it
+  and it needs the new api-version
+- `yarn lint` → 0 errors (44 pre-existing warnings); `yarn build` → succeeds

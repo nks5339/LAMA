@@ -209,7 +209,9 @@ async def test_response_format_survives_fabric_chat_into_the_payload(monkeypatch
 
     captured: dict = {}
 
-    async def fake_resolve(agent_key):
+    # iter-19 — resolve_model gained an optional `provider_override`, so the
+    # stub must accept it too.
+    async def fake_resolve(agent_key, provider_override=None):
         return (
             "gpt-4o",
             "https://api.openai.com/v1",

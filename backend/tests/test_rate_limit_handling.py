@@ -140,12 +140,24 @@ def test_retry_delay_is_capped():
 # ── the failover must not leave a permanent pin after a throttle ──────
 
 @pytest.mark.asyncio
-async def test_rate_limit_failover_releases_the_pin(monkeypatch):
+async def test_rate_limit_failover_writes_no_pin_at_all(monkeypatch):
     """The whole point: one 429 must not permanently change an agent's provider.
 
     Pins survive restarts, so a pin set by a momentary throttle is
-    effectively forever. This asserts the pin is cleared once the
-    fallback call succeeds, so the next call returns to the primary.
+    effectively forever.
+
+    iter-18.3 achieved that by writing the pin and then clearing it again.
+    iter-19 achieves it by never writing one: the provider is handed to
+    `fabric_chat` as an argument, so the choice lives on the call stack
+    instead of in a document shared by every coroutine using this
+    agent_key. That closes a race the write-then-restore version could not
+    — a wave runs many calls under ONE agent_key, and their pins
+    interleaved, so a call could be routed by a sibling's in-flight
+    failover, or have its pin cleared while still using it.
+
+    So the assertion is now stronger than "cleared afterwards": nothing is
+    written during a rate-limit failover, which also means a DELIBERATE
+    operator pin survives one.
     """
     from fabric import model_fabric as mf
 
@@ -193,8 +205,12 @@ async def test_rate_limit_failover_releases_the_pin(monkeypatch):
     )
 
     assert out["content"] == "{}"
-    assert writes, "the failover never touched the pin at all"
-    assert writes[-1] == "", (
-        f"a 429 failover left the agent pinned to {writes[-1]!r}; the pin "
-        "must be released so the next call returns to the primary provider"
+    # The fallback provider was still USED — the call succeeded on Ollama.
+    assert calls["n"] == 2, "the failover never reached the second provider"
+    # ...but nothing was persisted, so the next call resolves the operator's
+    # primary again with no cleanup step to depend on.
+    assert writes == [], (
+        f"a 429 failover wrote provider_id {writes!r}; it must pass the "
+        "provider as an argument instead, so concurrent calls on the same "
+        "agent_key cannot clobber each other's routing"
     )

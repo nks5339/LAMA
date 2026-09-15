@@ -537,7 +537,7 @@ const AGENT_META = {
   devops_expert: {
     shortLabel: "DevOps",
     label: "DevOps Expert",
-    description: "Escalated build/infrastructure fixer — steps in when the Coder's fix makes no difference on a compile-fix iteration (release/dependency/plugin config class of failures).",
+    description: "Build/infrastructure specialist, in two modes: it escalates into the compile-fix loop when the Coder's fix makes no difference, and it audits the generated build manifests for production readiness — sending anything it finds back to the Planner for repair.",
   },
   tester: {
     shortLabel: "Tester",
@@ -555,6 +555,10 @@ const getAgentTabFromRunState = (phase, runStatus) => {
   // the iter-15.42 UX review.
   if (runStatus === "awaiting_task_confirmation") return "coder";
   if (phase === "planner" || phase === "verifier") return "coder";
+  // iter-19 — the DevOps gate runs as its own phase now (audit, then a
+  // bounded Planner-driven remediation round) instead of only appearing as
+  // an escalation inside the compile-fix loop.
+  if (phase === "devops" || phase === "devops_remediation") return "devops_expert";
   if (phase && AGENT_ORDER.includes(phase)) return phase;
   if (runStatus === "completed" || runStatus === "completed_with_errors" || runStatus === "stopped") return "tester";
   return "super_agent";
@@ -674,6 +678,8 @@ export default function TransformerPage() {
   const [agentTimeline, setAgentTimeline] = useState([]);
   const [taskList, setTaskList] = useState(null);
   const [compilationResult, setCompilationResult] = useState(null);
+  // iter-19 — {production_ready, findings[], summary, remediation_rounds[]}
+  const [dependencyAudit, setDependencyAudit] = useState(null);
   const [compilationLoading, setCompilationLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmingTasks, setConfirmingTasks] = useState(false);
@@ -1033,6 +1039,12 @@ export default function TransformerPage() {
       }
       if (s.compilation_result) {
         setCompilationResult(s.compilation_result);
+      }
+      // iter-19 — DevOps gate verdict. Only overwrite when the backend
+      // actually sent one, so a poll that lands mid-run does not blank a
+      // verdict already on screen.
+      if (s.dependency_audit) {
+        setDependencyAudit(s.dependency_audit);
       }
       // iter-15.14 — broadcast to sidebar + top stage progress
       broadcastTransformerPhase(s.phase || null);
@@ -4982,6 +4994,87 @@ export default function TransformerPage() {
                     <div className="text-[10px] uppercase tracking-wide text-slate-500">Components</div>
                     <div className="text-sm font-bold text-slate-800">{(compilationResult.components || []).length}</div>
                   </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* iter-19 — DevOps gate. A green compile proves the code builds
+              on this machine today; this says whether it will build the
+              same way on a clean runner next month. Its verdict now
+              decides the run's final status, so it has to be visible and
+              it has to say what it wants changed. */}
+          {selectedAgentTab === "tester" && dependencyAudit && (
+            <div className="rounded-xl border border-[#E6E6E6] bg-white p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="text-xs font-display font-bold text-[#2E2E38]">DevOps — Dependency Audit</div>
+                <span
+                  data-testid="devops-audit-verdict"
+                  className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${
+                    dependencyAudit.production_ready
+                      ? "bg-emerald-100 text-emerald-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {dependencyAudit.production_ready ? "Production ready" : "Not production ready"}
+                </span>
+              </div>
+
+              {dependencyAudit.summary && (
+                <div className="text-[11px] text-slate-600 break-words">{dependencyAudit.summary}</div>
+              )}
+
+              {/* What the agent actually did about it — the audit is no
+                  longer a read-only opinion. */}
+              {(dependencyAudit.remediation_rounds || []).length > 0 && (
+                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
+                  <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                    Remediation — {dependencyAudit.remediation_rounds_used || 0} round(s)
+                  </div>
+                  {(dependencyAudit.remediation_rounds || []).map((r) => (
+                    <div key={r.round} className="text-[10px] text-slate-600 flex items-baseline gap-1.5">
+                      <span className="font-mono text-slate-400">#{r.round}</span>
+                      <span className="font-semibold">{r.status}</span>
+                      {typeof r.findings_before === "number" && (
+                        <span className="text-slate-500">
+                          {r.findings_before} → {r.findings_after} finding(s)
+                        </span>
+                      )}
+                      {r.summary && <span className="text-slate-500 break-words">{r.summary}</span>}
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {(dependencyAudit.findings || []).length > 0 ? (
+                <div className="space-y-1 max-h-64 overflow-y-auto">
+                  {(dependencyAudit.findings || []).map((f, i) => {
+                    const sev = String(f.severity || "").toLowerCase();
+                    const tone =
+                      sev === "critical" ? "border-red-200 bg-red-50 text-red-700"
+                        : sev === "major" ? "border-amber-200 bg-amber-50 text-amber-700"
+                          : "border-slate-200 bg-slate-50 text-slate-600";
+                    return (
+                      <div key={`${f.manifest}-${i}`} className={`rounded-md border p-2 ${tone}`}>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] uppercase font-bold">{sev || "note"}</span>
+                          {f.manifest && (
+                            <span className="text-[10px] font-mono text-slate-500 truncate">{f.manifest}</span>
+                          )}
+                        </div>
+                        <div className="text-[11px] mt-0.5 break-words">{f.issue}</div>
+                        {f.fix && (
+                          <div className="text-[10px] mt-0.5 text-slate-600 break-words">
+                            <span className="font-semibold">Fix: </span>{f.fix}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="text-[11px] text-slate-500">
+                  No outstanding manifest findings.
                 </div>
               )}
             </div>
