@@ -281,8 +281,13 @@ def test_apply_token_limit_never_leaves_both_spellings():
     payload = {"model": "gpt-5.1", "max_tokens": 4096}
     out = apply_token_limit(payload, "gpt-5.1", 2000)
 
-    assert out == {"model": "gpt-5.1", "max_completion_tokens": 2000}
+    # The exact number is not this test's business — iter-19.2 adds a
+    # reasoning reserve on top of the caller's figure, and pinning the
+    # literal here made an unrelated test fail for the right change. What
+    # matters is that only ONE spelling survives.
+    assert set(out) == {"model", "max_completion_tokens"}
     assert "max_tokens" not in out
+    assert out["max_completion_tokens"] >= 2000
 
 
 def test_apply_token_limit_omits_the_field_entirely_when_zero():

@@ -12304,3 +12304,116 @@ Console's Test Connection button never worked against this Azure account.
   the diagnostician, devops_audit, planner and validator all depend on it
   and it needs the new api-version
 - `yarn lint` → 0 errors (44 pre-existing warnings); `yarn build` → succeeds
+
+---
+
+## iter-19.2 — prompt audit, dead-path removal, functional sweep
+
+Asked to debug the application, check every function works, and tighten
+weak prompts.
+
+### Length is not the weakness signal
+
+I scored all 60 seeded prompts on four structural signals (output
+contract, grounding rule, negative constraints, role). The heuristic has
+real false positives and they are instructive: `codegen.traceability_gate`
+is 1.9k chars and excellent *because* it narrows the model to prose and
+forbids it from redoing arithmetic the code already computes;
+`datamodel.oltp` is strong for the same kind of reason. Neither was
+touched. What matters is whether a prompt tells the truth about what it is
+and what it can see.
+
+### Two kinds of drift, neither visible from any test
+
+**FACTUAL.** `tools.transformer.tester` introduced itself as "the final
+quality gate". False since iter-15.44, when a real native build became the
+compile signal and this pass was demoted to a supplementary
+`static_analysis` narrative. A model told it is the authority reports
+`compilation_ready` with authority it does not have. It now states its
+place in the pipeline and is told never to contradict the native build —
+a suspicion is a WARN, not a false verdict.
+
+**INPUT — the worse one.** `codegen.tester` asked for "all imports resolve
+to real modules", "method signatures match their callers" and "no circular
+dependencies" from an input containing **no code at all**:
+`_run_tester_for_codegen_wave` sends a task ledger (task_id, target_path,
+layer, status). Every code-level finding it produced was necessarily
+invented, and its output reaches only a log line. Rewritten as a wave
+completion review over what it actually receives — unfinished tasks,
+`target_path` collisions, layer coverage, path plausibility, duplicate
+work — all decidable from the ledger.
+
+Verified against a ledger with three planted defects: it found the
+in-progress task, the two tasks writing one path, and the repository
+placed in a controllers package, and produced **no** import or type
+findings.
+
+### Output contracts moved to where they belong
+
+Both tester parsers already carried a coercion loop stringifying
+`details` / `fix_suggestion`, added at iter-16.x because models nested a
+self-invented object there and the frontend — which renders them straight
+as text — threw React error #31 and blanked the page. The code was
+defending against a failure the prompt invited. Both prompts now declare
+field types and forbid replacing `checks[]` with a roll-up object. The
+guards stay as defence in depth.
+
+Grounding added where absent: `diff.srs` (ids verbatim, every heading kept
+even when empty), `arch.chat` (name only services present in context, say
+plainly when you cannot answer), `srs.edit` (preservation as a hard rule —
+a silently dropped requirement disappears from the data model and the
+generated code with nobody told).
+
+Each verified by live round-trip through its real agent and real parser:
+srs.edit preserved 5/5 requirements and continued FR-05 → FR-06; diff.srs
+classified Added/Removed/Modified correctly with zero invented ids and
+left the unchanged NFR out; arch.chat refused an out-of-context request
+and named what was missing.
+
+### Four prompts advertised capabilities that do not exist
+
+`arch.decompose`, `code.generate`, `datamodel.optimise`, `test.unit` —
+each a single unparameterised sentence, no role, no contract, no
+grounding. Three had no call site. `arch.decompose` was worse: an
+`AGENT_COMPLEXITY` tier with **no invoking code at all**, the same defect
+shape as the Validator before iter-18. Decomposition is already done by
+`arch.recommend`.
+
+`seed_prompts` only inserts and updates, so `prune_retired_prompts_19`
+deletes the rows explicitly — otherwise the Library keeps listing them.
+Live: 61 → 57 prompts on boot. A new test walks `AGENT_COMPLEXITY` and
+fails if any entry lacks a call site, so the next orphan is caught.
+
+Five helpers appearing exactly once in the repo (their own definition)
+removed from `routes/living.py` and `routes/architecture.py`.
+`srs.py::_attempt_model_rotation` and `_pick_alternate_model` were KEPT —
+a scan calls them dead, but they are sync bridges over `_*_console`
+variants that are called, and both are covered by `test_srs_streaming.py`.
+
+### The functional sweep found a bug in iter-19's own fix
+
+Round-tripping all 12 JSON-parsed agents through their real prompts,
+`codegen.planner` returned an **empty string**. iter-19's
+`_REASONING_OUTPUT_FLOOR = 2000` under-corrected: the planner asks for
+3000 and routes to gpt-5, which spent all 3000 reasoning and emitted
+nothing. Given 8000 it used 5035 and produced valid JSON — roughly 3500
+tokens of thinking for a trivial input.
+
+The reserve is now ADDITIVE (`+6000`) rather than a floor, because
+reasoning effort tracks how hard the problem is, not how long the answer
+is: doubling a 12k coder budget would reserve thinking room it does not
+need while adding nothing to a small call that needs it most. Two tests
+that pinned exact budget literals were rewritten to assert the property —
+one of them had made an unrelated suite fail for the right change.
+
+After the fix: **12 of 12 agents parse**, `codegen.planner` included.
+
+### Verification
+
+- `pytest backend/tests/` → **1035 passed, 129 skipped**
+- `ruff check backend` → clean; `pyflakes` on all changed files → clean
+- `import server` → 312 routes; live boot → 0 tracebacks, 0 ERROR lines
+- endpoint sweep: health, providers, console/*, prompts, tools/transformer,
+  integrations/catalog all 200
+- Test Connection: Azure `ok:true`, `model_used:gpt-5.1`
+- `yarn lint` → 0 errors; `yarn build` → succeeds

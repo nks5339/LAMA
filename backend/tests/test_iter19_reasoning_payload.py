@@ -100,11 +100,27 @@ def test_a_small_budget_is_raised_for_reasoning_models():
     assert payload["max_completion_tokens"] >= 2000
 
 
-def test_a_generous_budget_is_left_alone():
-    """The floor raises, never lowers — a caller asking for room to write a
-    whole file must still get it."""
+def test_a_generous_budget_still_gains_reasoning_headroom():
+    """iter-19.2 — a flat floor was not enough, and this test used to
+    encode that mistake by asserting a large budget was left untouched.
+
+    Measured live: `codegen.planner` asks for 3000 and routes to gpt-5. It
+    spent ALL 3000 reasoning and returned "". Given 8000 it used 5035 and
+    produced valid JSON — about 3500 tokens of thinking for a trivial
+    input. A caller asking for 12000 of OUTPUT is starved the same way, so
+    the reserve is added on top rather than being a minimum.
+    """
     payload = apply_token_limit({}, "gpt-5.1", 12000)
-    assert payload["max_completion_tokens"] == 12000
+    assert payload["max_completion_tokens"] == 12000 + 6000
+
+
+def test_the_reserve_is_additive_not_multiplicative():
+    """Reasoning effort tracks how hard the PROBLEM is, not how long the
+    answer is. Doubling a large budget would reserve thinking room it does
+    not need, while adding nothing to a small call that needs it most."""
+    small = apply_token_limit({}, "o3", 1000)["max_completion_tokens"]
+    large = apply_token_limit({}, "o3", 20000)["max_completion_tokens"]
+    assert large - 20000 == small - 1000, "the reserve should be a constant"
 
 
 def test_ordinary_models_keep_the_exact_budget_asked_for():
@@ -124,7 +140,9 @@ def test_reasoning_payload_carries_neither_rejected_field():
     payload = {"model": "gpt-5.1", "messages": []}
     payload = apply_token_limit(payload, "gpt-5.1", 8000)
     payload = apply_temperature(payload, "gpt-5.1", 0.1)
-    assert payload["max_completion_tokens"] == 8000
+    # This test is about which KEYS survive, not their values — the
+    # reasoning reserve owns the number (see the budget tests above).
+    assert payload["max_completion_tokens"] >= 8000
     assert "max_tokens" not in payload
     assert "temperature" not in payload
 

@@ -651,10 +651,21 @@ def apply_temperature(payload: Dict, model_id: str, temperature: float) -> Dict:
 # That failure mode is worse than an error — the call returns HTTP 200 with
 # an empty string, so `_extract_json_object` yields {} and the agent looks
 # like it produced nothing rather than like it failed. Every caller's number
-# was chosen assuming the budget was all visible output, so the floor is
+# was chosen assuming the budget was all visible output, so the correction is
 # applied here rather than by editing dozens of call sites. Nothing is
 # overpaid: billing follows tokens actually generated, not the ceiling.
+#
+# iter-19.2 — a flat floor was not enough. `codegen.planner` asks for 3000
+# and routes to gpt-5; measured live, it spent ALL 3000 reasoning and
+# returned "". Given 8000 it used 5035 and produced valid JSON — so roughly
+# 3500 of those tokens were reasoning for a trivial input.
+#
+# The reserve is ADDITIVE rather than multiplicative because reasoning
+# effort tracks how hard the PROBLEM is, not how long the answer is:
+# doubling a 12k coder budget would reserve 12k for thinking it does not
+# need, while adding nothing to a small call that needs it most.
 _REASONING_OUTPUT_FLOOR = 2000
+_REASONING_TOKEN_RESERVE = 6000
 
 
 def apply_token_limit(payload: Dict, model_id: str, max_tokens: int) -> Dict:
@@ -662,16 +673,19 @@ def apply_token_limit(payload: Dict, model_id: str, max_tokens: int) -> Dict:
 
     Mutates and returns `payload`. Always removes the other spelling, so a
     payload that already carries `max_tokens` cannot smuggle it through to a
-    model that rejects it. For reasoning models the budget is raised to
-    `_REASONING_OUTPUT_FLOOR` when the caller asked for less, so reasoning
-    tokens cannot eat the whole allowance.
+    model that rejects it. For reasoning models the budget gains
+    `_REASONING_TOKEN_RESERVE` on top of what the caller asked for, so
+    thinking cannot eat the allowance meant for the answer.
     """
     field = token_limit_field(model_id)
     payload.pop("max_tokens", None)
     payload.pop("max_completion_tokens", None)
     if max_tokens:
         if field == "max_completion_tokens":
-            max_tokens = max(max_tokens, _REASONING_OUTPUT_FLOOR)
+            max_tokens = max(
+                max_tokens + _REASONING_TOKEN_RESERVE,
+                _REASONING_OUTPUT_FLOOR,
+            )
         payload[field] = max_tokens
     return payload
 
