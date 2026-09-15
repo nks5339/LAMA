@@ -12417,3 +12417,40 @@ After the fix: **12 of 12 agents parse**, `codegen.planner` included.
   integrations/catalog all 200
 - Test Connection: Azure `ok:true`, `model_used:gpt-5.1`
 - `yarn lint` → 0 errors; `yarn build` → succeeds
+
+### iter-19.2b — the shims I should have removed the first time
+
+I kept `srs.py::_attempt_model_rotation` and `_pick_alternate_model` in
+the iter-19.2 sweep, reasoning that removing tested API surface to satisfy
+a static scan was the wrong trade. That was wrong, and the code said so:
+
+    # Back-compat shims — kept so test_srs_streaming.py still imports them.
+    """Synchronous wrapper kept for test compatibility (iter-13.30 shim)."""
+    # Inside an event loop — ... this branch is only hit by tests.
+
+Production code existing to satisfy a test is backwards. And the coverage
+was worse than none: `_attempt_model_rotation` carried an
+`AVAILABLE_MODELS` bootstrap branch the async path does not have, so the
+test was green over a code path production never executes.
+
+`_pick_alternate_model` had no reference at all — not production, not
+tests. `_FALLBACK_MODEL_ROTATION` was an empty list kept beside them.
+
+All three removed. `test_attempt_model_rotation_excludes_primary` now
+exercises `_attempt_model_rotation_console`, the function production
+calls, and a second test pins the no-provider case returning `[]` (a
+guessed list there would reintroduce the hard-coded vendor slugs
+iter-13.30 removed).
+
+**The test double was hiding this.** `_Cursor` in `test_srs_streaming.py`
+implemented `sort()` and `to_list()` but not `__aiter__`, while a real
+Motor cursor IS async-iterable. Any production code doing
+`async for d in col.find(...)` — `_console_model_pool` among them —
+raised TypeError, had it swallowed by its own `except Exception`, and
+silently returned the empty fallback. The path looked exercised and never
+was. `__aiter__` added.
+
+- `pytest backend/tests/` → **1036 passed, 129 skipped**
+- ruff clean; pyflakes clean on srs.py (`_abort_i` predates this work and
+  is present in the committed parent)
+- live boot 0 tracebacks / 0 ERRORs; 312 routes

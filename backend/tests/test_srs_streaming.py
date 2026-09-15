@@ -5,8 +5,8 @@ Verifies the fix for the "still not resolved · network error" report:
     disconnects mid-stream (background `_run_job` survives request cancel).
   • The SSE relay emits frequent `data:` heartbeat events (≤5 s apart)
     instead of `:comment` lines that some proxies strip.
-  • The `_is_failed_section` / `_attempt_model_rotation` helpers behave
-    as documented (used by the repair pass).
+  • The `_is_failed_section` / `_attempt_model_rotation_console` helpers
+    behave as documented (used by the repair pass).
   • The `/srs/{pid}/generate/status` polling endpoint reports running
     state honestly during the run and `running: false` once it ends.
 
@@ -55,6 +55,19 @@ class _Cursor:
 
     async def to_list(self, _n=None):
         return list(self._docs)
+
+    # iter-19.2 — a real Motor cursor is async-iterable, and this double
+    # was not. Production code that does `async for d in col.find(...)`
+    # (e.g. `_console_model_pool`) therefore raised TypeError here, got
+    # swallowed by its own `except Exception`, and silently returned the
+    # empty fallback — so the path looked exercised and never was.
+    def __aiter__(self):
+        async def _gen():
+            for d in self._docs:
+                out = dict(d)
+                out.pop("_id", None)
+                yield out
+        return _gen()
 
 
 class _Coll:
@@ -263,11 +276,40 @@ def test_failure_marker_detection(srs_env):
 
 
 def test_attempt_model_rotation_excludes_primary(srs_env):
+    """iter-19.2 — exercises the ASYNC console rotation, which is the one
+    production calls.
+
+    This used to call a synchronous `_attempt_model_rotation` shim whose
+    own comment read "kept so test_srs_streaming.py still imports them".
+    Production code existing to satisfy a test is backwards, and it was
+    actively misleading here: the shim carried an `AVAILABLE_MODELS`
+    bootstrap branch that the async path does not have, so the test was
+    green over a code path that never ran. The shim is gone; this now
+    tests the real one.
+    """
     s = srs_env.srs_mod
     primary = "anthropic/claude-opus-4.7"
-    rot = s._attempt_model_rotation(primary)
-    assert primary.lower() not in [m.lower() for m in rot]
-    assert len(rot) >= 2
+
+    asyncio.run(srs_env.collections["model_providers"].insert_one({
+        "id": "p-test", "is_active": True, "is_default": True,
+        "models": [
+            {"id": primary},
+            {"id": "anthropic/claude-sonnet-4-6"},
+            {"id": "openai/gpt-4.1-mini"},
+        ],
+    }))
+
+    rot = asyncio.run(s._attempt_model_rotation_console(primary))
+    assert primary.lower() not in [m.lower() for m in rot], "primary must be excluded"
+    assert len(rot) == 2, rot
+
+
+def test_console_rotation_is_empty_without_a_provider(srs_env):
+    """No Console provider means no rotation — the caller then falls back
+    to its own retry path. Returning a guessed list here would reintroduce
+    the hard-coded vendor slugs iter-13.30 removed."""
+    s = srs_env.srs_mod
+    assert asyncio.run(s._attempt_model_rotation_console("any/model")) == []
 
 
 def test_section_configs_has_twelve_sections(srs_env):

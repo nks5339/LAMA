@@ -4009,60 +4009,13 @@ async def _console_model_pool() -> list[str]:
 async def _attempt_model_rotation_console(primary: str) -> list[str]:
     """Console-driven rotation that excludes the primary model.
 
-    Replaces the legacy hard-coded `_FALLBACK_MODEL_ROTATION` list. When
+    Replaces the legacy hard-coded fallback-rotation list. When
     fabric/Console is unavailable returns an empty list so the caller
     falls back to its own retry path.
     """
     pool = await _console_model_pool()
     primary_norm = (primary or "").strip().lower()
     out = [m for m in pool if m.lower() != primary_norm]
-    return out
-
-
-# Back-compat shims — kept so test_srs_streaming.py still imports them.
-# Both delegate to the Console pool synchronously by trusting the caller
-# to pass `primary` (so the test stays self-contained).
-_FALLBACK_MODEL_ROTATION: list[str] = []  # populated lazily at call-time
-
-
-def _attempt_model_rotation(primary: str) -> list[str]:
-    """Synchronous wrapper kept for test compatibility (iter-13.30 shim).
-
-    Resolution order:
-      1. Console-driven rotation (when an event loop & Mongo are available).
-      2. Bootstrap fallback derived from `llm.AVAILABLE_MODELS` — the
-         "no Console configured" enumeration. NOT a call-site hardcoding
-         (the enumeration itself is editable in Console → Models).
-    Always returns at least 2 entries so the section-retry plan has room.
-    """
-    primary_norm = (primary or "").strip().lower()
-
-    # Try Console-driven path
-    out: list[str] = []
-    try:
-        import asyncio as _asyncio
-        try:
-            _asyncio.get_running_loop()
-            # Inside a running loop — caller should use the async path.
-            # Skip Mongo here, fall through to bootstrap.
-        except RuntimeError:
-            out = _asyncio.run(_attempt_model_rotation_console(primary))
-    except Exception:
-        out = []
-
-    # Bootstrap fallback: pull from the AVAILABLE_MODELS enumeration in
-    # llm.py (which itself defers to Console at runtime). This keeps the
-    # synchronous test path + cold-boot path working with no hardcoded
-    # vendor preference embedded in the SRS module itself.
-    if not out:
-        try:
-            from llm import AVAILABLE_MODELS as _AM
-            out = [m["id"] for m in _AM if m.get("id") and m["id"].lower() != primary_norm]
-        except Exception:
-            out = []
-
-    while len(out) < 2:
-        out.append(primary or "")
     return out
 
 
@@ -4292,32 +4245,6 @@ async def _score_section_now(
                 "rationale": f"scorer error: {str(_exc)[:120]}",
                 "gaps": [], "model": "", "context_missing": _ctx_missing,
                 "engine": "fabric", "route_taken": "llm_error"}
-
-
-def _pick_alternate_model(primary: str) -> str:
-    """Synchronous wrapper around the Console-driven alternate picker.
-
-    iter-13.30 — No hard-coded vendor slugs. Asks the active provider's
-    routing map for a model on a DIFFERENT complexity tier than the
-    primary occupies. Falls back to env-var `LAMA_REVALIDATION_MODEL` if
-    set, then to any other model in the Console pool, then to the
-    primary itself (so the run still completes).
-    """
-    import os as _os
-    forced = _os.environ.get("LAMA_REVALIDATION_MODEL", "").strip()
-    if forced:
-        return forced
-    try:
-        import asyncio as _asyncio
-        try:
-            _asyncio.get_running_loop()
-            # Inside an event loop — callers in the SRS hot path use the
-            # async variant directly; this branch is only hit by tests.
-            return primary or ""
-        except RuntimeError:
-            return _asyncio.run(_pick_alternate_model_console(primary))
-    except Exception:
-        return primary or ""
 
 
 async def _pick_alternate_model_console(primary: str) -> str:
