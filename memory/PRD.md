@@ -12641,3 +12641,65 @@ manifest-blocked job back to green.
 routes; live boot 0 tracebacks / 0 ERRORs; **113 GET routes, 0 responses
 >= 500**; Test Connection `ok:true` on gpt-5.1; the Regenerator answers
 live on gpt-5.1; yarn lint 0 errors; yarn build ok.
+
+---
+
+## iter-20.1 — The export gate is removed
+
+**Reverted on the operator's instruction**, two days after iter-20 shipped
+it. Their words: *"remove this feature as you are not able to pull run the
+devops agent clearly … make it downloadable once the compilation is done
+with or without errors as it was doing earlier."*
+
+They were right, and the reasoning is worth keeping because it is a general
+one.
+
+iter-20 gated `download_transformed_code` and `push_transformation_to_github`
+on `compile_green AND production_ready`, returning 409 otherwise, and hid
+the buttons in the UI. The intent was sound — a broken Helidon → Spring Boot
+tree had reached their disk looking finished. But a gate is only defensible
+when the thing it gates on is **reliably achievable**, and the compile-fix
+loop is not there yet: four escalation rungs and a regenerator still did not
+produce a green build on their real services. So in practice the gate never
+stopped bad code shipping. It stopped the operator retrieving their own
+code — which is a strictly worse failure, because the previous behaviour at
+least let them take the folder to another tool and fix it by hand, which is
+exactly what they had been doing successfully.
+
+A gate that fires on the normal case is not a quality control, it is an
+outage.
+
+**Removed:** `_build_readiness_gate`, both 409 raises, the
+`download_blocked_reason` status field, the frontend blocked-state panel and
+its conditional wrapping of all four export affordances, the
+`LAMA_ALLOW_UNVERIFIED_DOWNLOAD` escape hatch (dead configuration once there
+is no gate to escape), and the `export-gate.test.js` suite.
+
+**Deliberately kept:** everything that *reports* build state.
+`compile_green` stays in the `/status` projection — it was added by iter-20
+for the gate, but it is honest information the page previously had to infer
+from `status` strings, and the operator should still be able to see plainly
+that a build is red. The compile panel and the DevOps audit panel are
+unchanged. The distinction that matters: **state is reported, not enforced.**
+
+Also kept: everything else iter-20 did. The four-rung escalation ladder, the
+raw build log reaching the fixer, the regenerator agent, the armed residue
+gate, the manifest contract, the per-language playbooks and the Azure
+exhaustion ladder are all untouched — none of them blocks the operator, and
+each one still raises the odds of a green build on its own.
+
+**Guarded against regression** rather than merely deleted: three tests in
+`test_iter20_devops_convergence.py` assert on source that `_build_readiness_gate`
+is gone, that `download_transformed_code` raises only 404/400 and never 409,
+and that `push_transformation_to_github` raises no 409 either. A future
+iteration that thinks a gate is a good idea will fail them and have to read
+this entry first.
+
+**Verified live** against all three of the operator's real red-build jobs
+(`Procument-plan-service`, `negotiation-service`, `dsc service`, every one
+`compile_green: false`): 9 of 9 downloads across `code` / `tests` / `all`
+return **HTTP 200**, the negotiation-service ZIP opens clean with 150 files,
+and `/status` no longer carries `download_blocked_reason` while still
+reporting `compile_green: false`. Backend 1,243 passed / 129 skipped, ruff
+clean, 0 boot tracebacks; frontend 239 passed / 14 suites, typecheck 0,
+lint 0 errors, build succeeds.

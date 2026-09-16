@@ -23,8 +23,8 @@ Every status below comes from something I ran, not from reading the code:
 
 | Evidence | Method | Result |
 |---|---|---|
-| **Backend execution trace** | `sys.setprofile` over the full suite, recording every backend frame that really ran | 1,250 passed / 129 skipped · **907 frames observed** |
-| **Frontend unit + contract suite** | Jest 27 + React Testing Library 16, `yarn test:ci` | **245 passed / 15 suites** · 0 failed |
+| **Backend execution trace** | `sys.setprofile` over the full suite, recording every backend frame that really ran | 1,243 passed / 129 skipped · **907 frames observed** |
+| **Frontend unit + contract suite** | Jest 27 + React Testing Library 16, `yarn test:ci` | **239 passed / 14 suites** · 0 failed |
 | **Live HTTP sweep** | Real app + real Mongo, authenticated, every `GET` I could address | **102 routes · 0 responses ≥ 500** |
 | **Live pipeline run** | A real Direct Transform job over HTTP, both plugins | completed 100%, output **compiled by `mvn`** |
 | **Reference analysis (backend)** | AST over `Name` / `Attribute` / `ImportFrom` / string constants, plus decorator registration and frontend text | **0 orphans of 1,724** |
@@ -155,7 +155,7 @@ lines**, `GET /api/health` → 200.
 | | Count |
 |---|---:|
 | Source files (`.js/.jsx/.ts/.tsx`) | 80 |
-| Test files | 15 |
+| Test files | 14 |
 | **Exported symbols** | **352** |
 | Exports referenced by a test | 74 |
 | **Exports referenced nowhere** | **0** |
@@ -196,8 +196,7 @@ a correction to the previous issue's method, not a removal of code.
 | `lib/__tests__/routes.test.js` | 11 | Route-chunk registry, prefetch idempotence, `cn()` merge order |
 | **`pages/__tests__/DirectTransform.test.jsx`** | **8** | **New** — the fourth Tools page's primary flow and its failure states |
 | **`__tests__/tools-nav-registration.test.js`** | **8** | **New** — Tools nav symmetry across all five registries |
-| `__tests__/export-gate.test.js` | 6 | Every export affordance sits behind the build gate |
-| **Total** | **245** | |
+| **Total** | **239** | |
 
 ### The two new suites
 
@@ -222,7 +221,7 @@ too, so that omission cannot be "fixed" into an asymmetry later.
 
 | Gate | Result |
 |---|---|
-| `yarn test:ci` | ✅ **245 passed** / 15 suites |
+| `yarn test:ci` | ✅ **239 passed** / 14 suites |
 | `yarn typecheck` (`tsc --noEmit`) | ✅ 0 errors |
 | `yarn lint` | ✅ **0 errors** (19 warnings, all `react-hooks/exhaustive-deps`, all pre-existing) |
 | `yarn build` | ✅ succeeds · main bundle **322.87 kB** |
@@ -322,11 +321,63 @@ branch.
 
 ---
 
+# The export gate, removed (iter-20.1)
+
+The previous issue reported the iter-20 export gate as a verified feature.
+It has since been **removed on the operator's instruction**, so this issue
+records that rather than leaving a stale claim standing.
+
+iter-20 made `download_transformed_code` and `push_transformation_to_github`
+return **409** unless `compile_green AND production_ready`, and hid the
+buttons in the UI. The intent was sound: a broken Helidon → Spring Boot
+tree had reached their disk looking finished.
+
+**Why it was wrong.** A gate is only defensible when the condition it gates
+on is reliably achievable. It is not: four escalation rungs and a
+regenerator still do not produce a green build on their real services. So
+the gate never actually stopped bad code shipping — it stopped the operator
+**retrieving their own code**, which is strictly worse, because the old
+behaviour at least let them take the folder to another tool and fix it by
+hand, which is what they had been doing successfully all along.
+
+*A gate that fires on the normal case is not a quality control, it is an
+outage.*
+
+| Removed | Kept |
+|---|---|
+| `_build_readiness_gate` | `compile_green` in the `/status` projection |
+| Both `409` raises | The compile panel and DevOps audit panel |
+| `download_blocked_reason` | `production_ready` reporting |
+| The frontend blocked-state panel | The whole four-rung escalation ladder |
+| `LAMA_ALLOW_UNVERIFIED_DOWNLOAD` | The armed residue gate, playbooks, Azure ladder |
+| `export-gate.test.js` (6 tests) | — |
+
+The distinction that survives: **build state is reported, not enforced.**
+
+**Guarded rather than merely deleted.** Three tests in
+`test_iter20_devops_convergence.py` assert on source that the helper is
+gone, that `download_transformed_code` raises only 404/400 and never 409,
+and that the push path raises no 409 either. A future iteration that thinks
+a gate is a good idea fails them first.
+
+**Verified live** against all three of the operator's real red-build jobs —
+`Procument-plan-service`, `negotiation-service`, `dsc service`, every one
+`compile_green: false`:
+
+| Check | Result |
+|---|---|
+| 9 downloads (3 jobs × `code`/`tests`/`all`) | ✅ **9 × HTTP 200** |
+| `negotiation-service` ZIP opens | ✅ valid, **150 files** |
+| `/status` carries `download_blocked_reason` | ✅ no longer present |
+| `/status` still reports `compile_green` | ✅ `false` — honest, not hidden |
+
+---
+
 # Gate summary
 
 | Gate | Result |
 |---|---|
-| `pytest backend/tests/` | ✅ **1,250 passed** / 129 skipped |
+| `pytest backend/tests/` | ✅ **1,243 passed** / 129 skipped |
 | `ruff check backend` | ✅ clean |
 | Backend execution trace | ✅ **907 frames** observed |
 | Backend orphan scan (AST) | ✅ **0 of 1,724** |
@@ -334,14 +385,14 @@ branch.
 | Routes registered | ✅ 300 paths / 326 operations |
 | 102 live `GET` routes | ✅ **0 responses ≥ 500** |
 | Live migration, compiled | ✅ **`mvn compile` exit 0** |
-| `yarn test:ci` | ✅ **245 passed** / 15 suites |
+| `yarn test:ci` | ✅ **239 passed** / 14 suites |
 | `yarn typecheck` | ✅ 0 errors |
 | `yarn lint` | ✅ 0 errors |
 | `yarn build` | ✅ succeeds · 322.87 kB |
 | Frontend orphan scan | ✅ **0 of 352** |
 | API contract (231 URLs) | ✅ **0 mismatches** |
 
-**Combined: 1,495 automated tests across both halves, all passing.**
+**Combined: 1,482 automated tests across both halves, all passing.**
 
 ---
 

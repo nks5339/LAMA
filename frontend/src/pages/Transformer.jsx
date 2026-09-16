@@ -683,10 +683,6 @@ export default function TransformerPage() {
   const [compilationResult, setCompilationResult] = useState(null);
   // iter-19 — {production_ready, findings[], summary, remediation_rounds[]}
   const [dependencyAudit, setDependencyAudit] = useState(null);
-  // iter-20 — why the export is unavailable, or null when it is allowed.
-  // Computed by the backend (`_build_readiness_gate`) and enforced by the
-  // download endpoint itself, so the button and the 409 cannot disagree.
-  const [downloadBlockedReason, setDownloadBlockedReason] = useState(null);
   const [compilationLoading, setCompilationLoading] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [confirmingTasks, setConfirmingTasks] = useState(false);
@@ -1062,10 +1058,6 @@ export default function TransformerPage() {
       if (s.dependency_audit) {
         setDependencyAudit(s.dependency_audit);
       }
-      // iter-20 — always assigned, including to null: the whole point is
-      // that the export unblocks the moment the build goes green, so a
-      // cleared reason must clear the UI too.
-      setDownloadBlockedReason(s.download_blocked_reason ?? null);
       // iter-15.14 — broadcast to sidebar + top stage progress
       broadcastTransformerPhase(s.phase || null);
       const filesDone = Number(s.files_done || 0);
@@ -3688,18 +3680,13 @@ export default function TransformerPage() {
                         <span className="text-fg-subtle tabular-nums">{testGen.by_tier?.[tier] ?? 0}</span>
                       </span>
                     ))}
-                    {/* iter-20 — second export site; gated the same way
-                        as the kebab menu, or the gate would have one hole
-                        left in it. */}
-                    {!downloadBlockedReason && (
-                      <a
-                        href={transformId ? downloadTransformedTests(transformId) : "#"}
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-micro font-semibold hover:bg-violet-700 ${!transformId ? "pointer-events-none opacity-40" : ""}`}
-                        data-testid="tester-download-tests-btn"
-                      >
-                        <Download size={10} /> Tests ZIP
-                      </a>
-                    )}
+                    <a
+                      href={transformId ? downloadTransformedTests(transformId) : "#"}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-micro font-semibold hover:bg-violet-700 ${!transformId ? "pointer-events-none opacity-40" : ""}`}
+                      data-testid="tester-download-tests-btn"
+                    >
+                      <Download size={10} /> Tests ZIP
+                    </a>
                   </div>
                 </div>
               )}
@@ -4146,58 +4133,47 @@ export default function TransformerPage() {
         <FilePlus size={14} /> New project
       </button>
       <div className="my-1 border-t border-border" />
-      {/* iter-20 — the export entries do not exist until the build is
-          ready. Previously a RED build downloaded exactly like a green
-          one, which is how a "Spring Boot" tree that Maven could not
-          resolve reached the operator's disk. In place of the buttons we
-          show WHY, so the absence reads as a state rather than a bug. */}
-      {downloadBlockedReason ? (
-        <div
-          className="px-3 py-2 text-xs text-fg-subtle leading-relaxed"
-          data-testid="transformer-download-blocked"
-        >
-          <div className="flex items-center gap-2 text-amber-500 font-medium mb-1">
-            <AlertTriangle size={13} /> Download not available yet
-          </div>
-          {downloadBlockedReason}
-        </div>
-      ) : (
-        <>
-          <a
-            href={transformId ? downloadTransformedCode(transformId) : "#"}
-            className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
-            onClick={() => setShowKebab(false)}
-            data-testid="transformer-download-btn"
-          >
-            <Download size={14} /> Download code ZIP
-          </a>
-          <a
-            href={transformId ? downloadTransformedTests(transformId) : "#"}
-            className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
-            onClick={() => setShowKebab(false)}
-            data-testid="transformer-download-tests-btn"
-          >
-            <TestTube2 size={14} /> Download tests ZIP
-          </a>
-          <a
-            href={transformId ? downloadTransformedBundle(transformId) : "#"}
-            className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
-            onClick={() => setShowKebab(false)}
-            data-testid="transformer-download-bundle-btn"
-          >
-            <Package size={14} /> Download bundle (code + tests)
-          </a>
-          <button
-            onClick={openGithubPush}
-            className={`${KEBAB_ITEM} disabled:opacity-40 disabled:cursor-not-allowed`}
-            disabled={!transformId || pushLoading}
-            data-testid="transformer-github-push-btn"
-          >
-            {pushLoading ? <Loader2 size={14} className="animate-spin" /> : <GitBranch size={14} />}
-            Push to GitHub
-          </button>
-        </>
-      )}
+      {/* iter-20.1 — the export entries are ALWAYS available once files
+          exist, red build or not.
+          iter-20 gated them on `compile_green && production_ready`. That
+          was the wrong trade: the fix loop does not yet reach green
+          reliably, so the gate stopped the operator retrieving their own
+          code rather than stopping bad code shipping. Build state is still
+          reported — the compile panel and the DevOps audit both say plainly
+          whether the build is red — it just is not a permission any more. */}
+      <a
+        href={transformId ? downloadTransformedCode(transformId) : "#"}
+        className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
+        onClick={() => setShowKebab(false)}
+        data-testid="transformer-download-btn"
+      >
+        <Download size={14} /> Download code ZIP
+      </a>
+      <a
+        href={transformId ? downloadTransformedTests(transformId) : "#"}
+        className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
+        onClick={() => setShowKebab(false)}
+        data-testid="transformer-download-tests-btn"
+      >
+        <TestTube2 size={14} /> Download tests ZIP
+      </a>
+      <a
+        href={transformId ? downloadTransformedBundle(transformId) : "#"}
+        className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
+        onClick={() => setShowKebab(false)}
+        data-testid="transformer-download-bundle-btn"
+      >
+        <Package size={14} /> Download bundle (code + tests)
+      </a>
+      <button
+        onClick={openGithubPush}
+        className={`${KEBAB_ITEM} disabled:opacity-40 disabled:cursor-not-allowed`}
+        disabled={!transformId || pushLoading}
+        data-testid="transformer-github-push-btn"
+      >
+        {pushLoading ? <Loader2 size={14} className="animate-spin" /> : <GitBranch size={14} />}
+        Push to GitHub
+      </button>
       <button
         onClick={openHistory}
         className={KEBAB_ITEM}

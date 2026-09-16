@@ -3812,12 +3812,11 @@ async def get_transformation_status(transform_id: str):
             # iter-19 — DevOps gate verdict + its remediation trail.
             "dependency_audit": 1,
             "production_ready": 1,
-            # iter-20 — the three fields `_build_readiness_gate` reads.
-            # `compile_green` was persisted but never projected, and
-            # `build_tools` decides whether there is a build to gate on at
-            # all — without them the gate saw an incomplete document and
-            # answered "not blocked" for a job whose download the endpoint
-            # itself was correctly refusing with a 409.
+            # iter-20 — build state for the FE. `compile_green` was
+            # persisted but never projected, so the page had to infer it
+            # from `status` strings; `build_tools` says whether a build was
+            # even requested, which is what distinguishes "red" from
+            # "nothing to compile".
             "compile_green": 1,
             "build_tools": 1,
         },
@@ -3891,13 +3890,12 @@ async def get_transformation_status(transform_id: str):
         "dependency_audit": doc.get("dependency_audit") or None,
         "production_ready": doc.get("production_ready"),
         # iter-20 — `compile_green` was persisted but never projected, so
-        # the FE had to infer the build state from `status` strings. It now
-        # gates the download button, which needs the real value.
+        # the FE had to infer the build state from `status` strings. Kept
+        # (iter-20.1) even though the export gate that introduced it is
+        # gone: it is honest build information, and the page still shows
+        # the operator whether the build is red. It just no longer decides
+        # whether they are allowed to have their own code.
         "compile_green": doc.get("compile_green"),
-        # Single source of truth for whether the output may leave the
-        # system, computed by the same helper the download endpoint
-        # enforces — so the button and the 409 can never disagree.
-        "download_blocked_reason": _build_readiness_gate(doc) or None,
     }
 
 
@@ -5034,75 +5032,6 @@ async def get_transformation_file(transform_id: str, file_id: str):
     return f
 
 
-def _build_readiness_gate(transform: Dict[str, Any]) -> str:
-    """Empty string when this transformation's output may leave the system.
-
-    Otherwise a message explaining what is still wrong, for a 409.
-
-    iter-20 — the operator's instruction was explicit: the download button
-    does not appear until the code builds properly. Export was previously
-    ungated, so a red build downloaded exactly like a green one and a
-    "Spring Boot" tree that Maven could not resolve reached their disk.
-
-    Two conditions, matching the ones the pipeline already computes for
-    `final_status`:
-      * the native build compiles (`compile_green`)
-      * the DevOps audit passes (`production_ready`)
-    A job with no build tool configured has nothing to compile, so it is
-    not blocked — we cannot assert a build is broken when no build was
-    ever asked for.
-
-    LAMA_ALLOW_UNVERIFIED_DOWNLOAD=1 lifts the gate. It is off by default
-    and deliberately NOT surfaced in the UI: it exists so an
-    environmental build failure (no JDK in the container, a blocked
-    repository) cannot permanently strand a user's own code, not as a
-    routine way around the gate.
-    """
-    if (os.environ.get("LAMA_ALLOW_UNVERIFIED_DOWNLOAD") or "").strip().lower() in {
-        "1", "true", "yes", "on",
-    }:
-        return ""
-
-    status = (transform or {}).get("status") or ""
-    if status in ("running", "pending", "awaiting_confirmation", "awaiting_task_confirmation"):
-        return (
-            f"This transformation is still {status.replace('_', ' ')}. The download "
-            f"becomes available once the pipeline finishes and the build is green."
-        )
-
-    # Nothing to compile → nothing to gate on.
-    if not ((transform or {}).get("build_tools") or {}):
-        return ""
-
-    if not (transform or {}).get("compile_green"):
-        summary = (
-            ((transform or {}).get("compilation_result") or {}).get("summary")
-            or "the build did not compile"
-        )
-        return (
-            f"The transformed code does not build yet, so it is not available "
-            f"for download: {summary}. Run 'Rerun compile' — the fix loop "
-            f"escalates through the Coder, the DevOps Expert and a full "
-            f"regeneration before giving up."
-        )
-
-    audit = (transform or {}).get("dependency_audit") or {}
-    if audit and not audit.get("production_ready"):
-        criticals = [
-            f.get("issue", "")
-            for f in (audit.get("findings") or [])
-            if str(f.get("severity", "")).lower() == "critical"
-        ][:3]
-        detail = ("; ".join(c for c in criticals if c)) or (
-            audit.get("summary") or "unresolved dependency findings"
-        )
-        return (
-            f"The build compiles but its dependencies are not production-ready, "
-            f"so the code is not available for download: {detail}"
-        )
-    return ""
-
-
 @router.get("/transformer/{transform_id}/download")
 async def download_transformed_code(transform_id: str, scope: str = "code"):
     """Download transformed files as ZIP.
@@ -5123,17 +5052,6 @@ async def download_transformed_code(transform_id: str, scope: str = "code"):
     scope = (scope or "code").strip().lower()
     if scope not in ("code", "tests", "all"):
         raise HTTPException(400, "scope must be one of: code, tests, all")
-
-    # iter-20 — do not hand over code that does not build.
-    #
-    # Until now this endpoint checked only that the transformation existed
-    # and the scope was valid: a RED build downloaded as cleanly as a green
-    # one, which is how a broken Helidon->Spring Boot tree reached the
-    # operator's disk in the first place. Per their instruction the
-    # download does not exist until the build is ready.
-    _gate = _build_readiness_gate(transform)
-    if _gate:
-        raise HTTPException(409, _gate)
 
     if scope == "code":
         types = ["transformed"]
@@ -5200,13 +5118,6 @@ async def push_transformation_to_github(
     transform = await transformations.find_one({"_id": transform_id})
     if not transform:
         raise HTTPException(404, "Transformation not found")
-
-    # iter-20 — same gate as the ZIP download. Pushing a red build to a
-    # real repository is the more consequential of the two exports, so
-    # gating the download and leaving this open would be the wrong half.
-    _gate = _build_readiness_gate(transform)
-    if _gate:
-        raise HTTPException(409, _gate)
 
     # Get GitHub config
     gh_config = await github_configs.find_one({})

@@ -1,22 +1,21 @@
-"""iter-20 — the build loop converges, and nothing ships until it does.
+"""iter-20 — the build loop escalates four times instead of two.
 
-The operator reported two things about a failed Helidon -> Spring Boot run:
-the DevOps agent "failed to build that in just two try", and they still
-ended up with a downloadable ZIP of code that does not compile.
-
-Both were true by design:
-
-  * `_run_compile_fix_loop` escalated coder -> devops_expert exactly ONCE
-    and then stopped on the stagnation guard. Two attempts was the whole
-    ladder.
-  * `download_transformed_code` checked only that the transformation
-    existed and the scope string was valid. A red build exported exactly
-    like a green one.
+The operator reported that the DevOps agent "failed to build that in just
+two try". Two was the whole ladder: `_run_compile_fix_loop` escalated
+coder -> devops_expert exactly once and then stopped on the stagnation
+guard. There was no third attempt to make.
 
 A third and fourth attempt are only worth making if they can do something
 the first two could not, so the new rungs differ in what the agent SEES
 (the raw build log, never previously shown to anyone) and what it may
 CHANGE (regenerate from the legacy original rather than patch further).
+
+iter-20.1 — the export gate this suite also used to pin has been REMOVED.
+It blocked download and GitHub push unless the build was green, which in
+practice stopped the operator collecting their own code rather than
+stopping bad code shipping, because the loop does not reach green
+reliably enough for that to be a gate rather than a trap. The tests at the
+end now guard the opposite: that no 409 can return to the export paths.
 """
 from __future__ import annotations
 
@@ -213,97 +212,61 @@ def test_the_brief_is_honest_when_no_original_survives():
     assert "ORIGINAL LEGACY FILE" not in brief
 
 
-# ── The download gate ─────────────────────────────────────────────────
+# ── Export is NOT gated (iter-20.1) ───────────────────────────────────
+#
+# iter-20 blocked download and GitHub push unless `compile_green AND
+# production_ready`, so a red build could not be retrieved at all. The
+# operator asked for it back: the fix loop does not reach green reliably
+# enough for that to be a gate rather than a trap, and the effect was to
+# stop them collecting their own code rather than to stop bad code
+# shipping. Build state is still reported everywhere it was — it simply is
+# not a permission.
 
-GREEN = {
-    "status": "completed",
-    "build_tools": {"backend": "maven"},
-    "compile_green": True,
-    "dependency_audit": {"production_ready": True, "findings": []},
-}
-
-
-def test_a_green_build_downloads():
-    assert T._build_readiness_gate(GREEN) == ""
-
-
-def test_a_red_build_is_blocked():
-    """The reported symptom: a broken tree exported as cleanly as a
-    working one."""
-    doc = dict(GREEN, compile_green=False,
-               compilation_result={"summary": "3 modules failed to compile"})
-    reason = T._build_readiness_gate(doc)
-    assert reason
-    assert "3 modules failed to compile" in reason
+def test_export_is_not_gated_on_build_state():
+    """`_build_readiness_gate` is gone, and nothing may reintroduce a 409
+    on the export paths. Asserted on source because the failure mode is a
+    refusal that only shows up with a red build in front of you."""
+    src = (Path(T.__file__)).read_text()
+    assert "_build_readiness_gate" not in src
+    assert "LAMA_ALLOW_UNVERIFIED_DOWNLOAD" not in src, (
+        "the escape hatch existed only to survive the gate; with no gate "
+        "it is dead configuration"
+    )
 
 
-def test_a_devops_blocked_build_is_blocked_even_though_it_compiles():
-    """`production_ready` is load-bearing since iter-19: a pom Maven
-    cannot resolve is not shippable just because javac was happy."""
-    doc = dict(GREEN, dependency_audit={
-        "production_ready": False,
-        "findings": [{"severity": "critical", "issue": "helidon-microprofile has no version"}],
-    })
-    reason = T._build_readiness_gate(doc)
-    assert reason
-    assert "helidon-microprofile has no version" in reason
+def test_the_download_endpoint_refuses_only_for_real_client_errors():
+    """404 for an unknown transformation, 400 for a bad scope, 404 when
+    there are genuinely no files — and nothing else. A 409 here means the
+    gate is back."""
+    src = (Path(T.__file__)).read_text()
+    start = src.index("async def download_transformed_code(")
+    body = src[start:start + 2200]
+    assert "409" not in body
+    assert "HTTPException(404" in body
+    assert "HTTPException(400" in body
 
 
-def test_a_run_still_in_flight_is_blocked():
-    assert T._build_readiness_gate(dict(GREEN, status="running"))
+def test_github_push_is_not_gated_either():
+    src = (Path(T.__file__)).read_text()
+    start = src.index("async def push_transformation_to_github(")
+    body = src[start:start + 1600]
+    assert "409" not in body
 
 
-def test_a_job_with_no_build_tool_is_not_blocked():
-    """We cannot assert a build is broken when no build was ever asked
-    for — that would make the gate unpassable for database-only or
-    frontend-only transforms."""
-    assert T._build_readiness_gate({"status": "completed", "build_tools": {}}) == ""
+def test_the_status_projection_still_reports_build_state():
+    """The export gate is gone, but the build state it read is not.
 
-
-def test_the_env_escape_hatch_lifts_the_gate(monkeypatch):
-    """Off by default and not surfaced in the UI. It exists so an
-    environmental failure (no JDK in the container, a blocked repository)
-    cannot permanently strand a user's own code."""
-    doc = dict(GREEN, compile_green=False)
-    assert T._build_readiness_gate(doc)
-    monkeypatch.setenv("LAMA_ALLOW_UNVERIFIED_DOWNLOAD", "1")
-    assert T._build_readiness_gate(doc) == ""
-
-
-def test_the_reason_tells_the_operator_what_to_do_next():
-    """A blocked download with no next step is just a dead end."""
-    doc = dict(GREEN, compile_green=False)
-    assert "Rerun compile" in T._build_readiness_gate(doc)
-
-
-@pytest.mark.parametrize("status", [
-    "pending", "awaiting_confirmation", "awaiting_task_confirmation",
-])
-def test_every_pre_terminal_status_is_blocked(status):
-    assert T._build_readiness_gate(dict(GREEN, status=status))
-
-
-def test_the_status_projection_fetches_every_field_the_gate_reads():
-    """Caught live, not by a unit test.
-
-    `/status` computes `download_blocked_reason` with the same helper the
-    download endpoint enforces, but it feeds that helper a PROJECTED
-    document. The projection omitted `compile_green` and `build_tools`, so
-    the gate saw a doc with no build tool, concluded "nothing to gate on"
-    and reported None — while the download endpoint, reading the full
-    document, was correctly refusing the same job with a 409.
-
-    The UI would have shown a download button that 409s when clicked.
+    `compile_green` was persisted and never projected until iter-20, so the
+    page had to infer the build state from `status` strings. Removing the
+    gate must not take that back out — the operator should still be able to
+    see plainly that a build is red, they just are not blocked by it.
     """
     src = (Path(T.__file__)).read_text()
     start = src.index("async def get_transformation_status")
     projection = src[start:start + 2500]
     for field in ("compile_green", "build_tools", "dependency_audit",
                   "production_ready", "status"):
-        assert f'"{field}": 1' in projection, (
-            f"_build_readiness_gate reads {field!r}; the /status projection "
-            f"must fetch it or the button and the 409 will disagree"
-        )
+        assert f'"{field}": 1' in projection, f"{field} is no longer projected"
 
 
 def test_a_malformed_file_id_is_a_client_error_not_a_server_fault():

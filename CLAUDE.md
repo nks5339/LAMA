@@ -53,15 +53,19 @@ through the 5 stages:
   plugin layer (Helidon MP → Spring Boot 3, Oracle → PostgreSQL) with an
   optional AI pass on top. Do **not** fold it into `routes/tools.py` — it
   shares no state with either of the other two.
-  **iter-20, two load-bearing contracts:** (a) the compile-fix loop
-  escalates through FOUR rungs — `coder → devops_expert → devops_expert
-  +raw build log → regenerator` (`_ESCALATION_LADDER`), capped at 5
-  iterations; (b) **export is gated** — `download_transformed_code` and
-  `push_transformation_to_github` return 409 unless `compile_green AND
-  production_ready` (`_build_readiness_gate`, also surfaced to the FE as
-  `download_blocked_reason` so the button and the 409 cannot disagree).
-  Target-stack idioms live in `MIGRATION_PLAYBOOKS` — adding a language is
-  one dict entry, not code.
+  **iter-20:** the compile-fix loop escalates through FOUR rungs —
+  `coder → devops_expert → devops_expert +raw build log → regenerator`
+  (`_ESCALATION_LADDER`), capped at 5 iterations. Target-stack idioms live
+  in `MIGRATION_PLAYBOOKS` — adding a language is one dict entry, not code.
+  **iter-20.1: export is NOT gated.** iter-20 made
+  `download_transformed_code` / `push_transformation_to_github` return 409
+  unless the build was green; that was reverted on the operator's
+  instruction. The loop does not reach green reliably enough for it to be
+  a gate rather than a trap, and its effect was to stop them collecting
+  their own code. Build state is still *reported* (`compile_green`,
+  `production_ready`, the DevOps audit panel) — it is not a permission.
+  **Do not reintroduce a 409 on the export paths**;
+  `test_iter20_devops_convergence.py` guards against it.
 - **Multi-Agent CodeGen** (iter-17, `/api/codegen/{pid}/multi-agent/*`) — an
   agentic alternative to single-shot Stage-4 that DOES require frozen
   Architecture. Agents: `context_manager → planner → coder_be | coder_fe →
@@ -342,10 +346,6 @@ LAMA_CODER_SOURCE_CHARS=                    # source shown to the Coder; default
                                             #   cloud / 10k local. Truncation is
                                             #   STATED in the prompt when it happens.
 LAMA_CODER_KB_CHARS=                        # KB slice; default 24k cloud / 12k local
-LAMA_ALLOW_UNVERIFIED_DOWNLOAD=             # "1" lifts the export gate. OFF by
-                                            #   default and NOT in the UI — it exists
-                                            #   so an environmental build failure
-                                            #   cannot strand a user's own code.
 
 # Direct Transform / DCTE (iter-18) — all optional, all have code defaults
 LAMA_DCTE_WORKSPACE=                        # base for relative paths + where the
