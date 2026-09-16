@@ -552,6 +552,11 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     # Diagnosis, not generation — reads a wall of build output and works
     # out what actually broke. That is what the o-series is for.
     "tools.transformer.diagnostician":   "reasoning",
+    # iter-20 — the compile-fix loop's last rung. It only ever runs after
+    # three cheaper attempts have each failed to change the build, so by
+    # the time it is reached the marginal cost of the strongest model is
+    # already justified several times over.
+    "tools.transformer.regenerator":     "critical",
     "tools.gap_analyzer":            "high",
     "tools.gap_verifier":            "high",
     "tools.gap_analyzer.doc_parser": "medium",

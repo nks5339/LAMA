@@ -154,7 +154,7 @@ def client(monkeypatch):
 
 
 def test_list_agents_returns_the_full_roster_with_global_default(client):
-    """The roster is nine agents.
+    """The roster is ten agents.
 
     History of this assertion -- each expansion was deliberate:
       • six  -> seven (iter-15.62) `devops_expert`, the stagnation-triggered
@@ -167,15 +167,22 @@ def test_list_agents_returns_the_full_roster_with_global_default(client):
           - `devops_audit` the DevOps agent's proactive mode: a dependency
             /production-readiness audit of the GENERATED build manifests
             after compilation, distinct from the escalation persona above.
+      • nine -> ten (iter-20): `regenerator`, the compile-fix loop's last
+        escalation rung. The loop used to stop after ONE escalation --
+        coder, devops_expert, give up -- which is the "not fixed in 2
+        iterations" the operator reported. Rungs 0-2 all EDIT a file that
+        may be past saving; this one rewrites it from the legacy original
+        against the target stack's playbook.
     """
     res = client.get("/tools/transformer/tx-1/agents")
     assert res.status_code == 200
     agents = {a["agent"]: a for a in res.json()["agents"]}
     assert set(agents.keys()) == {
         "super_agent", "context_manager", "planner", "coder", "verifier",
-        "tester", "devops_expert", "validator", "devops_audit",
+        "tester", "devops_expert", "validator", "devops_audit", "regenerator",
     }
     assert agents["validator"]["llm_backed"] is True
+    assert agents["regenerator"]["llm_backed"] is True
     assert agents["devops_audit"]["llm_backed"] is True
     cm = agents["context_manager"]
     assert cm["base_template"] == "GLOBAL DEFAULT CONTEXT MANAGER PROMPT"

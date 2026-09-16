@@ -263,6 +263,10 @@ AGENT_PROMPT_KEYS = {
     # generated build manifests, distinct from its escalation persona in
     # the compile-fix loop.
     "devops_audit": "tools.transformer.devops_audit",
+    # iter-20 — the compile-fix loop's last escalation rung. Rungs 0-2 all
+    # EDIT a file that may be past saving; this one rewrites it from the
+    # legacy original against the target playbook. See _ESCALATION_LADDER.
+    "regenerator": "tools.transformer.regenerator",
 }
 # super_agent is pure orchestration today (it logs a completed run but
 # never calls an LLM), so an edited prompt/model has no runtime effect
@@ -278,6 +282,7 @@ AGENT_LLM_BACKED = {
     "devops_expert": True,
     "validator": True,
     "devops_audit": True,
+    "regenerator": True,
 }
 AGENT_LABELS = {
     "super_agent": "Super Agent",
@@ -289,6 +294,7 @@ AGENT_LABELS = {
     "devops_expert": "DevOps Expert",
     "validator": "Validator",
     "devops_audit": "DevOps Expert (dependency audit)",
+    "regenerator": "Regenerator (full rewrite)",
 }
 
 
@@ -3876,6 +3882,14 @@ async def get_transformation_status(transform_id: str):
         # `completed_with_errors`, so the FE must be able to say WHY.
         "dependency_audit": doc.get("dependency_audit") or None,
         "production_ready": doc.get("production_ready"),
+        # iter-20 — `compile_green` was persisted but never projected, so
+        # the FE had to infer the build state from `status` strings. It now
+        # gates the download button, which needs the real value.
+        "compile_green": doc.get("compile_green"),
+        # Single source of truth for whether the output may leave the
+        # system, computed by the same helper the download endpoint
+        # enforces — so the button and the 409 can never disagree.
+        "download_blocked_reason": _build_readiness_gate(doc) or None,
     }
 
 
@@ -5002,6 +5016,75 @@ async def get_transformation_file(transform_id: str, file_id: str):
     return f
 
 
+def _build_readiness_gate(transform: Dict[str, Any]) -> str:
+    """Empty string when this transformation's output may leave the system.
+
+    Otherwise a message explaining what is still wrong, for a 409.
+
+    iter-20 — the operator's instruction was explicit: the download button
+    does not appear until the code builds properly. Export was previously
+    ungated, so a red build downloaded exactly like a green one and a
+    "Spring Boot" tree that Maven could not resolve reached their disk.
+
+    Two conditions, matching the ones the pipeline already computes for
+    `final_status`:
+      * the native build compiles (`compile_green`)
+      * the DevOps audit passes (`production_ready`)
+    A job with no build tool configured has nothing to compile, so it is
+    not blocked — we cannot assert a build is broken when no build was
+    ever asked for.
+
+    LAMA_ALLOW_UNVERIFIED_DOWNLOAD=1 lifts the gate. It is off by default
+    and deliberately NOT surfaced in the UI: it exists so an
+    environmental build failure (no JDK in the container, a blocked
+    repository) cannot permanently strand a user's own code, not as a
+    routine way around the gate.
+    """
+    if (os.environ.get("LAMA_ALLOW_UNVERIFIED_DOWNLOAD") or "").strip().lower() in {
+        "1", "true", "yes", "on",
+    }:
+        return ""
+
+    status = (transform or {}).get("status") or ""
+    if status in ("running", "pending", "awaiting_confirmation", "awaiting_task_confirmation"):
+        return (
+            f"This transformation is still {status.replace('_', ' ')}. The download "
+            f"becomes available once the pipeline finishes and the build is green."
+        )
+
+    # Nothing to compile → nothing to gate on.
+    if not ((transform or {}).get("build_tools") or {}):
+        return ""
+
+    if not (transform or {}).get("compile_green"):
+        summary = (
+            ((transform or {}).get("compilation_result") or {}).get("summary")
+            or "the build did not compile"
+        )
+        return (
+            f"The transformed code does not build yet, so it is not available "
+            f"for download: {summary}. Run 'Rerun compile' — the fix loop "
+            f"escalates through the Coder, the DevOps Expert and a full "
+            f"regeneration before giving up."
+        )
+
+    audit = (transform or {}).get("dependency_audit") or {}
+    if audit and not audit.get("production_ready"):
+        criticals = [
+            f.get("issue", "")
+            for f in (audit.get("findings") or [])
+            if str(f.get("severity", "")).lower() == "critical"
+        ][:3]
+        detail = ("; ".join(c for c in criticals if c)) or (
+            audit.get("summary") or "unresolved dependency findings"
+        )
+        return (
+            f"The build compiles but its dependencies are not production-ready, "
+            f"so the code is not available for download: {detail}"
+        )
+    return ""
+
+
 @router.get("/transformer/{transform_id}/download")
 async def download_transformed_code(transform_id: str, scope: str = "code"):
     """Download transformed files as ZIP.
@@ -5022,6 +5105,17 @@ async def download_transformed_code(transform_id: str, scope: str = "code"):
     scope = (scope or "code").strip().lower()
     if scope not in ("code", "tests", "all"):
         raise HTTPException(400, "scope must be one of: code, tests, all")
+
+    # iter-20 — do not hand over code that does not build.
+    #
+    # Until now this endpoint checked only that the transformation existed
+    # and the scope was valid: a RED build downloaded as cleanly as a green
+    # one, which is how a broken Helidon->Spring Boot tree reached the
+    # operator's disk in the first place. Per their instruction the
+    # download does not exist until the build is ready.
+    _gate = _build_readiness_gate(transform)
+    if _gate:
+        raise HTTPException(409, _gate)
 
     if scope == "code":
         types = ["transformed"]
@@ -5088,7 +5182,14 @@ async def push_transformation_to_github(
     transform = await transformations.find_one({"_id": transform_id})
     if not transform:
         raise HTTPException(404, "Transformation not found")
-    
+
+    # iter-20 — same gate as the ZIP download. Pushing a red build to a
+    # real repository is the more consequential of the two exports, so
+    # gating the download and leaving this open would be the wrong half.
+    _gate = _build_readiness_gate(transform)
+    if _gate:
+        raise HTTPException(409, _gate)
+
     # Get GitHub config
     gh_config = await github_configs.find_one({})
     if not gh_config or not gh_config.get("token"):
@@ -8159,6 +8260,131 @@ async def _planner_fix_tasks_from_errors(
         return created
 
 
+# How much raw build output to put in front of the escalated agent.
+# `_run_compiler` already retains 200 KB for parsing; a Maven reactor dump
+# is mostly download progress, and the diagnosis lives in the tail.
+_RAW_BUILD_LOG_CHARS = 6000
+
+
+def _raw_build_log_excerpt(compile_result: Dict[str, Any]) -> str:
+    """The tail of what the compiler actually printed, for the fix prompt.
+
+    iter-20 — until now no agent in the compile-fix loop ever saw raw
+    build output. `_planner_fix_tasks_from_errors` renders the Planner's
+    prose diagnosis into `notes`, and that is all the Coder received. Any
+    detail the Planner elided — the failing plugin goal, a dependency
+    conflict tree, the second error hiding under the first — was simply
+    unavailable to every repair attempt, which is a large part of why a
+    third attempt reproduced the second.
+
+    Returns "" when there is nothing useful, so the rung degrades to a
+    plain devops_expert retry rather than emitting an empty section that
+    reads as "the build printed nothing".
+    """
+    chunks: List[str] = []
+    for comp in (compile_result or {}).get("components") or []:
+        for inv in (comp or {}).get("invocations") or []:
+            if (inv or {}).get("status") in (None, "passed", "skipped"):
+                continue
+            body = "\n".join(
+                s for s in (inv.get("stderr_tail") or "", inv.get("stdout_tail") or "")
+                if s.strip()
+            ).strip()
+            if not body:
+                continue
+            chunks.append(
+                f"--- {comp.get('component', '?')} / {inv.get('tool', comp.get('tool', '?'))} "
+                f"in {inv.get('cwd', '.')} (status={inv.get('status')}) ---\n"
+                + body[-_RAW_BUILD_LOG_CHARS:]
+            )
+    if not chunks:
+        return ""
+    return (
+        "\n\nRAW BUILD OUTPUT — this is verbatim what the build tool printed, "
+        "not a summary. Read it before deciding what to change; the actual "
+        "root cause is often a line ABOVE the first reported error, or a "
+        "second failure underneath it.\n"
+        + "\n\n".join(chunks)[: _RAW_BUILD_LOG_CHARS * 2]
+    )
+
+
+def _regeneration_brief(
+    target_path: str,
+    failed_content: str,
+    compile_result: Dict[str, Any],
+    detected_stack: dict,
+    target_stack,
+    regenerating_from_original: bool,
+) -> str:
+    """The last-resort brief: rewrite this file, do not patch it further.
+
+    iter-20 — this is the operator's own successful fallback, made part of
+    the loop. When four compile rounds have failed they would take the
+    generated folder to a chat model with a senior-developer brief —
+    convert it properly, implement Swagger, do not alter business logic,
+    do not finish with broken code — and it worked. It worked because it
+    stops trying to repair a bad transformation one error at a time and
+    redoes it, which is a move rungs 0-2 structurally cannot make.
+    """
+    playbook = _playbook_for(target_stack)
+    raw = _raw_build_log_excerpt(compile_result)
+    banned = _residue_tokens_for(detected_stack or {}, target_stack)
+    banned_line = ""
+    if banned:
+        banned_line = (
+            f"\n  - The result must contain NONE of these source-stack "
+            f"tokens: {', '.join(banned[:15])}."
+        )
+
+    if regenerating_from_original:
+        source_note = (
+            "You are being given the ORIGINAL LEGACY FILE, not the failed "
+            "transformation. Migrate it again from scratch. Do not try to "
+            "reconstruct or salvage the previous attempt."
+        )
+    else:
+        source_note = (
+            "The original legacy file is not available for this path, so you "
+            "are given the current failed version. Rewrite it in full against "
+            "the target stack's conventions rather than patching the reported "
+            "errors one by one."
+        )
+
+    failed_excerpt = ""
+    if failed_content.strip():
+        failed_excerpt = (
+            f"\n\nTHE ATTEMPT THAT FAILED (for reference only — do NOT copy its "
+            f"structure; it is the thing that does not build):\n"
+            f"{failed_content[:4000]}"
+        )
+
+    return (
+        f"\n\n=== FULL REGENERATION — escalation of last resort for {target_path} ===\n"
+        f"Four earlier repair rounds produced the identical build failure. "
+        f"Patching has been abandoned for this file.\n\n"
+        f"ROLE: you are a senior backend developer and legacy-modernisation "
+        f"expert.\n\n"
+        f"TASK: produce a complete, correct, build-ready version of this file "
+        f"for the target stack.\n\n"
+        f"{source_note}\n\n"
+        f"STRICT RULES:\n"
+        f"  - Do NOT alter business logic. The behaviour must be identical: "
+        f"same API paths, same HTTP methods, same request/response shapes, "
+        f"same table and column names, same message topics and payloads.\n"
+        f"  - Do NOT finish with broken code. Every import must resolve, every "
+        f"brace must close, every symbol you reference must exist or be "
+        f"declared. A file that does not compile is a failed answer, however "
+        f"well-written.\n"
+        f"  - Use the target stack's own idioms throughout, not the source "
+        f"stack's with the names changed.{banned_line}\n"
+        f"  - Return the COMPLETE file. Not a diff, not a fragment, not an "
+        f"excerpt with elisions.\n"
+        f"{('' if not playbook else chr(10) + chr(10) + playbook)}"
+        f"{raw}"
+        f"{failed_excerpt}"
+    )
+
+
 async def _coder_apply_fix(
     transform_id: str,
     task_row: Dict[str, Any],
@@ -8228,15 +8454,61 @@ async def _coder_apply_fix(
     # to feed — `notes` alone (set by `_planner_fix_tasks_from_errors`)
     # carries the generation instructions.
     coder_task["source_path"] = target_path
+
+    # iter-20 — the upper escalation rungs. Both are the SAME machinery
+    # with a different view of the problem, which is the whole point: a
+    # third attempt that sees exactly what the second saw reproduces it.
+    fix_input = current_content
+    effective_agent = agent_name
+
+    if agent_name == "devops_expert_raw":
+        # Rung 2: the build systems specialist, now shown what the
+        # compiler actually printed. Until iter-20 NOTHING in this loop
+        # ever put raw build output in front of an agent — the Coder saw
+        # only the Planner's prose summary of it, so a detail the Planner
+        # elided (the offending plugin goal, a transitive conflict tree,
+        # the second error under the first) was simply unavailable to
+        # every fix attempt.
+        effective_agent = "devops_expert"
+        raw = _raw_build_log_excerpt(task_row.get("_compile_result") or {})
+        if raw:
+            coder_task["notes"] = (coder_task.get("notes") or "") + raw
+
+    elif agent_name == "regenerator":
+        # Rung 3: stop patching. Rungs 0-2 all edit a file that may be
+        # beyond repair — a botched first transformation cannot always be
+        # walked back one compiler error at a time. Regenerate from the
+        # LEGACY ORIGINAL against the target playbook, which is the
+        # programmatic form of the operator's own successful fallback.
+        effective_agent = "regenerator"
+        if original_content and original_content != current_content:
+            fix_input = original_content
+            coder_task["source_path"] = (
+                (file_doc or {}).get("original_path")
+                or task_row.get("source_path")
+                or target_path
+            )
+        coder_task["notes"] = (
+            (coder_task.get("notes") or "")
+            + _regeneration_brief(
+                target_path=target_path,
+                failed_content=current_content,
+                compile_result=task_row.get("_compile_result") or {},
+                detected_stack=detected_stack,
+                target_stack=target_stack,
+                regenerating_from_original=bool(fix_input is original_content),
+            )
+        )
+
     updated = await _run_coder(
-        transform_id, coder_task, current_content,
+        transform_id, coder_task, fix_input,
         kb_ctx=(
             "(compile-fix pass — this file does not exist yet; CREATE it "
             "per the instructions in `notes`)" if is_new_file else
             "(compile-fix pass — use the compile diagnostics in `notes` to guide the edit)"
         ),
         detected_stack=detected_stack, target_stack=target_stack,
-        model=model, envelope=None, agent_name=agent_name,
+        model=model, envelope=None, agent_name=effective_agent,
     )
     if not updated or not updated.strip():
         await transformer_tasks.update_one(
@@ -8339,6 +8611,52 @@ async def _coder_apply_fix(
     return compilable_flag
 
 
+# iter-20 — Escalation ladder for the compile-fix loop.
+#
+# The loop used to have exactly two rungs: the Coder, then ONE switch to
+# the DevOps Expert, then stop. That is the "it is not fixed in 2
+# iterations" the operator reported, and the reason their own fallback --
+# handing the folder to a chat model with a senior-developer brief --
+# succeeded where the loop did not.
+#
+# Adding rungs only helps if each one can do something the previous could
+# not. Swapping personas over an identical view of the problem is why the
+# second attempt so often reproduced the first. So the rungs differ in
+# what the agent SEES and what it is allowed to CHANGE:
+#
+#   0 coder        — the failing file plus the Planner's prose diagnosis.
+#   1 devops_expert— same view, build-systems specialist prompt. Right for
+#                    a manifest/toolchain problem, which is most of them.
+#   2 devops_expert— PLUS the raw compiler output. Until now nothing in
+#     +raw log       this loop ever showed an agent what the build actually
+#                    printed; it only ever saw the Planner's summary of it.
+#   3 regenerator  — the ORIGINAL source file, the target playbook and
+#                    every accumulated error, rewriting from scratch.
+#                    Rungs 0-2 all edit a file that may be unsalvageable;
+#                    this is the one move that can abandon it.
+#
+# (agent_name, operator-facing label, why this rung is different)
+_ESCALATION_LADDER: List[Tuple[str, str, str]] = [
+    ("coder", "the Coder", "the default per-file transformation agent"),
+    ("devops_expert", "the DevOps Expert",
+     "a build-systems specialist, for toolchain, dependency and plugin problems"),
+    ("devops_expert_raw", "the DevOps Expert with the raw build log",
+     "the same specialist, now shown exactly what the compiler printed rather "
+     "than a summary of it"),
+    ("regenerator", "a full regeneration from the original source",
+     "the file is rewritten from the legacy original against the target "
+     "stack's conventions, rather than patched further"),
+]
+
+# Default ceiling for the compile-fix loop. iter-15.62.4 made this
+# unbounded-until-stagnant, which sounds generous but in practice ended
+# runs at two: the stagnation guard fires the moment a fix changes
+# nothing. With a four-rung ladder the loop needs room to actually climb
+# it, and the operator asked for five attempts before regeneration takes
+# over. Still overridable by LAMA_COMPILE_FIX_MAX_ITER.
+_COMPILE_FIX_DEFAULT_MAX_ITER = 5
+
+
 async def _run_compile_fix_loop(
     transform_id: str,
     build_tools_map: Dict[str, str],
@@ -8363,7 +8681,12 @@ async def _run_compile_fix_loop(
             try:
                 max_iterations = max(1, int(env_cap))
             except ValueError:
-                max_iterations = None
+                max_iterations = _COMPILE_FIX_DEFAULT_MAX_ITER
+        else:
+            # iter-20 — a real default. "Unbounded until stagnant" ended
+            # runs at two in practice, and gave the four-rung escalation
+            # ladder no room to climb.
+            max_iterations = _COMPILE_FIX_DEFAULT_MAX_ITER
     elif max_iterations <= 0:
         max_iterations = None
 
@@ -8396,6 +8719,7 @@ async def _run_compile_fix_loop(
     # we finally stop as genuinely stuck.
     active_agent_name = "coder"
     devops_escalated = False
+    escalation_rung = 0
 
     async def _emit_progress(state: Dict[str, Any]):
         state["updated_at"] = datetime.now(timezone.utc).isoformat()
@@ -8481,36 +8805,53 @@ async def _run_compile_fix_loop(
         # giving up.
         failure_sig = _compile_failure_signature(compile_result)
         if failure_sig and failure_sig == prev_failure_sig:
-            if not devops_escalated:
+            # iter-20 — climb one rung of `_ESCALATION_LADDER` rather than
+            # stopping after the single devops_expert attempt. The operator
+            # reported the loop "not fixed in 2 iterations", and two is
+            # exactly what the old binary flag allowed: coder, then
+            # devops_expert, then stop. The rungs differ in what they SEE
+            # and what they may CHANGE, not merely in which prompt is used
+            # — repeating the same view with a different persona is what
+            # made the third attempt pointless.
+            if escalation_rung + 1 < len(_ESCALATION_LADDER):
+                escalation_rung += 1
+                active_agent_name, _rung_label, _rung_why = _ESCALATION_LADDER[escalation_rung]
                 devops_escalated = True
-                active_agent_name = "devops_expert"
                 # Not appended to `attempts` — it's not a compile iteration
                 # by itself, just a mid-iteration persona switch. The
                 # subsequent "fixes_applied" entry for THIS iteration is
-                # tagged `escalated_to_devops: true` so the switch is still
-                # fully auditable without inflating `iterations_used`.
+                # tagged with the rung so the switch is still fully
+                # auditable without inflating `iterations_used`.
                 await _emit_progress({
                     "phase": "escalated_devops", "iteration": iteration,
                     "max_iterations": max_iterations,
-                    "message": ("The Coder's fix made no difference — the exact same "
-                                "build failure recurred. Escalating to a DevOps Expert "
-                                "agent for a deeper build/infrastructure-configuration fix."),
+                    "escalation_rung": escalation_rung,
+                    "escalation_label": _rung_label,
+                    "message": (
+                        f"The same build failure recurred after the previous fix. "
+                        f"Escalating to {_rung_label} — {_rung_why}"
+                    ),
                 })
                 # Fall through — do NOT break. Re-diagnose and re-fix THIS
-                # SAME iteration's failure using the DevOps Expert persona.
+                # SAME iteration's failure at the new rung.
             else:
                 attempts.append({
                     "iteration": iteration, "status": "stagnant",
                     "summary": compile_result.get("summary", ""),
                     "fixed_files": [],
+                    "escalation_rung": escalation_rung,
                 })
                 await _emit_progress({
                     "phase": "stagnant", "iteration": iteration,
                     "max_iterations": max_iterations,
-                    "message": ("Both the Coder and the escalated DevOps Expert agent "
-                                "attempted a fix and the exact same build failure recurred "
-                                "either time. Stopping to avoid looping without progress; "
-                                "review the build output manually."),
+                    "escalation_rung": escalation_rung,
+                    "message": (
+                        "Every escalation rung — Coder, DevOps Expert, DevOps Expert "
+                        "with the raw build log, and a full regeneration from the "
+                        "original source — produced the identical build failure. "
+                        "Stopping; the remaining errors are reported against the "
+                        "generated files."
+                    ),
                 })
                 shutil.rmtree(workspace_root, ignore_errors=True)
                 break
@@ -8583,6 +8924,14 @@ async def _run_compile_fix_loop(
             })
             shutil.rmtree(workspace_root, ignore_errors=True)
             break
+
+        # iter-20 — carry this round's compile result on each task so the
+        # upper escalation rungs can read the RAW build output. Attached
+        # under a leading underscore and never persisted: the task rows in
+        # `transformer_tasks` are written by the Planner, and a 200 KB log
+        # does not belong in one.
+        for _t in fix_tasks:
+            _t["_compile_result"] = compile_result
 
         # ── Coder wave (bounded concurrency) ──────────────────────────
         try:
@@ -12085,20 +12434,61 @@ async def run_compilation_analysis(
         compile_green = True
         if build_tools_map_final:
             compile_green = bool((result or {}).get("compilation_ready"))
-        final_status = "completed" if compile_green else "completed_with_errors"
-        final_phase_label = (
-            "Multi-agent pipeline completed"
-            if compile_green else
-            "Compile-fix run finished — compilation errors remain, click Rerun compile"
+
+        # iter-20 — re-run the DevOps audit rather than ignoring it.
+        #
+        # This path used to decide `final_status` from `compile_green`
+        # ALONE, with no `devops_blocked` term — unlike the main pipeline,
+        # which requires both. So a rerun could flip a job that was
+        # `completed_with_errors` because its manifests were not
+        # production-ready back to a green `completed`, while leaving the
+        # stale `production_ready: false` and its findings sitting on the
+        # document. The badge said shipped; the audit still said no.
+        #
+        # The fix-loop has just rewritten manifests, so the previous
+        # verdict is out of date either way — re-auditing is both the
+        # correct gate and the more accurate answer. If the audit itself
+        # fails we keep the PREVIOUS verdict rather than assuming success:
+        # this endpoint must not be a way to launder a blocked build.
+        dependency_audit_final = (transform or {}).get("dependency_audit") or {}
+        try:
+            dependency_audit_final = await _run_devops_dependency_check(
+                transform_id, result, model,
+            )
+        except Exception as _audit_err:  # noqa: BLE001
+            _emit_log(transform_id, "warn",
+                      f"DevOps re-audit failed after rerun-compile: {_audit_err}; "
+                      f"keeping the previous production-readiness verdict",
+                      agent="devops_expert", phase="devops")
+
+        production_ready_final = bool(dependency_audit_final.get("production_ready"))
+        devops_blocked_final = bool(dependency_audit_final) and not production_ready_final
+
+        final_status = (
+            "completed" if (compile_green and not devops_blocked_final)
+            else "completed_with_errors"
         )
+        if compile_green and devops_blocked_final:
+            final_phase_label = (
+                "Compile-fix run finished — the build compiles but its "
+                "dependencies are not production-ready; see the DevOps audit"
+            )
+        elif compile_green:
+            final_phase_label = "Multi-agent pipeline completed"
+        else:
+            final_phase_label = (
+                "Compile-fix run finished — compilation errors remain, click Rerun compile"
+            )
         await transformations.update_one(
             {"_id": transform_id},
             {"$set": {
                 "compilation_result": result,
                 "status": final_status,
-                "phase": "completed" if compile_green else "completed_with_errors",
+                "phase": "completed" if final_status == "completed" else "completed_with_errors",
                 "phase_label": final_phase_label,
                 "compile_green": compile_green,
+                "dependency_audit": dependency_audit_final,
+                "production_ready": production_ready_final,
                 "current_file": None,
                 "updated_at": datetime.now(timezone.utc).isoformat(),
             }},

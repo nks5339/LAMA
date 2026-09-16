@@ -357,10 +357,18 @@ def test_status_no_stall_flag_when_no_compile_fix_progress_yet(monkeypatch):
 
 
 def test_fix_loop_stagnation_guard_stops_when_fix_has_no_effect(monkeypatch):
-    """If the exact same failure recurs after a fix round, the loop
-    escalates ONCE to a DevOps Expert persona; only if it recurs AGAIN
-    after that escalation does the loop finally stop (NOT because of a
-    hardcoded count) rather than looping forever burning LLM calls."""
+    """If the exact same failure recurs after a fix round, the loop climbs
+    one rung of the escalation ladder; only when the ladder is exhausted
+    does it stop (NOT because of a hardcoded count) rather than looping
+    forever burning LLM calls.
+
+    iter-20 — the ladder grew from 2 rungs to 4. It used to be coder ->
+    devops_expert -> stop, which is the "not fixed in 2 iterations" the
+    operator reported: the third attempt was never made. The rungs now
+    differ in what the agent SEES and may CHANGE, not just which prompt is
+    used, because repeating the same view with a different persona is why
+    the second attempt so often reproduced the first.
+    """
     async def _fake_run_compiler(*a, **kw):
         return _failing_compile_result(reason="same failure every time")
 
@@ -368,14 +376,39 @@ def test_fix_loop_stagnation_guard_stops_when_fix_has_no_effect(monkeypatch):
 
     result = asyncio.run(tools_mod._run_compile_fix_loop("tx-1", {"backend": "maven"}, None))
     assert result["compilation_ready"] is False
-    # iteration 1: fixes_applied (coder). iteration 2: same signature ->
-    # escalate to devops_expert, still fixes_applied (now by devops_expert).
-    # iteration 3: same signature again -> stagnant.
+    # 1: coder. 2: same sig -> devops_expert. 3: same sig -> devops_expert
+    # with the raw build log. 4: same sig -> regenerator. 5: stagnant.
     assert result["attempts"][-1]["status"] == "stagnant"
-    assert result["iterations_used"] == 3
-    assert result["attempts"][0]["acting_agent"] == "coder"
-    assert result["attempts"][1]["acting_agent"] == "devops_expert"
+    assert result["iterations_used"] == 5
+    assert [a.get("acting_agent") for a in result["attempts"][:4]] == [
+        "coder", "devops_expert", "devops_expert_raw", "regenerator",
+    ]
     assert result["attempts"][1]["escalated_to_devops"] is True
+
+
+def test_the_escalation_ladder_rungs_are_distinct_remedies(monkeypatch):
+    """Each rung must be able to do something the previous could not.
+
+    A ladder of four identical attempts is four times the cost for the
+    same answer — that was the failure mode of the old third attempt.
+    """
+    ladder = tools_mod._ESCALATION_LADDER
+    assert [r[0] for r in ladder] == [
+        "coder", "devops_expert", "devops_expert_raw", "regenerator",
+    ]
+    # Every rung carries an operator-facing label and a reason, both of
+    # which surface in the progress stream.
+    for agent, label, why in ladder:
+        assert agent and label and why
+    # The last rung is the only one that can abandon the failed file.
+    assert "original" in ladder[-1][2] or "legacy" in ladder[-1][2]
+
+
+def test_the_default_iteration_cap_leaves_room_to_climb_the_ladder():
+    """iter-15.62.4 made this unbounded-until-stagnant, which sounds
+    generous but ended runs at two in practice. A 4-rung ladder needs at
+    least 5 iterations to be walked to the end."""
+    assert tools_mod._COMPILE_FIX_DEFAULT_MAX_ITER >= len(tools_mod._ESCALATION_LADDER) + 1
 
 
 def test_fix_loop_respects_explicit_max_iterations_when_caller_opts_in(monkeypatch):

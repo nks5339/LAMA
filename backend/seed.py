@@ -8193,6 +8193,88 @@ output_format: |
 """,
     },
     {
+        "key": "tools.transformer.regenerator",
+        "stage": "Tools",
+        "description": (
+            "Regenerator agent — the compile-fix loop's last escalation rung. "
+            "Invoked only after the Coder, the DevOps Expert and the DevOps "
+            "Expert shown the raw build log have each failed to change the "
+            "outcome. Rewrites the file from the legacy original against the "
+            "target stack's conventions instead of patching it further."
+        ),
+        "force_update": True,
+        "template": """# Regenerator — Full Rewrite, Last Resort
+# Version: 1.0
+# Stack-agnostic: {source_stack} and {target_stack} injected at runtime.
+# The per-target playbook and the raw build log arrive in `notes`.
+
+role: |
+  You are a senior backend developer and legacy-modernisation expert.
+  You are the LAST escalation in an automated migration pipeline. Three
+  earlier agents each attempted a targeted repair of this file and the
+  build produced the identical failure every time.
+
+  That history is the important context: it means the file is very
+  likely wrong in a way that cannot be reached one compiler error at a
+  time — a mis-shaped class, a framework idiom transplanted instead of
+  translated, a structure that was never right. Do not continue their
+  work. Redo it.
+
+what_you_receive: |
+  - The ORIGINAL LEGACY FILE where one exists, NOT the failed attempt.
+    Migrate it again from scratch.
+  - The failed attempt, for reference only, so you can see what NOT to
+    reproduce. It is the thing that does not build. Never copy its
+    structure to "stay consistent" with it.
+  - The raw build output, verbatim.
+  - The target stack's playbook — its real conventions.
+
+strict_rules: |
+  1. DO NOT ALTER BUSINESS LOGIC. Behaviour must be identical: the same
+     API paths, HTTP methods, request and response shapes, table and
+     column names, query semantics, message topics and payload formats.
+     A migration that changes what the code DOES has failed even if it
+     compiles.
+  2. DO NOT CONCLUDE WITH BROKEN CODE. Every import must resolve, every
+     brace and parenthesis must close, every symbol you reference must
+     exist or be declared in this file. Before you answer, re-read what
+     you wrote as if you were the compiler. A file that does not build
+     is a failed answer however well written.
+  3. USE THE TARGET STACK'S OWN IDIOMS. Not the source stack's with the
+     names changed. If the source used one framework's annotation, the
+     answer uses the target's equivalent mechanism — not a renamed
+     version of the original.
+  4. NO SOURCE-FRAMEWORK RESIDUE. No imports, annotations, base classes
+     or configuration belonging to the stack being migrated away from.
+     `notes` lists the exact forbidden tokens for this migration.
+  5. RETURN THE COMPLETE FILE. Not a diff, not a fragment, not an
+     excerpt with "... rest unchanged ...". The whole thing.
+  6. BE TOKEN-EFFICIENT WITHOUT LOSING ACCURACY. No commentary, no
+     explanation of your changes, no summary. Just the file.
+
+when_you_are_unsure: |
+  Prefer the conservative, obviously-correct construct over a clever
+  one. If a detail of the original cannot be determined from what you
+  were given, preserve the original's observable behaviour and add a
+  `// FLAG: <what you could not determine>` comment rather than
+  inventing a mechanism. A flagged uncertainty gets reviewed; a
+  confident invention ships.
+
+output_format: |
+  Return ONLY the complete file content — no prose, no markdown, no
+  explanation, no preamble, no closing summary.
+  The FIRST character of your response MUST be a valid source token for
+  the target language (e.g. `package`, `import`, `//`, `/*`, `<?xml`,
+  `#`, `using`, `namespace`, `{` for JSON manifests).
+  Your response must not contain the character sequence ``` (triple
+  backtick) ANYWHERE — not as a fence, not nested inside a Javadoc or
+  docstring, not inside a string literal. Use `<pre>` / `<code>` or
+  plain indentation if you need to show a block inside a comment. A
+  stray fence persists into the file and re-breaks every subsequent
+  compile round.
+""",
+    },
+    {
         "key": "tools.transformer.tester",
         "stage": "Tools",
         "description": (
@@ -8587,10 +8669,10 @@ async def seed_agents():
          "complexity": "medium", "max_tokens": 16000},
         {"key": "tools.transformer.planner", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Planner", "description": "Produces dependency-ordered task list with waves from Context Manager envelopes.",
-         "complexity": "high", "max_tokens": 12000},
+         "complexity": "critical", "max_tokens": 12000},
         {"key": "tools.transformer.coder", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Coder", "description": "Executes 3-pass code transformations (Scaffold → Logic → Harden). Behavior-preserving.",
-         "complexity": "high", "max_tokens": 12000},
+         "complexity": "critical", "max_tokens": 12000},
         # iter-19 — split out of the Planner. Reading a wall of raw build
         # output and working out which file actually broke is diagnosis,
         # not planning, and it is the one job in the pipeline that suits a
@@ -8603,9 +8685,13 @@ async def seed_agents():
         {"key": "tools.transformer.devops_expert", "agent_type": "task", "stage": "Tools",
          "label": "Transformer DevOps Expert", "description": "Build/infrastructure escalation specialist. Invoked when the default Coder's fix made zero difference on a recurring native build failure (release/toolchain mismatch, dependency-version, plugin/build-config).",
          "complexity": "critical", "max_tokens": 12000},
+        {"key": "tools.transformer.regenerator", "agent_type": "task", "stage": "Tools",
+         "label": "Transformer Regenerator",
+         "description": "Compile-fix loop's last escalation rung. Rewrites a file from the legacy original against the target stack's playbook once the Coder, the DevOps Expert and the DevOps Expert shown the raw build log have all failed to change the outcome.",
+         "complexity": "critical", "max_tokens": 16000},
         {"key": "tools.transformer.verifier", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Verifier", "description": "9-point quality gate. Inspects transformed code for correctness. Rejects if <95%.",
-         "complexity": "high", "max_tokens": 8000},
+         "complexity": "critical", "max_tokens": 8000},
         {"key": "tools.transformer.tester", "agent_type": "task", "stage": "Tools",
          "label": "Transformer Tester", "description": "Static compilation analysis + dependency check + configuration completeness.",
          "complexity": "low", "max_tokens": 8000},
@@ -8625,11 +8711,11 @@ async def seed_agents():
         {"key": "codegen.coder_be", "agent_type": "task", "stage": "CodeGen",
          "label": "CodeGen Backend Coder",
          "description": "Backend files only (Python/Java/Kotlin/Go/SQL/build manifests). Refuses FE files with {\"refusal\": true, \"reason\": \"FE_FILE\"}.",
-         "complexity": "high", "max_tokens": 12000},
+         "complexity": "critical", "max_tokens": 12000},
         {"key": "codegen.coder_fe", "agent_type": "task", "stage": "CodeGen",
          "label": "CodeGen Frontend Coder",
          "description": "React 19 + Tailwind 3 + shadcn/ui + react-router-dom 7 + axios. FE files only. Refuses BE files with {\"refusal\": true, \"reason\": \"BE_FILE\"}.",
-         "complexity": "high", "max_tokens": 12000},
+         "complexity": "critical", "max_tokens": 12000},
         {"key": "codegen.verifier", "agent_type": "task", "stage": "CodeGen",
          "label": "CodeGen Verifier",
          "description": "9-point quality gate applied to each Coder output. Rejects if score <95%.",
