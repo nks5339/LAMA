@@ -304,3 +304,26 @@ def test_the_status_projection_fetches_every_field_the_gate_reads():
             f"_build_readiness_gate reads {field!r}; the /status projection "
             f"must fetch it or the button and the 409 will disagree"
         )
+
+
+def test_a_malformed_file_id_is_a_client_error_not_a_server_fault():
+    """Found by sweeping every GET route for 5xx, not by a unit test.
+
+    `get_transformation_file` passed `file_id` straight to ObjectId(),
+    which raises bson.errors.InvalidId on anything that is not a 24-char
+    hex string — surfacing as a 500. Its sibling
+    `regenerate_transformation_file` has guarded this since iter-15.10;
+    this route was simply missed.
+    """
+    src = (Path(T.__file__)).read_text()
+    # Anchor on the full signature — a bare "get_transformation_file"
+    # prefix-matches the sibling LISTING route `get_transformation_files`,
+    # which appears first in the file and has no ObjectId call at all, so
+    # this assertion would have passed vacuously.
+    start = src.index("async def get_transformation_file(transform_id: str, file_id: str)")
+    body = src[start:start + 900]
+    assert "except Exception" in body
+    assert "Invalid file_id" in body
+    assert 'ObjectId(file_id), "transform_id"' not in body, (
+        "ObjectId(file_id) must be guarded before it reaches the query"
+    )

@@ -5017,7 +5017,17 @@ async def get_transformation_files(transform_id: str, file_type: str = "transfor
 @router.get("/transformer/{transform_id}/files/{file_id}")
 async def get_transformation_file(transform_id: str, file_id: str):
     """Get a specific file content."""
-    f = await transform_files.find_one({"_id": ObjectId(file_id), "transform_id": transform_id})
+    # iter-20 — a malformed file_id used to reach ObjectId() unguarded and
+    # raise bson.errors.InvalidId, which surfaces as a 500. The sibling
+    # `regenerate_transformation_file` has guarded this since iter-15.10;
+    # this route was simply missed. A bad id in the URL is a client error,
+    # not a server fault. Found by sweeping every GET route for 5xx.
+    try:
+        oid = ObjectId(file_id)
+    except Exception:
+        raise HTTPException(400, "Invalid file_id")
+
+    f = await transform_files.find_one({"_id": oid, "transform_id": transform_id})
     if not f:
         raise HTTPException(404, "File not found")
     f["id"] = str(f.pop("_id"))
