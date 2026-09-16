@@ -10,7 +10,6 @@
  *
  * Usage:
  *   const isMobile = useIsMobile();   // < 1024
- *   const isSmall  = useIsSmall();    // < 640
  *   const bp       = useBreakpoint(); // { sm, md, lg, xl, '2xl' }
  */
 import { useSyncExternalStore } from "react";
@@ -52,11 +51,6 @@ export function useMediaQuery(query: string): boolean {
 /** True for phones AND small tablets (< 1024px). Picks drawer vs inline sidebar. */
 export function useIsMobile(): boolean {
   return useMediaQuery(`(max-width: ${BREAKPOINTS.lg - 1}px)`);
-}
-
-/** True for phones only (< 640px). Use to drop non-essential chrome. */
-export function useIsSmall(): boolean {
-  return useMediaQuery(`(max-width: ${BREAKPOINTS.sm - 1}px)`);
 }
 
 /** True when the viewer has asked for reduced motion. */

@@ -227,18 +227,3 @@ export function EmptyState({
     </div>
   );
 }
-
-/** Sticky bottom action bar. */
-export function ActionPanel({ children, className }) {
-  return (
-    <div
-      className={cn(
-        "sticky bottom-0 left-0 right-0 bg-surface border-t border-border px-6 py-3",
-        "flex items-center justify-between gap-4 shadow-overlay",
-        className
-      )}
-    >
-      {children}
-    </div>
-  );
-}

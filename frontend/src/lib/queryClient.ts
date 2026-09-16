@@ -34,35 +34,4 @@ export const queryClient = new QueryClient({
   },
 });
 
-/**
- * Poll interval that backs off as a job settles, and stops when it ends.
- *
- * Pass as `refetchInterval`. Terminal statuses return false, so a finished
- * run costs nothing — the previous code polled completed transforms forever
- * until the component unmounted.
- */
-export const TERMINAL = new Set<string>([
-  "completed",
-  "complete",
-  "failed",
-  "error",
-  "stopped",
-  "cancelled",
-  "canceled",
-  "frozen",
-  "done",
-]);
-
-export function jobPollInterval(
-  getStatus: (data: unknown) => string | undefined | null,
-  { active = 2000, idle = 8000 }: { active?: number; idle?: number } = {},
-) {
-  return (query: Query): number | false => {
-    const status = getStatus(query.state.data);
-    if (!status) return idle;
-    if (TERMINAL.has(String(status).toLowerCase())) return false;
-    return active;
-  };
-}
-
 export default queryClient;
