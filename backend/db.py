@@ -89,6 +89,19 @@ codegen_tasks = db.codegen_tasks                    # Task list from CodeGen Pla
 codegen_agent_runs = db.codegen_agent_runs          # Agent execution timeline / audit log
 codegen_pipeline_state = db.codegen_pipeline_state  # Singleton FSM state doc per project
 
+# ---------------------------------------------------------------------------
+# Direct Transform / DCTE (iter-18) — the third standalone Tools track, beside
+# Gap Analyzer and Transformer. Folder-path driven: no project_id, no KB, no
+# stage_context, so it shares nothing with the two blocks above and gets its
+# own collections. One job fans out to N services; every service emits
+# transform records, engine events and report documents, all keyed by job_id.
+# Consumed by `backend/routes/dcte.py` via `dcte/job_manager.py`.
+# ---------------------------------------------------------------------------
+dcte_jobs = db.dcte_jobs                # Direct Transform jobs (_id == job.id)
+dcte_transforms = db.dcte_transforms    # Per-file transform records
+dcte_events = db.dcte_events            # Engine + agent event stream
+dcte_reports = db.dcte_reports          # Generated report documents
+
 # Iter 13.17 — Deep legacy-logic analysis (runs after Build KB, before SRS).
 # One doc per project, versioned. The analysis is the SHARED source-of-truth
 # that every SRS section prompt cites AND that Stage-4 CodeGen reads to know
@@ -271,6 +284,19 @@ async def ensure_indexes() -> None:
             )
             await codegen_pipeline_state.create_index(
                 "project_id", unique=True, background=True,
+            )
+        except Exception:
+            pass
+        # iter-18 — Direct Transform (DCTE). Every read on the three child
+        # collections filters by job_id; the job list sorts on created_at.
+        try:
+            await dcte_jobs.create_index("created_at", background=True)
+            for _col in (dcte_transforms, dcte_events, dcte_reports):
+                await _col.create_index("job_id", background=True)
+            # The events pane pages the newest N for one job, and the stall
+            # watchdog reads the single latest row — both are (job_id, at).
+            await dcte_events.create_index(
+                [("job_id", 1), ("at", -1)], background=True,
             )
         except Exception:
             pass

@@ -8740,6 +8740,34 @@ async def seed_agents():
          "label": "CodeGen Finalizer",
          "description": "Small completion-summary agent. Runs after traceability gate passes.",
          "complexity": "low", "max_tokens": 1500},
+        # ─── Direct Transform / DCTE (iter-18) ────────────────────────
+        # Stage "Tools" so these list beside the Gap Analyzer and
+        # Transformer agents in Console → Agent Fabric. `complexity`
+        # mirrors fabric.model_fabric.AGENT_COMPLEXITY exactly —
+        # `resolve_model()` reads the row BEFORE the map, so a row that
+        # disagreed would silently re-tier the agent (the drift
+        # `migrate_transformer_tiers_19` exists to repair). max_tokens
+        # match the per-agent call sites in backend/dcte/*.py.
+        {"key": "dcte.transformer", "agent_type": "task", "stage": "Tools",
+         "label": "Direct Transform — AI Transformer",
+         "description": "Rewrites one migrated file per batch after the deterministic plugin layer has done the mechanical import/annotation pass. Guardrailed: a rewrite that drops the top-level type is rejected.",
+         "complexity": "high", "max_tokens": 8000},
+        {"key": "dcte.build_fixer", "agent_type": "task", "stage": "Tools",
+         "label": "Direct Transform — Build Fixer",
+         "description": "Reads real mvn/gradle output, patches the failing file, retries. Up to 5 attempts before the job is reported un-buildable.",
+         "complexity": "high", "max_tokens": 8000},
+        {"key": "dcte.devops", "agent_type": "task", "stage": "Tools",
+         "label": "Direct Transform — DevOps Agent",
+         "description": "Closes structural gaps javac cannot see: missing @SpringBootApplication, missing application.yml sections, missing spring-boot-maven-plugin.",
+         "complexity": "medium", "max_tokens": 6000},
+        {"key": "dcte.tester", "agent_type": "task", "stage": "Tools",
+         "label": "Direct Transform — Tester Agent",
+         "description": "Endpoint + config parity against the source tree, plus a real boot smoke against /actuator/health. The subprocess is the source of truth; the model only summarises it.",
+         "complexity": "low", "max_tokens": 4000},
+        {"key": "dcte.narrator", "agent_type": "task", "stage": "Tools",
+         "label": "Direct Transform — Progress Narrator",
+         "description": "One present-tense sentence describing the current phase, emitted every ~6s while a job runs. Decorative: any failure is swallowed and the % bar carries the UX.",
+         "complexity": "low", "max_tokens": 60},
     ]
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()

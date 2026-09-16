@@ -578,6 +578,33 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     "codegen.build_tool_selector":  "low",
     "codegen.traceability_gate":    "medium",
     "codegen.finalizer":            "low",
+    # ── iter-18 — Direct Transform (DCTE) ────────────────────────────
+    # The third standalone Tools track. Its agents mirror the
+    # tools.transformer.* roles but sit one rung lower across the board,
+    # because DCTE runs a deterministic regex/AST layer FIRST and only
+    # hands the LLM what that layer could not settle — so each call is a
+    # smaller, better-specified job than its Transformer twin.
+    #
+    #   transformer  — rewrites a whole migrated file, the heaviest lift
+    #                  here; `high` rather than the Coder's `critical`
+    #                  because the plugin has already done the mechanical
+    #                  import/annotation rewrite before the model sees it.
+    #   build_fixer  — reads real javac/maven output and patches the
+    #                  failing file. Diagnosis plus generation, and it
+    #                  gates whether the job can reach a green build.
+    #   devops       — structural gap patching (missing
+    #                  @SpringBootApplication, application.yml sections,
+    #                  spring-boot-maven-plugin). Template-shaped work.
+    #   tester       — parity checks + boot smoke. The subprocess is the
+    #                  source of truth; the model only narrates it, same
+    #                  reasoning as tools.transformer.tester.
+    #   narrator     — one decorative sentence every ~6s. Must be cheap:
+    #                  it fires ~10x/minute for the whole run.
+    "dcte.transformer":  "high",
+    "dcte.build_fixer":  "high",
+    "dcte.devops":       "medium",
+    "dcte.tester":       "low",
+    "dcte.narrator":     "low",
 }
 
 
