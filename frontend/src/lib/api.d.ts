@@ -94,6 +94,7 @@ export declare const dcteGetReports: (jobId: string) => Promise<any>;
 export declare const dcteGetTransforms: (jobId: string) => Promise<any>;
 export declare const dcteListJobs: (tenantId?: string | null) => Promise<any>;
 export declare const dcteListPlugins: () => Promise<any>;
+export declare const dcteListStacks: () => Promise<any>;
 export declare const dctePauseJob: (jobId: string) => Promise<any>;
 export declare const dcteResumeJob: (jobId: string) => Promise<any>;
 export declare const dcteRollbackJob: (jobId: string) => Promise<any>;

@@ -1117,6 +1117,12 @@ export const getCodegenMultiAgentTraceability = (pid) =>
 // ---------------------------------------------------------------------------
 export const dcteListPlugins = () =>
   api.get("/dcte/plugins").then((r) => r.data);
+// iter-21 — the stack catalogue behind the source/target dropdowns. Distinct
+// from /plugins: a plugin is a PAIR with a deterministic transformer, of
+// which there are two; this is the list of individual technologies, and any
+// pair drawn from it runs (deterministic where one exists, AI pass otherwise).
+export const dcteListStacks = () =>
+  api.get("/dcte/stacks").then((r) => r.data);
 export const dcteDetectProject = (sourcePath) =>
   api.post("/dcte/projects/detect", { source_path: sourcePath }).then((r) => r.data);
 export const dcteBrowseFs = (path = "") =>

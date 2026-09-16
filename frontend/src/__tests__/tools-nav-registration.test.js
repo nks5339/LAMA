@@ -94,7 +94,11 @@ describe("Direct Transform API surface", () => {
     const imported = page
       .slice(page.indexOf("import {"), page.indexOf('} from "@/lib/api";'))
       .match(/dcte[A-Za-z]+/g);
-    expect(imported.length).toBe(14);
+    // A floor, not an exact count: the invariant is "every helper the page
+    // imports is declared in both places", which the loop below checks. An
+    // exact number only guaranteed this test had to be edited every time a
+    // helper was added — which is what it did when dcteListStacks landed.
+    expect(imported.length).toBeGreaterThanOrEqual(14);
 
     for (const name of imported) {
       expect(apiJs).toContain(`export const ${name} =`);

@@ -53,6 +53,21 @@ through the 5 stages:
   plugin layer (Helidon MP → Spring Boot 3, Oracle → PostgreSQL) with an
   optional AI pass on top. Do **not** fold it into `routes/tools.py` — it
   shares no state with either of the other two.
+  **iter-21:** source and target are picked **independently** from
+  `backend/dcte/stacks.py` (`GET /api/dcte/stacks`) — JSP, React 19,
+  Angular 22, .NET 10 LTS, Spring Boot 4.1/Java 25, PostgreSQL 18 and the
+  legacy stacks. Adding a technology is **one entry in that catalogue**, no
+  code — the same bar `MIGRATION_PLAYBOOKS` sets for the Transformer. Two
+  rules are load-bearing. The migration brief is **built per pair** by
+  `dcte/prompt_builder.py`; it was a hardcoded Helidon→Spring essay sent to
+  every job, so a JSP→React run was told to migrate Helidon. The role, the
+  three tasks and the three strict rules are fixed for every pair; only the
+  stack-specific sections vary. And `PluginRegistry.resolve` falls back to
+  `plugins/generic_ai` for any pair without a deterministic transformer —
+  the engine **raises** on `resolve() is None`, so a catalogue entry with no
+  fallback would be selectable and dead on start. Use `resolve_exact` to ask
+  whether a pair is genuinely deterministic (that is what drives the UI's
+  "deterministic vs AI pass" hint, via `/plugins`).
   **iter-20:** the compile-fix loop escalates through FOUR rungs —
   `coder → devops_expert → devops_expert +raw build log → regenerator`
   (`_ESCALATION_LADDER`), capped at 5 iterations. Target-stack idioms live
@@ -181,9 +196,12 @@ backend/                     # FastAPI app
   kb/                        # Discovery engine: parsers, tech_detector, owl_extractor,
                              #   owl_export (YAML), toon, business_ontology, vector_store
   codegen/                   # Stage-4 helpers: file_templates, zip_builder, parity_loop
-  dcte/                      # Direct Transform engine: plugin registry + two
-                             #   plugins, project_detector, and the ai_refactor /
-                             #   build / devops / tester / droid / narrator agents
+  dcte/                      # Direct Transform engine: stacks.py (the selectable
+                             #   catalogue), prompt_builder.py (per-pair brief),
+                             #   plugin registry + two deterministic plugins and a
+                             #   generic AI fallback, project_detector, and the
+                             #   ai_refactor / build / devops / tester / droid /
+                             #   narrator agents
   datamodel/                 # Stage-2 generators: oltp, olap, bus_matrix, migration
   integrations/              # Catalog + templates (audit_logger, dpg_india)
   routes/                    # One file per concern — see the inventory above
@@ -442,7 +460,8 @@ build time so production env comes from `-e` flags / compose `environment:`.
 | Debug "which model actually ran" | `llm.py::fabric_call` → `llm_traces` collection + `token_usage_log` |
 | Work on the agentic CodeGen flow | `routes/codegen.py` multi-agent section + iter-17 PRD entry |
 | Work on Direct Transform | `routes/dcte.py` + `backend/dcte/` + `docs/direct-transform/` |
-| Add a Direct Transform stack pair | new plugin under `backend/dcte/plugins/`, registered in `plugin_registry.get_registry()` |
+| Add a Direct Transform stack | one entry in `backend/dcte/stacks.py` — it appears in the dropdowns and the brief, and runs on the generic AI plugin |
+| Give a Direct Transform pair a deterministic transformer | new plugin under `backend/dcte/plugins/`, registered in `plugin_registry.get_registry()` |
 | See latest known-working state | `test_reports/iteration_<N>.json` |
 | Understand container boot order | `docker/supervisord.conf` + `docker/entrypoint.sh` |
 

@@ -26,6 +26,7 @@ import DirectTransform from "@/pages/DirectTransform";
 // page suite (DiscoveryV2) uses.
 const mockApi = {
   dcteListPlugins: jest.fn(),
+  dcteListStacks: jest.fn(),
   dcteDetectProject: jest.fn(),
   dcteCreateJob: jest.fn(),
   dcteListJobs: jest.fn(),
@@ -42,6 +43,7 @@ const mockApi = {
 };
 jest.mock("@/lib/api", () => ({
   dcteListPlugins: (...a) => mockApi.dcteListPlugins(...a),
+  dcteListStacks: (...a) => mockApi.dcteListStacks(...a),
   dcteDetectProject: (...a) => mockApi.dcteDetectProject(...a),
   dcteCreateJob: (...a) => mockApi.dcteCreateJob(...a),
   dcteListJobs: (...a) => mockApi.dcteListJobs(...a),
@@ -69,6 +71,30 @@ jest.mock("sonner", () => ({
 }));
 
 jest.mock("@/components/HelpIcon", () => () => <span data-testid="help-icon" />);
+
+// iter-21 — the stack catalogue behind the two dropdowns. Mirrors the shape
+// of GET /api/dcte/stacks (dcte/stacks.py).
+const STACKS = {
+  families: ["backend", "frontend", "database"],
+  sources: [
+    { id: "helidon-mp", label: "Helidon MicroProfile", family: "backend", language: "Java", version: "4.x", role: "source" },
+    { id: "jsp", label: "JSP / Jakarta Pages 4.0 (Servlet)", family: "backend", language: "Java", version: "4.0", role: "source" },
+    { id: "spring-boot-4", label: "Spring Boot 4.1 (Java 25 LTS)", family: "backend", language: "Java 25", version: "4.1", role: "both" },
+    { id: "dotnet-10", label: ".NET 10 LTS (C# / ASP.NET Core)", family: "backend", language: "C# / .NET 10", version: "10.0", role: "both" },
+    { id: "react-19", label: "React 19 (TypeScript, Node 26 LTS)", family: "frontend", language: "TypeScript / React 19", version: "19", role: "both" },
+    { id: "angular-22", label: "Angular 22 (TypeScript, Node 26 LTS)", family: "frontend", language: "TypeScript / Angular 22", version: "22", role: "both" },
+    { id: "oracle", label: "Oracle (SQL / PL-SQL)", family: "database", language: "Oracle SQL", version: "", role: "source" },
+  ],
+  targets: [
+    { id: "spring-boot-4", label: "Spring Boot 4.1 (Java 25 LTS)", family: "backend", language: "Java 25", version: "4.1", role: "both" },
+    { id: "spring-boot-3", label: "Spring Boot 3.x (Java 21) — legacy target", family: "backend", language: "Java 21", version: "3.5", role: "both" },
+    { id: "dotnet-10", label: ".NET 10 LTS (C# / ASP.NET Core)", family: "backend", language: "C# / .NET 10", version: "10.0", role: "both" },
+    { id: "react-19", label: "React 19 (TypeScript, Node 26 LTS)", family: "frontend", language: "TypeScript / React 19", version: "19", role: "both" },
+    { id: "angular-22", label: "Angular 22 (TypeScript, Node 26 LTS)", family: "frontend", language: "TypeScript / Angular 22", version: "22", role: "both" },
+    { id: "postgres-18", label: "PostgreSQL 18", family: "database", language: "PostgreSQL SQL / PL-pgSQL", version: "18", role: "both" },
+    { id: "postgres-15", label: "PostgreSQL 15 — legacy target", family: "database", language: "PostgreSQL SQL / PL-pgSQL", version: "15", role: "both" },
+  ],
+};
 
 const PLUGINS = [
   {
@@ -98,6 +124,7 @@ beforeEach(() => {
   jest.clearAllMocks();
   window.localStorage.clear();
   mockApi.dcteListPlugins.mockResolvedValue({ plugins: PLUGINS });
+  mockApi.dcteListStacks.mockResolvedValue(STACKS);
   mockApi.dcteListJobs.mockResolvedValue({ jobs: [] });
   mockApi.dcteGetEvents.mockResolvedValue({ events: [] });
   mockApi.dcteGetReports.mockResolvedValue({ reports: [] });
@@ -105,12 +132,59 @@ beforeEach(() => {
 });
 
 describe("Direct Transform page", () => {
-  it("renders the shared Tools page shell and loads the plugin list", async () => {
+  it("renders the shared Tools page shell and loads the stack catalogue", async () => {
     renderPage();
     expect(await screen.findByTestId("dcte-title")).toHaveTextContent("Direct Transform");
-    await waitFor(() => expect(mockApi.dcteListPlugins).toHaveBeenCalled());
-    const picker = await screen.findByTestId("dcte-select-stack-0");
-    expect(within(picker).getAllByRole("option")).toHaveLength(2);
+    await waitFor(() => expect(mockApi.dcteListStacks).toHaveBeenCalled());
+
+    const source = await screen.findByTestId("dcte-select-source-0");
+    const target = await screen.findByTestId("dcte-select-target-0");
+    expect(within(source).getAllByRole("option")).toHaveLength(STACKS.sources.length);
+    expect(within(target).getAllByRole("option")).toHaveLength(STACKS.targets.length);
+  });
+
+  it("offers JSP, React, Angular, .NET and Spring Boot from the dropdowns", async () => {
+    // The five the operator asked for. Source and target are independent, so
+    // each is checked in the list it belongs to rather than as a fixed pair.
+    renderPage();
+    const source = await screen.findByTestId("dcte-select-source-0");
+    const target = await screen.findByTestId("dcte-select-target-0");
+    const ids = (el) => within(el).getAllByRole("option").map((o) => o.value);
+
+    expect(ids(source)).toEqual(expect.arrayContaining(["jsp"]));
+    expect(ids(target)).toEqual(
+      expect.arrayContaining(["react-19", "angular-22", "dotnet-10", "spring-boot-4"]),
+    );
+  });
+
+  it("groups the stacks by family so a long list stays scannable", async () => {
+    renderPage();
+    const target = await screen.findByTestId("dcte-select-target-0");
+    const groups = [...target.querySelectorAll("optgroup")].map((g) => g.label);
+    expect(groups).toEqual(["Backend", "Frontend", "Database"]);
+  });
+
+  it("says whether the chosen pair is deterministic or runs on the AI pass", async () => {
+    const user = userEvent.setup();
+    renderPage();
+    // Default is helidon-mp -> spring-boot-3, which has a real transformer.
+    expect(await screen.findByTestId("dcte-pair-mode-0"))
+      .toHaveTextContent("Deterministic transformer available");
+
+    await user.selectOptions(screen.getByTestId("dcte-select-source-0"), "jsp");
+    await user.selectOptions(screen.getByTestId("dcte-select-target-0"), "react-19");
+    expect(screen.getByTestId("dcte-pair-mode-0")).toHaveTextContent("AI pass");
+  });
+
+  it("keeps a stack that has left the catalogue selectable rather than silently re-pointing the job", async () => {
+    mockApi.dcteListStacks.mockResolvedValue({
+      ...STACKS,
+      sources: STACKS.sources.filter((x) => x.id !== "helidon-mp"),
+    });
+    renderPage();
+    const source = await screen.findByTestId("dcte-select-source-0");
+    await waitFor(() => expect(source).toHaveValue("helidon-mp"));
+    expect(within(source).getByText(/not in catalogue/)).toBeInTheDocument();
   });
 
   it("shows an empty state instead of a blank panel when there are no jobs", async () => {
@@ -135,7 +209,8 @@ describe("Direct Transform page", () => {
 
     await waitFor(() => expect(mockApi.dcteDetectProject).toHaveBeenCalledWith("/srv/legacy"));
     expect(await screen.findByTestId("dcte-detection-0")).toHaveTextContent("oracle");
-    expect(screen.getByTestId("dcte-select-stack-0")).toHaveValue("oracle→postgres-15");
+    expect(screen.getByTestId("dcte-select-source-0")).toHaveValue("oracle");
+    expect(screen.getByTestId("dcte-select-target-0")).toHaveValue("postgres-15");
   });
 
   it("refuses to start a job when a service is missing its paths", async () => {
@@ -178,14 +253,27 @@ describe("Direct Transform page", () => {
     expect(mockApi.dcteStartJob).toHaveBeenCalledWith("dcte_abc123");
   });
 
-  it("says so when the plugin list cannot be loaded, instead of an empty picker", async () => {
+  it("degrades the mode hint, not the dropdowns, when the plugin list fails", async () => {
     mockApi.dcteListPlugins.mockRejectedValue(new Error("network down"));
     renderPage();
     await waitFor(() =>
       expect(mockToastError).toHaveBeenCalledWith("Could not load transformation plugins"),
     );
-    const picker = await screen.findByTestId("dcte-select-stack-0");
-    expect(within(picker).getByRole("option")).toHaveTextContent("Plugins unavailable");
+    // The selects come from /stacks, so they are still usable; only the
+    // deterministic-vs-AI hint is unknown.
+    const source = await screen.findByTestId("dcte-select-source-0");
+    expect(within(source).getAllByRole("option").length).toBeGreaterThan(1);
+    expect(screen.getByTestId("dcte-pair-mode-0")).toHaveTextContent("mode is unknown");
+  });
+
+  it("says so when the stack catalogue cannot be loaded, instead of an empty picker", async () => {
+    mockApi.dcteListStacks.mockRejectedValue(new Error("network down"));
+    renderPage();
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Could not load the stack catalogue"),
+    );
+    const source = await screen.findByTestId("dcte-select-source-0");
+    expect(within(source).getByText(/Stacks unavailable/)).toBeInTheDocument();
   });
 
   it("says so when the job list cannot be loaded", async () => {

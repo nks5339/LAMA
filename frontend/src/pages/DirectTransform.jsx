@@ -15,6 +15,7 @@ import { toast } from "sonner";
 import { ArrowRightLeft, Trash2 } from "lucide-react";
 import {
   dcteListPlugins,
+  dcteListStacks,
   dcteDetectProject,
   dcteCreateJob,
   dcteListJobs,
@@ -106,6 +107,54 @@ function FolderPicker({ initialPath = "", onSelect, onClose }) {
   );
 }
 
+// iter-21 — One stack dropdown, grouped by family so a 14-entry list stays
+// scannable. Backend / frontend / database come from the server catalogue
+// (dcte/stacks.py), which is also what builds the migration brief — so a
+// stack can never be offered here without the prompt knowing what it is.
+const FAMILY_LABELS = {
+  backend: "Backend",
+  frontend: "Frontend",
+  database: "Database",
+  platform: "Platform",
+};
+
+function StackSelect({ value, options, onChange, testId, loading, error }) {
+  const grouped = useMemo(() => {
+    const byFamily = new Map();
+    for (const o of options || []) {
+      if (!byFamily.has(o.family)) byFamily.set(o.family, []);
+      byFamily.get(o.family).push(o);
+    }
+    return [...byFamily.entries()];
+  }, [options]);
+
+  const known = (options || []).some((o) => o.id === value);
+
+  return (
+    <select
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      data-testid={testId}
+      className="mt-0.5 w-full border border-border rounded-sm px-2 py-1 text-micro"
+    >
+      {(options || []).length === 0 && (
+        <option value="">{error ? "Stacks unavailable — retry" : loading ? "Loading stacks…" : "No stacks"}</option>
+      )}
+      {/* A job saved with a stack that has since left the catalogue must
+          still render its own value, or reopening it would silently
+          re-point the job at whatever happened to be first in the list. */}
+      {!known && value && <option value={value}>{value} (not in catalogue)</option>}
+      {grouped.map(([family, items]) => (
+        <optgroup key={family} label={FAMILY_LABELS[family] || family}>
+          {items.map((o) => (
+            <option key={o.id} value={o.id}>{o.label}</option>
+          ))}
+        </optgroup>
+      ))}
+    </select>
+  );
+}
+
 const DEFAULT_SERVICE = () => ({
   name: "service-1",
   source_path: "",
@@ -155,6 +204,12 @@ export default function DirectTransformPage() {
   // cannot be created, so a failed load has to be visible rather than
   // rendering an empty <select> the user can't act on.
   const [pluginsError, setPluginsError] = useState(false);
+  // iter-21 — the stack catalogue behind the two dropdowns, plus the list of
+  // pairs that have a deterministic transformer (everything else runs on the
+  // AI pass, which the row under the selects states before the job starts).
+  const [stacks, setStacks] = useState({ sources: [], targets: [] });
+  const [stacksLoading, setStacksLoading] = useState(true);
+  const [stacksError, setStacksError] = useState(false);
 
   useEffect(() => {
     dcteListPlugins()
@@ -163,8 +218,26 @@ export default function DirectTransformPage() {
         setPluginsError(true);
         toast.error("Could not load transformation plugins");
       });
+    dcteListStacks()
+      .then((d) => {
+        setStacks({ sources: d.sources || [], targets: d.targets || [] });
+        setStacksError(false);
+      })
+      .catch(() => {
+        setStacksError(true);
+        toast.error("Could not load the stack catalogue");
+      })
+      .finally(() => setStacksLoading(false));
     refreshJobs();
   }, []);
+
+  // `plugins` is the list of pairs with a hand-written transformer. Anything
+  // else runs through the generic AI plugin — stated under the selects before
+  // the job starts, rather than inferred from the event log afterwards.
+  const isDeterministic = useCallback(
+    (src, tgt) => plugins.some((p) => p.source_stack === src && p.target_stack === tgt),
+    [plugins],
+  );
 
   useEffect(() => {
     if (!activeJobId) return;
@@ -410,24 +483,46 @@ export default function DirectTransformPage() {
                       📁
                     </button>
                   </div>
-                  <select value={`${s.source_stack}→${s.target_stack}`}
-                          onChange={(e) => {
-                            const [src, tgt] = e.target.value.split("→");
-                            setService(i, { source_stack: src, target_stack: tgt });
-                          }}
-                          data-testid={`dcte-select-stack-${i}`}
-                          className="border border-border rounded-sm px-2 py-1 text-micro">
-                    {plugins.length === 0 && (
-                      <option value="">
-                        {pluginsError ? "Plugins unavailable — retry" : "Loading plugins…"}
-                      </option>
-                    )}
-                    {plugins.map((p) => (
-                      <option key={p.id} value={`${p.source_stack}→${p.target_stack}`}>
-                        {p.display_name}
-                      </option>
-                    ))}
-                  </select>
+                  {/* iter-21 — Source and target are picked independently.
+                      They used to be one <select> of the registered plugin
+                      pairs, which capped the choice at the two pairs that
+                      have a deterministic transformer. Any pair drawn from
+                      these two lists runs: the deterministic plugin when one
+                      claims it, the generic AI plugin otherwise. */}
+                  <label className="text-micro text-fg-muted">
+                    Source stack
+                    <StackSelect
+                      value={s.source_stack}
+                      options={stacks.sources}
+                      testId={`dcte-select-source-${i}`}
+                      loading={stacksLoading}
+                      error={stacksError}
+                      onChange={(v) => setService(i, { source_stack: v })}
+                    />
+                  </label>
+                  <label className="text-micro text-fg-muted">
+                    Target stack
+                    <StackSelect
+                      value={s.target_stack}
+                      options={stacks.targets}
+                      testId={`dcte-select-target-${i}`}
+                      loading={stacksLoading}
+                      error={stacksError}
+                      onChange={(v) => setService(i, { target_stack: v })}
+                    />
+                  </label>
+                </div>
+                <div className="text-micro text-fg-muted" data-testid={`dcte-pair-mode-${i}`}>
+                  {pluginsError ? (
+                    <>Could not load the transformer list, so this pair&rsquo;s mode is unknown.</>
+                  ) : isDeterministic(s.source_stack, s.target_stack) ? (
+                    <>Deterministic transformer available for this pair.</>
+                  ) : (
+                    <>
+                      No deterministic transformer for this pair — it runs via the{" "}
+                      <b>AI pass</b>, so keep &ldquo;AI-assisted refactor&rdquo; on.
+                    </>
+                  )}
                 </div>
                 {detection[i] && (
                   <div className="text-micro text-fg-muted" data-testid={`dcte-detection-${i}`}>
