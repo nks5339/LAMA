@@ -5686,16 +5686,34 @@ for the target language (e.g. `package`, `import`, `#`, `using`, `<?xml`)."""
 # runs BEFORE the LLM call and HARD-OVERRIDES the verdict to REJECT
 # when any critical structural check fails. It is stack-agnostic — the
 # only lookups it does are the source stack's own "signature tokens"
-# from `detected_stack` to detect stale remnants.
+# from `source_stack` to detect stale remnants.
 
 # Signature tokens for common source stacks — anything on this list
 # appearing in the target file after transformation is a strong signal
 # the Coder left something behind. Stack-name → list of substrings.
+#
+# iter-20 — the Java/Jakarta half of this table was missing entirely:
+# helidon, jaxrs, ejb, oracle and jquery are the source side of FIVE of
+# the six transformations `SUPPORTED_TRANSFORMATIONS` advertises, and
+# none of them had an entry. A Helidon → Spring Boot migration therefore
+# had NOTHING to check against, which is how a "Spring Boot" service
+# shipped with `io.helidon` imports and Helidon coordinates in its pom.
+#
+# Tokens are PACKAGE-level wherever possible (`io.helidon`,
+# `oracle.jdbc`) rather than bare product names, so a comment or a
+# javadoc mentioning the word "helidon" does not trip the gate — only
+# real code and real dependency coordinates do.
 _SOURCE_STACK_SIGNATURES: Dict[str, List[str]] = {
     "codeigniter": ["CI_Controller", "CI_Model", "$this->load->", "$this->db->", "CodeIgniter\\"],
     "codeigniter4": ["\\CodeIgniter\\", "BaseController", "$this->db->"],
     "struts":      ["extends ActionSupport", "org.apache.struts", "struts-config.xml"],
     "struts2":     ["org.apache.struts2", "extends ActionSupport"],
+    # iter-20 — `struts-to-springmvc` declares its sources as
+    # ["struts", "struts-1"], and only "struts" had an entry. Struts 1's
+    # vocabulary is entirely different from Struts 2's (Action/ActionForm
+    # rather than ActionSupport), so it needs its own row.
+    "struts-1":    ["org.apache.struts.action", "extends Action", "ActionForm",
+                    "ActionMapping", "ActionForward", "struts-config.xml"],
     "spring-mvc-legacy": ["org.springframework.web.servlet.ModelAndView"],
     "jsp":         ["<%@", "<jsp:", "<%=", "<%!"],
     "classic-asp": ["<%@", "Response.Write", "Server.CreateObject"],
@@ -5703,7 +5721,232 @@ _SOURCE_STACK_SIGNATURES: Dict[str, List[str]] = {
     "flask":       ["from flask import", "Flask(__name__)"],
     "php":         ["<?php", "->query(", "mysqli_"],
     "dotnet-framework": ["System.Web.Mvc", "HttpContext.Current"],
+    # ── iter-20: Java / Jakarta EE source stacks ──────────────────────
+    "helidon":     ["io.helidon", "helidon-microprofile", "helidon-config",
+                    "helidon-webserver", "org.eclipse.microprofile",
+                    "io.helidon.config", "@ConfigProperty"],
+    "helidon-mp":  ["io.helidon", "helidon-microprofile", "org.eclipse.microprofile"],
+    "helidon-se":  ["io.helidon", "helidon-webserver", "io.helidon.webserver"],
+    "jaxrs":       ["javax.ws.rs", "jakarta.ws.rs", "@ApplicationPath",
+                    "@Produces(", "@Consumes(", "Response.ok(",
+                    "javax.json", "jakarta.json"],
+    "ejb":         ["javax.ejb", "jakarta.ejb", "@Stateless", "@Stateful",
+                    "@MessageDriven", "@LocalBean", "@EJB"],
+    "ejb-3":       ["javax.ejb", "jakarta.ejb", "@Stateless", "@Stateful", "@EJB"],
+    "jquery":      ["$.ajax", "jQuery(", "$(document)", "$(this)", ".appendTo("],
+    # ── iter-20: databases ────────────────────────────────────────────
+    # Oracle-isms that are invalid or non-portable on PostgreSQL. These
+    # fire on DDL/DML files and on JDBC wiring alike.
+    # Oracle-only constructs. Deliberately NOT included, because
+    # PostgreSQL supports them too and flagging them would reject
+    # correct output: `to_date()`, `%TYPE`, `%ROWTYPE` and `END LOOP;`
+    # are all valid PL/pgSQL.
+    "oracle":      ["oracle.jdbc", "OracleDriver", "jdbc:oracle:", "VARCHAR2",
+                    "NVARCHAR2", "NVL(", "SYSDATE", "ROWNUM", "CONNECT BY",
+                    "FROM DUAL", "NUMBER(", "DBMS_"],
+    "plsql":       ["DBMS_OUTPUT", "EXECUTE IMMEDIATE", "PRAGMA ",
+                    "VARCHAR2", "SYSDATE"],
 }
+
+# iter-20 — Target-side tokens, subtracted from the residue set before
+# anything is flagged.
+#
+# Necessary because the signature lists overlap across stacks: a
+# `jakarta.ws.rs` import is RESIDUE when migrating Helidon → Spring Boot
+# and entirely CORRECT when the target is Quarkus or Helidon itself.
+# Without this subtraction, arming the residue gate (which had never
+# actually run — see `_structural_check`) would have produced a wave of
+# false REJECTs on legitimate output.
+_TARGET_STACK_SIGNATURES: Dict[str, List[str]] = {
+    "quarkus":       ["jakarta.ws.rs", "javax.ws.rs", "@Produces(", "@Consumes(",
+                      "@ApplicationPath", "jakarta.json", "@ConfigProperty",
+                      "org.eclipse.microprofile"],
+    "helidon":       ["io.helidon", "helidon-microprofile", "helidon-config",
+                      "helidon-webserver", "org.eclipse.microprofile",
+                      "jakarta.ws.rs", "javax.ws.rs", "@ConfigProperty"],
+    "micronaut":     ["jakarta.ws.rs", "@Produces(", "@Consumes("],
+    "jakarta-ee":    ["jakarta.ws.rs", "jakarta.ejb", "@Stateless",
+                      "@Produces(", "@Consumes(", "jakarta.json"],
+    "oracle":        ["oracle.jdbc", "VARCHAR2", "NVL(", "SYSDATE", "NUMBER(",
+                      "FROM DUAL", "ROWNUM", "TO_DATE("],
+    "react-18":      ["$(document)", "$.ajax"],  # a jQuery interop shim may legitimately remain
+}
+
+
+# Comment syntaxes per file kind, used to blank comments out before the
+# residue scan. See `_strip_comments_for_scan`.
+_LINE_COMMENT_MARKERS: Dict[str, Tuple[str, ...]] = {
+    "c_style": ("//",),
+    "hash":    ("#",),
+    "sql":     ("--",),
+}
+_BLOCK_COMMENT_SPANS: Dict[str, Tuple[Tuple[str, str], ...]] = {
+    "c_style": (("/*", "*/"),),
+    "sql":     (("/*", "*/"),),
+    "xml":     (("<!--", "-->"),),
+    "hash":    (),
+}
+
+_EXT_COMMENT_STYLE: Dict[str, str] = {
+    "java": "c_style", "js": "c_style", "jsx": "c_style", "ts": "c_style",
+    "tsx": "c_style", "cs": "c_style", "go": "c_style", "kt": "c_style",
+    "scala": "c_style", "groovy": "c_style", "gradle": "c_style",
+    "c": "c_style", "cpp": "c_style", "h": "c_style", "hpp": "c_style",
+    "swift": "c_style", "rs": "c_style", "php": "c_style", "json": "c_style",
+    "sql": "sql", "ddl": "sql",
+    "py": "hash", "yml": "hash", "yaml": "hash", "sh": "hash",
+    "properties": "hash", "toml": "hash", "cfg": "hash", "ini": "hash",
+    "xml": "xml", "html": "xml", "htm": "xml", "pom": "xml", "csproj": "xml",
+}
+
+
+def _strip_comments_for_scan(text: str, source_path: str) -> str:
+    """Blank out comments so the residue scan reads CODE, not prose.
+
+    iter-20 — necessary, not cosmetic. The Coder prompt explicitly asks
+    for `// MIGRATION:` notes "where a non-obvious change was made", so a
+    correctly-migrated file routinely contains a comment naming the
+    construct it replaced ("// was: EXECUTE IMMEDIATE, now JPA"). Scanning
+    raw text would reject exactly the files that documented themselves
+    best, and would also flag a commented-out dependency in a pom — which
+    is not a build problem at all.
+
+    Comments are replaced with spaces rather than deleted so that offsets,
+    and therefore line/column arithmetic anywhere downstream, are
+    unchanged. Quote-aware, so `"http://x"` and `'--'` are not mistaken
+    for comment openers.
+
+    Best-effort by design: this feeds a heuristic gate, and an unparseable
+    file simply gets scanned as-is rather than raising.
+    """
+    ext = (source_path.rsplit(".", 1)[-1] or "").lower() if "." in source_path else ""
+    base = source_path.rsplit("/", 1)[-1].lower()
+    if base in ("pom.xml", "build.gradle", "build.gradle.kts"):
+        style = "xml" if base == "pom.xml" else "c_style"
+    else:
+        style = _EXT_COMMENT_STYLE.get(ext, "")
+    if not style:
+        return text
+
+    line_markers = _LINE_COMMENT_MARKERS.get(style, ())
+    block_spans = _BLOCK_COMMENT_SPANS.get(style, ())
+    # XML has no line comments and its strings do not use shell quoting,
+    # so the quote tracking below would misfire on an apostrophe in prose.
+    quote_chars = "" if style == "xml" else "\"'`"
+
+    out: List[str] = []
+    i, n = 0, len(text)
+    quote: str = ""
+    while i < n:
+        ch = text[i]
+        if quote:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:          # escaped char inside a literal
+                out.append(text[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = ""
+            i += 1
+            continue
+        if ch in quote_chars:
+            quote = ch
+            out.append(ch)
+            i += 1
+            continue
+        matched = False
+        for open_tok, close_tok in block_spans:
+            if text.startswith(open_tok, i):
+                end = text.find(close_tok, i + len(open_tok))
+                end = n if end == -1 else end + len(close_tok)
+                # Preserve newlines so line numbering survives.
+                out.append("".join(
+                    c if c == "\n" else " " for c in text[i:end]
+                ))
+                i = end
+                matched = True
+                break
+        if matched:
+            continue
+        for marker in line_markers:
+            if text.startswith(marker, i):
+                end = text.find("\n", i)
+                end = n if end == -1 else end
+                out.append(" " * (end - i))
+                i = end
+                matched = True
+                break
+        if matched:
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
+def _residue_tokens_for(source_stack: dict, target_stack) -> List[str]:
+    """Source-stack tokens that must NOT appear in the transformed file.
+
+    iter-20 — resolves the residue set from two independent signals and
+    unions them, because either one alone misses real cases:
+
+    1. The DETECTED framework/language on the job document. This is what
+       the original code used, via a `key in src_name` substring test —
+       fine when `tech_detector` returns a clean "helidon", useless when
+       it returns "helidon-mp 4.0" or "Java/JAX-RS".
+    2. The DECLARED transformation pair. `SUPPORTED_TRANSFORMATIONS`
+       already carries an explicit `source` list per target
+       (helidon-to-springboot → ["helidon", "helidon-mp", "helidon-se",
+       "jaxrs"]). The operator chose that pair, so it is a statement of
+       intent and more reliable than sniffing.
+
+    Whatever the target stack legitimately uses is then SUBTRACTED, so a
+    token that is residue for one migration and correct for another (the
+    `jakarta.ws.rs` case) only fires where it is genuinely wrong.
+    """
+    src_name = str(
+        (source_stack or {}).get("framework")
+        or (source_stack or {}).get("language")
+        or ""
+    ).lower()
+
+    # Normalise the target into a set of lowercase stack ids. It arrives
+    # as a plain string on v1 jobs and as a {component: target} dict on
+    # v2 jobs — `_transform_path` defends against the same split.
+    target_ids: Set[str] = set()
+    if isinstance(target_stack, dict):
+        for v in target_stack.values():
+            if v:
+                target_ids.add(str(v).lower())
+    elif target_stack:
+        target_ids.add(str(target_stack).lower())
+
+    tokens: Set[str] = set()
+
+    # (1) detected framework/language substring match — as before.
+    for key, sigs in _SOURCE_STACK_SIGNATURES.items():
+        if key in src_name:
+            tokens.update(sigs)
+
+    # (2) declared transformation pair.
+    for pair_id, spec in SUPPORTED_TRANSFORMATIONS.items():
+        pair_target = str(spec.get("target") or "").lower()
+        # The pair is in play when the operator selected it by id, or
+        # when any selected target matches this pair's target stack.
+        if pair_id.lower() in target_ids or (pair_target and pair_target in target_ids):
+            for src_key in spec.get("source") or []:
+                tokens.update(_SOURCE_STACK_SIGNATURES.get(str(src_key).lower(), []))
+
+    if not tokens:
+        return []
+
+    # Subtract anything the chosen target legitimately uses.
+    allowed: Set[str] = set()
+    for tid in target_ids:
+        for key, sigs in _TARGET_STACK_SIGNATURES.items():
+            if key in tid:
+                allowed.update(sigs)
+
+    return sorted(tokens - allowed)
 
 # Fenced/preamble residue markers that the coder sanitizer *should*
 # have removed. Presence in the persisted file = sanitizer bug OR the
@@ -5771,13 +6014,30 @@ def _structural_check(
         issues.append("File appears to be a stub placeholder.")
 
     # 4. Source-stack signature residue.
-    src_name = str(detected_stack.get("framework") or detected_stack.get("language") or "").lower()
-    for key, sigs in _SOURCE_STACK_SIGNATURES.items():
-        if key in src_name:
-            for sig in sigs:
-                if sig in stripped:
-                    issues.append(f"Source-stack remnant found ('{sig}') — target file still references {key}.")
-                    break
+    #
+    # iter-20 — this rule had never actually executed. Its caller looked
+    # the job up by `{"transform_id": ...}` while the collection is keyed
+    # on `_id`, so `detected_stack` arrived as `{}` on every call and the
+    # loop below iterated over nothing. Fixed at the call site; the
+    # residue set now also resolves from the declared transformation pair
+    # and subtracts legitimate target tokens (`_residue_tokens_for`).
+    #
+    # Reported ALL offending tokens rather than the first: a pom carrying
+    # four Helidon coordinates should tell the fix loop about four, not
+    # send it round the loop once per dependency.
+    #
+    # Scanned with comments blanked out — the Coder prompt asks for
+    # `// MIGRATION:` notes naming what was replaced, and those must not
+    # read as residue.
+    scannable = _strip_comments_for_scan(stripped, source_path)
+    found = [sig for sig in _residue_tokens_for(detected_stack, target_stack) if sig in scannable]
+    if found:
+        shown = ", ".join(repr(s) for s in found[:6])
+        more = f" (+{len(found) - 6} more)" if len(found) > 6 else ""
+        issues.append(
+            f"Source-stack remnant found ({shown}{more}) — the transformed file "
+            f"still references the framework it was migrated away from."
+        )
 
     # 5. Java-specific: `package` / `import` / class presence when ext=java.
     if ext == "java":
@@ -5893,15 +6153,30 @@ Run all 9 verification checks and return the results as JSON."""
         # check and HARD-OVERRIDE to REJECT when the file is obviously
         # broken, so `_run_verifier` can never say "ACCEPT" on garbage.
         try:
+            # iter-20 — this lookup was querying `{"transform_id": ...}`
+            # while `transformations` is keyed on `_id` (every other one
+            # of the 20+ find_one calls in this file uses `_id`, and
+            # `transform_id` is not a field on the document at all). It
+            # therefore matched nothing and returned None on EVERY call,
+            # so `_structural_check` received {} for both stacks and its
+            # source-residue and target rules were dead for the entire
+            # life of the gate. That is how Helidon imports reached a
+            # "Spring Boot" output tree with an ACCEPT verdict attached.
+            #
+            # The projected field was wrong too: the job stores the
+            # detected stack under `source_stack`, not `detected_stack`.
             tx_for_check = await transformations.find_one(
-                {"transform_id": transform_id},
-                {"detected_stack": 1, "target_stack": 1},
+                {"_id": transform_id},
+                {"source_stack": 1, "target_stack": 1, "transforms": 1},
             ) or {}
             structural = _structural_check(
                 transformed,
                 task_doc.get("source_path", "") or task_doc.get("target_path", ""),
-                tx_for_check.get("detected_stack") or {},
-                tx_for_check.get("target_stack") or {},
+                tx_for_check.get("source_stack") or {},
+                # v2 jobs carry the per-component dict in `transforms`;
+                # v1 jobs carry a single collapsed string in
+                # `target_stack`. Prefer the richer one.
+                tx_for_check.get("transforms") or tx_for_check.get("target_stack") or {},
             )
         except Exception as _sc_err:
             structural = {"ok": True, "severity": "ok", "issues": [], "check_error": str(_sc_err)}
@@ -7652,8 +7927,19 @@ async def _run_compile_fix_loop(
         max_iterations = None
 
     tx = await transformations.find_one({"_id": transform_id}) or {}
-    detected_stack = tx.get("detected_stack") or {}
-    target_stack = tx.get("target_stack") or tx.get("transforms") or {}
+    # iter-20 — `detected_stack` is not a field on this document; the
+    # detected stack is stored as `source_stack` (see create_transformation
+    # / create_transformation_v2). This read has always produced {}, so
+    # every fix-loop Coder call described its own source stack as "{}"
+    # and the structural residue gate had nothing to match against.
+    source_stack = tx.get("source_stack") or {}
+    # Prefer the per-component dict over the collapsed string. On a v2 job
+    # `target_stack` is whichever of runtime/backend/frontend/database was
+    # set first — typically "java-21", which tells the Coder the language
+    # but not the framework it is migrating TO. `transforms` carries the
+    # whole picture ({"backend": "spring-boot-3", "database": "postgresql"}),
+    # which is what the main pipeline already passes.
+    target_stack = tx.get("transforms") or tx.get("target_stack") or {}
 
     attempts: List[Dict[str, Any]] = []
     final_compile: Dict[str, Any] = {}
@@ -7887,7 +8173,7 @@ async def _run_compile_fix_loop(
                 await _touch("fixing")
                 try:
                     ok = await _coder_apply_fix(
-                        transform_id, t, detected_stack, target_stack, model,
+                        transform_id, t, source_stack, target_stack, model,
                         agent_name=active_agent_name, on_stage=_touch,
                     )
                 except Exception as fix_err:
@@ -8029,8 +8315,19 @@ async def _run_devops_remediation_loop(
             max_rounds = 2
 
     tx = await transformations.find_one({"_id": transform_id}) or {}
-    detected_stack = tx.get("detected_stack") or {}
-    target_stack = tx.get("target_stack") or tx.get("transforms") or {}
+    # iter-20 — `detected_stack` is not a field on this document; the
+    # detected stack is stored as `source_stack` (see create_transformation
+    # / create_transformation_v2). This read has always produced {}, so
+    # every fix-loop Coder call described its own source stack as "{}"
+    # and the structural residue gate had nothing to match against.
+    source_stack = tx.get("source_stack") or {}
+    # Prefer the per-component dict over the collapsed string. On a v2 job
+    # `target_stack` is whichever of runtime/backend/frontend/database was
+    # set first — typically "java-21", which tells the Coder the language
+    # but not the framework it is migrating TO. `transforms` carries the
+    # whole picture ({"backend": "spring-boot-3", "database": "postgresql"}),
+    # which is what the main pipeline already passes.
+    target_stack = tx.get("transforms") or tx.get("target_stack") or {}
 
     rounds: List[Dict[str, Any]] = []
     audit = await _run_devops_dependency_check(transform_id, compile_result, model)
@@ -8114,7 +8411,7 @@ async def _run_devops_remediation_loop(
             async with sem:
                 try:
                     ok = await _coder_apply_fix(
-                        transform_id, task, detected_stack, target_stack, model,
+                        transform_id, task, source_stack, target_stack, model,
                         # The DevOps Expert persona, not the default Coder —
                         # a manifest is its domain, and this is the same
                         # escalation the compile-fix loop performs.
