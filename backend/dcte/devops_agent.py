@@ -26,7 +26,7 @@ Design
   anticipates delegating novel / ambiguous gaps to the fabric under
   ``agent_key="dcte.devops"``, and that key is registered and tiered
   ready for it, but no such call site exists yet -- so this module
-  makes no network request at all. See HUMAN_INTERVENTION.md DT-3.
+  makes no network request at all. See HUMAN_INTERVENTION.md DT-1.
 * Non-blocking: any gap it can't patch is emitted as a diagnostic
   event and passed to the Tester agent's report; the job continues.
 * Runs INSIDE the LAMA container — no external tools required.

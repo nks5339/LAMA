@@ -313,3 +313,104 @@ than no contract.*
 `stage-{key}-badge-skipped`, not `-locked`. The `/api/kb/{pid}/owl-export`
 route behind the first one is alive and working — only the button is gone.
 I corrected the doc rather than inventing buttons.
+
+---
+
+## Decisions — Direct Transform integration (iter-18/19)
+
+All four are non-blocking. The feature is integrated, green and shipping;
+these are places where the incoming code was ambiguous about intent and I
+took the conservative reading rather than guessing. Nothing here holds up
+the merge.
+
+### DT-1 — `dcte.devops` and `dcte.tester` are registered agents with no call site
+
+**Raised:** Phase 4 audit.
+
+Five `dcte.*` agent keys are registered in `AGENT_COMPLEXITY` and seeded as
+`agent_configs` rows. Three of them are genuinely invoked:
+
+| Key | Tier | Call site |
+|---|---|---|
+| `dcte.transformer` | high | `dcte/ai_refactor.py:487` |
+| `dcte.build_fixer` | high | `dcte/build_agent.py:~225` |
+| `dcte.narrator` | low | `dcte/narrator.py:60` |
+| `dcte.devops` | medium | **none** |
+| `dcte.tester` | low | **none** |
+
+`devops_agent.py` and `tester_agent.py` are fully deterministic — they patch
+by template and shell out to `mvn`, and neither makes a network request. The
+DEVOPS and TESTING job phases are real (they have `DcteJobStatus` members and
+emit events), they just don't consult a model.
+
+I kept both registrations. Two of the incoming tests assert them
+(`test_iter1817_dcte_devops_tester.py::test_new_agent_keys_registered`),
+they are the declared identity of two phases that do run, and a tiered
+`agent_configs` row costs nothing until the call site exists. I removed the
+two dead constants in `devops_agent.py` that were staged for that call site
+and rewrote the docstring, which claimed the LLM path already existed.
+
+**What I need from you:** should the DevOps agent's LLM escalation path be
+built (the docstring describes it: novel/ambiguous structural gaps go to the
+model instead of being reported as unresolved), or should these two keys be
+dropped from the fabric map and the seed?
+
+*Recommendation: build it later, keep the registration now. Dropping the keys
+means editing two of the author's tests, and the phases are real.*
+
+### DT-2 — The DCTE agents carry inline prompts, not Prompt Library entries
+
+**Raised:** Phase 0 intake.
+
+Every other LLM agent in LAMA reads its system prompt from the `prompts`
+collection, seeded in `seed.py` with `force_update: True` for rev-bumps, and
+is editable in Prompt Library. The DCTE agents hold theirs as module
+constants — `ai_refactor._SYSTEM` / `._FIXUP_SYSTEM`, `narrator._SYSTEM`,
+`droid_agent._AGENTIC_BRIEF` (which carries its own `_AGENTIC_BRIEF_REV`
+counter, i.e. the author built a parallel versioning mechanism).
+
+I did not move them. Doing so would change which prompt text actually runs
+and make it editable by any admin — a behaviour change, not an integration
+step, and the brief forbids inventing behaviour.
+
+**What I need from you:** should the five DCTE prompts be seeded into the
+Prompt Library so operators can tune them like every other agent's, or do
+they stay pinned in code on purpose (they encode hard guardrails — e.g. the
+transformer's "no Helidon residue" rules — that an edit could silently
+weaken)?
+
+*Recommendation: seed them. The inconsistency will surprise the first
+operator who goes looking for them in Prompt Library and finds four tools'
+prompts and not the fifth's.*
+
+### DT-3 — Two working endpoints have no UI
+
+**Raised:** Phase 0, contract check CM-3 / CM-4.
+
+`GET /api/dcte/jobs/{id}/artifact` (download a generated file, guarded to
+`output_root`) and `GET /api/dcte/debug/env` are implemented, tested and
+reachable, but nothing in the page calls them: reports render as plain text
+paths rather than links, and there is no diagnostics panel — even though the
+env endpoint's own docstring says it is "for the DCTE page's diagnostics".
+
+I left both. This is the same posture the repo already takes with
+`/api/kb/{pid}/owl-export` (see DEC-8): a working endpoint an operator or
+script can hit, with no button. Wiring up UI for them would be new product
+surface.
+
+**What I need from you:** should report rows become download links via the
+artifact endpoint, and should the page grow a diagnostics strip? Both are
+small; both are product decisions.
+
+### DT-4 — Direct Transform is not in the collapsed sidebar rail
+
+**Raised:** Phase 2.
+
+The collapsed rail holds Console, Prompt Library, Settings and Audit.
+**Integrations is absent from it**, so it is a curated four-shortcut strip
+rather than a Tools registry — adding a fourth tool there would make Direct
+Transform *more* prominent than one of its siblings. I left it out and added
+a test asserting both halves of that (`tools-nav-registration.test.js`).
+
+**What I need from you:** nothing, unless you want the rail to mirror the
+Tools list — in which case Integrations should go in at the same time.

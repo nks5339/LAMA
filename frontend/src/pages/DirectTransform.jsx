@@ -124,7 +124,7 @@ export default function DirectTransformPage() {
   const [reports, setReports] = useState([]);
   const [transforms, setTransforms] = useState([]);
 
-  const [name, setName] = useState("DCTE run 1");
+  const [name, setName] = useState("Direct Transform run 1");
   const [services, setServices] = useState([DEFAULT_SERVICE()]);
   const [aiRefactor, setAiRefactor] = useState(true);
   // iter-19 — Autonomous droid mode toggle. When ON, DCTE calls
@@ -255,7 +255,7 @@ export default function DirectTransformPage() {
         use_droid_agent: useDroidAgent,
       });
       await dcteStartJob(job.id);
-      toast.success("DCTE job started");
+      toast.success("Direct Transform job started");
       setActiveJobId(job.id);
       refreshJobs();
     } catch (e) {
@@ -455,7 +455,7 @@ export default function DirectTransformPage() {
           <div className="mb-3">
             <div className="text-micro font-semibold text-fg-muted uppercase mb-1">Jobs</div>
             <div className="space-y-1">
-              {jobs.length === 0 && <div className="text-micro text-fg-muted">No DCTE jobs yet.</div>}
+              {jobs.length === 0 && <div className="text-micro text-fg-muted">No Direct Transform jobs yet.</div>}
               {jobs.map((j) => (
                 <div key={j.id}
                      className={`flex items-stretch rounded-sm border ${activeJobId === j.id ? "bg-brand border-fg" : "bg-surface border-border hover:bg-bg"}`}>

@@ -115,7 +115,7 @@ describe("Direct Transform page", () => {
 
   it("shows an empty state instead of a blank panel when there are no jobs", async () => {
     renderPage();
-    expect(await screen.findByText("No DCTE jobs yet.")).toBeInTheDocument();
+    expect(await screen.findByText("No Direct Transform jobs yet.")).toBeInTheDocument();
   });
 
   it("detect fills in the source and target stacks from the fingerprint", async () => {
@@ -153,7 +153,7 @@ describe("Direct Transform page", () => {
     mockApi.dcteCreateJob.mockResolvedValue({ id: "dcte_abc123" });
     mockApi.dcteStartJob.mockResolvedValue({ id: "dcte_abc123", status: "analyzing" });
     mockApi.dcteGetJob.mockResolvedValue({
-      id: "dcte_abc123", name: "DCTE run 1", status: "analyzing",
+      id: "dcte_abc123", name: "Direct Transform run 1", status: "analyzing",
       progress: 0.1, services: [{ id: "svc_1" }], error: null,
     });
 
