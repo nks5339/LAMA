@@ -23,7 +23,7 @@ from __future__ import annotations
 import ast
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import pytest
 
@@ -41,16 +41,22 @@ TOOLS_PY = Path(__file__).resolve().parents[1] / "routes" / "tools.py"
 def _load_pure_symbols() -> Dict[str, Any]:
     src = TOOLS_PY.read_text()
     tree = ast.parse(src)
-    want_fn = {"_residue_tokens_for", "_structural_check", "_strip_comments_for_scan"}
+    want_fn = {
+        "_residue_tokens_for", "_structural_check", "_strip_comments_for_scan",
+        "_playbook_for", "_manifest_migration_contract", "_source_manifest_notes",
+        "_source_manifest_for",
+    }
     want_const = {
         "_SOURCE_STACK_SIGNATURES", "_TARGET_STACK_SIGNATURES",
         "SUPPORTED_TRANSFORMATIONS", "_PROSE_RESIDUE_MARKERS_RE",
         "_SMART_PUNCT_MAP", "_LINE_COMMENT_MARKERS", "_BLOCK_COMMENT_SPANS",
-        "_EXT_COMMENT_STYLE",
+        "_EXT_COMMENT_STYLE", "MIGRATION_PLAYBOOKS", "_PLAYBOOK_ALIASES",
+        "_SOURCE_MANIFEST_BASENAMES", "_SOURCE_MANIFEST_MAX_CHARS",
+        "BUILD_TOOL_SUGGESTIONS",
     }
     ns: Dict[str, Any] = {
         "re": re, "Dict": Dict, "List": List, "Set": Set, "Any": Any,
-        "Tuple": Tuple,
+        "Tuple": Tuple, "Optional": Optional,
     }
     chunks: List[str] = []
     for node in tree.body:
@@ -73,6 +79,13 @@ _structural_check = _NS["_structural_check"]
 _strip_comments_for_scan = _NS["_strip_comments_for_scan"]
 _SOURCE_STACK_SIGNATURES = _NS["_SOURCE_STACK_SIGNATURES"]
 SUPPORTED_TRANSFORMATIONS = _NS["SUPPORTED_TRANSFORMATIONS"]
+_playbook_for = _NS["_playbook_for"]
+_manifest_migration_contract = _NS["_manifest_migration_contract"]
+_source_manifest_notes = _NS["_source_manifest_notes"]
+_source_manifest_for = _NS["_source_manifest_for"]
+MIGRATION_PLAYBOOKS = _NS["MIGRATION_PLAYBOOKS"]
+_PLAYBOOK_ALIASES = _NS["_PLAYBOOK_ALIASES"]
+BUILD_TOOL_SUGGESTIONS = _NS["BUILD_TOOL_SUGGESTIONS"]
 
 
 HELIDON_STACK = {"framework": "helidon-mp", "language": "java", "runtime": "java-11"}
@@ -383,3 +396,182 @@ def test_the_fix_loops_read_the_field_the_job_actually_stores():
         "the stored field is source_stack — tx.get('detected_stack') is "
         "always {}"
     )
+
+
+# ── 5. The manifest is no longer authored blind ───────────────────────
+
+HELIDON_POM = """<?xml version="1.0" encoding="UTF-8"?>
+<project>
+  <groupId>com.acme</groupId>
+  <artifactId>negotiation-service</artifactId>
+  <version>2.1.0</version>
+  <dependencies>
+    <dependency>
+      <groupId>io.helidon.microprofile.bundles</groupId>
+      <artifactId>helidon-microprofile</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.oracle.database.jdbc</groupId>
+      <artifactId>ojdbc11</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.commons</groupId>
+      <artifactId>commons-lang3</artifactId>
+      <version>3.14.0</version>
+    </dependency>
+  </dependencies>
+</project>
+"""
+
+
+def test_the_manifest_task_carries_the_source_manifest():
+    """The root cause of the invented pom.
+
+    A synthetic manifest task had `source_path: ""`, so `_run_coder` ran
+    with `source_content=""` — the target pom was authored having never
+    seen the source pom. It could not carry the project's real third-party
+    dependencies across (commons-lang3 here) nor knowingly drop the
+    framework's.
+    """
+    notes = _source_manifest_notes(
+        {"path": "negotiation-service/pom.xml", "content": HELIDON_POM},
+        HELIDON_STACK, SPRINGBOOT_TARGET,
+    )
+    assert "BEGIN SOURCE MANIFEST" in notes
+    assert "commons-lang3" in notes, "the source manifest body was not included"
+    assert "io.helidon" in notes
+
+
+def test_no_source_manifest_means_no_fabricated_block():
+    """A project with no build file must not be handed an empty section
+    that reads as 'there were no dependencies'."""
+    assert _source_manifest_notes(None, HELIDON_STACK, SPRINGBOOT_TARGET) == ""
+    assert _source_manifest_notes(
+        {"path": "pom.xml", "content": "   "}, HELIDON_STACK, SPRINGBOOT_TARGET,
+    ) == ""
+
+
+def test_the_contract_says_keep_third_party_and_remove_framework():
+    """Half a dependency list must survive verbatim and half must
+    disappear — nothing in the generic per-layer guidance said so."""
+    c = _manifest_migration_contract(HELIDON_STACK, SPRINGBOOT_TARGET)
+    assert "KEEP" in c and "REMOVE" in c
+    assert "comment" in c.lower(), "must forbid commenting deps out rather than deleting"
+
+
+def test_forbidden_list_holds_coordinates_not_sql_or_annotations():
+    """A dependency list cannot contain `NVL(` or `@Produces(`. Listing
+    them spends tokens forbidding something impossible and buries the two
+    entries that matter."""
+    c = _manifest_migration_contract(HELIDON_STACK, SPRINGBOOT_TARGET)
+    forbidden = c.split("FORBIDDEN")[-1]
+    assert "io.helidon" in forbidden
+    assert "oracle.jdbc" in forbidden
+    for noise in ("NVL(", "@Produces(", "FROM DUAL", "SYSDATE", "VARCHAR2"):
+        assert noise not in forbidden, f"{noise} is not a dependency coordinate"
+
+
+def test_source_manifest_is_matched_to_its_module_first():
+    manifests = {
+        "": {"path": "pom.xml", "content": "root"},
+        "negotiation-service": {"path": "negotiation-service/pom.xml", "content": "mod"},
+    }
+    assert _source_manifest_for(manifests, "negotiation-service")["content"] == "mod"
+
+
+def test_the_root_manifest_is_the_fallback_for_an_unknown_module():
+    """A parent pom governs its children's versions, so it is the right
+    second choice — better than generating with nothing."""
+    manifests = {"": {"path": "pom.xml", "content": "root"}}
+    assert _source_manifest_for(manifests, "some-module")["content"] == "root"
+
+
+def test_any_manifest_beats_none():
+    manifests = {"weird/place": {"path": "weird/place/pom.xml", "content": "x"}}
+    assert _source_manifest_for(manifests, "other")["content"] == "x"
+
+
+def test_no_manifests_at_all_returns_none():
+    assert _source_manifest_for({}, "mod") is None
+
+
+# ── 6. Per-language playbooks ─────────────────────────────────────────
+
+def test_the_springboot_playbook_names_the_idioms_that_actually_drift():
+    pb = _playbook_for({"backend": "spring-boot-3"})
+    assert "@RestController" in pb
+    assert "JAX-RS" in pb, "must say explicitly which idiom it replaces"
+    assert "constructor injection" in pb
+
+
+def test_the_playbook_covers_every_component_of_the_target():
+    """A Helidon+Oracle -> SpringBoot+Postgres job needs BOTH halves."""
+    pb = _playbook_for({"backend": "spring-boot-3", "database": "postgresql"})
+    assert "spring-boot-3" in pb
+    assert "postgresql" in pb
+    assert "VARCHAR2" in pb
+
+
+def test_swagger_is_required_for_java_and_python_backends():
+    """The operator's own brief asks for it by name; it is not something
+    the model volunteers."""
+    for target, marker in (
+        ({"backend": "spring-boot-3"}, "springdoc"),
+        ({"backend": "fastapi"}, "/docs"),
+        ({"backend": "dotnet"}, "Swashbuckle"),
+        ({"backend": "express"}, "swagger-ui-express"),
+    ):
+        assert marker in _playbook_for(target), target
+
+
+def test_a_versioned_or_sibling_target_resolves_through_an_alias():
+    assert "spring-boot-3" in _playbook_for({"backend": "spring-boot-2"})
+    assert "postgresql" in _playbook_for({"database": "mysql"})
+
+
+def test_an_unknown_target_degrades_to_no_playbook():
+    """Better to fall back to the stack-agnostic prompt than to invent
+    guidance for a stack we have not described."""
+    assert _playbook_for({"backend": "cobol-cics"}) == ""
+    assert _playbook_for({}) == ""
+    assert _playbook_for("") == ""
+
+
+def test_a_v1_string_target_resolves_too():
+    """v1 jobs store a single collapsed string, not a dict."""
+    assert "@RestController" in _playbook_for("spring-boot-3")
+
+
+def test_the_playbook_is_not_duplicated_when_components_agree():
+    """runtime and backend both naming a Spring target must not print the
+    block twice — it is injected into every Coder call."""
+    pb = _playbook_for({"backend": "spring-boot-3", "runtime": "spring-boot-2"})
+    assert pb.count("TARGET `spring-boot-3`") == 1
+
+
+def test_the_playbook_says_the_target_wins_on_conflict():
+    pb = _playbook_for({"backend": "spring-boot-3"})
+    assert "playbook wins" in pb
+
+
+def test_every_playbook_entry_is_a_real_build_target():
+    """A playbook keyed on a stack id nothing can select would never
+    render — dead configuration that reads as coverage."""
+    known = set(BUILD_TOOL_SUGGESTIONS) | {
+        str(v.get("target")) for v in SUPPORTED_TRANSFORMATIONS.values()
+    }
+    for key in MIGRATION_PLAYBOOKS:
+        assert key in known, f"{key} is not a selectable target stack"
+
+
+def test_every_alias_points_at_a_real_playbook():
+    for alias, target in _PLAYBOOK_ALIASES.items():
+        assert target in MIGRATION_PLAYBOOKS, f"{alias} -> {target} is dangling"
+
+
+@pytest.mark.parametrize("target", list(SUPPORTED_TRANSFORMATIONS.values()))
+def test_every_advertised_transformation_target_has_a_playbook(target):
+    """The six advertised migrations are exactly the ones the product
+    promises; each needs its target described."""
+    tid = str(target.get("target"))
+    assert tid in MIGRATION_PLAYBOOKS or tid in _PLAYBOOK_ALIASES, tid

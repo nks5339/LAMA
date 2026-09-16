@@ -4284,6 +4284,384 @@ def _lang_family(runtime: str) -> str:
     return runtime.split("-")[0] if runtime else ""
 
 
+# Build manifests recognised on the SOURCE side. Broader than
+# `_MANIFEST_BASENAMES` (which describes what we GENERATE) because a legacy
+# project may build with something we never emit — its dependency list is
+# still the input we need.
+_SOURCE_MANIFEST_BASENAMES = frozenset({
+    "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
+    "package.json", "requirements.txt", "pyproject.toml", "setup.py",
+    "go.mod", "gemfile", "composer.json", "build.sbt", "ivy.xml",
+})
+
+# How much of the source manifest to show. Manifests are small; a
+# multi-module aggregator pom is the only realistic outlier.
+_SOURCE_MANIFEST_MAX_CHARS = 12000
+
+
+def _source_manifest_for(
+    manifests: Dict[str, Dict[str, str]], module_root: str,
+) -> Optional[Dict[str, str]]:
+    """The source build manifest most relevant to `module_root`.
+
+    Exact module match first, then the repo-root manifest (a parent pom
+    governs its children's versions, so it is the right second choice),
+    then any manifest at all — a single-module upload whose manifest sits
+    in a directory we did not classify as a module root still beats
+    generating blind.
+    """
+    if not manifests:
+        return None
+    key = (module_root or "").strip("/")
+    if key in manifests:
+        return manifests[key]
+    if "" in manifests:
+        return manifests[""]
+    return next(iter(manifests.values()), None)
+
+
+# ═══════════════════════════════════════════════════════════════════
+# iter-20 — Per-target migration playbooks
+# ═══════════════════════════════════════════════════════════════════
+#
+# The operator's own workaround for a failed migration was to hand the
+# generated folder to a chat model with a language-specific brief:
+#
+#     role: senior BE developer and legacy-modernisation expert
+#     task: convert Helidon -> Spring Boot, Oracle -> Postgres;
+#           implement Swagger; ensure the build is error-free
+#     strict: do not alter business logic; do not conclude with broken
+#           code; token efficiency with 100% accuracy
+#
+# That brief works because it is SPECIFIC to the target stack. The Coder
+# prompt is deliberately stack-agnostic ("uses detected source/target
+# mappings"), which keeps it reusable but leaves the model to infer what
+# "idiomatic Spring Boot" means — including things no generic instruction
+# covers, like "a REST controller is @RestController, not @Path" or "the
+# build must expose an OpenAPI document".
+#
+# A playbook is that brief, per target, as data. Keyed on the target stack
+# id already used by `SUPPORTED_TRANSFORMATIONS` / `BUILD_TOOL_SUGGESTIONS`
+# so adding a language is one dict entry and no code — the same convention
+# `owl_extractor` follows for parsers.
+#
+# Deliberately short. These are injected into every Coder call, so every
+# line costs tokens on every file; anything the model reliably knows already
+# (Java syntax, what a POJO is) is omitted. Only the decisions that
+# actually drift are stated.
+MIGRATION_PLAYBOOKS: Dict[str, Dict[str, Any]] = {
+    "spring-boot-3": {
+        "language": "Java 17+",
+        "idioms": [
+            "@RestController + @RequestMapping/@GetMapping (never JAX-RS @Path/@GET)",
+            "constructor injection (never field @Inject/@Autowired)",
+            "@ConfigurationProperties or @Value (never MicroProfile @ConfigProperty)",
+            "ResponseEntity<T> (never jakarta.ws.rs.core.Response)",
+            "Spring Data JPA repositories for persistence",
+            "@Transactional from org.springframework.transaction.annotation",
+            "jakarta.* imports throughout (Spring Boot 3 is Jakarta EE 9+)",
+        ],
+        "manifest": [
+            "spring-boot-starter-parent as <parent>, so versions are inherited",
+            "spring-boot-starter-web for REST, -data-jpa for persistence, "
+            "-validation for bean validation, -test for tests",
+            "springdoc-openapi-starter-webmvc-ui for the OpenAPI/Swagger UI",
+            "spring-boot-maven-plugin so the jar is executable",
+        ],
+        "api_docs": (
+            "Expose OpenAPI/Swagger: add springdoc-openapi-starter-webmvc-ui "
+            "and annotate controllers with @Tag/@Operation. /swagger-ui.html "
+            "must resolve on a running app."
+        ),
+    },
+    "spring-mvc": {
+        "language": "Java",
+        "idioms": [
+            "@Controller/@RestController + @RequestMapping",
+            "constructor injection",
+            "ModelAndView only where a server-rendered view is genuinely returned",
+        ],
+        "manifest": ["spring-webmvc", "a servlet container dependency"],
+        "api_docs": "Expose OpenAPI via springdoc where controllers are REST.",
+    },
+    "quarkus": {
+        "language": "Java 17+",
+        "idioms": [
+            "jakarta.ws.rs JAX-RS resources (@Path/@GET) — this IS the Quarkus way",
+            "@ApplicationScoped beans, constructor injection",
+            "@ConfigProperty for configuration",
+            "Panache or Hibernate ORM for persistence",
+        ],
+        "manifest": ["quarkus-bom", "quarkus-resteasy-reactive", "quarkus-maven-plugin"],
+        "api_docs": "Add quarkus-smallrye-openapi; /q/swagger-ui must resolve.",
+    },
+    "fastapi": {
+        "language": "Python 3.11+",
+        "idioms": [
+            "APIRouter per resource, included on the app",
+            "Pydantic v2 models for request/response bodies",
+            "dependency injection via Depends()",
+            "async def handlers where I/O is awaited; plain def otherwise",
+            "SQLAlchemy 2.x style for persistence",
+        ],
+        "manifest": [
+            "fastapi, uvicorn[standard], pydantic>=2, sqlalchemy>=2",
+            "psycopg[binary] for PostgreSQL",
+            "every dependency pinned — an unpinned requirements.txt is not reproducible",
+        ],
+        "api_docs": (
+            "FastAPI serves OpenAPI at /docs automatically. Give every route "
+            "response_model= and a summary so the document is useful."
+        ),
+    },
+    "django": {
+        "language": "Python 3.11+",
+        "idioms": [
+            "apps with models.py / views.py / urls.py",
+            "Django ORM models (never raw SQL where the ORM suffices)",
+            "DRF serializers + ViewSets for REST",
+        ],
+        "manifest": ["django, djangorestframework, psycopg[binary], pinned"],
+        "api_docs": "Add drf-spectacular and expose /api/schema/swagger-ui/.",
+    },
+    "express": {
+        "language": "Node 20+",
+        "idioms": [
+            "express.Router() per resource",
+            "async handlers with a central error middleware",
+            "no business logic in the route handler — delegate to a service module",
+        ],
+        "manifest": ["express, and a pinned version for every dependency",
+                     "scripts.build and scripts.start present"],
+        "api_docs": "Add swagger-ui-express + an OpenAPI document; serve it at /api-docs.",
+    },
+    "nestjs": {
+        "language": "Node 20+ / TypeScript",
+        "idioms": ["@Controller/@Injectable with constructor injection",
+                   "DTO classes with class-validator decorators"],
+        "manifest": ["@nestjs/core, @nestjs/common, reflect-metadata, rxjs"],
+        "api_docs": "Use @nestjs/swagger and SwaggerModule.setup().",
+    },
+    "dotnet": {
+        "language": "C# / .NET 8",
+        "idioms": [
+            "minimal APIs or [ApiController] controllers",
+            "constructor injection via the built-in DI container",
+            "EF Core for persistence",
+        ],
+        "manifest": ["<TargetFramework>net8.0</TargetFramework>",
+                     "Microsoft.EntityFrameworkCore, Npgsql for PostgreSQL"],
+        "api_docs": "Add Swashbuckle.AspNetCore and call AddSwaggerGen/UseSwaggerUI.",
+    },
+    "go": {
+        "language": "Go 1.22+",
+        "idioms": ["net/http or chi handlers", "explicit error returns, no panics for control flow",
+                   "database/sql or sqlx with pgx for PostgreSQL"],
+        "manifest": ["go.mod with an explicit go directive and pinned requires"],
+        "api_docs": "Generate OpenAPI with swaggo/swag annotations.",
+    },
+    "react-18": {
+        "language": "TypeScript/JavaScript, React 18",
+        "idioms": [
+            "function components with hooks (never class components)",
+            "no direct DOM manipulation — no jQuery, no document.getElementById",
+            "state via useState/useReducer; server data via fetch in useEffect or a query library",
+        ],
+        "manifest": ["react@18, react-dom@18, and a build script"],
+        "api_docs": "",
+    },
+    "postgresql": {
+        "language": "PostgreSQL SQL / PL/pgSQL",
+        "idioms": [
+            "SERIAL/BIGSERIAL or GENERATED AS IDENTITY (never Oracle sequences + triggers)",
+            "VARCHAR/TEXT (never VARCHAR2), NUMERIC (never NUMBER)",
+            "COALESCE (never NVL), CURRENT_DATE/now() (never SYSDATE)",
+            "LIMIT/OFFSET (never ROWNUM), recursive CTEs (never CONNECT BY)",
+            "no FROM DUAL — PostgreSQL allows a bare SELECT",
+        ],
+        "manifest": [],
+        "api_docs": "",
+    },
+}
+
+# Frameworks whose *target* is really the same family, so a lookup miss on
+# a versioned id still finds the right playbook.
+_PLAYBOOK_ALIASES: Dict[str, str] = {
+    "spring-boot-2": "spring-boot-3",
+    "spring-beans": "spring-boot-3",
+    "spring-webflux": "spring-boot-3",
+    "micronaut": "quarkus",       # both are JAX-RS-shaped, DI-first Java
+    "angular-17": "react-18",
+    "vue-3": "react-18",
+    "mysql": "postgresql",
+}
+
+
+def _playbook_for(target_stack) -> str:
+    """Render the migration playbook(s) for the selected target(s).
+
+    Returns "" when nothing matches, so a target we have no playbook for
+    degrades to the existing stack-agnostic behaviour rather than
+    receiving invented guidance.
+    """
+    ids: List[str] = []
+    if isinstance(target_stack, dict):
+        ids = [str(v).lower() for v in target_stack.values() if v]
+    elif target_stack:
+        ids = [str(target_stack).lower()]
+
+    seen: Set[str] = set()
+    blocks: List[str] = []
+    for tid in ids:
+        key = tid if tid in MIGRATION_PLAYBOOKS else _PLAYBOOK_ALIASES.get(tid, "")
+        if not key or key in seen:
+            continue
+        seen.add(key)
+        pb = MIGRATION_PLAYBOOKS.get(key)
+        if not pb:
+            continue
+        lines = [f"TARGET `{key}` ({pb.get('language', '')}):"]
+        for idiom in pb.get("idioms") or []:
+            lines.append(f"  - {idiom}")
+        if pb.get("manifest"):
+            lines.append("  Build manifest:")
+            for m in pb["manifest"]:
+                lines.append(f"    - {m}")
+        if pb.get("api_docs"):
+            lines.append(f"  API docs: {pb['api_docs']}")
+        blocks.append("\n".join(lines))
+
+    if not blocks:
+        return ""
+    return (
+        "===== TARGET STACK PLAYBOOK (authoritative for idiom choices) =====\n"
+        + "\n\n".join(blocks)
+        + "\n\nThese are the conventions of the stack you are migrating TO. "
+          "Where they conflict with how the source did it, the playbook wins "
+          "— that difference IS the migration. Never leave a source-framework "
+          "annotation, import or dependency in place because it still "
+          "compiles."
+    )
+
+
+# iter-20 — how much source and KB context the Coder is shown.
+#
+# The historic pair (10 000 / 12 000 chars) predates every model now in the
+# ladder. Kept as the LOCAL default because a local engine sizes `num_ctx`
+# from the prompt and a 60 KB prompt to a 32 K model is a guaranteed
+# timeout, not a better migration.
+_CODER_SOURCE_CHARS_LOCAL = 10000
+_CODER_KB_CHARS_LOCAL = 12000
+_CODER_SOURCE_CHARS_CLOUD = 60000
+_CODER_KB_CHARS_CLOUD = 24000
+
+
+async def _coder_context_budget() -> Tuple[int, int]:
+    """(source_chars, kb_chars) for the Coder prompt.
+
+    Overridable with LAMA_CODER_SOURCE_CHARS / LAMA_CODER_KB_CHARS, which
+    apply to both provider kinds — an operator who sets them has said what
+    they want.
+    """
+    try:
+        is_local = await active_default_provider_is_local()
+    except Exception:  # noqa: BLE001 — budget must never break a migration
+        is_local = False
+    src = _CODER_SOURCE_CHARS_LOCAL if is_local else _CODER_SOURCE_CHARS_CLOUD
+    kb = _CODER_KB_CHARS_LOCAL if is_local else _CODER_KB_CHARS_CLOUD
+
+    def _override(env: str, current: int) -> int:
+        raw = (os.environ.get(env) or "").strip()
+        if not raw:
+            return current
+        try:
+            return max(1000, int(raw))
+        except ValueError:
+            return current
+
+    return (
+        _override("LAMA_CODER_SOURCE_CHARS", src),
+        _override("LAMA_CODER_KB_CHARS", kb),
+    )
+
+
+def _manifest_migration_contract(detected_stack: dict, target_stack) -> str:
+    """What a build manifest must keep, drop and never contain.
+
+    iter-20 — a dependency list is not transformed the way source code is:
+    roughly half of it must survive verbatim and the other half must
+    DISAPPEAR, and nothing in the generic per-layer guidance said so. The
+    operator's Helidon -> Spring Boot run produced a pom that still
+    declared io.helidon because "transform this file" is, for a manifest,
+    an instruction to translate what is there rather than to remove it.
+
+    Shared by both routes a manifest can reach the Coder by: the synthetic
+    GENERATE task, and the ordinary per-file transform used when the
+    source project ships a manifest at the same target path.
+    """
+    # Only the COORDINATE-shaped residue tokens belong in a manifest
+    # warning. The full residue set is mostly code and SQL (`@Produces(`,
+    # `NVL(`, `FROM DUAL`) which cannot appear in a dependency list, and
+    # listing them here would spend tokens telling the model not to do
+    # something it was never going to do — and bury the two entries that
+    # matter (`io.helidon`, `oracle.jdbc`) among ten that do not.
+    banned = [
+        t for t in _residue_tokens_for(detected_stack or {}, target_stack)
+        if ("." in t or "-" in t)
+        and not any(c in t for c in "@() %:$")
+        and t.lower() == t   # groupIds are lowercase; SQL keywords are not
+    ]
+    banned_line = ""
+    if banned:
+        shown = ", ".join(banned[:12])
+        banned_line = (
+            f"\n  - FORBIDDEN: the result must not contain any of these "
+            f"tokens in a groupId, artifactId, property, plugin or "
+            f"repository entry: {shown}. They belong to the stack being "
+            f"migrated away from."
+        )
+    return (
+        "\n\nBUILD MANIFEST CONTRACT — a dependency list is not translated "
+        "line by line; it is re-derived:"
+        "\n  - KEEP every third-party dependency that is NOT part of the "
+        "source framework (drivers, JSON/XML libraries, logging, "
+        "validation, testing, client SDKs, internal artifacts). Dropping "
+        "one is a build failure that will not surface until compile time."
+        "\n  - REMOVE every dependency, plugin, BOM and property belonging "
+        "to the source framework, and add the target stack's equivalent "
+        "instead. Do not carry them over and do not comment them out."
+        "\n  - PRESERVE groupId / artifactId / version and the module "
+        "structure, so sibling modules still resolve each other."
+        f"{banned_line}"
+    )
+
+
+def _source_manifest_notes(
+    src_manifest: Optional[Dict[str, str]], detected_stack: dict, target_stack,
+) -> str:
+    """The manifest contract PLUS the source manifest itself.
+
+    iter-20 — a synthetic manifest task carried `source_path: ""`, so
+    `_run_coder` was invoked with `source_content=""`: the target pom was
+    authored from a prose spec alone, having NEVER SEEN the source pom. It
+    could not carry the project's real third-party dependencies across,
+    and could not deliberately drop the source framework's.
+
+    Showing it the input is most of the fix; `_manifest_migration_contract`
+    is the rest.
+    """
+    if not src_manifest or not (src_manifest.get("content") or "").strip():
+        return ""
+    body = (src_manifest.get("content") or "")[:_SOURCE_MANIFEST_MAX_CHARS]
+    return (
+        _manifest_migration_contract(detected_stack, target_stack)
+        + f"\n\nSOURCE MANIFEST — `{src_manifest.get('path', '')}`. This is "
+          f"the build file of the project being migrated. It is the INPUT, "
+          f"not a template to copy.\n"
+          f"--- BEGIN SOURCE MANIFEST ---\n{body}\n--- END SOURCE MANIFEST ---"
+    )
+
+
 def _build_deterministic_tasks(
     envelopes: list, src_files: list, detected_stack: dict, target_stack: dict,
     build_tools: Optional[Dict[str, str]] = None,
@@ -4376,6 +4754,19 @@ def _build_deterministic_tasks(
                 f"preserving the existing business logic exactly. Cross-check the linked "
                 f"envelope's service/repository trace (if any) for consistency with callers."
             )
+            # iter-20 — when the SOURCE project ships its own build manifest,
+            # the synthetic GENERATE task for that path is skipped
+            # (`existing_target_paths`) and the manifest is migrated through
+            # this ordinary per-file path instead. That is the path the
+            # operator actually hit: the Coder was handed the Helidon pom
+            # and told to "transform" it, with nothing telling it that
+            # framework dependencies are to be REMOVED rather than
+            # translated. Generic per-layer advice is not enough for a
+            # dependency list, so it gets the same explicit contract the
+            # synthetic task carries.
+            _base = path.rsplit("/", 1)[-1].lower()
+            if _base in _SOURCE_MANIFEST_BASENAMES or _base.endswith(".csproj"):
+                notes += _manifest_migration_contract(detected_stack, target_stack)
 
         tasks.append({
             "task_id": f"TASK-{seq:04d}",
@@ -4408,6 +4799,16 @@ def _build_deterministic_tasks(
     # modules (multi-module repos), we emit one manifest per module.
     if build_tools:
         existing_target_paths = {t.get("target_path") or t.get("source_path") for t in tasks}
+        # iter-20 — index the SOURCE build manifests by the module dir they
+        # sit in, so a synthetic manifest task can be handed the file it is
+        # migrating FROM (see `_source_manifest_for`).
+        source_manifests: Dict[str, Dict[str, str]] = {}
+        for f in src_files or []:
+            p = str(f.get("path") or f.get("original_path") or "").strip().lstrip("./")
+            base = p.rsplit("/", 1)[-1].lower()
+            if base in _SOURCE_MANIFEST_BASENAMES or base.endswith(".csproj"):
+                mod = p.rsplit("/", 1)[0] if "/" in p else ""
+                source_manifests.setdefault(mod, {"path": p, "content": f.get("content") or ""})
         # Collect unique top-level dirs from source paths. These are the
         # module roots (e.g. "hiring-service", "user-service") we want
         # the manifest to sit at.
@@ -4492,6 +4893,7 @@ def _build_deterministic_tasks(
                 existing_target_paths.add(target_path)
                 seq += 1
                 wave, wave_name = _LAYER_WAVE_META.get("config", (1, "Wave 1 — Build & Config"))
+                src_manifest = _source_manifest_for(source_manifests, module_root)
                 tasks.append({
                     "task_id": f"TASK-{seq:04d}",
                     "envelope_id": "",
@@ -4526,11 +4928,18 @@ def _build_deterministic_tasks(
                         f"the target-stack packages. The downstream Compiler agent "
                         f"will invoke `{tool_meta.get('label') or tool}` against "
                         f"this file, so it must be usable as-is."
+                        + _source_manifest_notes(src_manifest, detected_stack, target_stack)
                     ),
                     "synthetic": True,
                     "build_tool": tool,
                     "component": component,
                     "module_root": module_root or "root",
+                    # iter-20 — the manifest the Coder is migrating FROM.
+                    # `_process_single_task` passes this as `source_content`
+                    # for a synthetic GENERATE task, so the model can see
+                    # which third-party dependencies must carry across.
+                    "source_manifest_path": (src_manifest or {}).get("path", ""),
+                    "source_manifest_content": (src_manifest or {}).get("content", ""),
                 })
 
     tasks.sort(key=lambda t: (t["wave"], t["task_id"]))
@@ -5564,6 +5973,36 @@ Response contract: {resp.get('result_type') or '(not statically resolved)'} (wra
 API → DB trace:
 {trace_lines}"""
 
+        # iter-20 — the source file used to be cut at a flat 10 000 chars,
+        # SILENTLY, under a prompt that says "Preserve ALL business logic".
+        # A 40 KB service class lost three quarters of its body and the
+        # model had no way to know: it saw a complete-looking file ending
+        # mid-method and produced a complete-looking migration of it.
+        #
+        # The cap was sized for 8k-16k context models. gpt-5.1 has 400 K and
+        # gpt-4.1 1 M, so on a cloud provider it is pure loss. Local engines
+        # still need a small one — `_is_local_call` in the fabric forces
+        # num_ctx from the prompt size, and a 60 KB prompt to a 32 K model
+        # is a guaranteed timeout.
+        _src_budget, _kb_budget = await _coder_context_budget()
+        # iter-20 — the target stack's own conventions, stated rather than
+        # inferred. Empty for a target we have no playbook for, which
+        # degrades to the previous stack-agnostic behaviour.
+        _pb = _playbook_for(target_stack)
+        _playbook_block = f"\n{_pb}\n" if _pb else ""
+        _source_shown = source_content[:_src_budget]
+        _truncation_warning = ""
+        if len(source_content) > _src_budget:
+            _truncation_warning = (
+                f"\n!!! TRUNCATED — this file is {len(source_content)} characters and "
+                f"you are seeing only the first {_src_budget}. You are NOT looking at "
+                f"the whole file. Migrate faithfully what IS shown, do not invent the "
+                f"remainder, and do not emit a closing brace or trailing structure that "
+                f"implies the file ended where the excerpt does. Add a "
+                f"`// FLAG: truncated source — remainder not seen` comment so the "
+                f"Verifier can route this file for a second pass."
+            )
+
         user_prompt = f"""Transform this file from {source_label} to {target_label}.
 
 ===== TASK =====
@@ -5577,13 +6016,15 @@ Notes: {task_notes}
 ===== ARCHITECTURE CONTEXT (this file's role in the API → Service → Repository → DB chain) =====
 {architecture_block}
 
+{_playbook_block}
 ===== PROJECT KNOWLEDGE BASE =====
-{kb_ctx[:12000]}
+{kb_ctx[:_kb_budget]}
 
 ===== SOURCE FILE: {task_doc.get('source_path', '')} =====
 ```
-{source_content[:10000]}
+{_source_shown}
 ```
+{_truncation_warning}
 
 Apply the 3-pass transformation (Scaffold → Logic → Harden) in a single output.
 Preserve ALL business logic, API paths, DB table/column names. Honour the
@@ -10124,6 +10565,15 @@ async def _continue_multi_agent_after_task_confirm(
                 source_path = task_doc.get("source_path", "")
                 source_content = src_by_path.get(source_path, "")
                 action = task_doc.get("action", "TRANSFORM")
+
+                # iter-20 — a synthetic BUILD MANIFEST task has no
+                # `source_path` (there is no 1:1 legacy file to transform),
+                # so it used to reach the Coder with source_content="" — the
+                # target pom was authored having never seen the source pom.
+                # Hand it the manifest it is migrating from.
+                if not source_content and task_doc.get("source_manifest_content"):
+                    source_content = task_doc["source_manifest_content"]
+                    source_path = task_doc.get("source_manifest_path") or source_path
 
                 await transformer_tasks.update_one(
                     {"_id": task_doc["_id"]},
