@@ -40,6 +40,7 @@ const ConsolePage = lazy(() => import("@/pages/Console"));
 const OntologyStudioPage = lazy(() => import("@/pages/OntologyStudio"));
 const LivingPage = lazy(() => import("@/pages/Living"));
 const PromptLibraryPage = lazy(() => import("@/pages/PromptLibrary"));
+const DirectTransformPage = lazy(() => import("@/pages/DirectTransform"));
 const AuditLogPage = lazy(() => import("@/pages/AuditLog"));
 const GitHubSettingsPage = lazy(() => import("@/pages/GitHubSettings"));
 const AboutUsPage = lazy(() => import("@/pages/AboutUs"));
@@ -341,6 +342,7 @@ function App() {
                     <Route path="/integrations" element={plain(<IntegrationsPage />)} />
                     <Route path="/prompts" element={plain(<PromptLibraryPage />)} />
                     <Route path="/console" element={plain(<ConsolePage />)} />
+                    <Route path="/direct-transform" element={plain(<DirectTransformPage />)} />
                     <Route path="/ontology-studio" element={plain(<OntologyStudioPage />)} />
                     <Route path="/settings" element={plain(<GitHubSettingsPage />)} />
                     <Route path="/about" element={plain(<AboutUsPage />)} />

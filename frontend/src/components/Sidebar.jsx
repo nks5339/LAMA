@@ -751,7 +751,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             </AccordionContent>
           </AccordionItem>
 
-          {/* ── Tools (Console / Integrations / Prompts) ───────── */}
+          {/* ── Tools (Console / Integrations / Prompts / Direct Transform) ── */}
           <AccordionItem value="tools" className="border-b border-border">
             <AccordionTrigger
               data-testid="sidebar-acc-tools"
@@ -797,6 +797,17 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 <Library className="w-4 h-4" />
                 Prompt Library
                 <HelpIcon text="Global system prompts (admin) and per-project overrides for each stage." testId="help-prompts" />
+              </button>
+              <button
+                data-testid="nav-direct-transform"
+                onClick={() => navigate("/direct-transform")}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
+                  location.pathname === "/direct-transform" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
+                }`}
+              >
+                <ArrowRightLeft className="w-4 h-4" />
+                Direct Transform
+                <HelpIcon text="Point it at a folder on the server and it migrates the code in place — Helidon MicroProfile → Spring Boot 3, Oracle → PostgreSQL. Deterministic plugins first, with an optional AI pass on top. Needs no project, no KB and no frozen stage." testId="help-direct-transform" />
               </button>
             </AccordionContent>
           </AccordionItem>

@@ -1107,4 +1107,43 @@ export const cancelCodegenMultiAgent = (pid) =>
 export const getCodegenMultiAgentTraceability = (pid) =>
   api.get(`/codegen/${pid}/multi-agent/traceability`);
 
+// ---------------------------------------------------------------------------
+// Direct Transform / DCTE (iter-18) — the fourth Tools section.
+//
+// Folder-path driven and project-less: none of these take a project_id,
+// because the backend never reads one. Mounted at /api/dcte, alongside
+// /api/tools rather than under it, because Direct Transform is its own
+// standalone track and not a Gap Analyzer / Transformer sibling route.
+// ---------------------------------------------------------------------------
+export const dcteListPlugins = () =>
+  api.get("/dcte/plugins").then((r) => r.data);
+export const dcteDetectProject = (sourcePath) =>
+  api.post("/dcte/projects/detect", { source_path: sourcePath }).then((r) => r.data);
+export const dcteBrowseFs = (path = "") =>
+  api.get("/dcte/fs/browse", { params: { path } }).then((r) => r.data);
+export const dcteCreateJob = (payload) =>
+  api.post("/dcte/jobs", payload).then((r) => r.data);
+export const dcteListJobs = (tenantId = null) =>
+  api.get("/dcte/jobs", { params: tenantId ? { tenant_id: tenantId } : {} }).then((r) => r.data);
+export const dcteGetJob = (jobId) =>
+  api.get(`/dcte/jobs/${jobId}`).then((r) => r.data);
+export const dcteDeleteJob = (jobId) =>
+  api.delete(`/dcte/jobs/${jobId}`).then((r) => r.data);
+export const dcteStartJob = (jobId) =>
+  api.post(`/dcte/jobs/${jobId}/start`).then((r) => r.data);
+export const dctePauseJob = (jobId) =>
+  api.post(`/dcte/jobs/${jobId}/pause`).then((r) => r.data);
+export const dcteResumeJob = (jobId) =>
+  api.post(`/dcte/jobs/${jobId}/resume`).then((r) => r.data);
+export const dcteRollbackJob = (jobId) =>
+  api.post(`/dcte/jobs/${jobId}/rollback`).then((r) => r.data);
+export const dcteGetReports = (jobId) =>
+  api.get(`/dcte/jobs/${jobId}/report`).then((r) => r.data);
+// Events come back OLDEST-first (the backend takes the newest `limit` by
+// `at` descending, then reverses), so the last element is the freshest.
+export const dcteGetEvents = (jobId, limit = 200) =>
+  api.get(`/dcte/jobs/${jobId}/events`, { params: { limit } }).then((r) => r.data);
+export const dcteGetTransforms = (jobId) =>
+  api.get(`/dcte/jobs/${jobId}/transforms`).then((r) => r.data);
+
 export default api;

@@ -21,6 +21,7 @@ export const ROUTE_CHUNKS: Record<string, ChunkLoader> = {
   "/ontology-studio": () => import("@/pages/OntologyStudio"),
   "/living": () => import("@/pages/Living"),
   "/prompts": () => import("@/pages/PromptLibrary"),
+  "/direct-transform": () => import("@/pages/DirectTransform"),
   "/audit": () => import("@/pages/AuditLog"),
   "/settings": () => import("@/pages/GitHubSettings"),
   "/about": () => import("@/pages/AboutUs"),

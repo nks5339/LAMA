@@ -129,6 +129,7 @@ function getBreadcrumbs(pathname, activeProject) {
     "/console": { label: "Console", path: "/console" },
     "/ontology-studio": { label: "Ontology Studio", path: "/ontology-studio" },
     "/prompts": { label: "Prompt Library", path: "/prompts" },
+    "/direct-transform": { label: "Direct Transform", path: "/direct-transform" },
     "/audit": { label: "Audit Log", path: "/audit" },
     "/settings": { label: "Settings", path: "/settings" },
   };
