@@ -2,6 +2,11 @@
 # LAMA — Legacy Application Modernisation AI Studio
 # Single-image bundle (frontend + backend + MongoDB + Nginx).
 #
+# Requires .dockerignore at the repo root. Without it this build is both
+# wrong and unsafe: `COPY frontend/ ./` drops the host's 1.3 GB macOS
+# node_modules over the linux/amd64 install done one layer earlier, and
+# `COPY backend/` bakes backend/.env into image history.
+#
 # Public port: 8382 (configurable at runtime by remapping)
 # Persisted state: /data/db   (mount a host volume for MongoDB)
 # External services: Qdrant (HTTP)  — pass QDRANT_URL/QDRANT_API_KEY env-vars
@@ -14,8 +19,18 @@
 FROM node:24-bookworm-slim AS frontend-build
 WORKDIR /build
 # Do NOT set NODE_ENV=production here — it would make yarn install skip
-# devDependencies (craco, eslint, etc.) and yarn build would then fail with
-# "craco: not found". craco/CRA set NODE_ENV=production internally at build time.
+# devDependencies and yarn build would then fail. Three of them are load
+# bearing now, not just craco:
+#   typescript        CRA runs fork-ts-checker over the .ts strangler
+#                     modules and src/lib/api.d.ts; a type error fails
+#                     this stage, which is intended.
+#   tailwindcss       colour tokens are bound as rgb(var(--x)/<alpha-value>)
+#   @craco/craco      the build entry point itself
+# craco/CRA set NODE_ENV=production internally at build time.
+#
+# frontend/tsconfig.json must reach the context (it does — see
+# .dockerignore). react-scripts refuses to start if BOTH tsconfig.json and
+# jsconfig.json exist, which is why the latter was removed in 2026-09.
 ENV DISABLE_ESLINT_PLUGIN=true \
     GENERATE_SOURCEMAP=false \
     CI=false \
@@ -218,7 +233,13 @@ RUN pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu 
 
 COPY backend/ /app/backend/
 
-# Drop the dev .env (real values come from -e flags at runtime via entrypoint.sh)
+# Defence in depth only — `.dockerignore` is what actually keeps the dev
+# .env out. Until 2026-09 there was no .dockerignore, so `COPY backend/`
+# carried backend/.env (real OPENROUTER / AZURE / GEMINI keys) into a
+# layer; this `rm` removed it from the final filesystem but NOT from image
+# history, so `docker save` still yielded the keys. The file no longer
+# reaches the build context at all. This line stays so the image is still
+# clean if someone edits .dockerignore without realising why.
 RUN rm -f /app/backend/.env
 
 # ---------- React build output served by nginx ----------

@@ -63,10 +63,10 @@ export default function AdminDashboard() {
   if (!user) return null;
   if (user.role !== "super_admin") {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F6F6FA]">
-        <div className="bg-white border border-rose-200 p-6 rounded-sm max-w-md text-center">
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <div className="bg-surface border border-rose-200 p-6 rounded-sm max-w-md text-center">
           <div className="text-rose-600 font-bold mb-2">403 — Super-admin only</div>
-          <button onClick={() => navigate("/")} className="text-sm underline text-[#2E2E38]">
+          <button onClick={() => navigate("/")} className="text-sm underline text-fg">
             Go to your project workspace →
           </button>
         </div>
@@ -75,19 +75,19 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="h-screen w-screen min-h-0 bg-[#F6F6FA] flex flex-col overflow-hidden" data-testid="admin-page">
-      <header className="bg-white border-b-2 border-[#FFE600] px-6 py-3 flex items-center justify-between gap-4">
+    <div className="h-screen w-screen min-h-0 bg-bg flex flex-col overflow-hidden" data-testid="admin-page">
+      <header className="bg-surface border-b-2 border-brand px-6 py-3 flex items-center justify-between gap-4">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">LAMA Admin</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center gap-2">
-            <ShieldCheck className="w-4 h-4 text-[#FFE600]" /> Tenants · Users · Analytics
+          <div className="text-micro uppercase tracking-widest text-fg-muted">LAMA Admin</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2">
+            <ShieldCheck className="w-4 h-4 text-brand" /> Tenants · Users · Analytics
           </h1>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="text-[12px] px-3 py-1.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
+            className="text-[12px] px-3 py-1.5 border border-border rounded-sm hover:bg-bg"
           >
             Workspace →
           </button>
@@ -95,14 +95,14 @@ export default function AdminDashboard() {
             type="button"
             data-testid="admin-logout"
             onClick={logout}
-            className="text-[12px] px-3 py-1.5 border border-[#E6E6E6] rounded-sm hover:bg-rose-50 text-rose-600 flex items-center gap-1"
+            className="text-[12px] px-3 py-1.5 border border-border rounded-sm hover:bg-rose-50 text-rose-600 flex items-center gap-1"
           >
             <LogOut className="w-3 h-3" /> Sign out
           </button>
         </div>
       </header>
 
-      <div className="bg-white border-b border-[#E6E6E6] px-6 flex items-center gap-1">
+      <div className="bg-surface border-b border-border px-6 flex items-center gap-1">
         {[
           { id: "tenants", label: "Tenants", icon: Building2 },
           { id: "users", label: "Users", icon: Users },
@@ -116,7 +116,7 @@ export default function AdminDashboard() {
               data-testid={`admin-tab-${t.id}`}
               onClick={() => setTab(t.id)}
               className={`flex items-center gap-1 text-[12px] px-3 py-2 border-b-2 transition-colors ${
-                active ? "border-[#FFE600] text-[#2E2E38] font-bold" : "border-transparent text-[#747480] hover:text-[#2E2E38]"
+                active ? "border-brand text-fg font-bold" : "border-transparent text-fg-muted hover:text-fg"
               }`}
             >
               <Icon className="w-3 h-3" /> {t.label}
@@ -193,17 +193,17 @@ function TenantsTab() {
     <div className="space-y-4" data-testid="admin-tenants-tab">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display font-bold text-[#2E2E38]">Tenants</h2>
-          <p className="text-[12px] text-[#747480]">Each tenant has its own users + projects. Default tenant cannot be deleted.</p>
+          <h2 className="font-display font-bold text-fg">Tenants</h2>
+          <p className="text-[12px] text-fg-muted">Each tenant has its own users + projects. Default tenant cannot be deleted.</p>
         </div>
         <div className="flex gap-2">
-          <button onClick={load} className="text-[12px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-white flex items-center gap-1">
+          <button onClick={load} className="text-[12px] px-2 py-1 border border-border rounded-sm hover:bg-surface flex items-center gap-1">
             <RefreshCw className="w-3 h-3" /> Refresh
           </button>
           <button
             data-testid="admin-tenant-new"
             onClick={() => setShowNew((s) => !s)}
-            className="text-[12px] px-3 py-1.5 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold border border-[#2E2E38] hover:bg-[#FFD500] flex items-center gap-1"
+            className="text-[12px] px-3 py-1.5 rounded-sm bg-brand text-fg font-bold border border-fg hover:bg-brand-hover flex items-center gap-1"
           >
             <Plus className="w-3 h-3" /> New tenant
           </button>
@@ -211,71 +211,71 @@ function TenantsTab() {
       </div>
 
       {showNew && (
-        <form onSubmit={create} className="bg-white border border-[#E6E6E6] rounded-sm p-3 space-y-2">
+        <form onSubmit={create} className="bg-surface border border-border rounded-sm p-3 space-y-2">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <input
               data-testid="admin-tenant-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="Tenant name"
-              className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5"
+              className="text-[12px] border border-border rounded-sm px-2 py-1.5"
             />
             <input
               data-testid="admin-tenant-slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value)}
               placeholder="Slug (optional, auto-derived)"
-              className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5 font-mono"
+              className="text-[12px] border border-border rounded-sm px-2 py-1.5 font-mono"
             />
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="Description (optional)"
-              className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5"
+              className="text-[12px] border border-border rounded-sm px-2 py-1.5"
             />
           </div>
           <div className="flex justify-end gap-2">
-            <button type="button" onClick={() => setShowNew(false)} className="text-[12px] px-3 py-1.5 border border-[#E6E6E6] rounded-sm">
+            <button type="button" onClick={() => setShowNew(false)} className="text-[12px] px-3 py-1.5 border border-border rounded-sm">
               Cancel
             </button>
-            <button type="submit" disabled={busy} className="text-[12px] px-3 py-1.5 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold border border-[#2E2E38] flex items-center gap-1 disabled:opacity-50">
+            <button type="submit" disabled={busy} className="text-[12px] px-3 py-1.5 rounded-sm bg-brand text-fg font-bold border border-fg flex items-center gap-1 disabled:opacity-50">
               {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Create
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
+      <div className="bg-surface border border-border rounded-sm overflow-hidden">
         {loading ? (
-          <div className="p-6 text-[12px] text-[#747480] flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
+          <div className="p-6 text-[12px] text-fg-muted flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
         ) : tenants.length === 0 ? (
-          <div className="p-6 text-[12px] text-[#747480]">No tenants yet.</div>
+          <div className="p-6 text-[12px] text-fg-muted">No tenants yet.</div>
         ) : (
           <table className="w-full text-[12px]">
-            <thead className="bg-[#F6F6FA]">
+            <thead className="bg-bg">
               <tr className="text-left">
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Name</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Slug</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Projects</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Users</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Status</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Created</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Name</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Slug</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Projects</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Users</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Status</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Created</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {tenants.map((t) => (
-                <tr key={t.id} data-testid={`admin-tenant-row-${t.id}`} className="border-t border-[#F0F0F0]">
+                <tr key={t.id} data-testid={`admin-tenant-row-${t.id}`} className="border-t border-surface-2">
                   <td className="px-3 py-2 font-bold">{t.name}</td>
-                  <td className="px-3 py-2 font-mono text-[#747480]">{t.slug || t.id}</td>
+                  <td className="px-3 py-2 font-mono text-fg-muted">{t.slug || t.id}</td>
                   <td className="px-3 py-2">{t.project_count}</td>
                   <td className="px-3 py-2">{t.user_count}</td>
                   <td className="px-3 py-2">
-                    <button onClick={() => toggleActive(t)} className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                    <button onClick={() => toggleActive(t)} className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                       {t.is_active ? "Active" : "Disabled"}
                     </button>
                   </td>
-                  <td className="px-3 py-2 text-[#747480]">{(t.created_at || "").slice(0, 10)}</td>
+                  <td className="px-3 py-2 text-fg-muted">{(t.created_at || "").slice(0, 10)}</td>
                   <td className="px-3 py-2 text-right">
                     {t.id !== "tenant_default" && (
                       <button
@@ -358,77 +358,77 @@ function UsersTab() {
     <div className="space-y-4" data-testid="admin-users-tab">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
-          <h2 className="font-display font-bold text-[#2E2E38]">Users</h2>
-          <p className="text-[12px] text-[#747480]">Create tenant_user / tenant_admin accounts. Super-admins manage everyone.</p>
+          <h2 className="font-display font-bold text-fg">Users</h2>
+          <p className="text-[12px] text-fg-muted">Create tenant_user / tenant_admin accounts. Super-admins manage everyone.</p>
         </div>
         <div className="flex gap-2">
-          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5">
+          <select value={filter} onChange={(e) => setFilter(e.target.value)} className="text-[12px] border border-border rounded-sm px-2 py-1.5">
             <option value="">All tenants</option>
             {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
           </select>
-          <button onClick={() => setShowNew((s) => !s)} className="text-[12px] px-3 py-1.5 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold border border-[#2E2E38] hover:bg-[#FFD500] flex items-center gap-1">
+          <button onClick={() => setShowNew((s) => !s)} className="text-[12px] px-3 py-1.5 rounded-sm bg-brand text-fg font-bold border border-fg hover:bg-brand-hover flex items-center gap-1">
             <Plus className="w-3 h-3" /> New user
           </button>
         </div>
       </div>
 
       {showNew && (
-        <form onSubmit={create} className="bg-white border border-[#E6E6E6] rounded-sm p-3 grid grid-cols-1 md:grid-cols-3 gap-x-3 gap-y-2">
+        <form onSubmit={create} className="bg-surface border border-border rounded-sm p-3 grid grid-cols-1 md:grid-cols-3 gap-x-3 gap-y-2">
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Username <span className="text-red-600">*</span></span>
-            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. jsmith" autoComplete="off" className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5" />
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Username <span className="text-red-600">*</span></span>
+            <input value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value })} placeholder="e.g. jsmith" autoComplete="off" className="text-[12px] border border-border rounded-sm px-2 py-1.5" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Password <span className="text-red-600">*</span></span>
-            <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} type="password" placeholder="min 8 characters" autoComplete="new-password" className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5" />
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Password <span className="text-red-600">*</span></span>
+            <input value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} type="password" placeholder="min 8 characters" autoComplete="new-password" className="text-[12px] border border-border rounded-sm px-2 py-1.5" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Full name</span>
-            <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="optional" className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5" />
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Full name</span>
+            <input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="optional" className="text-[12px] border border-border rounded-sm px-2 py-1.5" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Email</span>
-            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="optional" className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5" />
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Email</span>
+            <input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="optional" className="text-[12px] border border-border rounded-sm px-2 py-1.5" />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Role <span className="text-red-600">*</span></span>
-            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5">
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Role <span className="text-red-600">*</span></span>
+            <select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} className="text-[12px] border border-border rounded-sm px-2 py-1.5">
               <option value="tenant_user">tenant_user</option>
               <option value="tenant_admin">tenant_admin</option>
               <option value="super_admin">super_admin</option>
             </select>
           </label>
           <label className="flex flex-col gap-1">
-            <span className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">Tenant {form.role !== "super_admin" && <span className="text-red-600">*</span>}</span>
-            <select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })} className="text-[12px] border border-[#E6E6E6] rounded-sm px-2 py-1.5 disabled:bg-[#F5F5F5]" disabled={form.role === "super_admin"}>
+            <span className="text-micro uppercase tracking-wider text-fg-muted font-bold">Tenant {form.role !== "super_admin" && <span className="text-red-600">*</span>}</span>
+            <select value={form.tenant_id} onChange={(e) => setForm({ ...form, tenant_id: e.target.value })} className="text-[12px] border border-border rounded-sm px-2 py-1.5 disabled:bg-surface-2" disabled={form.role === "super_admin"}>
               <option value="">— pick tenant —</option>
               {tenants.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
             </select>
           </label>
           <div className="md:col-span-3 flex justify-end gap-2 pt-1">
-            <button type="button" onClick={() => setShowNew(false)} className="text-[12px] px-3 py-1.5 border border-[#E6E6E6] rounded-sm">Cancel</button>
-            <button type="submit" disabled={busy} className="text-[12px] px-3 py-1.5 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold border border-[#2E2E38] flex items-center gap-1 disabled:opacity-50">
+            <button type="button" onClick={() => setShowNew(false)} className="text-[12px] px-3 py-1.5 border border-border rounded-sm">Cancel</button>
+            <button type="submit" disabled={busy} className="text-[12px] px-3 py-1.5 rounded-sm bg-brand text-fg font-bold border border-fg flex items-center gap-1 disabled:opacity-50">
               {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Plus className="w-3 h-3" />} Create
             </button>
           </div>
         </form>
       )}
 
-      <div className="bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
+      <div className="bg-surface border border-border rounded-sm overflow-hidden">
         {loading ? (
-          <div className="p-6 text-[12px] text-[#747480] flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
+          <div className="p-6 text-[12px] text-fg-muted flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading…</div>
         ) : users.length === 0 ? (
-          <div className="p-6 text-[12px] text-[#747480]">No users.</div>
+          <div className="p-6 text-[12px] text-fg-muted">No users.</div>
         ) : (
           <table className="w-full text-[12px]">
-            <thead className="bg-[#F6F6FA]">
+            <thead className="bg-bg">
               <tr className="text-left">
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Username</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Name</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Role</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Tenant</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Status</th>
-                <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Last login</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Username</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Name</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Role</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Tenant</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Status</th>
+                <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Last login</th>
                 <th className="px-3 py-2"></th>
               </tr>
             </thead>
@@ -436,23 +436,23 @@ function UsersTab() {
               {users.map((u) => {
                 const tenant = tenants.find((t) => t.id === u.tenant_id);
                 return (
-                  <tr key={u.id} data-testid={`admin-user-row-${u.id}`} className="border-t border-[#F0F0F0]">
+                  <tr key={u.id} data-testid={`admin-user-row-${u.id}`} className="border-t border-surface-2">
                     <td className="px-3 py-2 font-mono">{u.username}</td>
-                    <td className="px-3 py-2">{u.full_name || <span className="text-[#747480]">—</span>}</td>
+                    <td className="px-3 py-2">{u.full_name || <span className="text-fg-muted">—</span>}</td>
                     <td className="px-3 py-2">
-                      <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${u.role === "super_admin" ? "bg-[#FFE600] text-[#2E2E38]" : u.role === "tenant_admin" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-700"}`}>
+                      <span className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${u.role === "super_admin" ? "bg-brand text-fg" : u.role === "tenant_admin" ? "bg-blue-100 text-blue-700" : "bg-surface-2 text-fg-muted"}`}>
                         {u.role}
                       </span>
                     </td>
-                    <td className="px-3 py-2">{u.tenant_id === "*" ? <em className="text-[#747480]">all</em> : (tenant?.name || u.tenant_id)}</td>
+                    <td className="px-3 py-2">{u.tenant_id === "*" ? <em className="text-fg-muted">all</em> : (tenant?.name || u.tenant_id)}</td>
                     <td className="px-3 py-2">
-                      <button onClick={() => toggleActive(u)} className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                      <button onClick={() => toggleActive(u)} className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                         {u.is_active ? "Active" : "Disabled"}
                       </button>
                     </td>
-                    <td className="px-3 py-2 text-[#747480]">{u.last_login_at ? u.last_login_at.slice(0, 16).replace("T", " ") : "—"}</td>
+                    <td className="px-3 py-2 text-fg-muted">{u.last_login_at ? u.last_login_at.slice(0, 16).replace("T", " ") : "—"}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">
-                      <button onClick={() => resetPwd(u)} title="Reset password" className="p-1 hover:bg-[#F6F6FA] rounded-sm mr-1">
+                      <button onClick={() => resetPwd(u)} title="Reset password" className="p-1 hover:bg-bg rounded-sm mr-1">
                         <UserCog className="w-3 h-3" />
                       </button>
                       <button onClick={() => remove(u)} title="Delete" className="p-1 text-rose-500 hover:bg-rose-50 rounded-sm">
@@ -496,17 +496,17 @@ function AnalyticsTab() {
   }, [data]);
 
   if (loading) {
-    return <div className="text-[12px] text-[#747480] flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading dashboard…</div>;
+    return <div className="text-[12px] text-fg-muted flex items-center gap-2"><Loader2 className="w-3 h-3 animate-spin" /> Loading dashboard…</div>;
   }
-  if (!data) return <div className="text-[12px] text-[#747480]">No data.</div>;
+  if (!data) return <div className="text-[12px] text-fg-muted">No data.</div>;
 
   const totals = data.totals || {};
   return (
     <div className="space-y-5" data-testid="admin-analytics-tab">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="font-display font-bold text-[#2E2E38]">Tenant analytics</h2>
-          <p className="text-[12px] text-[#747480]">
+          <h2 className="font-display font-bold text-fg">Tenant analytics</h2>
+          <p className="text-[12px] text-fg-muted">
             Generated {(data.generated_at || "").slice(0, 19).replace("T", " ")} UTC.{" "}
             <button onClick={load} className="underline">refresh</button>
           </p>
@@ -521,16 +521,16 @@ function AnalyticsTab() {
           { label: "Total tokens", value: fmtNumber(totals.total_tokens) },
           { label: "Total cost (USD)", value: fmtUsd(totals.total_cost_usd) },
         ].map((s, i) => (
-          <div key={i} className="bg-white border border-[#E6E6E6] rounded-sm p-3">
-            <div className="text-[10px] uppercase tracking-wider text-[#747480] font-bold">{s.label}</div>
-            <div className="text-2xl font-display font-bold text-[#2E2E38] mt-1">{s.value ?? "—"}</div>
+          <div key={i} className="bg-surface border border-border rounded-sm p-3">
+            <div className="text-micro uppercase tracking-wider text-fg-muted font-bold">{s.label}</div>
+            <div className="text-2xl font-display font-bold text-fg mt-1">{s.value ?? "—"}</div>
           </div>
         ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="bg-white border border-[#E6E6E6] rounded-sm p-3">
-          <div className="text-[12px] font-bold text-[#2E2E38] mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Projects per tenant</div>
+        <div className="bg-surface border border-border rounded-sm p-3">
+          <div className="text-[12px] font-bold text-fg mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Projects per tenant</div>
           <div style={{ height: 280 }}>
             <ResponsiveContainer>
               <BarChart data={chartData}>
@@ -546,8 +546,8 @@ function AnalyticsTab() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E6E6E6] rounded-sm p-3">
-          <div className="text-[12px] font-bold text-[#2E2E38] mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Token usage per tenant</div>
+        <div className="bg-surface border border-border rounded-sm p-3">
+          <div className="text-[12px] font-bold text-fg mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Token usage per tenant</div>
           <div style={{ height: 280 }}>
             <ResponsiveContainer>
               <BarChart data={chartData}>
@@ -563,8 +563,8 @@ function AnalyticsTab() {
           </div>
         </div>
 
-        <div className="bg-white border border-[#E6E6E6] rounded-sm p-3 lg:col-span-2">
-          <div className="text-[12px] font-bold text-[#2E2E38] mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Cost share (USD)</div>
+        <div className="bg-surface border border-border rounded-sm p-3 lg:col-span-2">
+          <div className="text-[12px] font-bold text-fg mb-2 flex items-center gap-1"><ChevronRightIcon className="w-3 h-3" /> Cost share (USD)</div>
           <div style={{ height: 320 }}>
             <ResponsiveContainer>
               <PieChart>
@@ -578,22 +578,22 @@ function AnalyticsTab() {
         </div>
       </div>
 
-      <div className="bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
+      <div className="bg-surface border border-border rounded-sm overflow-hidden">
         <table className="w-full text-[12px]">
-          <thead className="bg-[#F6F6FA]">
+          <thead className="bg-bg">
             <tr className="text-left">
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Tenant</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Projects</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Users</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">LLM calls</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Tokens</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Cost (USD)</th>
-              <th className="px-3 py-2 font-bold uppercase text-[10px] tracking-wider">Status</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Tenant</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Projects</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Users</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">LLM calls</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Tokens</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Cost (USD)</th>
+              <th className="px-3 py-2 font-bold uppercase text-micro tracking-wider">Status</th>
             </tr>
           </thead>
           <tbody>
             {(data.tenants || []).map((t) => (
-              <tr key={t.tenant_id} className="border-t border-[#F0F0F0]">
+              <tr key={t.tenant_id} className="border-t border-surface-2">
                 <td className="px-3 py-2 font-bold">{t.name}</td>
                 <td className="px-3 py-2">{t.project_count}</td>
                 <td className="px-3 py-2">{t.user_count}</td>
@@ -601,7 +601,7 @@ function AnalyticsTab() {
                 <td className="px-3 py-2">{fmtNumber(t.total_tokens)}</td>
                 <td className="px-3 py-2">{fmtUsd(t.total_cost_usd)}</td>
                 <td className="px-3 py-2">
-                  <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
+                  <span className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold ${t.is_active ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}>
                     {t.is_active ? "Active" : "Disabled"}
                   </span>
                 </td>

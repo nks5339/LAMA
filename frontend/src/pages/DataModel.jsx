@@ -90,15 +90,15 @@ function ResetModal({ open, onClose, onConfirm, title, warning, accent = "red" }
   const enabled = typed === "RESET";
   const accentBg = accent === "orange" ? "bg-orange-600 hover:bg-orange-700" : "bg-red-600 hover:bg-red-700";
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" data-testid="reset-modal" onClick={onClose}>
-      <div className="bg-white rounded-sm border-2 border-[#E6E6E6] shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
+    <div aria-hidden="true" className="fixed inset-0 bg-ink/40 z-50 flex items-center justify-center" data-testid="reset-modal" onClick={onClose}>
+      <div role="presentation" className="bg-surface rounded-sm border-2 border-border shadow-xl max-w-md w-full p-6" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 mb-3">
           <AlertTriangle className={`w-5 h-5 ${accent === "orange" ? "text-orange-600" : "text-red-600"}`} />
-          <h3 className="font-display font-bold text-base text-[#2E2E38]">{title}</h3>
+          <h3 className="font-display font-bold text-base text-fg">{title}</h3>
         </div>
-        <p className="text-xs text-[#747480] mb-4 leading-relaxed whitespace-pre-line">{warning}</p>
-        <label className="block text-[10px] uppercase tracking-wider text-[#747480] font-semibold mb-1">
-          Type <span className="font-mono text-[#2E2E38]">RESET</span> to confirm
+        <p className="text-xs text-fg-muted mb-4 leading-relaxed whitespace-pre-line">{warning}</p>
+        <label className="block text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1">
+          Type <span className="font-mono text-fg">RESET</span> to confirm
         </label>
         <input
           autoFocus
@@ -106,7 +106,7 @@ function ResetModal({ open, onClose, onConfirm, title, warning, accent = "red" }
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           data-testid="reset-confirm-input"
-          className="w-full border border-[#E6E6E6] rounded-sm px-2 py-1.5 text-sm font-mono focus:border-[#2E2E38] outline-none"
+          className="w-full border border-border rounded-sm px-2 py-1.5 text-sm font-mono focus:border-fg outline-none"
         />
         <div className="flex justify-end gap-2 mt-4">
           <Button size="sm" variant="outline" onClick={onClose} className="text-xs h-8 rounded-sm" data-testid="reset-cancel">
@@ -175,29 +175,29 @@ function DDLViewer({ projectId, type, artifact, onArtifactChange, onRegenerate, 
   return (
     <div className="h-full flex flex-col">
       {/* Toolbar */}
-      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2 bg-white">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2 bg-surface">
         <Button
           size="sm"
           onClick={onRegenerate}
           disabled={generating}
           data-testid={`generate-${type}-btn`}
-          className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-xs h-7"
+          className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-xs h-7"
         >
           {generating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
           {empty ? "Generate" : "Regenerate"}
         </Button>
         {!empty && !editing && (
-          <Button size="sm" variant="outline" onClick={startEdit} disabled={artifact.frozen} className="text-xs h-7 rounded-sm border-[#E6E6E6]" data-testid={`edit-${type}-btn`}>
+          <Button size="sm" variant="outline" onClick={startEdit} disabled={artifact.frozen} className="text-xs h-7 rounded-sm border-border" data-testid={`edit-${type}-btn`}>
             <Pencil className="w-3 h-3 mr-1" />
             Edit
           </Button>
         )}
         {editing && (
           <>
-            <Button size="sm" onClick={saveEdit} disabled={busy} className="text-xs h-7 rounded-sm bg-[#2E2E38] text-white hover:bg-[#1A1A24]" data-testid={`save-${type}-btn`}>
+            <Button size="sm" onClick={saveEdit} disabled={busy} className="text-xs h-7 rounded-sm bg-ink text-ink-fg hover:bg-ink-hover" data-testid={`save-${type}-btn`}>
               <Check className="w-3 h-3 mr-1" /> Save
             </Button>
-            <Button size="sm" variant="outline" onClick={cancelEdit} className="text-xs h-7 rounded-sm border-[#E6E6E6]">
+            <Button size="sm" variant="outline" onClick={cancelEdit} className="text-xs h-7 rounded-sm border-border">
               <X className="w-3 h-3 mr-1" /> Cancel
             </Button>
           </>
@@ -210,7 +210,7 @@ function DDLViewer({ projectId, type, artifact, onArtifactChange, onRegenerate, 
                     artifacts too so reviewers / super-admins can
                     audit an already-frozen old project. */}
                 <ConfidenceBadge projectId={projectId} stage="DataModel" compact />
-                <span className="text-[10px] uppercase tracking-wider bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm font-bold">
+                <span className="text-micro uppercase tracking-wider bg-brand text-fg px-1.5 py-0.5 rounded-sm font-bold">
                   Frozen v{artifact.version}
                 </span>
               </>
@@ -218,7 +218,7 @@ function DDLViewer({ projectId, type, artifact, onArtifactChange, onRegenerate, 
               <>
                 {/* iter-13.71 — per-stage Accuracy / Confidence badge */}
                 <ConfidenceBadge projectId={projectId} stage="DataModel" compact />
-                <Button size="sm" variant="outline" onClick={handleFreeze} disabled={busy} className="text-xs h-7 rounded-sm border-[#E6E6E6]" data-testid={`freeze-${type}-btn`}>
+                <Button size="sm" variant="outline" onClick={handleFreeze} disabled={busy} className="text-xs h-7 rounded-sm border-border" data-testid={`freeze-${type}-btn`}>
                   <Lock className="w-3 h-3 mr-1" /> Freeze
                 </Button>
               </>
@@ -228,32 +228,32 @@ function DDLViewer({ projectId, type, artifact, onArtifactChange, onRegenerate, 
               target="_blank"
               rel="noreferrer"
               data-testid={`download-${type}-btn`}
-              className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-[#E6E6E6] rounded-sm h-7 hover:border-[#2E2E38]"
+              className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded-sm h-7 hover:border-fg"
             >
               <Download className="w-3 h-3" /> .{TYPE_META[type]?.ext}
             </a>
-            <span className="text-[10px] text-[#747480] ml-auto" data-testid={`version-${type}`}>v{artifact.version}</span>
+            <span className="text-micro text-fg-muted ml-auto" data-testid={`version-${type}`}>v{artifact.version}</span>
           </>
         )}
       </div>
 
       {/* SSE log */}
       {generating && generationLog && (
-        <div className="px-3 py-2 bg-[#FFFCE6] border-b border-[#FFE600]/40 text-xs text-[#2E2E38] flex items-center gap-2" data-testid={`gen-log-${type}`}>
+        <div className="px-3 py-2 bg-brand-tint border-b border-brand/40 text-xs text-fg flex items-center gap-2" data-testid={`gen-log-${type}`}>
           <Loader2 className="w-3 h-3 animate-spin" />
           <span className="flex-1">{generationLog.step || generationLog.message}</span>
           {generationLog.pct != null && (
-            <div className="w-24 h-1.5 bg-[#E6E6E6] rounded-sm overflow-hidden">
-              <div className="h-full bg-[#FFE600]" style={{ width: `${generationLog.pct}%` }} />
+            <div className="w-24 h-1.5 bg-border rounded-sm overflow-hidden">
+              <div className="h-full bg-brand" style={{ width: `${generationLog.pct}%` }} />
             </div>
           )}
         </div>
       )}
 
       {/* Body */}
-      <div className="flex-1 overflow-auto mos-scroll bg-[#F6F6FA]" data-testid={`ddl-body-${type}`}>
+      <div className="flex-1 overflow-auto mos-scroll bg-bg" data-testid={`ddl-body-${type}`}>
         {empty && !generating && (
-          <div className="text-center py-16 text-sm text-[#747480]">
+          <div className="text-center py-16 text-sm text-fg-muted">
             <Database className="w-6 h-6 mx-auto mb-2" />
             No {TYPE_META[type]?.label} yet. Click <b>Generate</b>.
           </div>
@@ -263,7 +263,7 @@ function DDLViewer({ projectId, type, artifact, onArtifactChange, onRegenerate, 
             value={editText}
             onChange={(e) => setEditText(e.target.value)}
             data-testid={`editor-${type}`}
-            className="w-full h-full font-mono text-xs bg-white p-3 border-0 outline-none resize-none"
+            className="w-full h-full font-mono text-xs bg-surface p-3 border-0 outline-none resize-none"
             style={{ minHeight: "100%" }}
           />
         ) : (
@@ -297,13 +297,13 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
 
   return (
     <div className="h-full flex flex-col">
-      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2 bg-white">
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2 bg-surface">
         <Button
           size="sm"
           onClick={onGenerate}
           disabled={generating}
           data-testid="generate-bus-matrix-btn"
-          className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-xs h-7"
+          className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-xs h-7"
         >
           {generating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
           {matrix ? "Regenerate" : "Generate"}
@@ -313,34 +313,34 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
             href={downloadArtifactUrl(projectId, artifact.id)}
             target="_blank"
             rel="noreferrer"
-            className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-[#E6E6E6] rounded-sm h-7 hover:border-[#2E2E38]"
+            className="inline-flex items-center gap-1 text-xs px-2 py-1 border border-border rounded-sm h-7 hover:border-fg"
             data-testid="download-bus-matrix-btn"
           >
             <Download className="w-3 h-3" /> .json
           </a>
         )}
         {matrix && (
-          <span className="text-[10px] text-[#747480] ml-auto">
+          <span className="text-micro text-fg-muted ml-auto">
             {(matrix.facts || []).length} facts · {(matrix.dimensions || []).length} dims
           </span>
         )}
       </div>
-      <div className="flex-1 overflow-auto mos-scroll bg-[#F6F6FA] p-3" data-testid="bus-matrix-body">
+      <div className="flex-1 overflow-auto mos-scroll bg-bg p-3" data-testid="bus-matrix-body">
         {!matrix && !generating && (
-          <div className="text-center py-16 text-sm text-[#747480]">
+          <div className="text-center py-16 text-sm text-fg-muted">
             <TableProperties className="w-6 h-6 mx-auto mb-2" />
             No bus matrix yet. Generate OLTP first, then click <b>Generate</b>.
           </div>
         )}
         {matrix && (
           <>
-            <div className="overflow-x-auto bg-white border border-[#E6E6E6] rounded-sm">
+            <div className="overflow-x-auto bg-surface border border-border rounded-sm">
               <table className="text-xs border-collapse" data-testid="bus-matrix-table">
                 <thead>
                   <tr>
-                    <th className="bg-[#2E2E38] text-white px-2 py-1.5 text-left sticky left-0 z-10">Fact \\ Dim</th>
+                    <th className="bg-ink text-ink-fg px-2 py-1.5 text-left sticky left-0 z-10">Fact \\ Dim</th>
                     {(matrix.dimensions || []).map((d) => (
-                      <th key={d.name} className="bg-[#2E2E38] text-white px-2 py-1.5 text-left whitespace-nowrap font-mono">
+                      <th key={d.name} className="bg-ink text-ink-fg px-2 py-1.5 text-left whitespace-nowrap font-mono">
                         {d.name}
                       </th>
                     ))}
@@ -348,8 +348,8 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
                 </thead>
                 <tbody>
                   {(matrix.facts || []).map((f) => (
-                    <tr key={f.name} className="border-b border-[#E6E6E6]">
-                      <td className="px-2 py-1.5 font-mono font-semibold text-[#2E2E38] sticky left-0 bg-[#F6F6FA]">{f.name}</td>
+                    <tr key={f.name} className="border-b border-border">
+                      <td className="px-2 py-1.5 font-mono font-semibold text-fg sticky left-0 bg-bg">{f.name}</td>
                       {(matrix.dimensions || []).map((d) => {
                         const checked = (matrix.matrix?.[f.name] || {})[d.name];
                         return (
@@ -364,26 +364,26 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
               </table>
             </div>
             <div className="mt-4 space-y-2">
-              <div className="text-[10px] uppercase tracking-wider text-[#747480] font-semibold">Fact details</div>
+              <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold">Fact details</div>
               {(matrix.facts || []).map((f) => (
-                <div key={f.name} className="bg-white border border-[#E6E6E6] rounded-sm">
+                <div key={f.name} className="bg-surface border border-border rounded-sm">
                   <button
                     type="button"
                     onClick={() => setOpenFact(openFact === f.name ? null : f.name)}
-                    className="w-full px-3 py-2 flex items-center justify-between text-left text-xs hover:bg-[#F6F6FA]"
+                    className="w-full px-3 py-2 flex items-center justify-between text-left text-xs hover:bg-bg"
                     data-testid={`fact-toggle-${f.name}`}
                   >
-                    <span className="font-mono font-semibold text-[#2E2E38]">{f.name}</span>
-                    <span className="text-[10px] text-[#747480]">grain: {f.grain || "—"}</span>
+                    <span className="font-mono font-semibold text-fg">{f.name}</span>
+                    <span className="text-micro text-fg-muted">grain: {f.grain || "—"}</span>
                     {openFact === f.name ? <ChevronDown className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
                   </button>
                   {openFact === f.name && (
-                    <div className="px-3 pb-3 border-t border-[#E6E6E6]">
-                      <div className="text-[10px] uppercase tracking-wider text-[#747480] mt-2">Source tables</div>
+                    <div className="px-3 pb-3 border-t border-border">
+                      <div className="text-micro uppercase tracking-wider text-fg-muted mt-2">Source tables</div>
                       <div className="text-xs font-mono">{(f.source_tables || []).join(", ") || "—"}</div>
-                      <div className="text-[10px] uppercase tracking-wider text-[#747480] mt-2">Measures</div>
+                      <div className="text-micro uppercase tracking-wider text-fg-muted mt-2">Measures</div>
                       <table className="w-full text-xs mt-1">
-                        <thead className="bg-[#F6F6FA]">
+                        <thead className="bg-bg">
                           <tr>
                             <th className="px-2 py-1 text-left">name</th>
                             <th className="px-2 py-1 text-left">type</th>
@@ -392,10 +392,10 @@ function BusMatrixViewer({ projectId, artifact, onGenerate, generating }) {
                         </thead>
                         <tbody>
                           {(f.measures || []).map((m, i) => (
-                            <tr key={i} className="border-t border-[#E6E6E6]">
+                            <tr key={i} className="border-t border-border">
                               <td className="px-2 py-1 font-mono">{m.name}</td>
-                              <td className="px-2 py-1 text-[#747480]">{m.type}</td>
-                              <td className="px-2 py-1 text-[#0066CC]">{m.agg}</td>
+                              <td className="px-2 py-1 text-fg-muted">{m.type}</td>
+                              <td className="px-2 py-1 text-info">{m.agg}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -432,13 +432,13 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
     const meta = TYPE_META[type];
     const Icon = meta?.icon || FileCode;
     return (
-      <div key={type} className="bg-white border border-[#E6E6E6] rounded-sm p-3" data-testid={`artifact-card-${type}`}>
+      <div key={type} className="bg-surface border border-border rounded-sm p-3" data-testid={`artifact-card-${type}`}>
         <div className="flex items-start justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
-            <Icon className="w-4 h-4 text-[#2E2E38] shrink-0" />
+            <Icon className="w-4 h-4 text-fg shrink-0" />
             <div className="min-w-0">
-              <div className="text-xs font-semibold text-[#2E2E38] truncate">{meta?.label || type}</div>
-              <div className="text-[10px] text-[#747480]">
+              <div className="text-xs font-semibold text-fg truncate">{meta?.label || type}</div>
+              <div className="text-micro text-fg-muted">
                 {a ? (
                   <>
                     v{a.version} · {a.generated_by?.slice(0, 24) || "—"} · {new Date(a.updated_at).toLocaleString()}
@@ -451,8 +451,8 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
           </div>
           {a && (
             <span
-              className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold shrink-0 ${
-                a.frozen ? "bg-[#FFE600] text-[#2E2E38]" : "bg-[#F6F6FA] text-[#747480]"
+              className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm font-bold shrink-0 ${
+                a.frozen ? "bg-brand text-fg" : "bg-bg text-fg-muted"
               }`}
             >
               {a.frozen ? "Frozen" : "Draft"}
@@ -466,7 +466,7 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
               target="_blank"
               rel="noreferrer"
               data-testid={`artifact-download-${type}`}
-              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-[#E6E6E6] rounded-sm hover:border-[#2E2E38]"
+              className="inline-flex items-center gap-1 text-micro px-1.5 py-0.5 border border-border rounded-sm hover:border-fg"
             >
               <Download className="w-2.5 h-2.5" /> .{meta?.ext}
             </a>
@@ -474,22 +474,22 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
               type="button"
               onClick={() => setOpenTrace(openTrace === a.id ? null : a.id)}
               data-testid={`artifact-trace-${type}`}
-              className="inline-flex items-center gap-1 text-[10px] px-1.5 py-0.5 border border-[#E6E6E6] rounded-sm hover:border-[#2E2E38]"
+              className="inline-flex items-center gap-1 text-micro px-1.5 py-0.5 border border-border rounded-sm hover:border-fg"
             >
               <GitBranch className="w-2.5 h-2.5" /> Traceability
             </button>
           </div>
         )}
         {a && openTrace === a.id && (
-          <div className="mt-2 bg-[#F6F6FA] border border-[#E6E6E6] rounded-sm p-2 text-[11px] font-mono leading-relaxed text-[#2E2E38]" data-testid={`trace-${type}`}>
+          <div className="mt-2 bg-bg border border-border rounded-sm p-2 text-micro font-mono leading-relaxed text-fg" data-testid={`trace-${type}`}>
             <div className="font-semibold mb-1">📄 Created from</div>
             {Object.entries(a.tracability || {}).map(([k, v]) => (
               <div key={k} className="ml-3">
-                ├── <span className="text-[#747480]">{k}:</span>{" "}
-                <span className="text-[#2E2E38]">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
+                ├── <span className="text-fg-muted">{k}:</span>{" "}
+                <span className="text-fg">{typeof v === "object" ? JSON.stringify(v) : String(v)}</span>
               </div>
             ))}
-            {Object.keys(a.tracability || {}).length === 0 && <div className="ml-3 text-[#747480]">No traceability metadata.</div>}
+            {Object.keys(a.tracability || {}).length === 0 && <div className="ml-3 text-fg-muted">No traceability metadata.</div>}
           </div>
         )}
       </div>
@@ -497,27 +497,27 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
   };
 
   return (
-    <div className="h-full overflow-y-auto mos-scroll p-3 space-y-3 bg-[#F6F6FA]">
+    <div className="h-full overflow-y-auto mos-scroll p-3 space-y-3 bg-bg">
       <div>
-        <div className="text-[10px] uppercase tracking-wider text-[#747480] font-semibold mb-2">DDL & Bus Matrix</div>
+        <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-2">DDL & Bus Matrix</div>
         <div className="space-y-2">{["oltp_ddl", "olap_ddl", "bus_matrix"].map(renderCard)}</div>
       </div>
       <div>
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[10px] uppercase tracking-wider text-[#747480] font-semibold">Migration Scripts</div>
+          <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold">Migration Scripts</div>
           <Button
             size="sm"
             onClick={onGenerateScripts}
             disabled={scriptsGenerating || !byType.oltp_ddl || !byType.olap_ddl}
             data-testid="generate-scripts-btn"
-            className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-[10px] h-6 px-2"
+            className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-micro h-6 px-2"
           >
             {scriptsGenerating ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
             Generate All
           </Button>
         </div>
         {scriptsLog && (
-          <div className="text-[10px] text-[#747480] bg-[#FFFCE6] border border-[#FFE600]/40 rounded-sm px-2 py-1 mb-2" data-testid="scripts-log">
+          <div className="text-micro text-fg-muted bg-brand-tint border border-brand/40 rounded-sm px-2 py-1 mb-2" data-testid="scripts-log">
             {scriptsLog}
           </div>
         )}
@@ -526,7 +526,7 @@ function ArtifactsPanel({ projectId, artifacts, onRefresh, scriptsGenerating, sc
       <button
         type="button"
         onClick={onRefresh}
-        className="text-[10px] text-[#747480] hover:text-[#2E2E38] underline"
+        className="text-micro text-fg-muted hover:text-fg underline"
         data-testid="refresh-artifacts"
       >
         Refresh
@@ -747,7 +747,7 @@ export default function DataModelPage() {
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="text-xs px-3 py-1.5 bg-[#FFE600] text-[#2E2E38] rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2E2E38]"
+            className="text-xs px-3 py-1.5 bg-brand text-fg rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-fg"
             data-testid="empty-goto-discovery"
           >
             Go to Discovery →
@@ -762,28 +762,28 @@ export default function DataModelPage() {
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
       {/* Header */}
-      <header className="bg-white border-b-2 border-[#FFE600] px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3" data-testid="datamodel-header">
+      <header className="bg-surface border-b-2 border-brand px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3" data-testid="datamodel-header">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 2 of 5</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Data Model</h1>
+          <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 2 of 5</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg">Data Model</h1>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-right">
-            <div className="text-[10px] uppercase tracking-widest text-[#747480]">Project</div>
-            <div className="text-sm font-semibold text-[#2E2E38]">{active.name}</div>
+            <div className="text-micro uppercase tracking-widest text-fg-muted">Project</div>
+            <div className="text-sm font-semibold text-fg">{active.name}</div>
           </div>
           <div className="relative">
             <button
               type="button"
               onClick={() => setMenuOpen((m) => !m)}
               data-testid="datamodel-menu-btn"
-              className="p-1.5 rounded-sm hover:bg-[#F6F6FA] border border-[#E6E6E6]"
+              className="p-1.5 rounded-sm hover:bg-bg border border-border"
               aria-label="Open menu"
             >
-              <MoreVertical className="w-4 h-4 text-[#2E2E38]" />
+              <MoreVertical className="w-4 h-4 text-fg" />
             </button>
             {menuOpen && (
-              <div className="absolute right-0 top-9 bg-white border border-[#E6E6E6] rounded-sm shadow-md z-30 min-w-[200px]" data-testid="datamodel-menu">
+              <div className="absolute right-0 top-9 bg-surface border border-border rounded-sm shadow-md z-30 min-w-[200px]" data-testid="datamodel-menu">
                 <button
                   type="button"
                   onClick={() => {
@@ -791,7 +791,7 @@ export default function DataModelPage() {
                     setReingestOpen(true);
                   }}
                   data-testid="open-live-db-reingest"
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-[#F6F6FA] flex items-center gap-2 text-[#2E2E38] border-b border-[#F0F0F0]"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-bg flex items-center gap-2 text-fg border-b border-surface-2"
                 >
                   <Database className="w-3 h-3" /> Re-ingest Live DB
                 </button>
@@ -802,7 +802,7 @@ export default function DataModelPage() {
                     setResetMode("stage2");
                   }}
                   data-testid="open-stage2-reset"
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-[#F6F6FA] flex items-center gap-2 text-orange-600"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-bg flex items-center gap-2 text-orange-600"
                 >
                   <RotateCcw className="w-3 h-3" /> Stage 2 Reset
                 </button>
@@ -813,7 +813,7 @@ export default function DataModelPage() {
                     setResetMode("factory");
                   }}
                   data-testid="open-factory-reset"
-                  className="w-full text-left px-3 py-2 text-xs hover:bg-[#F6F6FA] flex items-center gap-2 text-red-600"
+                  className="w-full text-left px-3 py-2 text-xs hover:bg-bg flex items-center gap-2 text-red-600"
                 >
                   <Trash2 className="w-3 h-3" /> Full Factory Reset
                 </button>
@@ -824,13 +824,13 @@ export default function DataModelPage() {
       </header>
 
       {dataModelLocked && (
-        <div className="bg-[#FFFCE6] border-b border-[#FFE600] px-6 py-3 flex items-center gap-2 text-sm text-[#2E2E38]" data-testid="datamodel-locked">
+        <div className="bg-brand-tint border-b border-brand px-6 py-3 flex items-center gap-2 text-sm text-fg" data-testid="datamodel-locked">
           <Lock className="w-4 h-4" />
           Stage 2 is locked. Freeze the Discovery SRS first.
           <button
             type="button"
             onClick={() => navigate("/")}
-            className="ml-2 text-xs underline text-[#2E2E38] font-semibold"
+            className="ml-2 text-xs underline text-fg font-semibold"
           >
             Go to Discovery →
           </button>
@@ -838,15 +838,15 @@ export default function DataModelPage() {
       )}
 
       {!dataModelLocked && (
-        <div className="flex-1 min-h-0 bg-[#F6F6FA] flex flex-col">
+        <div className="flex-1 min-h-0 bg-bg flex flex-col">
           {/* ER diagram - Accordion */}
           <div className="px-2 pt-2">
-            <Accordion type="single" collapsible defaultValue="er-diagram" className="bg-white border border-[#E6E6E6] rounded-sm">
+            <Accordion type="single" collapsible defaultValue="er-diagram" className="bg-surface border border-border rounded-sm">
               <AccordionItem value="er-diagram" className="border-0">
-                <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-gray-50">
+                <AccordionTrigger className="px-3 py-2 hover:no-underline hover:bg-surface-2">
                   <div className="flex items-center gap-2">
-                    <Network className="w-4 h-4 text-[#2E2E38]" />
-                    <h3 className="font-display text-sm font-bold text-[#2E2E38] tracking-tight">Database Schema</h3>
+                    <Network className="w-4 h-4 text-fg" />
+                    <h3 className="font-display text-sm font-bold text-fg tracking-tight">Database Schema</h3>
                     <button
                       type="button"
                       onClick={(e) => {
@@ -855,16 +855,16 @@ export default function DataModelPage() {
                       }}
                       disabled={erLoading}
                       data-testid="reload-er"
-                      className="ml-2 text-[10px] underline text-[#747480] hover:text-[#2E2E38]"
+                      className="ml-2 text-micro underline text-fg-muted hover:text-fg"
                     >
                       {erLoading ? "Loading…" : "Reload"}
                     </button>
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="px-0 pb-0">
-                  <div className="border-t border-[#E6E6E6]">
+                  <div className="border-t border-border">
                     {/* Tabs for diagram views */}
-                    <div className="border-b border-[#E6E6E6] flex">
+                    <div className="border-b border-border flex">
                       {[
                         { k: "new", label: "Table View" },
                         { k: "old", label: "Graph View" },
@@ -873,10 +873,10 @@ export default function DataModelPage() {
                           key={t.k}
                           type="button"
                           onClick={() => setErTab(t.k)}
-                          className={`text-xs px-3 py-2 font-semibold tracking-tight border-r border-[#E6E6E6] ${
+                          className={`text-xs px-3 py-2 font-semibold tracking-tight border-r border-border ${
                             erTab === t.k
-                              ? "bg-[#2E2E38] text-white"
-                              : "bg-white text-[#747480] hover:text-[#2E2E38]"
+                              ? "bg-ink text-ink-fg"
+                              : "bg-surface text-fg-muted hover:text-fg"
                           }`}
                         >
                           {t.label}
@@ -908,8 +908,8 @@ export default function DataModelPage() {
 
               <Panel defaultSize={50} minSize={25} id="ddl" order={1}>
                 <div className="h-full flex flex-col">
-                  <div className="bg-white border border-[#E6E6E6] rounded-sm flex-1 flex flex-col overflow-hidden">
-                    <div className="border-b border-[#E6E6E6] flex">
+                  <div className="bg-surface border border-border rounded-sm flex-1 flex flex-col overflow-hidden">
+                    <div className="border-b border-border flex">
                       {[
                         { k: "oltp_ddl", label: "OLTP" },
                         { k: "olap_ddl", label: "OLAP" },
@@ -920,10 +920,10 @@ export default function DataModelPage() {
                           type="button"
                           onClick={() => setTab(t.k)}
                           data-testid={`tab-${t.k}`}
-                          className={`text-xs px-3 py-2 font-semibold tracking-tight border-r border-[#E6E6E6] ${
+                          className={`text-xs px-3 py-2 font-semibold tracking-tight border-r border-border ${
                             tab === t.k
-                              ? "bg-[#2E2E38] text-white"
-                              : "bg-white text-[#747480] hover:text-[#2E2E38]"
+                              ? "bg-ink text-ink-fg"
+                              : "bg-surface text-fg-muted hover:text-fg"
                           }`}
                         >
                           {t.label}
@@ -969,9 +969,9 @@ export default function DataModelPage() {
 
               <Panel defaultSize={50} minSize={18} id="artifacts" order={2}>
                 <div className="h-full">
-                  <div className="h-full bg-white border border-[#E6E6E6] rounded-sm overflow-hidden flex flex-col">
-                    <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
-                      <h3 className="font-display text-sm font-bold tracking-tight text-[#2E2E38]">Artifacts & Traceability</h3>
+                  <div className="h-full bg-surface border border-border rounded-sm overflow-hidden flex flex-col">
+                    <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+                      <h3 className="font-display text-sm font-bold tracking-tight text-fg">Artifacts & Traceability</h3>
                     </div>
                     <div className="flex-1 min-h-0">
                       <ArtifactsPanel

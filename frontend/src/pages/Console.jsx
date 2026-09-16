@@ -31,11 +31,20 @@ import {
   ensureFactoryOrchestratorWorkspace, wakeFactoryOrchestratorDroid,
 } from "@/lib/api";
 import { Button } from "@/components/ui/button";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import {
+  Field as FormField,
+  TextInput,
+  SelectInput,
+  FormErrorSummary,
+} from "@/components/ui/form";
 import { FACTORY_MODEL_OPTIONS } from "@/lib/factoryModels";
 
 const STAGES = ["Discovery", "DataModel", "Architecture", "CodeGen", "Living"];
 const COMPLEXITY_COLOR = {
-  trivial: "bg-slate-100 text-slate-600",
+  trivial: "bg-surface-2 text-fg-muted",
   low: "bg-emerald-100 text-emerald-700",
   medium: "bg-amber-100 text-amber-700",
   high: "bg-rose-100 text-rose-700",
@@ -57,7 +66,7 @@ const TIER_HINT = {
 };
 const STATUS_COLOR = {
   enabled: "bg-emerald-100 text-emerald-700",
-  disabled: "bg-slate-200 text-slate-600",
+  disabled: "bg-surface-3 text-fg-muted",
   replaced: "bg-violet-100 text-violet-700",
   wrapped: "bg-blue-100 text-blue-700",
 };
@@ -415,7 +424,7 @@ function FactoryOrchestratorTab() {
 
   if (!projectId) {
     return (
-      <div className="bg-white border border-[#E6E6E6] rounded-sm p-6 text-[12px] text-[#747480]">
+      <div className="bg-surface border border-border rounded-sm p-6 text-[12px] text-fg-muted">
         Select an active project to configure Factory orchestrator.
       </div>
     );
@@ -423,22 +432,22 @@ function FactoryOrchestratorTab() {
 
   return (
     <div className="space-y-4" data-testid="tab-factory-orchestrator">
-      <div className="bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
-        <div className="bg-[#FFFCE6] border-l-4 border-[#FFE600] px-4 py-3">
-          <div className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Factory-managed orchestration</div>
-          <div className="text-sm font-display font-bold text-[#2E2E38]">
+      <div className="bg-surface border border-border rounded-sm overflow-hidden">
+        <div className="bg-brand-tint border-l-4 border-brand px-4 py-3">
+          <div className="text-micro uppercase font-bold tracking-wider text-fg-muted">Factory-managed orchestration</div>
+          <div className="text-sm font-display font-bold text-fg">
             Route all project LLM calls through Factory Sessions API
           </div>
-          <div className="text-[11px] text-[#747480] mt-0.5">
+          <div className="text-micro text-fg-muted mt-0.5">
             When enabled, LAMA sends prompts to Factory and renders returned responses in the same UI panels.
           </div>
         </div>
 
         <div className="p-4 space-y-3">
-          <label className="flex items-center justify-between border border-[#E6E6E6] rounded-sm px-3 py-2">
+          <label className="flex items-center justify-between border border-border rounded-sm px-3 py-2">
             <div>
-              <div className="text-[12px] font-semibold text-[#2E2E38]">Enable Factory Orchestrator</div>
-              <div className="text-[10px] text-[#747480]">
+              <div className="text-[12px] font-semibold text-fg">Enable Factory Orchestrator</div>
+              <div className="text-micro text-fg-muted">
                 User-controlled on/off switch for this project.
                 {(form.app_key.trim() || config?.has_app_key) && form.computer_id.trim() && !form.enabled && (
                   <span className="block mt-1 text-amber-700">
@@ -478,25 +487,25 @@ function FactoryOrchestratorTab() {
               app_key + computer_id; CLI just needs the binary path). */}
           <div
             data-testid="factory-orch-mode-row"
-            className="border-2 border-[#FFE600] rounded-sm bg-[#FFFCE6] px-3 py-2"
+            className="border-2 border-brand rounded-sm bg-brand-tint px-3 py-2"
           >
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <div className="text-[12px] font-bold text-[#2E2E38] uppercase tracking-wider">Transport mode</div>
-                <div className="text-[10px] text-[#747480] mt-0.5">
+                <div className="text-[12px] font-bold text-fg uppercase tracking-wider">Transport mode</div>
+                <div className="text-micro text-fg-muted mt-0.5">
                   Switch between Factory's <b>HTTP API</b> (managed Computer sandbox)
                   and the local <b>droid CLI</b> (subprocess on the LAMA host). Per-project — flip at any time.
                 </div>
               </div>
-              <div className="flex items-center gap-1 shrink-0 bg-white border border-[#E6E6E6] rounded-sm p-0.5">
+              <div className="flex items-center gap-1 shrink-0 bg-surface border border-border rounded-sm p-0.5">
                 <button
                   type="button"
                   data-testid="factory-orch-mode-api"
                   onClick={() => setForm((p) => ({ ...p, mode: "api" }))}
-                  className={`text-[11px] font-bold px-3 py-1 rounded-sm transition-colors ${
+                  className={`text-micro font-bold px-3 py-1 rounded-sm transition-colors ${
                     form.mode === "api"
-                      ? "bg-[#2E2E38] text-white"
-                      : "text-[#747480] hover:text-[#2E2E38]"
+                      ? "bg-ink text-ink-fg"
+                      : "text-fg-muted hover:text-fg"
                   }`}
                 >
                   API
@@ -505,10 +514,10 @@ function FactoryOrchestratorTab() {
                   type="button"
                   data-testid="factory-orch-mode-cli"
                   onClick={() => setForm((p) => ({ ...p, mode: "cli" }))}
-                  className={`text-[11px] font-bold px-3 py-1 rounded-sm transition-colors ${
+                  className={`text-micro font-bold px-3 py-1 rounded-sm transition-colors ${
                     form.mode === "cli"
-                      ? "bg-[#2E2E38] text-white"
-                      : "text-[#747480] hover:text-[#2E2E38]"
+                      ? "bg-ink text-ink-fg"
+                      : "text-fg-muted hover:text-fg"
                   }`}
                 >
                   CLI
@@ -521,32 +530,32 @@ function FactoryOrchestratorTab() {
                 className="mt-3 grid grid-cols-1 lg:grid-cols-2 gap-3"
               >
                 <label className="block">
-                  <span className="text-[10px] uppercase font-bold text-[#747480]">droid binary path (optional)</span>
+                  <span className="text-micro uppercase font-bold text-fg-muted">droid binary path (optional)</span>
                   <input
                     data-testid="factory-orch-cli-bin"
                     value={form.cli_bin}
                     onChange={(e) => setForm((p) => ({ ...p, cli_bin: e.target.value }))}
                     placeholder="droid  (or absolute path, e.g. /usr/local/bin/droid)"
-                    className="mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5"
+                    className="mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5"
                   />
-                  <span className="block mt-1 text-[10px] text-[#747480]">
+                  <span className="block mt-1 text-micro text-fg-muted">
                     Leave blank to fall back to the <code>LAMA_FACTORY_CLI_BIN</code> env var (default <code>droid</code> on PATH).
                   </span>
                 </label>
                 <label className="block">
-                  <span className="text-[10px] uppercase font-bold text-[#747480]">Autonomy level</span>
+                  <span className="text-micro uppercase font-bold text-fg-muted">Autonomy level</span>
                   <select
                     data-testid="factory-orch-cli-auto"
                     value={form.cli_auto || "low"}
                     onChange={(e) => setForm((p) => ({ ...p, cli_auto: e.target.value }))}
-                    className="mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5 bg-white"
+                    className="mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5 bg-surface"
                   >
                     <option value="low">low — file ops only, no installs / sudo / push</option>
                     <option value="medium">medium — local dev (installs, git commit, build)</option>
                     <option value="high">high — full autonomy (git push, sudo). USE WITH CARE.</option>
                   </select>
                 </label>
-                <div className="lg:col-span-2 text-[10px] text-[#2E2E38] bg-white border border-[#E6E6E6] rounded-sm p-2">
+                <div className="lg:col-span-2 text-micro text-fg bg-surface border border-border rounded-sm p-2">
                   <b>CLI mode notes:</b> droid auth is <b>host-wide</b> — every project shares the same Factory login.
                   No Computer sandbox; the agent has direct shell access on the LAMA host (use <code>low</code> autonomy unless you trust the prompts).
                   Run <code>droid auth login</code> on the host (or inside the container) once.
@@ -559,24 +568,24 @@ function FactoryOrchestratorTab() {
           {form.mode === "api" ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3" data-testid="factory-orch-api-fields">
               <label className="block">
-                <span className="text-[10px] uppercase font-bold text-[#747480]">App key</span>
+                <span className="text-micro uppercase font-bold text-fg-muted">App key</span>
                 <input
                   data-testid="factory-orch-app-key"
                   value={form.app_key}
                   onChange={(e) => setForm((p) => ({ ...p, app_key: e.target.value }))}
                   placeholder={config?.has_app_key ? `Stored: ${config.app_key_masked}` : "Paste Factory app key"}
                   type="password"
-                  className="mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5"
+                  className="mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5"
                 />
               </label>
               <label className="block">
-                <span className="text-[10px] uppercase font-bold text-[#747480]">Computer ID or Name</span>
+                <span className="text-micro uppercase font-bold text-fg-muted">Computer ID or Name</span>
                 <input
                   data-testid="factory-orch-computer-id"
                   value={form.computer_id}
                   onChange={(e) => setForm((p) => ({ ...p, computer_id: e.target.value }))}
                   placeholder="comp_... or my-droid-computer"
-                  className="mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5"
+                  className="mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5"
                 />
               </label>
             </div>
@@ -584,7 +593,7 @@ function FactoryOrchestratorTab() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             <label className="block">
-              <span className="text-[10px] uppercase font-bold text-[#747480]">Working directory (optional)</span>
+              <span className="text-micro uppercase font-bold text-fg-muted">Working directory (optional)</span>
               <input
                 data-testid="factory-orch-cwd"
                 value={form.cwd}
@@ -597,7 +606,7 @@ function FactoryOrchestratorTab() {
                 // iter-13.125 — In CLI mode the cwd is the local droid `--cwd`;
                 // host_anchored doesn't apply, so the field stays editable.
                 disabled={form.mode === "api" && form.host_anchored}
-                className={`mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5 ${(form.mode === "api" && form.host_anchored) ? "bg-[#F6F6FA] text-[#9A9AA0]" : ""}`}
+                className={`mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5 ${(form.mode === "api" && form.host_anchored) ? "bg-bg text-fg-subtle" : ""}`}
               />
               {/* iter-13.91.6 / iter-13.91.7 / iter-13.91.8 — visibility hint.
                   Factory's left rail enumerates folders ONE LEVEL DEEP under
@@ -608,7 +617,7 @@ function FactoryOrchestratorTab() {
                     • /root/<single-folder-name> is the sweet spot.
                   Leaving the field blank now gives /root/lama_<tenant>_<project>
                   which appears DIRECTLY in the sidebar. */}
-              <span className="block mt-1 text-[10px] text-[#747480]">
+              <span className="block mt-1 text-micro text-fg-muted">
                 <b>Avoid</b> <span className="font-mono">/workspace</span> (read-only on most Droid images).
                 For the folder to appear in Factory's left sidebar, use a
                 <b> single-level path under the Droid's HOME</b>
@@ -641,8 +650,8 @@ function FactoryOrchestratorTab() {
                   className="mt-0.5 h-3.5 w-3.5"
                 />
                 <span className="block">
-                  <span className="text-[11px] font-bold text-[#2E2E38]">Host-anchored workspace</span>
-                  <span className="block text-[10px] text-[#747480] mt-0.5">
+                  <span className="text-micro font-bold text-fg">Host-anchored workspace</span>
+                  <span className="block text-micro text-fg-muted mt-0.5">
                     Keep the workspace on the <b>LAMA host</b> and push inputs
                     inline to the droid. No on-droid <span className="font-mono">mkdir</span>,
                     no cross-OS path issues. Works on <b>any droid OS</b>
@@ -670,8 +679,8 @@ function FactoryOrchestratorTab() {
                 className="mt-0.5 h-3.5 w-3.5"
               />
               <span className="block">
-                <span className="text-[11px] font-bold text-[#2E2E38]">Auto-fallback to Ollama (then OpenRouter) when Factory is unreachable</span>
-                <span className="block text-[10px] text-[#747480] mt-0.5">
+                <span className="text-micro font-bold text-fg">Auto-fallback to Ollama (then OpenRouter) when Factory is unreachable</span>
+                <span className="block text-micro text-fg-muted mt-0.5">
                   When Factory returns <span className="font-mono">424</span> / <span className="font-mono">5xx</span> /
                   network errors, route the LLM call through a configured
                   <b> Ollama provider first</b> (iter-13.115 — operator preference for local /
@@ -685,12 +694,12 @@ function FactoryOrchestratorTab() {
               </span>
             </label>
             <label className="block">
-              <span className="text-[10px] uppercase font-bold text-[#747480]">Default fallback model</span>
+              <span className="text-micro uppercase font-bold text-fg-muted">Default fallback model</span>
               <select
                 data-testid="factory-orch-model"
                 value={form.model}
                 onChange={(e) => setForm((p) => ({ ...p, model: e.target.value }))}
-                className="mt-0.5 w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5 bg-white"
+                className="mt-0.5 w-full text-micro font-mono border border-border rounded-sm px-2 py-1.5 bg-surface"
               >
                 {/* "auto" = let Factory route to the computer's default model.
                     Other entries are the model IDs Factory exposes on POST
@@ -702,7 +711,7 @@ function FactoryOrchestratorTab() {
                   <option key={o.value} value={o.value}>{o.label}</option>
                 ))}
               </select>
-              <span className="block mt-1 text-[10px] text-[#747480]">
+              <span className="block mt-1 text-micro text-fg-muted">
                 Used when a pipeline node below is left on "auto". Recorded in token-usage
                 logs. <b>Factory's actual model</b> comes from your Droid Computer's
                 Default Model setting in Factory Settings.
@@ -724,18 +733,18 @@ function FactoryOrchestratorTab() {
               override. To actually change the model right now, change the
               Droid Computer's Default Model in Factory and pick a matching
               entry below so usage logs stay accurate. */}
-          <div className="bg-[#FAFAFA] border border-[#E6E6E6] rounded-sm p-3"
+          <div className="bg-surface-2 border border-border rounded-sm p-3"
                data-testid="factory-orch-models-grid">
             <div className="flex items-baseline justify-between mb-2">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-wider text-[#2E2E38]">
+                <div className="text-micro font-bold uppercase tracking-wider text-fg">
                   Per-pipeline-node model selection
                 </div>
-                <div className="text-[10px] text-[#747480] mt-0.5">
+                <div className="text-micro text-fg-muted mt-0.5">
                   One model for the first run, another for regeneration. Leave on "auto" to
                   inherit the default fallback above.
                 </div>
-                <div className="text-[10px] text-[#B45309] mt-1 leading-snug">
+                <div className="text-micro text-warn mt-1 leading-snug">
                   <b>Note:</b> Factory selects the actual model based on your{" "}
                   <span className="font-mono">Droid Computer → Default Model</span>{" "}
                   setting (Factory → Settings → Droid Computers). These picks are recorded in LAMA's
@@ -745,9 +754,9 @@ function FactoryOrchestratorTab() {
               </div>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
+              <table className="w-full text-micro">
                 <thead>
-                  <tr className="text-[10px] uppercase font-bold text-[#747480] border-b border-[#E6E6E6]">
+                  <tr className="text-micro uppercase font-bold text-fg-muted border-b border-border">
                     <th className="text-left py-1.5 pr-3 font-bold w-1/3">Pipeline node</th>
                     <th className="text-left py-1.5 px-2 font-bold">First-time run</th>
                     <th className="text-left py-1.5 pl-2 font-bold">Regeneration</th>
@@ -758,10 +767,10 @@ function FactoryOrchestratorTab() {
                     const genKey   = `${node.key}.generate`;
                     const regenKey = `${node.key}.regenerate`;
                     return (
-                      <tr key={node.key} className="border-b border-[#F0F0F0] last:border-b-0">
+                      <tr key={node.key} className="border-b border-surface-2 last:border-b-0">
                         <td className="py-1.5 pr-3 align-top">
-                          <div className="font-semibold text-[#2E2E38]">{node.label}</div>
-                          <div className="text-[10px] text-[#747480]">{node.hint}</div>
+                          <div className="font-semibold text-fg">{node.label}</div>
+                          <div className="text-micro text-fg-muted">{node.hint}</div>
                         </td>
                         <td className="py-1.5 px-2 align-top">
                           <select
@@ -773,7 +782,7 @@ function FactoryOrchestratorTab() {
                                 models: { ...(p.models || {}), [genKey]: e.target.value },
                               }))
                             }
-                            className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1 bg-white"
+                            className="w-full text-micro font-mono border border-border rounded-sm px-2 py-1 bg-surface"
                           >
                             {FACTORY_MODEL_OPTIONS.map((o) => (
                               <option key={o.value} value={o.value}>{o.label}</option>
@@ -790,7 +799,7 @@ function FactoryOrchestratorTab() {
                                 models: { ...(p.models || {}), [regenKey]: e.target.value },
                               }))
                             }
-                            className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1 bg-white"
+                            className="w-full text-micro font-mono border border-border rounded-sm px-2 py-1 bg-surface"
                           >
                             {FACTORY_MODEL_OPTIONS.map((o) => (
                               <option key={o.value} value={o.value}>{o.label}</option>
@@ -810,7 +819,7 @@ function FactoryOrchestratorTab() {
               data-testid="factory-orch-save"
               onClick={onSave}
               disabled={saving || loading || deleting}
-              className="bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-bold h-8"
+              className="bg-brand text-fg hover:bg-brand-hover font-bold h-8"
             >
               {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
             </Button>
@@ -827,7 +836,7 @@ function FactoryOrchestratorTab() {
             >
               {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete
             </Button>
-            {loading && <span className="text-[11px] text-[#747480]">Loading…</span>}
+            {loading && <span className="text-micro text-fg-muted">Loading…</span>}
             {/* iter-13.127 — inline Test connection button. Works in both
                 API and CLI modes; in CLI mode it validates the `droid`
                 binary path from the form BEFORE Save so operators get
@@ -837,7 +846,7 @@ function FactoryOrchestratorTab() {
               onClick={onTestConnection}
               disabled={testBusy || saving || loading || deleting}
               variant="outline"
-              className="h-8 text-[11px] ml-1"
+              className="h-8 text-micro ml-1"
               title={form.mode === "cli"
                 ? "Probe the droid binary (runs `droid --version`) — fast, no network."
                 : "Handshake with Factory HTTP API to verify app_key + Computer ID."}
@@ -847,7 +856,7 @@ function FactoryOrchestratorTab() {
             {testState && (
               <span
                 data-testid="factory-orch-test-status"
-                className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${testState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${testState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
                 title={testState.ok
                   ? (form.mode === "cli"
                       ? `droid ${testState.version || ""} @ ${testState.binary || "PATH"}${testState.resolved_via ? ` (resolved via ${testState.resolved_via})` : ""}`
@@ -862,7 +871,7 @@ function FactoryOrchestratorTab() {
               </span>
             )}
             {config?.updated_at && (
-              <span className="text-[11px] text-[#747480]">Last updated: {new Date(config.updated_at).toLocaleString()}</span>
+              <span className="text-micro text-fg-muted">Last updated: {new Date(config.updated_at).toLocaleString()}</span>
             )}
           </div>
 
@@ -874,14 +883,14 @@ function FactoryOrchestratorTab() {
               remote Droid Computer to wake / no workspace to mkdir on
               a Factory sandbox (the CLI just runs on the LAMA host). */}
           {form.mode === "api" && (config?.has_app_key && config?.computer_id) && (
-            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[#F0F0F4]"
+            <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-surface-2"
                  data-testid="factory-orch-actions-row">
               <Button
                 data-testid="factory-orch-wake"
                 onClick={onWakeDroid}
                 disabled={wakeBusy || workspaceBusy || saving || loading || deleting}
                 variant="outline"
-                className="h-8 text-[11px]"
+                className="h-8 text-micro"
                 title="Send a GET /computers/{id} to Factory so the Droid auto-resumes from sleep"
               >
                 {wakeBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Zap className="w-3 h-3" />} Wake droid
@@ -891,7 +900,7 @@ function FactoryOrchestratorTab() {
                 onClick={onEnsureWorkspace}
                 disabled={workspaceBusy || saving || loading || deleting}
                 variant="outline"
-                className="h-8 text-[11px]"
+                className="h-8 text-micro"
                 title="Force a fresh mkdir -p on the Droid for this project's workspace"
               >
                 {workspaceBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Terminal className="w-3 h-3" />} Create / refresh workspace
@@ -899,7 +908,7 @@ function FactoryOrchestratorTab() {
               {wakeState && (
                 <span
                   data-testid="factory-orch-wake-status"
-                  className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${wakeState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                  className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${wakeState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
                 >
                   {wakeState.ok ? `Awake · ${wakeState.computer_id || ""}` : `Wake failed${wakeState.reason ? ` · ${wakeState.reason}` : ""}`}
                 </span>
@@ -907,7 +916,7 @@ function FactoryOrchestratorTab() {
               {workspaceState && (
                 <span
                   data-testid="factory-orch-workspace-status"
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-sm ${workspaceState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
+                  className={`text-micro font-mono px-1.5 py-0.5 rounded-sm ${workspaceState.ok ? "bg-emerald-100 text-emerald-700" : "bg-rose-100 text-rose-700"}`}
                   /* iter-13.91.14 — surface the full diagnostic (Factory's
                      reported status, session-probe HTTP code, raw error)
                      so the operator can copy/paste the tooltip into a
@@ -954,12 +963,12 @@ function FactoryOrchestratorTab() {
                       await navigator.clipboard.writeText(block);
                       toast.success("Diagnostic copied — paste into Factory support ticket");
                     } catch {
-                      // eslint-disable-next-line no-alert
+                       
                       window.prompt("Copy the block below into your Factory support ticket:", block);
                     }
                   }}
                   title="Copy a complete diagnostic block for Factory support"
-                  className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm border border-rose-300 text-rose-700 hover:bg-rose-50"
+                  className="text-micro font-mono px-1.5 py-0.5 rounded-sm border border-rose-300 text-rose-700 hover:bg-rose-50"
                 >
                   Copy diag
                 </button>
@@ -974,15 +983,15 @@ function FactoryOrchestratorTab() {
           at most one row. Visual confirmation that Save persisted, plus
           quick Edit/Delete affordances per row. */}
       {(config?.has_app_key || config?.computer_id) && (
-        <div className="bg-white border border-[#E6E6E6] rounded-sm overflow-hidden" data-testid="factory-orch-droids-grid">
-          <div className="bg-[#F6F6FA] px-4 py-2 border-b border-[#E6E6E6]">
-            <div className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Configured droids</div>
-            <div className="text-[12px] font-display font-semibold text-[#2E2E38]">
+        <div className="bg-surface border border-border rounded-sm overflow-hidden" data-testid="factory-orch-droids-grid">
+          <div className="bg-bg px-4 py-2 border-b border-border">
+            <div className="text-micro uppercase font-bold tracking-wider text-fg-muted">Configured droids</div>
+            <div className="text-[12px] font-display font-semibold text-fg">
               Droids registered for this project
             </div>
           </div>
           <table className="w-full text-[12px]">
-            <thead className="bg-[#FAFAFC] text-[10px] uppercase text-[#747480]">
+            <thead className="bg-surface-2 text-micro uppercase text-fg-muted">
               <tr>
                 <th className="text-left px-4 py-2 font-bold">Droid name / computer ID</th>
                 <th className="text-left px-4 py-2 font-bold">App key</th>
@@ -992,19 +1001,19 @@ function FactoryOrchestratorTab() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-t border-[#F0F0F4]" data-testid="factory-orch-droid-row">
-                <td className="px-4 py-2 font-mono text-[#2E2E38]">{config?.computer_id || "—"}</td>
-                <td className="px-4 py-2 font-mono text-[#747480]">{config?.app_key_masked || "—"}</td>
-                <td className="px-4 py-2 font-mono text-[#747480] truncate max-w-[200px]">{config?.cwd || "(default)"}</td>
+              <tr className="border-t border-surface-2" data-testid="factory-orch-droid-row">
+                <td className="px-4 py-2 font-mono text-fg">{config?.computer_id || "—"}</td>
+                <td className="px-4 py-2 font-mono text-fg-muted">{config?.app_key_masked || "—"}</td>
+                <td className="px-4 py-2 font-mono text-fg-muted truncate max-w-[200px]">{config?.cwd || "(default)"}</td>
                 <td className="px-4 py-2">
                   <span
-                    className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${config?.routing_active ? "bg-emerald-100 text-emerald-700" : "bg-slate-200 text-slate-600"}`}
+                    className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${config?.routing_active ? "bg-emerald-100 text-emerald-700" : "bg-surface-3 text-fg-muted"}`}
                     title={config?.routing_reason || ""}
                   >
                     {config?.routing_active ? "Active" : "Disabled"}
                   </span>
                   {!config?.routing_active && config?.routing_reason && (
-                    <div className="text-[10px] text-amber-700 mt-1">{config.routing_reason}</div>
+                    <div className="text-micro text-amber-700 mt-1">{config.routing_reason}</div>
                   )}
                 </td>
                 <td className="px-4 py-2 text-right">
@@ -1023,7 +1032,7 @@ function FactoryOrchestratorTab() {
                       try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* */ }
                       toast.info("Loaded droid into the form above. Edit, then click Save.");
                     }}
-                    className="text-[11px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] mr-1"
+                    className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg mr-1"
                     title="Load this droid into the form for editing"
                   >
                     Edit
@@ -1032,7 +1041,7 @@ function FactoryOrchestratorTab() {
                     data-testid="factory-orch-droid-delete"
                     onClick={() => { setDeleteText(""); setShowDelete(true); }}
                     disabled={deleting}
-                    className="text-[11px] px-2 py-1 border border-red-300 text-red-600 rounded-sm hover:bg-red-50"
+                    className="text-micro px-2 py-1 border border-red-300 text-red-600 rounded-sm hover:bg-red-50"
                     title="Delete this droid config"
                   >
                     <Trash2 className="w-3 h-3 inline" /> Delete
@@ -1047,17 +1056,17 @@ function FactoryOrchestratorTab() {
       {/* iter-13.35 — typed-confirm delete modal */}
       {showDelete && (
         <div
-          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center"
+          className="fixed inset-0 z-50 bg-ink/40 flex items-center justify-center"
           data-testid="factory-orch-delete-modal"
         >
-          <div className="bg-white border border-red-300 rounded-sm p-5 w-[440px] shadow-2xl">
+          <div className="bg-surface border border-red-300 rounded-sm p-5 w-[440px] shadow-2xl">
             <div className="flex items-center gap-2 mb-2">
               <Trash2 className="w-4 h-4 text-red-600" />
-              <div className="text-sm font-display font-bold text-[#2E2E38]">
+              <div className="text-sm font-display font-bold text-fg">
                 Delete Factory Orchestrator config?
               </div>
             </div>
-            <div className="text-[11px] text-[#747480] mb-3 leading-snug">
+            <div className="text-micro text-fg-muted mb-3 leading-snug">
               This permanently removes the app key, computer ID, working directory,
               cached session IDs and the enabled flag for project <b>{active?.name || projectId}</b>.
               All future LLM calls for this project will route through the standard
@@ -1071,7 +1080,7 @@ function FactoryOrchestratorTab() {
               value={deleteText}
               onChange={(e) => setDeleteText(e.target.value)}
               placeholder="DELETE"
-              className="w-full text-[12px] font-mono border border-[#E6E6E6] rounded-sm px-2 py-1.5 mb-3 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
+              className="w-full text-[12px] font-mono border border-border rounded-sm px-2 py-1.5 mb-3 focus:border-red-500 focus:ring-1 focus:ring-red-500 outline-none"
               onKeyDown={(e) => { if (e.key === "Enter") onDelete(); if (e.key === "Escape") setShowDelete(false); }}
             />
             <div className="flex items-center justify-end gap-2">
@@ -1079,7 +1088,7 @@ function FactoryOrchestratorTab() {
                 onClick={() => { setShowDelete(false); setDeleteText(""); }}
                 disabled={deleting}
                 variant="outline"
-                className="h-8 text-[11px]"
+                className="h-8 text-micro"
               >
                 Cancel
               </Button>
@@ -1087,7 +1096,7 @@ function FactoryOrchestratorTab() {
                 data-testid="factory-orch-delete-confirm"
                 onClick={onDelete}
                 disabled={deleting || deleteText.trim().toUpperCase() !== "DELETE"}
-                className="h-8 text-[11px] bg-red-600 hover:bg-red-700 text-white font-bold"
+                className="h-8 text-micro bg-red-600 hover:bg-red-700 text-white font-bold"
               >
                 {deleting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Trash2 className="w-3 h-3" />} Delete config
               </Button>
@@ -1104,15 +1113,28 @@ function FactoryOrchestratorTab() {
 // ============================================================
 function ModelsTab({ readOnly = false, onGoFactory }) {
   const [providers, setProviders] = useState([]);
-  const [apiKey, setApiKey] = useState("");
-  const [name, setName] = useState("");
-  const [baseUrl, setBaseUrl] = useState("");
   // Auto-detect reads the key prefix (sk-ant-, sk-or-, gsk_, AIza, sk-).
   // Azure keys are opaque 32-char strings with no prefix, so they are
   // indistinguishable from a custom provider and MUST be chosen explicitly.
-  const [providerType, setProviderType] = useState("");
-  const [azureDeployment, setAzureDeployment] = useState("");
-  const [azureApiVersion, setAzureApiVersion] = useState("");
+  //
+  // The six useState hooks this replaces validated nothing until submit,
+  // and reported failures as a toast that named one problem at a time.
+  const form = useForm({
+    resolver: zodResolver(providerSchema),
+    mode: "onBlur",
+    reValidateMode: "onChange",
+    defaultValues: {
+      provider_type: "",
+      api_key: "",
+      name: "",
+      base_url: "",
+      azure_deployment: "",
+      azure_api_version: "",
+    },
+  });
+  const { register, handleSubmit, watch, reset, formState } = form;
+  const { errors, isSubmitting } = formState;
+  const providerType = watch("provider_type");
   const isAzure = providerType === "azure";
   const [busy, setBusy] = useState(false);
 
@@ -1121,45 +1143,39 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
   };
   useEffect(() => { refresh(); }, []);
 
-  const onSetup = async () => {
+  // Validation now lives in providerSchema, so this only has to submit.
+  const onSetup = handleSubmit(async (v) => {
     if (readOnly) return;
-    if (!apiKey.trim() && !baseUrl.trim()) {
-      toast.error("Paste an API key (or a base URL for Ollama/custom).");
-      return;
-    }
-    // Azure cannot be auto-detected and cannot build a URL without these.
-    // Catching it here names the missing field instead of letting the
-    // backend reject the row after the user has already hit the button.
-    if (isAzure && (!baseUrl.trim() || !azureDeployment.trim())) {
-      toast.error(
-        "Azure needs the endpoint (account root) and the deployment name."
-      );
-      return;
-    }
     setBusy(true);
     try {
       // Empty key + base URL → Ollama (local runtime, no key required).
       // The backend route requires provider_type='ollama' to accept an
-      // empty api_key, so explicitly send it.
+      // empty api_key, so send it explicitly.
       const payload = {
-        api_key: apiKey.trim(),
-        name: name.trim(),
-        base_url: baseUrl.trim(),
+        api_key: v.api_key.trim(),
+        name: v.name.trim(),
+        base_url: v.base_url.trim(),
       };
-      if (providerType) payload.provider_type = providerType;
-      else if (!apiKey.trim()) payload.provider_type = "ollama";
-      if (isAzure) {
-        payload.azure_deployment = azureDeployment.trim();
-        payload.azure_api_version = azureApiVersion.trim();
+      if (v.provider_type) payload.provider_type = v.provider_type;
+      else if (!v.api_key.trim()) payload.provider_type = "ollama";
+      if (v.provider_type === "azure") {
+        payload.azure_deployment = v.azure_deployment.trim();
+        payload.azure_api_version = v.azure_api_version.trim();
       }
       const r = await setupProvider(payload);
-      toast.success(`Provider configured: ${r.provider?.name}`);
-      setApiKey(""); setName(""); setBaseUrl("");
-      setAzureDeployment(""); setAzureApiVersion("");
+      toast.success(`Provider configured: ${r.provider?.name}`, {
+        description: "Use Test connection on the new row to verify the key works.",
+      });
+      reset();
       await refresh();
-    } catch (e) { toast.error("Setup failed: " + (e?.response?.data?.detail || e.message)); }
-    finally { setBusy(false); }
-  };
+    } catch (e) {
+      toast.error("Setup failed", {
+        description: e?.response?.data?.detail || e.message,
+      });
+    } finally {
+      setBusy(false);
+    }
+  });
 
   const onAddOllama = async () => {
     if (readOnly) return;
@@ -1211,7 +1227,7 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
             <div className="text-[12px] font-display font-bold text-amber-900">
               Models tab is disabled — Factory Orchestrator is handling routing
             </div>
-            <div className="text-[11px] text-amber-800 mt-0.5">
+            <div className="text-micro text-amber-800 mt-0.5">
               All LLM calls are routed via Factory.ai. Turn off Factory
               Orchestrator (or unmap its token) on the Factory tab to re-enable
               editing here.
@@ -1220,7 +1236,7 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
           {onGoFactory && (
             <button
               onClick={onGoFactory}
-              className="text-[11px] font-bold px-2 py-1 border border-amber-400 rounded-sm hover:bg-amber-100 text-amber-900"
+              className="text-micro font-bold px-2 py-1 border border-amber-400 rounded-sm hover:bg-amber-100 text-amber-900"
             >
               Go to Factory tab
             </button>
@@ -1229,104 +1245,193 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
       )}
 
       {/* Quick setup */}
-      <div className={`bg-white border border-[#E6E6E6] rounded-sm overflow-hidden ${readOnly ? "opacity-60 pointer-events-none" : ""}`} aria-disabled={readOnly}>
-        <div className="bg-[#FFFCE6] border-l-4 border-[#FFE600] px-4 py-3">
-          <div className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Quick Setup</div>
-          <div className="text-sm font-display font-bold text-[#2E2E38]">Paste one API key to configure routing automatically</div>
-          <div className="text-[11px] text-[#747480] mt-0.5">Auto-detects provider from key prefix (sk-or- → OpenRouter, sk-ant- → Anthropic, sk- → OpenAI, gsk_ → Groq, AIza → Gemini). Leave the key blank and fill the base URL to register an Ollama (local) provider. <strong>Azure has no key prefix</strong> — pick it explicitly below.</div>
+      <div className={`bg-surface border border-border rounded-sm overflow-hidden ${readOnly ? "opacity-60 pointer-events-none" : ""}`} aria-disabled={readOnly}>
+        <div className="bg-brand-tint border-l-4 border-brand px-4 py-3">
+          <div className="text-micro uppercase font-bold tracking-wider text-fg-muted">Quick Setup</div>
+          <div className="text-sm font-display font-bold text-fg">Paste one API key to configure routing automatically</div>
+          <div className="text-micro text-fg-muted mt-0.5">Auto-detects provider from key prefix (sk-or- → OpenRouter, sk-ant- → Anthropic, sk- → OpenAI, gsk_ → Groq, AIza → Gemini). Leave the key blank and fill the base URL to register an Ollama (local) provider. <strong>Azure has no key prefix</strong> — pick it explicitly below.</div>
         </div>
-        <div className="p-4 grid grid-cols-1 lg:grid-cols-3 gap-3">
-          <select
-            data-testid="setup-provider-type"
-            value={providerType}
-            onChange={(e) => setProviderType(e.target.value)}
-            disabled={readOnly}
-            className="text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 bg-white disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-          >
-            <option value="">Auto-detect from key</option>
-            <option value="azure">Azure OpenAI</option>
-            <option value="openai">OpenAI</option>
-            <option value="anthropic">Anthropic</option>
-            <option value="gemini">Google Gemini</option>
-            <option value="groq">Groq</option>
-            <option value="openrouter">OpenRouter</option>
-            <option value="ollama">Ollama (local)</option>
-            <option value="custom">Custom (OpenAI-compatible)</option>
-          </select>
-          <input
-            data-testid="setup-api-key"
-            value={apiKey}
-            onChange={(e) => setApiKey(e.target.value)}
-            placeholder={isAzure ? "Azure API key" : "sk-or-... / sk-ant-... / sk-... / gsk_... / AIza..."}
-            disabled={readOnly}
-            className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-          />
-          <input
-            data-testid="setup-name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Name (optional)"
-            disabled={readOnly}
-            className="text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-          />
-          <input
-            data-testid="setup-base-url"
-            value={baseUrl}
-            onChange={(e) => setBaseUrl(e.target.value)}
-            placeholder={isAzure
-              ? "Azure endpoint — account root only, e.g. https://my-resource.openai.azure.com"
-              : "Custom base URL (optional, e.g. http://localhost:11434/v1 for Ollama)"}
-            disabled={readOnly}
-            className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-          />
-          {isAzure && (
-            <>
-              <input
-                data-testid="setup-azure-deployment"
-                value={azureDeployment}
-                onChange={(e) => setAzureDeployment(e.target.value)}
-                placeholder="Deployment name (e.g. gpt-5.1) — the name you chose in Azure"
-                disabled={readOnly}
-                className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 lg:col-span-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-              />
-              <input
-                data-testid="setup-azure-api-version"
-                value={azureApiVersion}
-                onChange={(e) => setAzureApiVersion(e.target.value)}
-                placeholder="API version (e.g. 2023-07-01-preview)"
-                disabled={readOnly}
-                className="text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-2 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
-              />
-              <div className="lg:col-span-3 text-[11px] text-[#747480] bg-[#F6F6FA] border-l-2 border-[#FFE600] px-3 py-2">
-                The endpoint is the <strong>account root</strong>. LAMA appends
-                {" "}<code className="font-mono">/openai/deployments/&lt;deployment&gt;</code>{" "}
-                and sends the API version as a query parameter, so do not paste a
-                full chat-completions URL. An enterprise gateway URL that already
-                contains <code className="font-mono">/deployments/</code> is left as-is.
-              </div>
-            </>
-          )}
-          <Button data-testid="setup-btn" onClick={onSetup} disabled={busy || readOnly} className="bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-bold">
-            {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />} Auto-configure
-          </Button>
-          <Button
-            data-testid="setup-ollama-btn"
-            onClick={onAddOllama}
-            disabled={busy || readOnly}
-            variant="outline"
-            className="text-[12px] font-bold border-[#2E2E38] text-[#2E2E38] hover:bg-[#F6F6FA] lg:col-span-3"
-          >
-            <Cpu className="w-3 h-3 mr-1" /> Add Ollama (local) — http://localhost:11434/v1
-          </Button>
-        </div>
+        <form onSubmit={onSetup} noValidate className="p-4 flex flex-col gap-3">
+          <FormErrorSummary errors={errors} />
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+            <FormField label="Provider" htmlFor="setup-provider-type">
+              {(a11y) => (
+                <SelectInput
+                  {...a11y}
+                  {...register("provider_type")}
+                  data-testid="setup-provider-type"
+                  disabled={readOnly}
+                >
+                  <option value="">Auto-detect from key</option>
+                  <option value="azure">Azure OpenAI</option>
+                  <option value="openai">OpenAI</option>
+                  <option value="anthropic">Anthropic</option>
+                  <option value="gemini">Google Gemini</option>
+                  <option value="groq">Groq</option>
+                  <option value="openrouter">OpenRouter</option>
+                  <option value="ollama">Ollama (local)</option>
+                  <option value="custom">Custom (OpenAI-compatible)</option>
+                </SelectInput>
+              )}
+            </FormField>
+
+            <FormField
+              label="API key"
+              htmlFor="setup-api-key"
+              className="lg:col-span-2"
+              error={errors.api_key?.message}
+              hint={
+                isAzure
+                  ? "Azure keys have no prefix, which is why the provider must be picked explicitly."
+                  : "Detected from the prefix: sk-or- · sk-ant- · sk- · gsk_ · AIza"
+              }
+            >
+              {(a11y) => (
+                <TextInput
+                  {...a11y}
+                  {...register("api_key")}
+                  data-testid="setup-api-key"
+                  type="password"
+                  autoComplete="off"
+                  spellCheck={false}
+                  invalid={!!errors.api_key}
+                  placeholder={isAzure ? "Azure API key" : "sk-or-… / sk-ant-… / sk-… / gsk_… / AIza…"}
+                  disabled={readOnly}
+                  className="font-mono"
+                />
+              )}
+            </FormField>
+
+            <FormField label="Name" htmlFor="setup-name" hint="Optional — shown in the provider list.">
+              {(a11y) => (
+                <TextInput
+                  {...a11y}
+                  {...register("name")}
+                  data-testid="setup-name"
+                  placeholder="e.g. Anthropic (prod)"
+                  disabled={readOnly}
+                />
+              )}
+            </FormField>
+
+            <FormField
+              label={isAzure ? "Azure endpoint" : "Base URL"}
+              htmlFor="setup-base-url"
+              className="lg:col-span-2"
+              error={errors.base_url?.message}
+              required={isAzure}
+              hint={
+                isAzure
+                  ? "Account root only — LAMA appends /openai/deployments/<deployment>."
+                  : "Optional. e.g. http://localhost:11434/v1 for Ollama."
+              }
+            >
+              {(a11y) => (
+                <TextInput
+                  {...a11y}
+                  {...register("base_url")}
+                  data-testid="setup-base-url"
+                  inputMode="url"
+                  spellCheck={false}
+                  invalid={!!errors.base_url}
+                  placeholder={
+                    isAzure
+                      ? "https://my-resource.openai.azure.com"
+                      : "https://…"
+                  }
+                  disabled={readOnly}
+                  className="font-mono"
+                />
+              )}
+            </FormField>
+
+            {/* Progressive disclosure: the Azure fields only exist once
+                Azure is chosen, rather than sitting empty for everyone. */}
+            {isAzure && (
+              <>
+                <FormField
+                  label="Deployment name"
+                  htmlFor="setup-azure-deployment"
+                  className="lg:col-span-2"
+                  required
+                  error={errors.azure_deployment?.message}
+                  hint="The name you chose in the Azure portal, e.g. gpt-5.1"
+                >
+                  {(a11y) => (
+                    <TextInput
+                      {...a11y}
+                      {...register("azure_deployment")}
+                      data-testid="setup-azure-deployment"
+                      invalid={!!errors.azure_deployment}
+                      placeholder="gpt-5.1"
+                      disabled={readOnly}
+                      className="font-mono"
+                    />
+                  )}
+                </FormField>
+
+                <FormField
+                  label="API version"
+                  htmlFor="setup-azure-api-version"
+                  hint="e.g. 2023-07-01-preview"
+                >
+                  {(a11y) => (
+                    <TextInput
+                      {...a11y}
+                      {...register("azure_api_version")}
+                      data-testid="setup-azure-api-version"
+                      placeholder="2023-07-01-preview"
+                      disabled={readOnly}
+                      className="font-mono"
+                    />
+                  )}
+                </FormField>
+
+                <p className="lg:col-span-3 text-micro text-fg-muted bg-surface-2 border-l-2 border-brand px-3 py-2">
+                  The endpoint is the <strong>account root</strong>. LAMA appends{" "}
+                  <code className="font-mono">/openai/deployments/&lt;deployment&gt;</code>{" "}
+                  and sends the API version as a query parameter, so do not paste
+                  a full chat-completions URL. An enterprise gateway URL that
+                  already contains <code className="font-mono">/deployments/</code>{" "}
+                  is left as-is.
+                </p>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button
+              type="submit"
+              variant="brand"
+              data-testid="setup-btn"
+              loading={busy || isSubmitting}
+              disabled={readOnly}
+            >
+              <Wand2 className="size-3.5" aria-hidden /> Auto-configure
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              data-testid="setup-ollama-btn"
+              onClick={onAddOllama}
+              loading={busy}
+              disabled={readOnly}
+              className="flex-1"
+            >
+              <Cpu className="size-3.5" aria-hidden /> Add Ollama (local) —
+              http://localhost:11434/v1
+            </Button>
+          </div>
+        </form>
       </div>
 
       {/* Provider cards */}
       {providers.length === 0 && (
-        <div className="text-center py-12 text-[#747480] border border-dashed border-[#E6E6E6] rounded-sm">
-          <KeyRound className="w-8 h-8 mx-auto mb-2 text-[#FFE600]" />
+        <div className="text-center py-12 text-fg-muted border border-dashed border-border rounded-sm">
+          <KeyRound className="w-8 h-8 mx-auto mb-2 text-brand" />
           <div className="text-sm">No provider configured yet — paste a key above.</div>
-          <div className="text-[11px] mt-1">Without a provider, LAMA falls back to the legacy <code>OPENROUTER_API_KEY</code> env var.</div>
+          <div className="text-micro mt-1">Without a provider, LAMA falls back to the legacy <code>OPENROUTER_API_KEY</code> env var.</div>
         </div>
       )}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
@@ -1335,6 +1440,81 @@ function ModelsTab({ readOnly = false, onGoFactory }) {
     </div>
   );
 }
+
+/**
+ * Provider setup schema.
+ *
+ * This is the highest-stakes form in the product: an invalid key here is
+ * accepted, the provider row is written with is_active=true, and the
+ * failure only surfaces as a cascade of 401s three stages later during
+ * generation. Validating shape at the field is what turns that into an
+ * error the user can act on immediately.
+ *
+ * The cross-field rules mirror what the backend actually requires:
+ *   • either a key or a base URL (a bare base URL registers Ollama)
+ *   • Azure needs an account-root endpoint AND a deployment name, because
+ *     it cannot be auto-detected from a key prefix
+ */
+const providerSchema = z
+  .object({
+    provider_type: z.string(),
+    api_key: z.string(),
+    name: z.string(),
+    base_url: z.string(),
+    azure_deployment: z.string(),
+    azure_api_version: z.string(),
+  })
+  .superRefine((v, ctx) => {
+    const key = v.api_key.trim();
+    const url = v.base_url.trim();
+
+    if (!key && !url) {
+      ctx.addIssue({
+        path: ["api_key"],
+        code: z.ZodIssueCode.custom,
+        message: "Paste an API key, or a base URL to register a local Ollama provider.",
+      });
+    }
+
+    if (key && key.length < 16) {
+      ctx.addIssue({
+        path: ["api_key"],
+        code: z.ZodIssueCode.custom,
+        message: "That looks too short for an API key — check for a truncated paste.",
+      });
+    }
+
+    if (url && !/^https?:\/\//i.test(url)) {
+      ctx.addIssue({
+        path: ["base_url"],
+        code: z.ZodIssueCode.custom,
+        message: "Include the scheme, e.g. https://my-resource.openai.azure.com",
+      });
+    }
+
+    if (v.provider_type === "azure") {
+      if (!url) {
+        ctx.addIssue({
+          path: ["base_url"],
+          code: z.ZodIssueCode.custom,
+          message: "Azure needs the account-root endpoint.",
+        });
+      } else if (/\/chat\/completions/i.test(url)) {
+        ctx.addIssue({
+          path: ["base_url"],
+          code: z.ZodIssueCode.custom,
+          message: "Use the account root — LAMA appends /openai/deployments/<deployment> itself.",
+        });
+      }
+      if (!v.azure_deployment.trim()) {
+        ctx.addIssue({
+          path: ["azure_deployment"],
+          code: z.ZodIssueCode.custom,
+          message: "Azure needs the deployment name you chose in the portal.",
+        });
+      }
+    }
+  });
 
 function ProviderCard({ provider, refresh, readOnly = false }) {
   const [editingKey, setEditingKey] = useState(false);
@@ -1391,17 +1571,17 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
     : (keyOn ? "Authenticated" : "Key OFF");
 
   return (
-    <div className="bg-white border border-[#E6E6E6] rounded-sm p-3" data-testid={`provider-${provider.id}`}>
+    <div className="bg-surface border border-border rounded-sm p-3" data-testid={`provider-${provider.id}`}>
       {/* Header row — name + type/default/mode badges + delete */}
       <div className="flex items-center justify-between gap-2 mb-2">
         <div className="flex items-center gap-2 min-w-0">
-          <Cpu className="w-3 h-3 text-[#747480]" />
-          <span className="font-display font-bold text-[#2E2E38] truncate">{provider.name}</span>
-          <span className="text-[9px] uppercase font-bold bg-[#F6F6FA] px-1 py-0.5 rounded-sm">{provider.provider_type}</span>
-          {provider.is_default && <span className="text-[9px] uppercase font-bold bg-[#FFE600] text-[#2E2E38] px-1 py-0.5 rounded-sm">Default</span>}
+          <Cpu className="w-3 h-3 text-fg-muted" />
+          <span className="font-display font-bold text-fg truncate">{provider.name}</span>
+          <span className="text-micro uppercase font-bold bg-bg px-1 py-0.5 rounded-sm">{provider.provider_type}</span>
+          {provider.is_default && <span className="text-micro uppercase font-bold bg-brand text-fg px-1 py-0.5 rounded-sm">Default</span>}
           <span
             data-testid={`provider-${provider.id}-mode`}
-            className={`text-[9px] uppercase font-bold px-1 py-0.5 rounded-sm ${keyOn ? "bg-emerald-100 text-emerald-700" : "bg-[#F6F6FA] text-[#747480]"}`}
+            className={`text-micro uppercase font-bold px-1 py-0.5 rounded-sm ${keyOn ? "bg-emerald-100 text-emerald-700" : "bg-bg text-fg-muted"}`}
             title="Effective routing mode based on endpoint + key toggle"
           >
             {routingMode}
@@ -1413,20 +1593,20 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
       </div>
 
       {/* Detail grid — mirrors the Factory Orchestrator panel layout */}
-      <div className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-[11px] border border-[#F0F0F5] rounded-sm p-2 bg-[#FBFBFD]">
-        <div className="text-[#747480] uppercase font-bold text-[10px] self-center">Endpoint</div>
-        <div className="font-mono text-[#2E2E38] truncate" title={provider.base_url}>{provider.base_url || "—"}</div>
+      <div className="grid grid-cols-[110px_1fr] gap-x-3 gap-y-1.5 text-micro border border-surface-2 rounded-sm p-2 bg-surface-2">
+        <div className="text-fg-muted uppercase font-bold text-micro self-center">Endpoint</div>
+        <div className="font-mono text-fg truncate" title={provider.base_url}>{provider.base_url || "—"}</div>
 
-        <div className="text-[#747480] uppercase font-bold text-[10px] self-center">API Key</div>
+        <div className="text-fg-muted uppercase font-bold text-micro self-center">API Key</div>
         <div className="flex items-center gap-2 min-w-0">
-          <span className={`font-mono truncate ${keyOn ? "text-[#2E2E38]" : "text-[#A0A0A8] line-through"}`}>
+          <span className={`font-mono truncate ${keyOn ? "text-fg" : "text-fg-subtle line-through"}`}>
             {provider.api_key || "—"}
           </span>
           <label
             className={`ml-auto flex items-center gap-1 select-none ${readOnly ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
             title={readOnly ? "Read-only while Factory Orchestrator is active" : "Send Authorization: Bearer on outbound LLM calls"}
           >
-            <span className="text-[10px] uppercase font-bold text-[#747480]">Use key</span>
+            <span className="text-micro uppercase font-bold text-fg-muted">Use key</span>
             <input
               data-testid={`key-toggle-${provider.id}`}
               type="checkbox"
@@ -1438,19 +1618,19 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
           </label>
         </div>
 
-        <div className="text-[#747480] uppercase font-bold text-[10px] self-center">Models</div>
-        <div className="text-[#2E2E38]">{(provider.models || []).length} in catalogue</div>
+        <div className="text-fg-muted uppercase font-bold text-micro self-center">Models</div>
+        <div className="text-fg">{(provider.models || []).length} in catalogue</div>
 
-        <div className="text-[#747480] uppercase font-bold text-[10px] self-center">Status</div>
+        <div className="text-fg-muted uppercase font-bold text-micro self-center">Status</div>
         <div className="flex items-center gap-2 flex-wrap">
-          <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${provider.is_active ? "bg-emerald-100 text-emerald-700" : "bg-[#F6F6FA] text-[#747480]"}`}>
+          <span className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${provider.is_active ? "bg-emerald-100 text-emerald-700" : "bg-bg text-fg-muted"}`}>
             {provider.is_active ? "Active" : "Inactive"}
           </span>
           {!provider.is_default && (
             <button
               onClick={onSetDefault}
               disabled={readOnly}
-              className="text-[10px] uppercase font-bold text-[#2E2E38] hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
+              className="text-micro uppercase font-bold text-fg hover:underline disabled:opacity-40 disabled:cursor-not-allowed disabled:no-underline"
             >
               Set as default
             </button>
@@ -1459,12 +1639,12 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
       </div>
 
       {/* Routing table - Complexity based */}
-      <div className="mt-3 border-t border-[#E6E6E6] pt-2">
-        <div className="text-[10px] uppercase font-bold text-[#747480] mb-1">Complexity Routing</div>
+      <div className="mt-3 border-t border-border pt-2">
+        <div className="text-micro uppercase font-bold text-fg-muted mb-1">Complexity Routing</div>
         {ROUTING_TIERS.map((tier) => (
           <div key={tier} className="flex items-center gap-2 mb-1">
             <span
-              className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded-sm w-20 text-center ${COMPLEXITY_COLOR[tier]}`}
+              className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm w-20 text-center ${COMPLEXITY_COLOR[tier]}`}
               title={TIER_HINT[tier]}
             >{tier}</span>
             <select
@@ -1473,7 +1653,7 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
               onChange={(e) => onRoutingChange(tier, e.target.value)}
               disabled={readOnly}
               title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined}
-              className="flex-1 text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-0.5 disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+              className="flex-1 text-micro border border-border rounded-sm px-1 py-0.5 disabled:bg-bg disabled:cursor-not-allowed"
             >
               <option value="">— select —</option>
               {(provider.models || []).map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
@@ -1490,20 +1670,20 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
           (models.py:317-322 · routes/console.py:92-95). Leaving a cell on
           "— use complexity routing —" falls through to the complexity tier
           dropdowns above, which in turn fall through to the catalogue. */}
-      <div className="mt-3 border-t border-[#E6E6E6] pt-2">
+      <div className="mt-3 border-t border-border pt-2">
         <div className="flex items-baseline justify-between mb-1">
-          <div className="text-[10px] uppercase font-bold text-[#747480]">
-            Per-pipeline-node model selection <span className="text-[#A0A0A8] normal-case">(overrides complexity)</span>
+          <div className="text-micro uppercase font-bold text-fg-muted">
+            Per-pipeline-node model selection <span className="text-fg-subtle normal-case">(overrides complexity)</span>
           </div>
         </div>
-        <div className="text-[10px] text-[#747480] mb-2 leading-snug">
+        <div className="text-micro text-fg-muted mb-2 leading-snug">
           One model for the first run, another for regeneration. Leave on
           "— use complexity routing —" to inherit the tier picks above.
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full text-[11px]">
+          <table className="w-full text-micro">
             <thead>
-              <tr className="text-[10px] uppercase font-bold text-[#747480] border-b border-[#E6E6E6]">
+              <tr className="text-micro uppercase font-bold text-fg-muted border-b border-border">
                 <th className="text-left py-1 pr-2 font-bold w-1/3">Pipeline node</th>
                 <th className="text-left py-1 px-2 font-bold">First-time run</th>
                 <th className="text-left py-1 pl-2 font-bold">Regeneration</th>
@@ -1522,9 +1702,9 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
                     .catch(() => toast.error(`${mode === "generate" ? "First-time" : "Regeneration"} routing update failed`));
                 };
                 return (
-                  <tr key={stage} className="border-b border-[#F0F0F0] last:border-b-0">
+                  <tr key={stage} className="border-b border-surface-2 last:border-b-0">
                     <td className="py-1 pr-2 align-top">
-                      <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 inline-block">{stage}</span>
+                      <span className="text-micro font-bold px-1.5 py-0.5 rounded-sm bg-violet-100 text-violet-700 inline-block">{stage}</span>
                     </td>
                     <td className="py-1 px-2 align-top">
                       <select
@@ -1533,7 +1713,7 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
                         onChange={(e) => onChangeMode("generate", e.target.value)}
                         disabled={readOnly}
                         title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined}
-                        className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-0.5 bg-white disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+                        className="w-full text-micro font-mono border border-border rounded-sm px-1 py-0.5 bg-surface disabled:bg-bg disabled:cursor-not-allowed"
                       >
                         <option value="">— use complexity routing —</option>
                         {(provider.models || []).map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
@@ -1546,7 +1726,7 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
                         onChange={(e) => onChangeMode("regenerate", e.target.value)}
                         disabled={readOnly}
                         title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined}
-                        className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-0.5 bg-white disabled:bg-[#F6F6FA] disabled:cursor-not-allowed"
+                        className="w-full text-micro font-mono border border-border rounded-sm px-1 py-0.5 bg-surface disabled:bg-bg disabled:cursor-not-allowed"
                       >
                         <option value="">— use complexity routing —</option>
                         {(provider.models || []).map((m) => <option key={m.id} value={m.id}>{m.label || m.id}</option>)}
@@ -1562,25 +1742,25 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
 
       {/* Buttons */}
       <div className="mt-3 flex flex-wrap gap-1">
-        <button onClick={onTest} disabled={testing} data-testid={`test-provider-${provider.id}`} className="text-[10px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] flex items-center gap-1">
+        <button onClick={onTest} disabled={testing} data-testid={`test-provider-${provider.id}`} className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg flex items-center gap-1">
           {testing ? <Loader2 className="w-3 h-3 animate-spin" /> : <TestTube className="w-3 h-3" />} Test
         </button>
-        <button onClick={onFetch} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-[10px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
+        <button onClick={onFetch} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">
           <Plus className="w-3 h-3" /> Fetch models
         </button>
         {!provider.is_default && (
-          <button onClick={onSetDefault} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-[10px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">Set as default</button>
+          <button onClick={onSetDefault} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">Set as default</button>
         )}
-        <button onClick={() => setEditingKey(!editingKey)} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-[10px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">Edit key</button>
+        <button onClick={() => setEditingKey(!editingKey)} disabled={readOnly} title={readOnly ? "Read-only while Factory Orchestrator is active" : undefined} className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent">Edit key</button>
       </div>
       {editingKey && !readOnly && (
         <div className="mt-2 flex gap-1">
-          <input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="New API key" className="flex-1 text-[11px] border border-[#E6E6E6] rounded-sm px-2 py-1 font-mono" />
-          <button onClick={onSaveKey} className="text-[11px] px-2 py-1 bg-[#2E2E38] text-white rounded-sm">Save</button>
+          <input value={newKey} onChange={(e) => setNewKey(e.target.value)} placeholder="New API key" className="flex-1 text-micro border border-border rounded-sm px-2 py-1 font-mono" />
+          <button onClick={onSaveKey} className="text-micro px-2 py-1 bg-ink text-ink-fg rounded-sm">Save</button>
         </div>
       )}
       {testResult && (
-        <div className={`mt-2 text-[11px] p-2 rounded-sm ${testResult.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+        <div className={`mt-2 text-micro p-2 rounded-sm ${testResult.ok ? "bg-emerald-50 border border-emerald-200 text-emerald-800" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
           {testResult.ok
             ? `✓ ${testResult.model_used} · ${testResult.latency_ms}ms · "${testResult.response}"`
             : `✗ ${testResult.error}`}
@@ -1588,12 +1768,12 @@ function ProviderCard({ provider, refresh, readOnly = false }) {
       )}
       {(provider.models || []).length > 0 && (
         <details className="mt-2">
-          <summary className="text-[10px] uppercase font-bold text-[#747480] cursor-pointer">Catalogue ({provider.models.length})</summary>
+          <summary className="text-micro uppercase font-bold text-fg-muted cursor-pointer">Catalogue ({provider.models.length})</summary>
           <div className="mt-1 space-y-0.5">
             {provider.models.map((m) => (
-              <div key={m.id} className="text-[10px] text-[#2E2E38] flex justify-between font-mono">
+              <div key={m.id} className="text-micro text-fg flex justify-between font-mono">
                 <span className="truncate">{m.id}</span>
-                {m.cost_per_1k_input != null && <span className="text-[#747480]">in ${m.cost_per_1k_input}/1k · out ${m.cost_per_1k_output}/1k</span>}
+                {m.cost_per_1k_input != null && <span className="text-fg-muted">in ${m.cost_per_1k_input}/1k · out ${m.cost_per_1k_output}/1k</span>}
               </div>
             ))}
           </div>
@@ -1618,7 +1798,7 @@ function AgentsTab() {
 
   return (
     <div className="space-y-3" data-testid="tab-agents">
-      <div className="text-[11px] text-[#747480]">
+      <div className="text-micro text-fg-muted">
         Every LLM call in LAMA flows through one of these agents. Override model, disable, wrap, or replace per agent — changes apply to the very next run.
       </div>
       {STAGES.map((stage) => {
@@ -1627,14 +1807,14 @@ function AgentsTab() {
         const all = [...(bucket.orchestrator || []), ...(bucket.tasks || [])];
         if (all.length === 0) return null;
         return (
-          <div key={stage} className="bg-white border border-[#E6E6E6] rounded-sm" data-testid={`stage-block-${stage}`}>
-            <button onClick={() => setOpenStages((p) => ({ ...p, [stage]: !p[stage] }))} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#F6F6FA]">
+          <div key={stage} className="bg-surface border border-border rounded-sm" data-testid={`stage-block-${stage}`}>
+            <button onClick={() => setOpenStages((p) => ({ ...p, [stage]: !p[stage] }))} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-bg">
               {isOpen ? <ChevronDown className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-              <span className="font-display font-bold text-[13px] text-[#2E2E38]">{stage}</span>
-              <span className="text-[10px] text-[#747480]">({all.length} agents)</span>
+              <span className="font-display font-bold text-[13px] text-fg">{stage}</span>
+              <span className="text-micro text-fg-muted">({all.length} agents)</span>
             </button>
             {isOpen && (
-              <div className="border-t border-[#E6E6E6]">
+              <div className="border-t border-border">
                 {all.map((a) => (
                   <AgentRow
                     key={a.key}
@@ -1679,26 +1859,26 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
   };
 
   return (
-    <div className="border-b border-[#F6F6FA] last:border-b-0" data-testid={`agent-row-${agent.key}`}>
-      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-[#FAFAFC] text-left">
+    <div className="border-b border-surface-2 last:border-b-0" data-testid={`agent-row-${agent.key}`}>
+      <button onClick={onToggle} className="w-full flex items-center gap-2 px-3 py-2 hover:bg-surface-2 text-left">
         {expanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRightIcon className="w-3 h-3" />}
-        {agent.agent_type === "orchestrator" ? <Zap className="w-3 h-3 text-[#FFE600]" /> : <Bot className="w-3 h-3 text-[#747480]" />}
+        {agent.agent_type === "orchestrator" ? <Zap className="w-3 h-3 text-brand" /> : <Bot className="w-3 h-3 text-fg-muted" />}
         <div className="flex-1 min-w-0">
-          <div className="text-[12px] font-semibold text-[#2E2E38] truncate">{agent.label} <span className="text-[#747480] font-mono font-normal">· {agent.key}</span></div>
-          <div className="text-[10px] text-[#747480] truncate">{agent.description}</div>
+          <div className="text-[12px] font-semibold text-fg truncate">{agent.label} <span className="text-fg-muted font-mono font-normal">· {agent.key}</span></div>
+          <div className="text-micro text-fg-muted truncate">{agent.description}</div>
         </div>
-        <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${COMPLEXITY_COLOR[agent.complexity] || ""}`}>{agent.complexity}</span>
-        <span className={`text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-sm ${STATUS_COLOR[agent.status] || ""}`}>{agent.status}</span>
-        <span className="text-[10px] text-[#747480] font-mono whitespace-nowrap hidden md:inline">
+        <span className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${COMPLEXITY_COLOR[agent.complexity] || ""}`}>{agent.complexity}</span>
+        <span className={`text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm ${STATUS_COLOR[agent.status] || ""}`}>{agent.status}</span>
+        <span className="text-micro text-fg-muted font-mono whitespace-nowrap hidden md:inline">
           ↑ {(agent.tokens_used_last_run || 0).toLocaleString()} · ${(agent.last_run_cost_usd || 0).toFixed(4)}
         </span>
       </button>
       {expanded && (
-        <div className="px-4 pb-3 pt-1 bg-[#FAFAFC]">
-          <div className="text-[10px] text-[#747480] mb-2">Resolved: <span className="font-mono text-[#2E2E38]">{agent.resolved_model || "(no model)"}</span> via {agent.resolved_provider}</div>
+        <div className="px-4 pb-3 pt-1 bg-surface-2">
+          <div className="text-micro text-fg-muted mb-2">Resolved: <span className="font-mono text-fg">{agent.resolved_model || "(no model)"}</span> via {agent.resolved_provider}</div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <Field label="Complexity">
-              <select data-testid={`agent-${agent.key}-complexity`} value={draft.complexity || "medium"} onChange={(e) => save({ complexity: e.target.value })} className="w-full text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-1">
+              <select data-testid={`agent-${agent.key}-complexity`} value={draft.complexity || "medium"} onChange={(e) => save({ complexity: e.target.value })} className="w-full text-micro border border-border rounded-sm px-1 py-1">
                 <option value="low">Low</option>
                 <option value="medium">Medium</option>
                 <option value="high">High</option>
@@ -1711,11 +1891,11 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
                 onChange={(e) => setDraft({ ...draft, model_override: e.target.value })}
                 onBlur={() => draft.model_override !== agent.model_override && save({ model_override: draft.model_override })}
                 placeholder="(routing-based)"
-                className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-1"
+                className="w-full text-micro font-mono border border-border rounded-sm px-1 py-1"
               />
             </Field>
             <Field label="Status">
-              <select data-testid={`agent-${agent.key}-status`} value={draft.status} onChange={(e) => save({ status: e.target.value })} className="w-full text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-1">
+              <select data-testid={`agent-${agent.key}-status`} value={draft.status} onChange={(e) => save({ status: e.target.value })} className="w-full text-micro border border-border rounded-sm px-1 py-1">
                 <option value="enabled">Enabled</option>
                 <option value="disabled">Disabled</option>
                 <option value="wrapped">Wrapped</option>
@@ -1728,7 +1908,7 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
                 value={draft.max_tokens}
                 onChange={(e) => setDraft({ ...draft, max_tokens: parseInt(e.target.value) || 0 })}
                 onBlur={() => draft.max_tokens !== agent.max_tokens && save({ max_tokens: draft.max_tokens })}
-                className="w-full text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-1"
+                className="w-full text-micro border border-border rounded-sm px-1 py-1"
               />
             </Field>
             <Field label="Temperature">
@@ -1737,7 +1917,7 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
                 value={draft.temperature}
                 onChange={(e) => setDraft({ ...draft, temperature: parseFloat(e.target.value) || 0 })}
                 onBlur={() => draft.temperature !== agent.temperature && save({ temperature: draft.temperature })}
-                className="w-full text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-1"
+                className="w-full text-micro border border-border rounded-sm px-1 py-1"
               />
             </Field>
             <Field label="Total budget (0 = unlimited)">
@@ -1747,9 +1927,9 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
                   value={draft.token_budget_total}
                   onChange={(e) => setDraft({ ...draft, token_budget_total: parseInt(e.target.value) || 0 })}
                   onBlur={() => draft.token_budget_total !== agent.token_budget_total && save({ token_budget_total: draft.token_budget_total })}
-                  className="flex-1 text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-1"
+                  className="flex-1 text-micro border border-border rounded-sm px-1 py-1"
                 />
-                <button onClick={onResetBudget} title="Reset usage counter" className="text-[10px] px-1 border border-[#E6E6E6] rounded-sm hover:bg-white">
+                <button onClick={onResetBudget} title="Reset usage counter" className="text-micro px-1 border border-border rounded-sm hover:bg-surface">
                   <RotateCcw className="w-3 h-3" />
                 </button>
               </div>
@@ -1759,38 +1939,38 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
           {draft.status === "wrapped" && (
             <div className="mt-2 space-y-1">
               <Field label="Wrap prefix">
-                <textarea rows={2} value={draft.wrap_prefix || ""} onChange={(e) => setDraft({ ...draft, wrap_prefix: e.target.value })} onBlur={() => save({ wrap_prefix: draft.wrap_prefix })} className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-1" />
+                <textarea rows={2} value={draft.wrap_prefix || ""} onChange={(e) => setDraft({ ...draft, wrap_prefix: e.target.value })} onBlur={() => save({ wrap_prefix: draft.wrap_prefix })} className="w-full text-micro font-mono border border-border rounded-sm px-1 py-1" />
               </Field>
               <Field label="Wrap suffix">
-                <textarea rows={2} value={draft.wrap_suffix || ""} onChange={(e) => setDraft({ ...draft, wrap_suffix: e.target.value })} onBlur={() => save({ wrap_suffix: draft.wrap_suffix })} className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-1" />
+                <textarea rows={2} value={draft.wrap_suffix || ""} onChange={(e) => setDraft({ ...draft, wrap_suffix: e.target.value })} onBlur={() => save({ wrap_suffix: draft.wrap_suffix })} className="w-full text-micro font-mono border border-border rounded-sm px-1 py-1" />
               </Field>
             </div>
           )}
           {draft.status === "replaced" && (
             <div className="mt-2">
               <Field label="Replacement template">
-                <textarea rows={4} value={draft.replaced_template || ""} onChange={(e) => setDraft({ ...draft, replaced_template: e.target.value })} onBlur={() => save({ replaced_template: draft.replaced_template })} className="w-full text-[11px] font-mono border border-[#E6E6E6] rounded-sm px-1 py-1" />
+                <textarea rows={4} value={draft.replaced_template || ""} onChange={(e) => setDraft({ ...draft, replaced_template: e.target.value })} onBlur={() => save({ replaced_template: draft.replaced_template })} className="w-full text-micro font-mono border border-border rounded-sm px-1 py-1" />
               </Field>
             </div>
           )}
           {draft.status === "disabled" && (
-            <div className="mt-2 text-[11px] bg-amber-50 border border-amber-200 rounded-sm p-2 text-amber-800">
+            <div className="mt-2 text-micro bg-amber-50 border border-amber-200 rounded-sm p-2 text-amber-800">
               <strong>Warning:</strong> This agent will be skipped. The pipeline step it performs will not execute.
             </div>
           )}
 
           <div className="mt-3 flex items-center gap-2">
-            <Button onClick={onTest} disabled={busy} data-testid={`agent-${agent.key}-test`} className="h-7 text-[11px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]">
+            <Button onClick={onTest} disabled={busy} data-testid={`agent-${agent.key}-test`} className="h-7 text-micro bg-brand text-fg hover:bg-brand-hover">
               {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Test
             </Button>
-            <span className="text-[10px] text-[#747480]">Tokens all-time: {(agent.tokens_used_all_time || 0).toLocaleString()}</span>
+            <span className="text-micro text-fg-muted">Tokens all-time: {(agent.tokens_used_all_time || 0).toLocaleString()}</span>
           </div>
           {testResult && (
-            <div className={`mt-2 text-[11px] p-2 rounded-sm ${testResult.ok ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+            <div className={`mt-2 text-micro p-2 rounded-sm ${testResult.ok ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
               {testResult.ok ? (
                 <>
                   <div><strong>{testResult.model_used}</strong> · ↑ {testResult.usage?.prompt_tokens} ↓ {testResult.usage?.completion_tokens} · ${testResult.cost_usd?.toFixed?.(4)}</div>
-                  <pre className="mt-1 whitespace-pre-wrap text-[#2E2E38]">{testResult.content_preview}</pre>
+                  <pre className="mt-1 whitespace-pre-wrap text-fg">{testResult.content_preview}</pre>
                 </>
               ) : `✗ ${testResult.error}`}
             </div>
@@ -1804,7 +1984,7 @@ function AgentRow({ agent, expanded, onToggle, projectId, onChange }) {
 function Field({ label, children }) {
   return (
     <label className="block">
-      <span className="text-[10px] uppercase font-bold text-[#747480]">{label}</span>
+      <span className="text-micro uppercase font-bold text-fg-muted">{label}</span>
       <div className="mt-0.5">{children}</div>
     </label>
   );
@@ -1865,18 +2045,18 @@ function PromptsTab() {
   return (
     <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-[600px]" data-testid="tab-prompts">
       {/* List */}
-      <div className="lg:col-span-3 bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
-        <div className="px-3 py-2 border-b border-[#E6E6E6] text-[10px] uppercase font-bold text-[#747480]">Prompts</div>
+      <div className="lg:col-span-3 bg-surface border border-border rounded-sm overflow-hidden">
+        <div className="px-3 py-2 border-b border-border text-micro uppercase font-bold text-fg-muted">Prompts</div>
         <div className="overflow-y-auto max-h-[600px]">
           {Object.entries(grouped).map(([stage, list]) => (
             <div key={stage}>
-              <div className="text-[10px] uppercase text-[#747480] bg-[#F6F6FA] px-3 py-1 font-bold">{stage}</div>
+              <div className="text-micro uppercase text-fg-muted bg-bg px-3 py-1 font-bold">{stage}</div>
               {list.map((p) => (
                 <button
                   key={p.key}
                   data-testid={`prompt-${p.key}`}
                   onClick={() => onSelect(p)}
-                  className={`w-full text-left px-3 py-1.5 text-[11px] font-mono border-l-2 ${selected?.key === p.key ? "border-[#FFE600] bg-[#FFFCE6]" : "border-transparent hover:bg-[#F6F6FA]"}`}
+                  className={`w-full text-left px-3 py-1.5 text-micro font-mono border-l-2 ${selected?.key === p.key ? "border-brand bg-brand-tint" : "border-transparent hover:bg-bg"}`}
                 >
                   {p.key}
                 </button>
@@ -1887,12 +2067,12 @@ function PromptsTab() {
       </div>
 
       {/* Editor */}
-      <div className="lg:col-span-5 bg-white border border-[#E6E6E6] rounded-sm flex flex-col">
-        <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
-          <FileText className="w-3 h-3 text-[#747480]" />
+      <div className="lg:col-span-5 bg-surface border border-border rounded-sm flex flex-col">
+        <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+          <FileText className="w-3 h-3 text-fg-muted" />
           <span className="text-[12px] font-mono">{selected?.key || "Select a prompt"}</span>
           {selected && (
-            <span className="text-[9px] uppercase bg-[#F6F6FA] px-1 py-0.5 rounded-sm ml-auto">v{selected.version || 1}</span>
+            <span className="text-micro uppercase bg-bg px-1 py-0.5 rounded-sm ml-auto">v{selected.version || 1}</span>
           )}
         </div>
         <textarea
@@ -1900,49 +2080,49 @@ function PromptsTab() {
           onChange={(e) => setTemplate(e.target.value)}
           data-testid="prompt-editor"
           placeholder="Pick a prompt on the left to edit its project override…"
-          className="flex-1 text-[11px] font-mono p-3 outline-none resize-none min-h-[400px]"
+          className="flex-1 text-micro font-mono p-3 outline-none resize-none min-h-[400px]"
         />
-        <div className="border-t border-[#E6E6E6] px-3 py-2 flex items-center gap-2">
-          <span className="text-[10px] text-[#747480]">{template.length} chars · ~{Math.max(1, Math.floor(template.length / 4))} tokens</span>
+        <div className="border-t border-border px-3 py-2 flex items-center gap-2">
+          <span className="text-micro text-fg-muted">{template.length} chars · ~{Math.max(1, Math.floor(template.length / 4))} tokens</span>
           <div className="ml-auto flex gap-1">
-            <Button data-testid="prompt-test" onClick={onTest} disabled={!selected || running} className="h-7 text-[11px]" variant="outline">
+            <Button data-testid="prompt-test" onClick={onTest} disabled={!selected || running} className="h-7 text-micro" variant="outline">
               {running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />} Test
             </Button>
-            <Button data-testid="prompt-save" onClick={onSave} disabled={!selected || !projectId} className="h-7 text-[11px] bg-[#2E2E38] text-white">Save override</Button>
+            <Button data-testid="prompt-save" onClick={onSave} disabled={!selected || !projectId} className="h-7 text-micro bg-ink text-ink-fg">Save override</Button>
           </div>
         </div>
       </div>
 
       {/* Preview */}
-      <div className="lg:col-span-4 bg-white border border-[#E6E6E6] rounded-sm overflow-hidden">
-        <div className="px-3 py-2 border-b border-[#E6E6E6] text-[10px] uppercase font-bold text-[#747480]">Live preview (current KB)</div>
+      <div className="lg:col-span-4 bg-surface border border-border rounded-sm overflow-hidden">
+        <div className="px-3 py-2 border-b border-border text-micro uppercase font-bold text-fg-muted">Live preview (current KB)</div>
         <div className="p-3 space-y-2 overflow-y-auto max-h-[600px]">
-          {!preview && <div className="text-[11px] text-[#747480]">Select a prompt to resolve variables against the current project.</div>}
+          {!preview && <div className="text-micro text-fg-muted">Select a prompt to resolve variables against the current project.</div>}
           {preview && (
             <>
-              <div className="text-[11px] grid grid-cols-2 gap-1">
-                <div><span className="text-[#747480]">Tokens:</span> <strong>{preview.total_token_estimate.toLocaleString()}</strong></div>
-                <div><span className="text-[#747480]">Cost:</span> <strong>${preview.cost_estimate_usd.toFixed(6)}</strong></div>
-                <div className="col-span-2"><span className="text-[#747480]">Model:</span> <strong className="font-mono">{preview.model_that_will_run || "(no provider)"}</strong></div>
+              <div className="text-micro grid grid-cols-2 gap-1">
+                <div><span className="text-fg-muted">Tokens:</span> <strong>{preview.total_token_estimate.toLocaleString()}</strong></div>
+                <div><span className="text-fg-muted">Cost:</span> <strong>${preview.cost_estimate_usd.toFixed(6)}</strong></div>
+                <div className="col-span-2"><span className="text-fg-muted">Model:</span> <strong className="font-mono">{preview.model_that_will_run || "(no provider)"}</strong></div>
               </div>
-              <div className="border-t border-[#E6E6E6] pt-2 space-y-1">
-                <div className="text-[10px] uppercase font-bold text-[#747480]">Variables</div>
+              <div className="border-t border-border pt-2 space-y-1">
+                <div className="text-micro uppercase font-bold text-fg-muted">Variables</div>
                 {preview.variables.map((v) => (
-                  <div key={v.name} className="text-[11px] border border-[#F6F6FA] rounded-sm p-1.5">
+                  <div key={v.name} className="text-micro border border-surface-2 rounded-sm p-1.5">
                     <div className="flex items-center justify-between">
-                      <span className="font-mono text-[#2E2E38]">{`{${v.name}}`}</span>
-                      <span className="text-[9px] text-[#747480]">~{v.token_estimate} tok</span>
+                      <span className="font-mono text-fg">{`{${v.name}}`}</span>
+                      <span className="text-micro text-fg-muted">~{v.token_estimate} tok</span>
                     </div>
-                    <div className="text-[10px] text-[#747480] mt-0.5 truncate">{v.resolved}</div>
+                    <div className="text-micro text-fg-muted mt-0.5 truncate">{v.resolved}</div>
                   </div>
                 ))}
               </div>
               {testOut && (
-                <div className={`mt-2 text-[11px] p-2 rounded-sm ${testOut.ok ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
+                <div className={`mt-2 text-micro p-2 rounded-sm ${testOut.ok ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200 text-rose-700"}`}>
                   {testOut.ok ? (
                     <>
                       <div><strong>{testOut.model_used}</strong> · ↑ {testOut.usage?.prompt_tokens} ↓ {testOut.usage?.completion_tokens} · ${testOut.cost_usd?.toFixed?.(4)} · {testOut.duration_ms}ms</div>
-                      <pre className="mt-1 whitespace-pre-wrap text-[#2E2E38] max-h-40 overflow-y-auto">{testOut.content}</pre>
+                      <pre className="mt-1 whitespace-pre-wrap text-fg max-h-40 overflow-y-auto">{testOut.content}</pre>
                     </>
                   ) : `✗ ${testOut.error}`}
                 </div>
@@ -2009,7 +2189,7 @@ export default function ConsolePage() {
     // stays in sync even when the user sits on the Models tab while
     // editing Factory config in another window / via API. Cheap (one
     // /factory-orchestrator/{pid} GET).
-    const t = setInterval(fetchOnce, 5000);
+    const t = setInterval(() => { if (!document.hidden) fetchOnce(); }, 5000);
     // iter-13.116 — Instant flip on save/delete/checkbox-toggle from
     // the Factory tab in THIS window — same-window CustomEvent (no
     // need for storage event). When the event carries `ephemeral:true`
@@ -2063,11 +2243,11 @@ export default function ConsolePage() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#F6F6FA]" data-testid="console-page">
-      <header className="bg-white border-b-2 border-[#FFE600] px-6 py-3">
-        <div className="text-[10px] uppercase tracking-widest text-[#747480]">LAMA Console</div>
-        <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center gap-2">
-          <Terminal className="w-4 h-4 text-[#FFE600]" /> Model Fabric · Agent Fabric · Prompt Engineering
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg" data-testid="console-page">
+      <header className="bg-surface border-b-2 border-brand px-6 py-3">
+        <div className="text-micro uppercase tracking-widest text-fg-muted">LAMA Console</div>
+        <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2">
+          <Terminal className="w-4 h-4 text-brand" /> Model Fabric · Agent Fabric · Prompt Engineering
         </h1>
         <div className="mt-3 flex gap-1">
           {tabs.map((t) => {
@@ -2089,12 +2269,12 @@ export default function ConsolePage() {
                 }
                 className={[
                   "flex items-center gap-1 text-[12px] px-3 py-1.5 border-b-2 transition-colors",
-                  isActive ? "border-[#FFE600] text-[#2E2E38] font-bold" : "border-transparent text-[#747480] hover:text-[#2E2E38]",
+                  isActive ? "border-brand text-fg font-bold" : "border-transparent text-fg-muted hover:text-fg",
                 ].join(" ")}
               >
                 <t.icon className="w-3 h-3" /> {t.label}
                 {isContentDisabled && (
-                  <span className="ml-1 text-[9px] uppercase tracking-wider bg-slate-200 text-slate-600 border border-slate-300 px-1 rounded-sm">
+                  <span className="ml-1 text-micro uppercase tracking-wider bg-surface-3 text-fg-muted border border-border-strong px-1 rounded-sm">
                     Disabled
                   </span>
                 )}

@@ -40,7 +40,7 @@ fi
 if nc -z 127.0.0.1 27017 >/dev/null 2>&1; then
   ok "MongoDB" "reachable on 27017"
 else
-  bad "MongoDB" "NOT reachable on 27017 — brew services start mongodb-community"
+  bad "MongoDB" "NOT reachable on 27017 — brew services start mongodb-community@8.0"
 fi
 
 if [ -f "$ROOT/backend/.env" ]; then

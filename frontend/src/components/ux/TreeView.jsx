@@ -41,9 +41,9 @@ export default function TreeView({
   const getDefaultIcon = (node) => {
     if (node.children && node.children.length > 0) {
       return isExpanded(node.key) ? (
-        <FolderOpen className="w-4 h-4 text-[#FFE600]" />
+        <FolderOpen className="w-4 h-4 text-brand" />
       ) : (
-        <Folder className="w-4 h-4 text-[#9CA3AF]" />
+        <Folder className="w-4 h-4 text-fg-subtle" />
       );
     }
     
@@ -52,10 +52,10 @@ export default function TreeView({
     const codeExts = ["js", "jsx", "ts", "tsx", "py", "java", "sql", "json", "yml", "yaml"];
     
     if (codeExts.includes(ext)) {
-      return <FileCode className="w-4 h-4 text-[#60A5FA]" />;
+      return <FileCode className="w-4 h-4 text-info" />;
     }
     
-    return <File className="w-4 h-4 text-[#9CA3AF]" />;
+    return <File className="w-4 h-4 text-fg-subtle" />;
   };
 
   return (
@@ -69,6 +69,18 @@ export default function TreeView({
           <div key={node.key} data-testid={`tree-node-${node.key}`}>
             {/* Node Row */}
             <div
+              role="treeitem"
+              tabIndex={0}
+              aria-expanded={hasChildren ? expanded : undefined}
+              aria-selected={selected}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (hasChildren) toggleExpand(node.key, node);
+                  onNodeClick?.(node);
+                }
+              }}
               onClick={(e) => {
                 e.stopPropagation();
                 if (hasChildren) {
@@ -78,7 +90,7 @@ export default function TreeView({
               }}
               className={`
                 flex items-center gap-1.5 px-2 py-1.5 cursor-pointer rounded group
-                ${selected ? "bg-[#FFFCE6] border-l-2 border-[#FFE600]" : "hover:bg-[#F9FAFB] border-l-2 border-transparent"}
+                ${selected ? "bg-brand-tint border-l-2 border-brand" : "hover:bg-surface-2 border-l-2 border-transparent"}
                 transition-colors
               `}
               style={{ paddingLeft: `${level * 1.25 + 0.5}rem` }}
@@ -91,12 +103,12 @@ export default function TreeView({
                       e.stopPropagation();
                       toggleExpand(node.key, node);
                     }}
-                    className="hover:bg-[#E6E6E6] rounded transition-colors"
+                    className="hover:bg-border rounded transition-colors"
                   >
                     {expanded ? (
-                      <ChevronDown className="w-4 h-4 text-[#6B7280]" />
+                      <ChevronDown className="w-4 h-4 text-fg-muted" />
                     ) : (
-                      <ChevronRight className="w-4 h-4 text-[#6B7280]" />
+                      <ChevronRight className="w-4 h-4 text-fg-muted" />
                     )}
                   </button>
                 )}
@@ -108,13 +120,13 @@ export default function TreeView({
               </div>
 
               {/* Label */}
-              <div className={`flex-1 text-sm truncate ${selected ? "font-semibold text-[#2E2E38]" : "text-[#4B5563] group-hover:text-[#2E2E38]"}`}>
+              <div className={`flex-1 text-sm truncate ${selected ? "font-semibold text-fg" : "text-fg-muted group-hover:text-fg"}`}>
                 {renderLabel ? renderLabel(node) : node.label}
               </div>
 
               {/* Badge (optional) */}
               {node.badge && (
-                <span className="shrink-0 px-1.5 py-0.5 bg-[#E5E7EB] text-[#6B7280] text-[10px] font-semibold rounded">
+                <span className="shrink-0 px-1.5 py-0.5 bg-border text-fg-muted text-micro font-semibold rounded">
                   {node.badge}
                 </span>
               )}

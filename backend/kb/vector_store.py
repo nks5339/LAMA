@@ -300,6 +300,75 @@ async def search(project_id: str, query: str, top_k: int = 8) -> list[str]:
         return []
 
 
+async def search_with_sources(
+    project_id: str, query: str, top_k: int = 8
+) -> list[dict]:
+    """Like `search`, but keeps the payload metadata the plain variant drops.
+
+    `search` returns bare content strings, which is all the buffered chat
+    path ever needed. The streaming chat route surfaces citations to the
+    user, and a citation needs a name — so this returns the filename and
+    filetype alongside the content. Returns [] on any failure, exactly as
+    `search` does, so callers degrade to TOON-only.
+    """
+    if not _enabled() or not query:
+        return []
+    client = get_client()
+    if client is None:
+        return []
+    embedder = get_embedder()
+    if embedder is None:
+        return []
+    try:
+        from qdrant_client import models
+        loop = asyncio.get_event_loop()
+        vectors = await loop.run_in_executor(None, lambda: _embed_batch([query]))
+        if not vectors:
+            return []
+        vector = vectors[0]
+        query_filter = models.Filter(
+            must=[models.FieldCondition(
+                key="project_id",
+                match=models.MatchValue(value=project_id),
+            )]
+        )
+
+        def _do_search():
+            if hasattr(client, "query_points"):
+                res = client.query_points(
+                    collection_name=COLLECTION,
+                    query=vector,
+                    query_filter=query_filter,
+                    limit=top_k,
+                    with_payload=True,
+                )
+                return getattr(res, "points", res)
+            return client.search(
+                collection_name=COLLECTION,
+                query_vector=vector,
+                query_filter=query_filter,
+                limit=top_k,
+                with_payload=True,
+            )
+
+        results = await loop.run_in_executor(None, _do_search)
+        out = []
+        for r in results:
+            if not r.payload:
+                continue
+            out.append({
+                "content": r.payload.get("content", "") or "",
+                "filename": r.payload.get("filename", "") or "",
+                "filetype": r.payload.get("filetype", "") or "",
+                "chunk_id": r.payload.get("chunk_id", "") or "",
+                "score": float(getattr(r, "score", 0.0) or 0.0),
+            })
+        return out
+    except Exception as e:  # noqa: BLE001
+        logger.warning(f"Qdrant search_with_sources failed, returning empty: {e}")
+        return []
+
+
 async def search_many(
     project_id: str,
     queries: list[str],

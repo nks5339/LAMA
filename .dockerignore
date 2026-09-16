@@ -1,0 +1,107 @@
+# .dockerignore — the build context sent to the daemon.
+#
+# This file did not exist before 2026-09, which cost three things:
+#
+#   1. CORRECTNESS. The Dockerfile runs `yarn install` and then
+#      `COPY frontend/ ./`. With no ignore file that COPY dropped the
+#      HOST's 1.3 GB node_modules on top of the freshly installed Linux
+#      one — macOS-built binaries over a linux/amd64 image.
+#   2. SECRETS. `COPY backend/ /app/backend/` carried backend/.env (real
+#      OPENROUTER / AZURE / GEMINI keys) into a layer. The later
+#      `RUN rm -f /app/backend/.env` deletes it from the final filesystem
+#      but NOT from image history — `docker save` still yields the keys.
+#      Excluding it here is what actually keeps it out.
+#   3. SIZE. The context was 1.6 GB, so every build re-uploaded .venv,
+#      .git and the whole node_modules tree before Docker did any work.
+#
+# Keep the exclusions below in sync with what the Dockerfile actually
+# COPYs: frontend/{package.json,yarn.lock,src,public,*.config.js,tsconfig.json},
+# backend/**.py + requirements.txt, and docker/.
+
+# ── Secrets — never in a layer ────────────────────────────────────────
+# The runtime .env is written by docker/entrypoint.sh from the compose
+# `environment:` block. Nothing here is needed at build time.
+# Every .env at any depth, including the root one — it is read by
+# `docker compose` off the host filesystem, never from the build context,
+# so excluding it here changes nothing about compose.
+**/.env
+**/.env.*
+certs/
+*.pem
+*.key
+*.p12
+
+# ── Dependency trees — installed inside the image, never copied ───────
+# node_modules in particular MUST be excluded: it is copied after
+# `yarn install` and would clobber the correct linux/amd64 install.
+**/node_modules/
+.venv/
+venv/
+backend/venv/
+wheels/
+
+# ── Build output — stage 1 produces its own ───────────────────────────
+frontend/build/
+build/
+dist/
+*.egg-info/
+
+# ── Python bytecode and tool caches ───────────────────────────────────
+# CLAUDE.md: local .pyc are built by the 3.14 dev venv and will not match
+# the image's 3.11. Harmless (Python skips mismatched magic numbers) but
+# pure waste and confusing when debugging inside the container.
+**/__pycache__/
+*.py[cod]
+*$py.class
+**/.pytest_cache/
+**/.ruff_cache/
+**/.mypy_cache/
+**/.coverage
+**/htmlcov/
+**/coverage/
+
+# ── VCS and editor ────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+.github/
+.vscode/
+.idea/
+.DS_Store
+**/.DS_Store
+
+# ── Agent / tooling state ─────────────────────────────────────────────
+.claude/
+memory/
+AGENTS.md
+CLAUDE.md
+HUMAN_INTERVENTION.md
+LEDGER.md
+
+# ── Docs, reports and design assets — not runtime inputs ──────────────
+docs/
+architecture/
+test_reports/
+*.md
+!README.md
+*.pptx
+*.pdf
+
+# ── Docker's own files (the Dockerfile COPYs docker/ explicitly) ──────
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# ── Local runtime state ───────────────────────────────────────────────
+# The embedded Qdrant store (QDRANT_PATH). Host data, never an image input.
+.qdrant_local/
+
+# ── Local scratch ─────────────────────────────────────────────────────
+*.log
+*.bak
+*.bak2
+*.save
+*_old
+*_backup
+tmp/
+.tmp/

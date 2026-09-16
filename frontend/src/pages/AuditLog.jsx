@@ -94,7 +94,7 @@ function TraceDialog({ open, onClose, traceId, fallbackRow }) {
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileSearch className="w-4 h-4 text-slate-500" />
+            <FileSearch className="w-4 h-4 text-fg-subtle" />
             Detail Log Trace
           </DialogTitle>
           <DialogDescription>
@@ -103,7 +103,7 @@ function TraceDialog({ open, onClose, traceId, fallbackRow }) {
         </DialogHeader>
 
         {loading && (
-          <div className="text-sm text-slate-500 py-8 text-center">Loading…</div>
+          <div className="text-sm text-fg-subtle py-8 text-center">Loading…</div>
         )}
 
         {error && (
@@ -114,17 +114,17 @@ function TraceDialog({ open, onClose, traceId, fallbackRow }) {
 
         {trace && !loading && !error && (
           <div className="space-y-3 min-w-0 overflow-hidden">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] min-w-0">
-              <div className="bg-slate-50 rounded px-2 py-1 min-w-0">
-                <div className="text-slate-500">Stage</div>
-                <div className="font-mono text-[#2E2E38] truncate" data-testid="audit-trace-stage">{trace.stage || "—"}</div>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-micro min-w-0">
+              <div className="bg-surface-2 rounded px-2 py-1 min-w-0">
+                <div className="text-fg-subtle">Stage</div>
+                <div className="font-mono text-fg truncate" data-testid="audit-trace-stage">{trace.stage || "—"}</div>
               </div>
-              <div className="bg-slate-50 rounded px-2 py-1 min-w-0">
-                <div className="text-slate-500">Agent</div>
-                <div className="font-mono text-[#2E2E38] truncate" data-testid="audit-trace-agent">{trace.agent_key || "—"}</div>
+              <div className="bg-surface-2 rounded px-2 py-1 min-w-0">
+                <div className="text-fg-subtle">Agent</div>
+                <div className="font-mono text-fg truncate" data-testid="audit-trace-agent">{trace.agent_key || "—"}</div>
               </div>
-              <div className="bg-slate-50 rounded px-2 py-1 min-w-0">
-                <div className="text-slate-500">Status</div>
+              <div className="bg-surface-2 rounded px-2 py-1 min-w-0">
+                <div className="text-fg-subtle">Status</div>
                 <div
                   className={`font-mono inline-flex items-center gap-1 truncate ${
                     trace.status === "SUCCESS" ? "text-emerald-700" : "text-rose-700"
@@ -137,47 +137,47 @@ function TraceDialog({ open, onClose, traceId, fallbackRow }) {
                   {trace.status || "—"}
                 </div>
               </div>
-              <div className="bg-slate-50 rounded px-2 py-1 min-w-0">
-                <div className="text-slate-500">Elapsed</div>
-                <div className="font-mono text-[#2E2E38] truncate" data-testid="audit-trace-elapsed">
+              <div className="bg-surface-2 rounded px-2 py-1 min-w-0">
+                <div className="text-fg-subtle">Elapsed</div>
+                <div className="font-mono text-fg truncate" data-testid="audit-trace-elapsed">
                   {trace.elapsed_ms == null ? "—" : `${trace.elapsed_ms} ms`}
                 </div>
               </div>
-              <div className="bg-slate-50 rounded px-2 py-1 col-span-2 min-w-0">
-                <div className="text-slate-500">Request time (UTC)</div>
-                <div className="font-mono text-[11px] text-[#2E2E38] truncate">{trace.request_time || "—"}</div>
+              <div className="bg-surface-2 rounded px-2 py-1 col-span-2 min-w-0">
+                <div className="text-fg-subtle">Request time (UTC)</div>
+                <div className="font-mono text-micro text-fg truncate">{trace.request_time || "—"}</div>
               </div>
-              <div className="bg-slate-50 rounded px-2 py-1 col-span-2 min-w-0">
-                <div className="text-slate-500">Response time (UTC)</div>
-                <div className="font-mono text-[11px] text-[#2E2E38] truncate">{trace.response_time || "—"}</div>
+              <div className="bg-surface-2 rounded px-2 py-1 col-span-2 min-w-0">
+                <div className="text-fg-subtle">Response time (UTC)</div>
+                <div className="font-mono text-micro text-fg truncate">{trace.response_time || "—"}</div>
               </div>
               {trace.response_model && (
-                <div className="bg-slate-50 rounded px-2 py-1 col-span-2 md:col-span-4 min-w-0">
-                  <div className="text-slate-500">Model</div>
-                  <div className="font-mono text-[11px] text-[#2E2E38] truncate">{trace.response_model}</div>
+                <div className="bg-surface-2 rounded px-2 py-1 col-span-2 md:col-span-4 min-w-0">
+                  <div className="text-fg-subtle">Model</div>
+                  <div className="font-mono text-micro text-fg truncate">{trace.response_model}</div>
                 </div>
               )}
               {trace.error_reason && (
                 <div className="bg-rose-50 rounded px-2 py-1 col-span-2 md:col-span-4 min-w-0">
                   <div className="text-rose-600">Error reason</div>
-                  <div className="font-mono text-[11px] text-rose-700 whitespace-pre-wrap break-words">{trace.error_reason}</div>
+                  <div className="font-mono text-micro text-rose-700 whitespace-pre-wrap break-words">{trace.error_reason}</div>
                 </div>
               )}
             </div>
 
             <div className="flex items-center justify-between gap-2">
-              <div className="text-[11px] text-slate-500">Raw JSON</div>
+              <div className="text-micro text-fg-subtle">Raw JSON</div>
               <button
                 type="button"
                 onClick={copyJson}
-                className="text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border border-slate-200 hover:bg-slate-50 shrink-0"
+                className="text-micro inline-flex items-center gap-1 px-2 py-1 rounded border border-border hover:bg-surface-2 shrink-0"
                 data-testid="audit-trace-copy"
               >
                 <Copy className="w-3 h-3" /> {copied ? "Copied" : "Copy JSON"}
               </button>
             </div>
             <pre
-              className="text-[11px] font-mono bg-slate-900 text-slate-100 rounded p-3 max-h-[55vh] overflow-auto whitespace-pre-wrap break-words"
+              className="text-micro font-mono bg-ink text-fg-onDark rounded p-3 max-h-[55vh] overflow-auto whitespace-pre-wrap break-words"
               data-testid="audit-trace-json"
             >
               {json}
@@ -200,19 +200,19 @@ export default function AuditLogPage() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <header className="bg-white border-b border-[#E6E6E6] px-6 py-3">
-        <div className="text-[10px] uppercase tracking-widest text-slate-500">Audit</div>
-        <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Audit Log</h1>
+      <header className="bg-surface border-b border-border px-6 py-3">
+        <div className="text-micro uppercase tracking-widest text-fg-subtle">Audit</div>
+        <h1 className="font-display text-lg font-bold tracking-tight text-fg">Audit Log</h1>
       </header>
-      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-[#F6F6FA]">
+      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-bg">
         <div className="max-w-3xl mx-auto mos-panel">
           {items.length === 0 ? (
-            <div className="p-6 text-sm text-slate-500 text-center">
-              <Activity className="w-5 h-5 mx-auto mb-2 text-slate-400" />
+            <div className="p-6 text-sm text-fg-subtle text-center">
+              <Activity className="w-5 h-5 mx-auto mb-2 text-fg-subtle" />
               No events yet.
             </div>
           ) : (
-            <ul className="divide-y divide-slate-200">
+            <ul className="divide-y divide-border">
               {items.map((it, i) => {
                 const traceId = it?.details?.trace_id || "";
                 return (
@@ -222,8 +222,8 @@ export default function AuditLogPage() {
                     data-testid={`audit-${i}`}
                   >
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm font-mono text-[#2E2E38] truncate">{it.action}</div>
-                      <div className="text-[11px] text-slate-500 truncate">
+                      <div className="text-sm font-mono text-fg truncate">{it.action}</div>
+                      <div className="text-micro text-fg-subtle truncate">
                         {JSON.stringify(it.details || {})}
                       </div>
                     </div>
@@ -232,10 +232,10 @@ export default function AuditLogPage() {
                         type="button"
                         onClick={() => setOpenRow({ traceId, row: it })}
                         className={
-                          "text-[11px] inline-flex items-center gap-1 px-2 py-1 rounded border " +
+                          "text-micro inline-flex items-center gap-1 px-2 py-1 rounded border " +
                           (traceId
-                            ? "border-slate-200 hover:bg-slate-50 text-[#2E2E38]"
-                            : "border-slate-200 hover:bg-slate-50 text-slate-600")
+                            ? "border-border hover:bg-surface-2 text-fg"
+                            : "border-border hover:bg-surface-2 text-fg-muted")
                         }
                         data-testid={`audit-trace-btn-${i}`}
                         title={traceId
@@ -244,7 +244,7 @@ export default function AuditLogPage() {
                       >
                         <FileSearch className="w-3 h-3" /> Detail Log Trace
                       </button>
-                      <div className="text-[11px] text-slate-500 whitespace-nowrap">
+                      <div className="text-micro text-fg-subtle whitespace-nowrap">
                         {new Date(it.at).toLocaleString()}
                       </div>
                     </div>

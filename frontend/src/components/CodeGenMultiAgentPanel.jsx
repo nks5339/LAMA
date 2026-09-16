@@ -100,7 +100,7 @@ const PENDING_STATUSES = new Set([
 ]);
 
 const STATUS_BADGE = {
-  idle:                { label: "Idle",              cls: "bg-slate-100 text-slate-700 border-slate-300" },
+  idle:                { label: "Idle",              cls: "bg-surface-2 text-fg-muted border-border-strong" },
   envelopes_pending:   { label: "Envelopes Pending", cls: "bg-amber-100 text-amber-800 border-amber-300" },
   envelopes_confirmed: { label: "Envelopes ✓ Planning", cls: "bg-amber-100 text-amber-800 border-amber-300" },
   tasks_pending:       { label: "Tasks Pending",     cls: "bg-amber-100 text-amber-800 border-amber-300" },
@@ -113,7 +113,7 @@ const STATUS_BADGE = {
 };
 
 const SIDE_BADGE = {
-  backend:  { label: "BE",     cls: "bg-slate-700 text-white" },
+  backend:  { label: "BE",     cls: "bg-ink text-white" },
   frontend: { label: "FE",     cls: "bg-indigo-600 text-white" },
   shared:   { label: "Shared", cls: "bg-amber-600 text-white" },
 };
@@ -126,8 +126,8 @@ const RISK_BADGE = {
 };
 
 const TASK_STATUS_BADGE = {
-  PENDING:     "bg-slate-100 text-slate-700",
-  APPROVED:    "bg-slate-200 text-slate-800",
+  PENDING:     "bg-surface-2 text-fg-muted",
+  APPROVED:    "bg-surface-3 text-fg",
   IN_PROGRESS: "bg-sky-100 text-sky-800 animate-pulse",
   CODED:       "bg-cyan-100 text-cyan-800",
   VERIFIED:    "bg-teal-100 text-teal-800",
@@ -137,7 +137,7 @@ const TASK_STATUS_BADGE = {
 };
 
 const ASSIGNED_BADGE = {
-  coder_be: { label: "coder_be", cls: "bg-slate-700 text-white" },
+  coder_be: { label: "coder_be", cls: "bg-ink text-white" },
   coder_fe: { label: "coder_fe", cls: "bg-indigo-600 text-white" },
 };
 
@@ -221,7 +221,7 @@ function useCodegenMultiAgentState(projectId) {
       if (mountedRef.current) {
         // Silent — polling errors shouldn't nag the user every 2s.
         // Surface only on manual actions.
-        // eslint-disable-next-line no-console
+         
         console.warn("codegen multi-agent state poll failed:", errMsg(e));
       }
     } finally {
@@ -244,7 +244,7 @@ function useCodegenMultiAgentState(projectId) {
       setRuns(list);
       setRunsHasMore(list.length >= limit);
     } catch (e) {
-      // eslint-disable-next-line no-console
+       
       console.warn("codegen multi-agent runs poll failed:", errMsg(e));
     }
   }, [projectId, runsLimit, runsFilter]);
@@ -255,7 +255,7 @@ function useCodegenMultiAgentState(projectId) {
       const res = await getCodegenMultiAgentTraceability(projectId);
       if (mountedRef.current) setTraceability(res.data || null);
     } catch (e) {
-      // eslint-disable-next-line no-console
+       
       console.warn("codegen traceability fetch failed:", errMsg(e));
     }
   }, [projectId]);
@@ -274,7 +274,7 @@ function useCodegenMultiAgentState(projectId) {
     if (stateTimer.current) { clearInterval(stateTimer.current); stateTimer.current = null; }
     if (!projectId) return;
     if (isTerminal) return;
-    stateTimer.current = setInterval(fetchState, 2000);
+    stateTimer.current = setInterval(() => { if (!document.hidden) fetchState(); }, 2000);
     return () => { if (stateTimer.current) clearInterval(stateTimer.current); };
   }, [projectId, isTerminal, fetchState]);
 
@@ -283,7 +283,7 @@ function useCodegenMultiAgentState(projectId) {
     if (runsTimer.current) { clearInterval(runsTimer.current); runsTimer.current = null; }
     if (!projectId) return;
     if (status !== "executing" && !isPending) return;
-    runsTimer.current = setInterval(fetchRuns, 3000);
+    runsTimer.current = setInterval(() => { if (!document.hidden) fetchRuns(); }, 3000);
     return () => { if (runsTimer.current) clearInterval(runsTimer.current); };
   }, [projectId, status, isPending, fetchRuns]);
 
@@ -354,7 +354,7 @@ function useLiveCodegenFiles(projectId, { isTerminal }) {
     if (timer.current) { clearInterval(timer.current); timer.current = null; }
     if (!projectId) return;
     if (isTerminal) return;
-    timer.current = setInterval(fetchFiles, 3000);
+    timer.current = setInterval(() => { if (!document.hidden) fetchFiles(); }, 3000);
     return () => { if (timer.current) clearInterval(timer.current); };
   }, [projectId, isTerminal, fetchFiles]);
 
@@ -397,30 +397,30 @@ function TypedConfirmModal({ open, onClose, onConfirm, word = "RERUN", title, wa
   if (!open) return null;
   const enabled = typed === word;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+    <div aria-hidden="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40"
       data-testid="codegen-ma-rerun-modal"
       onClick={onClose}
     >
-      <div className="bg-white max-w-md w-full rounded-sm border-2 border-orange-500 p-5" onClick={(e) => e.stopPropagation()}>
+      <div role="presentation" className="bg-surface max-w-md w-full rounded-sm border-2 border-orange-500 p-5" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-display font-bold text-lg text-orange-700 flex items-center gap-2">
           <RotateCcw className="w-4 h-4" /> {title}
         </h3>
-        <p className="text-xs text-[#2E2E38] mt-2 leading-snug">{warning}</p>
-        <p className="text-xs text-[#747480] mt-3">
-          Type <code className="bg-[#F6F6FA] px-1">{word}</code> to confirm.
+        <p className="text-xs text-fg mt-2 leading-snug">{warning}</p>
+        <p className="text-xs text-fg-muted mt-3">
+          Type <code className="bg-bg px-1">{word}</code> to confirm.
         </p>
         <input
           autoFocus
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           data-testid="codegen-ma-rerun-input"
-          className="mt-1 w-full border border-[#E6E6E6] focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm"
+          className="mt-1 w-full border border-border focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm"
         />
         <div className="mt-4 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="text-xs px-3 py-1.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
+            className="text-xs px-3 py-1.5 border border-border rounded-sm hover:bg-bg"
           >
             Cancel
           </button>
@@ -456,8 +456,8 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
     setStatusVal(envelope.status || "draft");
   }, [envelope.acceptance_criteria, envelope.status]);
 
-  const side = SIDE_BADGE[envelope.side] || { label: envelope.side || "?", cls: "bg-slate-300 text-slate-800" };
-  const riskCls = RISK_BADGE[envelope.risk_level] || "bg-slate-50 text-slate-700 border-slate-200";
+  const side = SIDE_BADGE[envelope.side] || { label: envelope.side || "?", cls: "bg-surface-3 text-fg" };
+  const riskCls = RISK_BADGE[envelope.risk_level] || "bg-surface-2 text-fg-muted border-border";
   const tables = Array.isArray(envelope.db_tables) ? envelope.db_tables : [];
   const brIds = Array.isArray(envelope.br_ids) ? envelope.br_ids : [];
 
@@ -482,31 +482,31 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
     <>
       <tr
         data-testid={`codegen-ma-envelope-row-${envelope.envelope_id}`}
-        className="border-b border-[#F6F6FA] hover:bg-[#FAFAFC] cursor-pointer"
+        className="border-b border-surface-2 hover:bg-surface-2 cursor-pointer"
         onClick={() => onToggle?.(envelope.envelope_id)}
       >
-        <td className="px-2 py-1.5 text-[11px] font-mono text-[#2E2E38]">
+        <td className="px-2 py-1.5 text-micro font-mono text-fg">
           <span className="inline-flex items-center gap-1">
-            {open ? <ChevronDown className="w-3 h-3 text-[#747480]" /> : <ChevronRightIcon className="w-3 h-3 text-[#747480]" />}
+            {open ? <ChevronDown className="w-3 h-3 text-fg-muted" /> : <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
             {envelope.envelope_id}
           </span>
         </td>
-        <td className="px-2 py-1.5 text-[11px] font-mono text-[#2E2E38]">
-          <span className="inline-block w-12 text-[9px] font-bold uppercase">{envelope.endpoint_method || "—"}</span>
+        <td className="px-2 py-1.5 text-micro font-mono text-fg">
+          <span className="inline-block w-12 text-micro font-bold uppercase">{envelope.endpoint_method || "—"}</span>
           <span className="truncate">{envelope.endpoint_path || "—"}</span>
         </td>
-        <td className="px-2 py-1.5 text-[10px]">
+        <td className="px-2 py-1.5 text-micro">
           <span className={cls("uppercase font-bold px-1.5 py-0.5 rounded-sm", side.cls)}>{side.label}</span>
         </td>
-        <td className="px-2 py-1.5 text-[10px]">
+        <td className="px-2 py-1.5 text-micro">
           <span className={cls("uppercase font-semibold px-1.5 py-0.5 rounded-sm border", riskCls)}>
             {envelope.risk_level || "—"}
           </span>
         </td>
-        <td className="px-2 py-1.5 text-[10px] text-[#747480]">{envelope.layer || "—"}</td>
-        <td className="px-2 py-1.5 text-[10px] text-[#747480]">{tables.length}</td>
-        <td className="px-2 py-1.5 text-[10px] text-[#747480]">{envelope.status || "draft"}</td>
-        <td className="px-2 py-1.5 text-[10px] text-right">
+        <td className="px-2 py-1.5 text-micro text-fg-muted">{envelope.layer || "—"}</td>
+        <td className="px-2 py-1.5 text-micro text-fg-muted">{tables.length}</td>
+        <td className="px-2 py-1.5 text-micro text-fg-muted">{envelope.status || "draft"}</td>
+        <td className="px-2 py-1.5 text-micro text-right">
           <button
             data-testid={`codegen-ma-envelope-edit-${envelope.envelope_id}`}
             // `setOpen` does not exist in this component -- EnvelopeRow's
@@ -520,46 +520,46 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
               if (!open) onToggle?.(envelope.envelope_id);
               setEditing(true);
             }}
-            className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
+            className="inline-flex items-center gap-1 text-micro px-2 py-0.5 border border-border rounded-sm hover:bg-bg"
           >
             <Pencil className="w-3 h-3" /> Edit
           </button>
         </td>
       </tr>
       {open && (
-        <tr className="bg-[#FAFAFC]">
-          <td colSpan={8} className="px-3 py-2 border-b border-[#E6E6E6]">
-            <div className="grid grid-cols-2 gap-3 text-[10px]">
+        <tr className="bg-surface-2">
+          <td colSpan={8} className="px-3 py-2 border-b border-border">
+            <div className="grid grid-cols-2 gap-3 text-micro">
               <div>
-                <div className="text-[9px] uppercase text-[#747480] font-semibold">Controller</div>
-                <div className="font-mono text-[#2E2E38]">{envelope.controller_class || "—"}</div>
-                <div className="font-mono text-[#747480] truncate">{envelope.controller_file || ""}</div>
+                <div className="text-micro uppercase text-fg-muted font-semibold">Controller</div>
+                <div className="font-mono text-fg">{envelope.controller_class || "—"}</div>
+                <div className="font-mono text-fg-muted truncate">{envelope.controller_file || ""}</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase text-[#747480] font-semibold">Service</div>
-                <div className="font-mono text-[#2E2E38]">{envelope.service_class || "—"} <span className="text-[#747480]">·{envelope.service_method || "—"}</span></div>
-                <div className="font-mono text-[#747480] truncate">{envelope.service_file || ""}</div>
+                <div className="text-micro uppercase text-fg-muted font-semibold">Service</div>
+                <div className="font-mono text-fg">{envelope.service_class || "—"} <span className="text-fg-muted">·{envelope.service_method || "—"}</span></div>
+                <div className="font-mono text-fg-muted truncate">{envelope.service_file || ""}</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase text-[#747480] font-semibold">Repository</div>
-                <div className="font-mono text-[#2E2E38]">{envelope.repository_class || "—"}</div>
-                <div className="font-mono text-[#747480] truncate">{envelope.repository_file || ""}</div>
+                <div className="text-micro uppercase text-fg-muted font-semibold">Repository</div>
+                <div className="font-mono text-fg">{envelope.repository_class || "—"}</div>
+                <div className="font-mono text-fg-muted truncate">{envelope.repository_file || ""}</div>
               </div>
               <div>
-                <div className="text-[9px] uppercase text-[#747480] font-semibold">DB Tables ({tables.length})</div>
-                <div className="font-mono text-[#2E2E38] break-words">{tables.join(", ") || "—"}</div>
+                <div className="text-micro uppercase text-fg-muted font-semibold">DB Tables ({tables.length})</div>
+                <div className="font-mono text-fg break-words">{tables.join(", ") || "—"}</div>
               </div>
               <div className="col-span-2">
-                <div className="text-[9px] uppercase text-[#747480] font-semibold">BR IDs ({brIds.length})</div>
-                <div className="font-mono text-[#2E2E38] break-words">{brIds.join(", ") || "—"}</div>
+                <div className="text-micro uppercase text-fg-muted font-semibold">BR IDs ({brIds.length})</div>
+                <div className="font-mono text-fg break-words">{brIds.join(", ") || "—"}</div>
               </div>
               <div className="col-span-2">
-                <div className="text-[9px] uppercase text-[#747480] font-semibold flex items-center justify-between">
+                <div className="text-micro uppercase text-fg-muted font-semibold flex items-center justify-between">
                   <span>Acceptance Criteria</span>
                   {!editing && (
                     <button
                       onClick={() => setEditing(true)}
-                      className="text-[10px] px-1.5 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-white"
+                      className="text-micro px-1.5 py-0.5 border border-border rounded-sm hover:bg-surface"
                     >
                       <Pencil className="w-3 h-3 inline" /> Edit
                     </button>
@@ -571,14 +571,14 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
                       value={ac}
                       onChange={(e) => setAc(e.target.value)}
                       rows={4}
-                      className="mt-1 text-[11px] font-mono"
+                      className="mt-1 text-micro font-mono"
                     />
                     <div className="mt-2 flex items-center gap-2">
-                      <label className="text-[10px] text-[#747480]">Status:</label>
+                      <label className="text-micro text-fg-muted">Status:</label>
                       <select
                         value={statusVal}
                         onChange={(e) => setStatusVal(e.target.value)}
-                        className="text-[10px] border border-[#E6E6E6] rounded-sm px-1 py-0.5 bg-white"
+                        className="text-micro border border-border rounded-sm px-1 py-0.5 bg-surface"
                       >
                         <option value="draft">draft</option>
                         <option value="approved">approved</option>
@@ -588,7 +588,7 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
                         size="sm"
                         variant="outline"
                         onClick={() => { setEditing(false); setAc(envelope.acceptance_criteria || ""); setStatusVal(envelope.status || "draft"); }}
-                        className="h-7 text-[10px]"
+                        className="h-7 text-micro"
                       >
                         Cancel
                       </Button>
@@ -596,15 +596,15 @@ function EnvelopeRow({ envelope, projectId, onSaved, isOpen, onToggle }) {
                         size="sm"
                         onClick={save}
                         disabled={saving}
-                        className="h-7 text-[10px] bg-[#2E2E38] text-white hover:bg-[#1E1E28]"
+                        className="h-7 text-micro bg-ink text-ink-fg hover:bg-ink"
                       >
                         {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
                       </Button>
                     </div>
                   </>
                 ) : (
-                  <div className="mt-1 text-[11px] font-mono whitespace-pre-wrap text-[#2E2E38] bg-white border border-[#E6E6E6] rounded-sm p-2 min-h-[3rem]">
-                    {envelope.acceptance_criteria || <span className="italic text-[#B0B0B8]">— no acceptance criteria —</span>}
+                  <div className="mt-1 text-micro font-mono whitespace-pre-wrap text-fg bg-surface border border-border rounded-sm p-2 min-h-[3rem]">
+                    {envelope.acceptance_criteria || <span className="italic text-fg-subtle">— no acceptance criteria —</span>}
                   </div>
                 )}
               </div>
@@ -663,28 +663,28 @@ function TaskEditDialog({ open, onClose, task, projectId, onSaved }) {
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="text-sm font-display">
-            Edit task <span className="font-mono text-[#747480]">{task.task_id}</span>
+            Edit task <span className="font-mono text-fg-muted">{task.task_id}</span>
           </DialogTitle>
         </DialogHeader>
         <div className="space-y-3 text-xs">
           <div>
-            <label className="text-[10px] uppercase text-[#747480] font-semibold">Target Path</label>
+            <label className="text-micro uppercase text-fg-muted font-semibold">Target Path</label>
             <Input
               value={targetPath}
               onChange={(e) => setTargetPath(e.target.value)}
               className="mt-1 text-xs font-mono"
               placeholder="src/backend/app/services/..."
             />
-            <p className="text-[10px] text-[#747480] mt-1">
+            <p className="text-micro text-fg-muted mt-1">
               Server will re-apply BE/FE heuristic from this path — a toast fires if it overrides your pick.
             </p>
           </div>
           <div>
-            <label className="text-[10px] uppercase text-[#747480] font-semibold">Assigned To</label>
+            <label className="text-micro uppercase text-fg-muted font-semibold">Assigned To</label>
             <select
               value={assignedTo}
               onChange={(e) => setAssignedTo(e.target.value)}
-              className="mt-1 w-full text-xs border border-[#E6E6E6] rounded-sm px-2 py-1.5 bg-white"
+              className="mt-1 w-full text-xs border border-border rounded-sm px-2 py-1.5 bg-surface"
             >
               <option value="coder_be">coder_be</option>
               <option value="coder_fe">coder_fe</option>
@@ -694,7 +694,7 @@ function TaskEditDialog({ open, onClose, task, projectId, onSaved }) {
             </select>
           </div>
           <div>
-            <label className="text-[10px] uppercase text-[#747480] font-semibold">Description</label>
+            <label className="text-micro uppercase text-fg-muted font-semibold">Description</label>
             <Textarea
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -709,7 +709,7 @@ function TaskEditDialog({ open, onClose, task, projectId, onSaved }) {
             size="sm"
             onClick={save}
             disabled={saving}
-            className="bg-[#2E2E38] text-white hover:bg-[#1E1E28]"
+            className="bg-ink text-ink-fg hover:bg-ink"
           >
             {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
           </Button>
@@ -767,22 +767,22 @@ function BuildSystemPopover({ projectId, state, onSaved }) {
       <button
         data-testid="codegen-ma-btn-buildsys"
         onClick={() => setOpen((v) => !v)}
-        className="h-7 text-[11px] px-2 border border-[#E6E6E6] rounded-sm bg-white text-[#2E2E38] hover:bg-[#F6F6FA] flex items-center gap-1"
+        className="h-7 text-micro px-2 border border-border rounded-sm bg-surface text-fg hover:bg-bg flex items-center gap-1"
         title="Override BE / FE build systems"
       >
         <Wrench className="w-3 h-3" /> Override Build Systems
         <ChevronDown className="w-3 h-3" />
       </button>
       {open && (
-        <div className="absolute right-0 top-8 z-30 w-64 bg-white border border-[#E6E6E6] rounded-sm shadow-lg p-3 text-[11px]">
-          <div className="text-[10px] uppercase text-[#747480] font-semibold mb-1">Backend</div>
+        <div className="absolute right-0 top-8 z-30 w-64 bg-surface border border-border rounded-sm shadow-lg p-3 text-micro">
+          <div className="text-micro uppercase text-fg-muted font-semibold mb-1">Backend</div>
           <Input
             value={be}
             onChange={(e) => setBe(e.target.value)}
             placeholder="e.g. fastapi_poetry"
             className="h-7 text-xs"
           />
-          <div className="text-[10px] uppercase text-[#747480] font-semibold mt-2 mb-1">Frontend</div>
+          <div className="text-micro uppercase text-fg-muted font-semibold mt-2 mb-1">Frontend</div>
           <Input
             value={fe}
             onChange={(e) => setFe(e.target.value)}
@@ -790,12 +790,12 @@ function BuildSystemPopover({ projectId, state, onSaved }) {
             className="h-7 text-xs"
           />
           <div className="mt-3 flex justify-end gap-2">
-            <Button variant="outline" size="sm" onClick={() => setOpen(false)} className="h-7 text-[10px]">Cancel</Button>
+            <Button variant="outline" size="sm" onClick={() => setOpen(false)} className="h-7 text-micro">Cancel</Button>
             <Button
               size="sm"
               onClick={save}
               disabled={saving}
-              className="h-7 text-[10px] bg-[#2E2E38] text-white hover:bg-[#1E1E28]"
+              className="h-7 text-micro bg-ink text-ink-fg hover:bg-ink"
             >
               {saving ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />} Save
             </Button>
@@ -822,48 +822,48 @@ function AgentRunRow({ run }) {
   return (
     <div
       data-testid={`codegen-ma-run-${runId}`}
-      className="border-b border-[#F6F6FA] py-1.5 px-2 hover:bg-[#FAFAFC]"
+      className="border-b border-surface-2 py-1.5 px-2 hover:bg-surface-2"
     >
       <button
         onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center gap-2 text-[11px] text-left"
+        className="w-full flex items-center gap-2 text-micro text-left"
       >
-        {open ? <ChevronDown className="w-3 h-3 text-[#747480]" /> : <ChevronRightIcon className="w-3 h-3 text-[#747480]" />}
-        <Icon className="w-3 h-3 text-[#2E2E38]" />
-        <span className="font-semibold text-[#2E2E38]">{run.agent}</span>
-        <span className="text-[10px] text-[#747480]">{run.phase || "—"}</span>
-        <span className={cls("text-[9px] uppercase font-bold px-1.5 py-0.5 rounded-sm", statusPill)}>
+        {open ? <ChevronDown className="w-3 h-3 text-fg-muted" /> : <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
+        <Icon className="w-3 h-3 text-fg" />
+        <span className="font-semibold text-fg">{run.agent}</span>
+        <span className="text-micro text-fg-muted">{run.phase || "—"}</span>
+        <span className={cls("text-micro uppercase font-bold px-1.5 py-0.5 rounded-sm", statusPill)}>
           {run.status}
         </span>
         {run.task_id && (
-          <span className="text-[10px] font-mono text-[#747480]">task {run.task_id}</span>
+          <span className="text-micro font-mono text-fg-muted">task {run.task_id}</span>
         )}
         {run.envelope_id && (
-          <span className="text-[10px] font-mono text-[#747480]">env {run.envelope_id}</span>
+          <span className="text-micro font-mono text-fg-muted">env {run.envelope_id}</span>
         )}
         {run.score != null && (
-          <span className="text-[10px] text-emerald-700 font-semibold">score {Number(run.score).toFixed(2)}</span>
+          <span className="text-micro text-emerald-700 font-semibold">score {Number(run.score).toFixed(2)}</span>
         )}
-        <span className="ml-auto text-[10px] text-[#747480]">{fmtMs(run.duration_ms)}</span>
-        <span className="text-[10px] text-[#747480]">{fmtTs(run.created_at)}</span>
+        <span className="ml-auto text-micro text-fg-muted">{fmtMs(run.duration_ms)}</span>
+        <span className="text-micro text-fg-muted">{fmtTs(run.created_at)}</span>
       </button>
       {open && (
-        <div className="mt-1 ml-6 grid grid-cols-2 gap-2 text-[10px]">
+        <div className="mt-1 ml-6 grid grid-cols-2 gap-2 text-micro">
           <div>
-            <div className="text-[9px] uppercase text-[#747480] font-semibold">Input</div>
-            <pre className="mt-0.5 whitespace-pre-wrap font-mono text-[#2E2E38] bg-white border border-[#E6E6E6] rounded-sm p-1.5 max-h-40 overflow-y-auto">
+            <div className="text-micro uppercase text-fg-muted font-semibold">Input</div>
+            <pre className="mt-0.5 whitespace-pre-wrap font-mono text-fg bg-surface border border-border rounded-sm p-1.5 max-h-40 overflow-y-auto">
               {run.input_summary || "—"}
             </pre>
           </div>
           <div>
-            <div className="text-[9px] uppercase text-[#747480] font-semibold">Output</div>
-            <pre className="mt-0.5 whitespace-pre-wrap font-mono text-[#2E2E38] bg-white border border-[#E6E6E6] rounded-sm p-1.5 max-h-40 overflow-y-auto">
+            <div className="text-micro uppercase text-fg-muted font-semibold">Output</div>
+            <pre className="mt-0.5 whitespace-pre-wrap font-mono text-fg bg-surface border border-border rounded-sm p-1.5 max-h-40 overflow-y-auto">
               {run.output_summary || "—"}
             </pre>
           </div>
           {run.error && (
             <div className="col-span-2">
-              <div className="text-[9px] uppercase text-red-700 font-semibold">Error</div>
+              <div className="text-micro uppercase text-red-700 font-semibold">Error</div>
               <pre className="mt-0.5 whitespace-pre-wrap font-mono text-red-800 bg-red-50 border border-red-200 rounded-sm p-1.5 max-h-40 overflow-y-auto">
                 {run.error}
               </pre>
@@ -956,7 +956,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
     status === "traceability_gate";
   useEffect(() => {
     if (!isActive) return undefined;
-    const id = setInterval(() => setNowMs(Date.now()), 1000);
+    const id = setInterval(() => { if (!document.hidden) setNowMs(Date.now()); }, 1000);
     return () => clearInterval(id);
   }, [isActive]);
 
@@ -1337,14 +1337,14 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
   // -------------------------------------------------------------
   if (loading && !state) {
     return (
-      <div className="flex-1 flex items-center justify-center bg-[#F6F6FA]" data-testid="codegen-ma-loading">
-        <Loader2 className="w-5 h-5 animate-spin text-[#2E2E38]" />
+      <div className="flex-1 flex items-center justify-center bg-bg" data-testid="codegen-ma-loading">
+        <Loader2 className="w-5 h-5 animate-spin text-fg" />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-[#F6F6FA]" data-testid="codegen-ma-panel">
+    <div className="flex-1 min-w-0 min-h-0 overflow-y-auto bg-bg" data-testid="codegen-ma-panel">
       <div className="max-w-[1600px] mx-auto p-4 space-y-4">
 
         {/* ─────────────────────────────────────────────
@@ -1352,47 +1352,47 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
            ───────────────────────────────────────────── */}
         <section
           data-testid="codegen-ma-status"
-          className="bg-white border border-[#E6E6E6] rounded-sm p-3"
+          className="bg-surface border border-border rounded-sm p-3"
         >
           <div className="flex items-center flex-wrap gap-3">
             <div>
-              <div className="text-[9px] uppercase tracking-widest text-[#747480]">Multi-Agent CodeGen</div>
+              <div className="text-micro uppercase tracking-widest text-fg-muted">Multi-Agent CodeGen</div>
               <div className="flex items-center gap-2 mt-0.5">
                 <span
                   data-testid="codegen-ma-status-badge"
                   className={cls(
-                    "text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm border",
+                    "text-micro uppercase font-bold px-2 py-0.5 rounded-sm border",
                     badge.cls,
                   )}
                 >
                   {badge.label}
                 </span>
                 {state?.current_wave > 0 && (
-                  <span className="text-[10px] px-1.5 py-0.5 bg-[#F6F6FA] border border-[#E6E6E6] rounded-sm text-[#2E2E38]">
+                  <span className="text-micro px-1.5 py-0.5 bg-bg border border-border rounded-sm text-fg">
                     Wave {state.current_wave}
                   </span>
                 )}
               </div>
             </div>
 
-            <div className="h-8 w-px bg-[#E6E6E6]" />
+            <div className="h-8 w-px bg-border" />
 
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-[10px]">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-x-4 gap-y-1 text-micro">
               <div>
-                <div className="uppercase text-[#747480] font-semibold">BE Build</div>
-                <div className="font-mono text-[#2E2E38]">{state?.build_system_be || "—"}</div>
+                <div className="uppercase text-fg-muted font-semibold">BE Build</div>
+                <div className="font-mono text-fg">{state?.build_system_be || "—"}</div>
               </div>
               <div>
-                <div className="uppercase text-[#747480] font-semibold">FE Build</div>
-                <div className="font-mono text-[#2E2E38]">{state?.build_system_fe || "—"}</div>
+                <div className="uppercase text-fg-muted font-semibold">FE Build</div>
+                <div className="font-mono text-fg">{state?.build_system_fe || "—"}</div>
               </div>
               <div>
-                <div className="uppercase text-[#747480] font-semibold">Envelopes</div>
-                <div className="font-mono text-[#2E2E38]">{state?.envelope_count ?? envelopes.length}</div>
+                <div className="uppercase text-fg-muted font-semibold">Envelopes</div>
+                <div className="font-mono text-fg">{state?.envelope_count ?? envelopes.length}</div>
               </div>
               <div>
-                <div className="uppercase text-[#747480] font-semibold">Tasks</div>
-                <div className="font-mono text-[#2E2E38]">{state?.task_count ?? tasks.length}</div>
+                <div className="uppercase text-fg-muted font-semibold">Tasks</div>
+                <div className="font-mono text-fg">{state?.task_count ?? tasks.length}</div>
               </div>
             </div>
 
@@ -1405,7 +1405,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   data-testid="codegen-ma-btn-start"
                   onClick={doStart}
                   disabled={starting}
-                  className="h-8 text-[11px] px-3 bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-semibold"
+                  className="h-8 text-micro px-3 bg-brand text-fg hover:bg-brand-hover font-semibold"
                 >
                   {starting ? <Loader2 className="w-3 h-3 animate-spin" /> : <Play className="w-3 h-3" />}
                   {" "}Start Pipeline
@@ -1417,7 +1417,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   data-testid="codegen-ma-btn-confirm-envelopes"
                   onClick={doConfirmEnvelopes}
                   disabled={confirming || envelopes.length === 0}
-                  className="h-8 text-[11px] px-3 bg-[#2E2E38] text-white hover:bg-[#1E1E28]"
+                  className="h-8 text-micro px-3 bg-ink text-ink-fg hover:bg-ink"
                 >
                   {confirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                   {" "}Confirm Envelopes
@@ -1425,7 +1425,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               )}
 
               {status === "envelopes_confirmed" && (
-                <span className="inline-flex items-center gap-2 text-[11px] text-[#747480]">
+                <span className="inline-flex items-center gap-2 text-micro text-fg-muted">
                   <Loader2 className="w-3 h-3 animate-spin" /> Planner running…
                 </span>
               )}
@@ -1437,7 +1437,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                     data-testid="codegen-ma-btn-confirm-tasks"
                     onClick={doConfirmTasks}
                     disabled={confirming || tasks.length === 0}
-                    className="h-8 text-[11px] px-3 bg-[#2E2E38] text-white hover:bg-[#1E1E28]"
+                    className="h-8 text-micro px-3 bg-ink text-ink-fg hover:bg-ink"
                   >
                     {confirming ? <Loader2 className="w-3 h-3 animate-spin" /> : <Check className="w-3 h-3" />}
                     {" "}Confirm Tasks
@@ -1446,7 +1446,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               )}
 
               {status === "tasks_confirmed" && (
-                <span className="inline-flex items-center gap-2 text-[11px] text-[#747480]">
+                <span className="inline-flex items-center gap-2 text-micro text-fg-muted">
                   <Loader2 className="w-3 h-3 animate-spin" /> Queuing waves…
                 </span>
               )}
@@ -1457,7 +1457,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   variant="destructive"
                   onClick={() => setCancelOpen(true)}
                   disabled={cancelling}
-                  className="h-8 text-[11px] px-3"
+                  className="h-8 text-micro px-3"
                 >
                   {cancelling ? <Loader2 className="w-3 h-3 animate-spin" /> : <X className="w-3 h-3" />}
                   {" "}Cancel
@@ -1468,21 +1468,21 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                 <Button
                   data-testid="codegen-ma-btn-review-brs"
                   onClick={scrollToTraceability}
-                  className="h-8 text-[11px] px-3 bg-purple-600 text-white hover:bg-purple-700"
+                  className="h-8 text-micro px-3 bg-purple-600 text-white hover:bg-purple-700"
                 >
                   <Target className="w-3 h-3" /> Review BR Coverage
                 </Button>
               )}
 
               {!TERMINAL_STATUSES.has(status) && (
-                <span className="text-[10px] text-[#747480] italic">auto-polling…</span>
+                <span className="text-micro text-fg-muted italic">auto-polling…</span>
               )}
 
               <Button
                 data-testid="codegen-ma-btn-rerun"
                 variant="outline"
                 onClick={() => setRerunOpen(true)}
-                className="h-8 text-[11px] px-3 border-orange-300 text-orange-700 hover:bg-orange-50"
+                className="h-8 text-micro px-3 border-orange-300 text-orange-700 hover:bg-orange-50"
               >
                 <RotateCcw className="w-3 h-3" /> Rerun From Scratch
               </Button>
@@ -1490,7 +1490,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           </div>
 
           {state?.last_error && (
-            <div className="mt-2 text-[11px] text-red-800 bg-red-50 border border-red-200 rounded-sm p-2 flex items-start gap-2">
+            <div className="mt-2 text-micro text-red-800 bg-red-50 border border-red-200 rounded-sm p-2 flex items-start gap-2">
               <AlertTriangle className="w-3 h-3 mt-0.5 shrink-0" />
               <span className="font-mono break-words">{state.last_error}</span>
             </div>
@@ -1502,10 +1502,10 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           {isActive && (
             <div
               data-testid="codegen-ma-progress"
-              className="mt-2 border border-[#E6E6E6] rounded-sm bg-[#F6F6FA] p-2"
+              className="mt-2 border border-border rounded-sm bg-bg p-2"
             >
-              <div className="flex items-center gap-2 text-[10px] text-[#2E2E38]">
-                <Loader2 className="w-3 h-3 animate-spin text-[#2E2E38]" />
+              <div className="flex items-center gap-2 text-micro text-fg">
+                <Loader2 className="w-3 h-3 animate-spin text-fg" />
                 <span className="font-semibold">
                   {status === "envelopes_pending" && "Context Manager discovering envelopes"}
                   {status === "envelopes_confirmed" && "Planner producing task list"}
@@ -1519,25 +1519,25 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   {status === "traceability_gate" && "Running traceability gate"}
                 </span>
                 {runningRun && (
-                  <span className="text-[#747480]">
+                  <span className="text-fg-muted">
                     · {runningRun.agent}
                     {runningRun.phase ? ` (${runningRun.phase})` : ""}
                   </span>
                 )}
                 <span className="flex-1" />
-                <span className="font-mono text-[#747480]">
-                  Elapsed <span className="text-[#2E2E38] font-semibold">{fmtElapsed(elapsedSec)}</span>
+                <span className="font-mono text-fg-muted">
+                  Elapsed <span className="text-fg font-semibold">{fmtElapsed(elapsedSec)}</span>
                 </span>
-                <span className="font-mono text-[#747480]">
-                  Envelopes <span className="text-[#2E2E38] font-semibold">{state?.envelope_count ?? envelopes.length}</span>
+                <span className="font-mono text-fg-muted">
+                  Envelopes <span className="text-fg font-semibold">{state?.envelope_count ?? envelopes.length}</span>
                 </span>
-                <span className="font-mono text-[#747480]">
-                  Tasks <span className="text-[#2E2E38] font-semibold">{state?.task_count ?? tasks.length}</span>
+                <span className="font-mono text-fg-muted">
+                  Tasks <span className="text-fg font-semibold">{state?.task_count ?? tasks.length}</span>
                 </span>
               </div>
               {/* Indeterminate bar (no known ETA — cadence depends on LLM latency). */}
-              <div className="mt-1.5 h-1 w-full bg-[#E6E6E6] rounded-sm overflow-hidden">
-                <div className="h-full w-1/3 bg-[#FFE600] animate-[codegen-ma-slide_1.6s_ease-in-out_infinite]" />
+              <div className="mt-1.5 h-1 w-full bg-border rounded-sm overflow-hidden">
+                <div className="h-full w-1/3 bg-brand animate-[codegen-ma-slide_1.6s_ease-in-out_infinite]" />
               </div>
               <style>{`@keyframes codegen-ma-slide{0%{transform:translateX(-100%)}50%{transform:translateX(150%)}100%{transform:translateX(300%)}}`}</style>
             </div>
@@ -1548,7 +1548,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           {envelopesEmptyDeadEnd && (
             <div
               data-testid="codegen-ma-empty-envelopes-warning"
-              className="mt-2 text-[11px] text-amber-900 bg-amber-50 border border-amber-300 rounded-sm p-2 flex items-start gap-2"
+              className="mt-2 text-micro text-amber-900 bg-amber-50 border border-amber-300 rounded-sm p-2 flex items-start gap-2"
             >
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-700" />
               <div>
@@ -1567,7 +1567,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           {tasksEmptyDeadEnd && (
             <div
               data-testid="codegen-ma-empty-tasks-warning"
-              className="mt-2 text-[11px] text-amber-900 bg-amber-50 border border-amber-300 rounded-sm p-2 flex items-start gap-2"
+              className="mt-2 text-micro text-amber-900 bg-amber-50 border border-amber-300 rounded-sm p-2 flex items-start gap-2"
             >
               <AlertTriangle className="w-3.5 h-3.5 mt-0.5 shrink-0 text-amber-700" />
               <div className="flex-1">
@@ -1585,7 +1585,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                     data-testid="codegen-ma-btn-retry-planner"
                     onClick={doRetryPlanner}
                     disabled={retryingPlanner}
-                    className="h-7 text-[11px] px-3 bg-amber-600 text-white hover:bg-amber-700 font-semibold"
+                    className="h-7 text-micro px-3 bg-amber-600 text-white hover:bg-amber-700 font-semibold"
                   >
                     {retryingPlanner ? <Loader2 className="w-3 h-3 animate-spin" /> : <RotateCcw className="w-3 h-3" />}
                     {" "}Retry Planner
@@ -1602,28 +1602,28 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
         {envelopes.length > 0 ? (
           <section
             data-testid="codegen-ma-envelopes"
-            className="bg-white border border-[#E6E6E6] rounded-sm"
+            className="bg-surface border border-border rounded-sm"
           >
             <button
               type="button"
               data-testid="codegen-ma-envelopes-toggle"
               onClick={() => setEnvelopesCollapsed((v) => !v)}
-              className="w-full px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2 hover:bg-[#FAFAFC] text-left"
+              className="w-full px-3 py-2 border-b border-border flex items-center gap-2 hover:bg-surface-2 text-left"
             >
               {envelopesCollapsed
-                ? <ChevronRightIcon className="w-3.5 h-3.5 text-[#747480]" />
-                : <ChevronDown className="w-3.5 h-3.5 text-[#747480]" />}
-              <Layers className="w-3.5 h-3.5 text-[#2E2E38]" />
-              <h2 className="font-display font-bold text-[13px] text-[#2E2E38]">Envelopes</h2>
-              <span className="text-[10px] text-[#747480]">
+                ? <ChevronRightIcon className="w-3.5 h-3.5 text-fg-muted" />
+                : <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />}
+              <Layers className="w-3.5 h-3.5 text-fg" />
+              <h2 className="font-display font-bold text-[13px] text-fg">Envelopes</h2>
+              <span className="text-micro text-fg-muted">
                 {envelopes.length} · click row to expand · inline-edit acceptance criteria + status
               </span>
             </button>
             {!envelopesCollapsed && (
               <div className="max-h-[60vh] overflow-auto">
                 <table className="w-full text-left">
-                  <thead className="bg-[#F6F6FA] sticky top-0 z-10 shadow-[0_1px_0_#E6E6E6]">
-                    <tr className="text-[9px] uppercase text-[#747480]">
+                  <thead className="bg-bg sticky top-0 z-10 shadow-[0_1px_0_#E6E6E6]">
+                    <tr className="text-micro uppercase text-fg-muted">
                       <th className="px-2 py-1.5">Envelope</th>
                       <th className="px-2 py-1.5">Method · Path</th>
                       <th className="px-2 py-1.5">Side</th>
@@ -1654,14 +1654,14 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           status !== "idle" && (
             <section
               data-testid="codegen-ma-envelopes-empty"
-              className="bg-white border border-[#E6E6E6] rounded-sm px-3 py-2 flex items-center gap-2 text-[11px] text-[#747480]"
+              className="bg-surface border border-border rounded-sm px-3 py-2 flex items-center gap-2 text-micro text-fg-muted"
             >
               {status === "envelopes_pending" || status === "executing" ? (
-                <Loader2 className="w-3.5 h-3.5 text-[#2E2E38] animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-fg animate-spin" />
               ) : (
-                <Layers className="w-3.5 h-3.5 text-[#747480]" />
+                <Layers className="w-3.5 h-3.5 text-fg-muted" />
               )}
-              <span className="font-semibold text-[#2E2E38]">Envelopes</span>
+              <span className="font-semibold text-fg">Envelopes</span>
               <span>·</span>
               <span>
                 {status === "envelopes_pending"
@@ -1678,20 +1678,20 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
         {tasks.length > 0 && (
           <section
             data-testid="codegen-ma-tasks"
-            className="bg-white border border-[#E6E6E6] rounded-sm"
+            className="bg-surface border border-border rounded-sm"
           >
             <button
               type="button"
               data-testid="codegen-ma-tasks-toggle"
               onClick={() => setTasksCollapsed((v) => !v)}
-              className="w-full px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2 hover:bg-[#FAFAFC] text-left"
+              className="w-full px-3 py-2 border-b border-border flex items-center gap-2 hover:bg-surface-2 text-left"
             >
               {tasksCollapsed
-                ? <ChevronRightIcon className="w-3.5 h-3.5 text-[#747480]" />
-                : <ChevronDown className="w-3.5 h-3.5 text-[#747480]" />}
-              <ClipboardCopy className="w-3.5 h-3.5 text-[#2E2E38]" />
-              <h2 className="font-display font-bold text-[13px] text-[#2E2E38]">Tasks</h2>
-              <span className="text-[10px] text-[#747480]">
+                ? <ChevronRightIcon className="w-3.5 h-3.5 text-fg-muted" />
+                : <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />}
+              <ClipboardCopy className="w-3.5 h-3.5 text-fg" />
+              <h2 className="font-display font-bold text-[13px] text-fg">Tasks</h2>
+              <span className="text-micro text-fg-muted">
                 {tasks.length} across {waveGroups.length} wave(s)
               </span>
             </button>
@@ -1701,19 +1701,19 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                 const stats = waveStats(group.tasks);
                 const isOpen = !collapsedWaves[group.wave];
                 return (
-                  <div key={`w-${group.wave}`} className="border-b border-[#E6E6E6] last:border-b-0">
+                  <div key={`w-${group.wave}`} className="border-b border-border last:border-b-0">
                     <button
                       data-testid={`codegen-ma-wave-header-${group.wave}`}
                       onClick={() =>
                         setCollapsedWaves((s) => ({ ...s, [group.wave]: isOpen }))
                       }
-                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-[#F6F6FA] text-left"
+                      className="w-full flex items-center gap-2 px-3 py-1.5 hover:bg-bg text-left"
                     >
-                      {isOpen ? <ChevronDown className="w-3 h-3 text-[#747480]" /> : <ChevronRightIcon className="w-3 h-3 text-[#747480]" />}
-                      <span className="text-[11px] font-semibold text-[#2E2E38]">
+                      {isOpen ? <ChevronDown className="w-3 h-3 text-fg-muted" /> : <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
+                      <span className="text-micro font-semibold text-fg">
                         Wave {group.wave} · {group.wave_name}
                       </span>
-                      <span className="text-[10px] text-[#747480]">
+                      <span className="text-micro text-fg-muted">
                         {group.tasks.length} tasks · BE {stats.be} · FE {stats.fe} · done {stats.done}
                         {stats.blocked > 0 && <span className="ml-1 text-red-700 font-semibold">· blocked {stats.blocked}</span>}
                         {stats.inProgress > 0 && <span className="ml-1 text-sky-700 font-semibold">· in-progress {stats.inProgress}</span>}
@@ -1722,8 +1722,8 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                     {isOpen && (
                       <div className="overflow-x-auto">
                         <table className="w-full text-left">
-                          <thead className="bg-[#FAFAFC]">
-                            <tr className="text-[9px] uppercase text-[#747480]">
+                          <thead className="bg-surface-2">
+                            <tr className="text-micro uppercase text-fg-muted">
                               <th className="px-2 py-1.5">Task</th>
                               <th className="px-2 py-1.5">Title</th>
                               <th className="px-2 py-1.5">Layer</th>
@@ -1736,41 +1736,41 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                           </thead>
                           <tbody>
                             {group.tasks.map((t) => {
-                              const asg = ASSIGNED_BADGE[t.assigned_to] || { label: t.assigned_to || "—", cls: "bg-slate-200 text-slate-800" };
-                              const stCls = TASK_STATUS_BADGE[t.status] || "bg-slate-100 text-slate-700";
+                              const asg = ASSIGNED_BADGE[t.assigned_to] || { label: t.assigned_to || "—", cls: "bg-surface-3 text-fg" };
+                              const stCls = TASK_STATUS_BADGE[t.status] || "bg-surface-2 text-fg-muted";
                               return (
                                 <tr
                                   key={t.task_id}
                                   data-testid={`codegen-ma-task-row-${t.task_id}`}
-                                  className="border-b border-[#F6F6FA] hover:bg-[#FAFAFC]"
+                                  className="border-b border-surface-2 hover:bg-surface-2"
                                 >
-                                  <td className="px-2 py-1.5 text-[10px] font-mono text-[#2E2E38]">{t.task_id}</td>
-                                  <td className="px-2 py-1.5 text-[11px] text-[#2E2E38]" title={t.title}>{short(t.title, 60)}</td>
-                                  <td className="px-2 py-1.5 text-[10px] text-[#747480]">{t.layer || "—"}</td>
-                                  <td className="px-2 py-1.5 text-[10px]">
+                                  <td className="px-2 py-1.5 text-micro font-mono text-fg">{t.task_id}</td>
+                                  <td className="px-2 py-1.5 text-micro text-fg" title={t.title}>{short(t.title, 60)}</td>
+                                  <td className="px-2 py-1.5 text-micro text-fg-muted">{t.layer || "—"}</td>
+                                  <td className="px-2 py-1.5 text-micro">
                                     <span className={cls("uppercase font-bold px-1.5 py-0.5 rounded-sm", asg.cls)}>
                                       {asg.label}
                                     </span>
                                   </td>
-                                  <td className="px-2 py-1.5 text-[10px] font-mono text-[#747480] truncate max-w-[240px]" title={t.target_path}>
+                                  <td className="px-2 py-1.5 text-micro font-mono text-fg-muted truncate max-w-[240px]" title={t.target_path}>
                                     {t.target_path || "—"}
                                   </td>
-                                  <td className="px-2 py-1.5 text-[10px]">
+                                  <td className="px-2 py-1.5 text-micro">
                                     <span className={cls("uppercase font-bold px-1.5 py-0.5 rounded-sm", stCls)}>
                                       {t.status}
                                     </span>
                                   </td>
-                                  <td className="px-2 py-1.5 text-[10px] text-[#2E2E38]">
+                                  <td className="px-2 py-1.5 text-micro text-fg">
                                     {t.verifier_score != null ? Number(t.verifier_score).toFixed(2) : "—"}
                                     {t.rejection_count > 0 && (
-                                      <span className="ml-1 text-[9px] text-red-700">×{t.rejection_count}</span>
+                                      <span className="ml-1 text-micro text-red-700">×{t.rejection_count}</span>
                                     )}
                                   </td>
-                                  <td className="px-2 py-1.5 text-[10px] text-right">
+                                  <td className="px-2 py-1.5 text-micro text-right">
                                     <button
                                       data-testid={`codegen-ma-task-edit-${t.task_id}`}
                                       onClick={() => setEditingTask(t)}
-                                      className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
+                                      className="inline-flex items-center gap-1 text-micro px-2 py-0.5 border border-border rounded-sm hover:bg-bg"
                                     >
                                       <Pencil className="w-3 h-3" /> Edit
                                     </button>
@@ -1797,14 +1797,14 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           <section
             ref={traceabilityRef}
             data-testid="codegen-ma-traceability"
-            className="bg-white border border-[#E6E6E6] rounded-sm"
+            className="bg-surface border border-border rounded-sm"
           >
-            <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
-              <Target className="w-3.5 h-3.5 text-[#2E2E38]" />
-              <h2 className="font-display font-bold text-[13px] text-[#2E2E38]">Traceability — BR Coverage</h2>
+            <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+              <Target className="w-3.5 h-3.5 text-fg" />
+              <h2 className="font-display font-bold text-[13px] text-fg">Traceability — BR Coverage</h2>
               <button
                 onClick={refetchTraceability}
-                className="ml-auto text-[10px] text-[#747480] hover:text-[#2E2E38] underline"
+                className="ml-auto text-micro text-fg-muted hover:text-fg underline"
               >
                 Refresh
               </button>
@@ -1820,12 +1820,12 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   >
                     {Number(traceability.coverage_pct || 0).toFixed(1)}%
                   </span>
-                  <span className="text-[11px] text-[#747480]">BR coverage across all tasks</span>
+                  <span className="text-micro text-fg-muted">BR coverage across all tasks</span>
                 </div>
 
                 {Array.isArray(traceability.missing_brs) && traceability.missing_brs.length > 0 && (
                   <div className="mt-3">
-                    <div className="text-[10px] uppercase text-[#747480] font-semibold flex items-center gap-2">
+                    <div className="text-micro uppercase text-fg-muted font-semibold flex items-center gap-2">
                       <AlertTriangle className="w-3 h-3 text-red-600" /> Missing BRs ({traceability.missing_brs.length})
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
@@ -1833,7 +1833,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                         <button
                           key={br}
                           onClick={() => copyToClipboard(br)}
-                          className="text-[10px] font-mono px-1.5 py-0.5 bg-red-50 border border-red-200 rounded-sm text-red-800 hover:bg-red-100 inline-flex items-center gap-1"
+                          className="text-micro font-mono px-1.5 py-0.5 bg-red-50 border border-red-200 rounded-sm text-red-800 hover:bg-red-100 inline-flex items-center gap-1"
                           title="Click to copy"
                         >
                           {br} <ClipboardCopy className="w-3 h-3" />
@@ -1845,13 +1845,13 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
 
                 {Array.isArray(traceability.per_envelope) && traceability.per_envelope.length > 0 && (
                   <div className="mt-4">
-                    <div className="text-[10px] uppercase text-[#747480] font-semibold mb-1">
+                    <div className="text-micro uppercase text-fg-muted font-semibold mb-1">
                       Per-Envelope Coverage
                     </div>
                     <div className="overflow-x-auto">
-                      <table className="w-full text-left text-[10px]">
-                        <thead className="bg-[#F6F6FA]">
-                          <tr className="text-[9px] uppercase text-[#747480]">
+                      <table className="w-full text-left text-micro">
+                        <thead className="bg-bg">
+                          <tr className="text-micro uppercase text-fg-muted">
                             <th className="px-2 py-1.5">Envelope</th>
                             <th className="px-2 py-1.5">Expected</th>
                             <th className="px-2 py-1.5">Covered</th>
@@ -1860,13 +1860,13 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                         </thead>
                         <tbody>
                           {traceability.per_envelope.map((row) => (
-                            <tr key={row.envelope_id} className="border-b border-[#F6F6FA]">
-                              <td className="px-2 py-1.5 font-mono text-[#2E2E38]">{row.envelope_id}</td>
-                              <td className="px-2 py-1.5 font-mono text-[#747480]">{(row.expected || []).join(", ") || "—"}</td>
+                            <tr key={row.envelope_id} className="border-b border-surface-2">
+                              <td className="px-2 py-1.5 font-mono text-fg">{row.envelope_id}</td>
+                              <td className="px-2 py-1.5 font-mono text-fg-muted">{(row.expected || []).join(", ") || "—"}</td>
                               <td className="px-2 py-1.5 font-mono text-emerald-700">{(row.covered || []).join(", ") || "—"}</td>
                               <td className={cls(
                                 "px-2 py-1.5 font-mono",
-                                (row.missing || []).length > 0 ? "text-red-700 font-semibold" : "text-[#747480]",
+                                (row.missing || []).length > 0 ? "text-red-700 font-semibold" : "text-fg-muted",
                               )}>
                                 {(row.missing || []).join(", ") || "—"}
                               </td>
@@ -1879,7 +1879,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                 )}
               </div>
             ) : (
-              <div className="p-4 text-[11px] text-[#747480]">Loading traceability…</div>
+              <div className="p-4 text-micro text-fg-muted">Loading traceability…</div>
             )}
           </section>
         )}
@@ -1889,9 +1889,9 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
            ───────────────────────────────────────────── */}
         <section
           data-testid="codegen-ma-runs-list"
-          className="bg-white border border-[#E6E6E6] rounded-sm"
+          className="bg-surface border border-border rounded-sm"
         >
-          <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <button
               type="button"
               data-testid="codegen-ma-runs-toggle"
@@ -1900,12 +1900,12 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               title={runsCollapsed ? "Expand Agent Runs" : "Collapse Agent Runs"}
             >
               {runsCollapsed
-                ? <ChevronRightIcon className="w-3.5 h-3.5 text-[#747480]" />
-                : <ChevronDown className="w-3.5 h-3.5 text-[#747480]" />}
-              <Wand2 className="w-3.5 h-3.5 text-[#2E2E38]" />
-              <h2 className="font-display font-bold text-[13px] text-[#2E2E38]">Agent Runs</h2>
+                ? <ChevronRightIcon className="w-3.5 h-3.5 text-fg-muted" />
+                : <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />}
+              <Wand2 className="w-3.5 h-3.5 text-fg" />
+              <h2 className="font-display font-bold text-[13px] text-fg">Agent Runs</h2>
             </button>
-            <span className="text-[10px] text-[#747480]">
+            <span className="text-micro text-fg-muted">
               newest first · {filteredRuns.length}{runsHasMore ? "+" : ""} shown
             </span>
             <div className="flex-1" />
@@ -1913,7 +1913,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               data-testid="codegen-ma-runs-filter"
               value={runsFilter}
               onChange={(e) => setRunsFilter(e.target.value)}
-              className="text-[10px] border border-[#E6E6E6] rounded-sm px-1 py-0.5 bg-white"
+              className="text-micro border border-border rounded-sm px-1 py-0.5 bg-surface"
             >
               {AGENT_OPTIONS.map((a) => (
                 <option key={a || "all"} value={a}>{a || "All agents"}</option>
@@ -1921,11 +1921,11 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
             </select>
           </div>
           {!runsCollapsed && (filteredRuns.length === 0 ? (
-            <div className="px-3 py-2 text-[11px] text-[#747480] flex items-center gap-2">
+            <div className="px-3 py-2 text-micro text-fg-muted flex items-center gap-2">
               {status === "idle" ? (
-                <Wand2 className="w-3.5 h-3.5 text-[#747480]" />
+                <Wand2 className="w-3.5 h-3.5 text-fg-muted" />
               ) : (
-                <Loader2 className="w-3.5 h-3.5 text-[#2E2E38] animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-fg animate-spin" />
               )}
               <span>
                 {status === "idle"
@@ -1941,11 +1941,11 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                 ))}
               </div>
               {runsHasMore && (
-                <div className="p-2 border-t border-[#E6E6E6] text-center">
+                <div className="p-2 border-t border-border text-center">
                   <button
                     data-testid="codegen-ma-runs-load-more"
                     onClick={() => setRunsLimit((n) => n + 20)}
-                    className="text-[10px] px-3 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] text-[#2E2E38]"
+                    className="text-micro px-3 py-1 border border-border rounded-sm hover:bg-bg text-fg"
                   >
                     Load More
                   </button>
@@ -1969,11 +1969,11 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
           data-testid="codegen-ma-files"
           className={cls(
             filesMaximized
-              ? "fixed inset-0 z-[60] bg-white flex flex-col"
-              : "bg-white border border-[#E6E6E6] rounded-sm",
+              ? "fixed inset-0 z-[60] bg-surface flex flex-col"
+              : "bg-surface border border-border rounded-sm",
           )}
         >
-          <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
+          <div className="px-3 py-2 border-b border-border flex items-center gap-2">
             <button
               type="button"
               data-testid="codegen-ma-files-toggle"
@@ -1986,12 +1986,12 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               title={filesCollapsed ? "Expand Generated Code" : "Collapse Generated Code"}
             >
               {filesMaximized || !filesCollapsed
-                ? <ChevronDown className="w-3.5 h-3.5 text-[#747480]" />
-                : <ChevronRightIcon className="w-3.5 h-3.5 text-[#747480]" />}
-              <FileCode className="w-3.5 h-3.5 text-[#2E2E38]" />
-              <h2 className="font-display font-bold text-[13px] text-[#2E2E38]">Generated Code</h2>
+                ? <ChevronDown className="w-3.5 h-3.5 text-fg-muted" />
+                : <ChevronRightIcon className="w-3.5 h-3.5 text-fg-muted" />}
+              <FileCode className="w-3.5 h-3.5 text-fg" />
+              <h2 className="font-display font-bold text-[13px] text-fg">Generated Code</h2>
             </button>
-            <span className="text-[10px] text-[#747480]" data-testid="codegen-ma-files-count">
+            <span className="text-micro text-fg-muted" data-testid="codegen-ma-files-count">
               {liveTotalFiles > 0
                 ? `${liveTotalFiles} file${liveTotalFiles === 1 ? "" : "s"} · ${liveServices.length} service${liveServices.length === 1 ? "" : "s"}`
                 : liveLoaded
@@ -2000,7 +2000,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
             </span>
             {!isTerminal && (
               <span
-                className="inline-flex items-center gap-1 text-[9px] uppercase tracking-widest text-emerald-700"
+                className="inline-flex items-center gap-1 text-micro uppercase tracking-widest text-emerald-700"
                 title="Auto-refreshing every 3s while the pipeline runs"
               >
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
@@ -2013,7 +2013,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                 data-testid="codegen-ma-files-service-filter"
                 value={liveServiceFilter}
                 onChange={(e) => setLiveServiceFilter(e.target.value)}
-                className="text-[10px] border border-[#E6E6E6] rounded-sm px-1 py-0.5 bg-white"
+                className="text-micro border border-border rounded-sm px-1 py-0.5 bg-surface"
                 title="Filter file tree by service"
               >
                 <option value="">All services</option>
@@ -2026,7 +2026,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
               type="button"
               data-testid="codegen-ma-files-refresh"
               onClick={refetchFiles}
-              className="text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] text-[#2E2E38] inline-flex items-center gap-1"
+              className="text-micro px-2 py-0.5 border border-border rounded-sm hover:bg-bg text-fg inline-flex items-center gap-1"
               title="Refresh file list now"
             >
               <RotateCcw className="w-3 h-3" />
@@ -2046,7 +2046,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   setFilesMaximized(true);
                 }
               }}
-              className="text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] text-[#2E2E38] inline-flex items-center gap-1"
+              className="text-micro px-2 py-0.5 border border-border rounded-sm hover:bg-bg text-fg inline-flex items-center gap-1"
               title={filesMaximized ? "Restore (Esc)" : "Maximize to full screen"}
             >
               {filesMaximized
@@ -2057,8 +2057,8 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
 
           {(filesMaximized || !filesCollapsed) && (
             flatLiveFiles.length === 0 ? (
-              <div className="px-3 py-4 text-[11px] text-[#747480] flex items-center gap-2">
-                <FileCode className="w-3.5 h-3.5 text-[#747480]" />
+              <div className="px-3 py-4 text-micro text-fg-muted flex items-center gap-2">
+                <FileCode className="w-3.5 h-3.5 text-fg-muted" />
                 <span>
                   {isTerminal
                     ? "This project has no generated files yet. Start the pipeline above to produce code."
@@ -2074,11 +2074,11 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                   {/* LEFT — nested directory tree (iter-17.18) */}
                   <Panel defaultSize={25} minSize={16}>
                     <div
-                      className="h-full overflow-y-auto border-r border-[#E6E6E6] bg-[#FAFAFC] py-1"
+                      className="h-full overflow-y-auto border-r border-border bg-surface-2 py-1"
                       data-testid="codegen-ma-files-tree"
                     >
                       {treeRows.length === 0 && (
-                        <div className="text-[11px] text-[#747480] p-3">No files yet.</div>
+                        <div className="text-micro text-fg-muted p-3">No files yet.</div>
                       )}
                       {treeRows.map((r) => {
                         if (r.kind === "dir") {
@@ -2088,16 +2088,16 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                               type="button"
                               onClick={() => toggleDir(r.key)}
                               data-testid={`codegen-ma-dir-${r.key}`}
-                              className="w-full flex items-center gap-1 text-[11px] py-0.5 hover:bg-[#F6F6FA] text-[#2E2E38]"
+                              className="w-full flex items-center gap-1 text-micro py-0.5 hover:bg-bg text-fg"
                               style={{ paddingLeft: 8 + r.depth * 10 }}
                               title={r.key}
                             >
                               {r.isOpen
-                                ? <ChevronDown className="w-3 h-3 text-[#747480]" />
-                                : <ChevronRightIcon className="w-3 h-3 text-[#747480]" />}
+                                ? <ChevronDown className="w-3 h-3 text-fg-muted" />
+                                : <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
                               {r.isOpen
-                                ? <FolderOpen className="w-3 h-3 text-[#FFE600]" />
-                                : <Folder className="w-3 h-3 text-[#FFE600]" />}
+                                ? <FolderOpen className="w-3 h-3 text-brand" />
+                                : <Folder className="w-3 h-3 text-brand" />}
                               <span className="truncate">{r.name}</span>
                             </button>
                           );
@@ -2111,25 +2111,25 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                             data-testid={`codegen-ma-file-row-${f.id}`}
                             onClick={() => handleLiveFileClick({ ...f, service_name: f.service_name })}
                             className={cls(
-                              "w-full text-left flex items-center gap-1 text-[11px] font-mono py-0.5 transition-colors",
+                              "w-full text-left flex items-center gap-1 text-micro font-mono py-0.5 transition-colors",
                               isSel
-                                ? "bg-[#FFFCE6] text-[#2E2E38] font-semibold"
-                                : "hover:bg-[#F6F6FA] text-[#2E2E38]",
+                                ? "bg-brand-tint text-fg font-semibold"
+                                : "hover:bg-bg text-fg",
                             )}
                             style={{ paddingLeft: 8 + r.depth * 10 }}
                             title={f.path}
                           >
-                            <FileText className="w-3 h-3 shrink-0 text-[#747480]" />
+                            <FileText className="w-3 h-3 shrink-0 text-fg-muted" />
                             <span className="truncate flex-1">{f.basename}</span>
                             {f.edited && (
                               <span
-                                className="text-[8px] uppercase font-bold text-amber-700 shrink-0"
+                                className="text-micro uppercase font-bold text-amber-700 shrink-0"
                                 title="Manually edited"
                               >
                                 edit
                               </span>
                             )}
-                            <span className="text-[8px] text-[#B0B0B8] shrink-0" title="Version">
+                            <span className="text-micro text-fg-subtle shrink-0" title="Version">
                               v{f.version}
                             </span>
                           </button>
@@ -2137,30 +2137,30 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                       })}
                     </div>
                   </Panel>
-                  <PanelResizeHandle className="w-1 bg-[#E6E6E6] hover:bg-[#FFE600] transition-colors" />
+                  <PanelResizeHandle className="w-1 bg-border hover:bg-brand transition-colors" />
                   {/* CENTER — Monaco viewer */}
                   <Panel defaultSize={45} minSize={25}>
-                    <div className="h-full flex flex-col bg-white">
-                      <div className="px-3 py-1.5 border-b border-[#E6E6E6] flex items-center gap-2 bg-[#FAFAFC]">
-                        <FileText className="w-3.5 h-3.5 text-[#747480]" />
+                    <div className="h-full flex flex-col bg-surface">
+                      <div className="px-3 py-1.5 border-b border-border flex items-center gap-2 bg-surface-2">
+                        <FileText className="w-3.5 h-3.5 text-fg-muted" />
                         {selectedFileMeta ? (
                           <>
                             <span
-                              className="text-[11px] font-mono text-[#2E2E38] truncate flex-1"
+                              className="text-micro font-mono text-fg truncate flex-1"
                               data-testid="codegen-ma-file-selected-path"
                             >
                               {selectedFileMeta.path}
                             </span>
-                            <span className="text-[9px] uppercase bg-[#F6F6FA] px-1.5 py-0.5 rounded-sm text-[#747480]">
+                            <span className="text-micro uppercase bg-bg px-1.5 py-0.5 rounded-sm text-fg-muted">
                               {selectedFileMeta.service_name}
                             </span>
-                            <span className="text-[9px] uppercase bg-[#F6F6FA] px-1.5 py-0.5 rounded-sm text-[#747480]">
+                            <span className="text-micro uppercase bg-bg px-1.5 py-0.5 rounded-sm text-fg-muted">
                               v{selectedFileMeta.version}
                             </span>
                             <button
                               type="button"
                               onClick={() => copyToClipboard(selectedFileContent)}
-                              className="text-[10px] px-2 py-0.5 border border-[#E6E6E6] rounded-sm hover:bg-white text-[#2E2E38] inline-flex items-center gap-1"
+                              className="text-micro px-2 py-0.5 border border-border rounded-sm hover:bg-surface text-fg inline-flex items-center gap-1"
                               title="Copy file content"
                             >
                               <ClipboardCopy className="w-3 h-3" />
@@ -2168,12 +2168,12 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                             </button>
                           </>
                         ) : (
-                          <span className="text-[11px] text-[#747480]">Pick a file to view</span>
+                          <span className="text-micro text-fg-muted">Pick a file to view</span>
                         )}
                       </div>
                       <div className="flex-1 min-h-0 relative">
                         {selectedFileLoading && (
-                          <div className="absolute top-1 right-2 z-10 inline-flex items-center gap-1 text-[10px] text-[#747480]">
+                          <div className="absolute top-1 right-2 z-10 inline-flex items-center gap-1 text-micro text-fg-muted">
                             <Loader2 className="w-3 h-3 animate-spin" />
                             loading
                           </div>
@@ -2200,21 +2200,21 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                             }}
                           />
                         ) : (
-                          <div className="h-full flex items-center justify-center text-[11px] text-[#747480]">
+                          <div className="h-full flex items-center justify-center text-micro text-fg-muted">
                             Pick a file from the tree to view it here.
                           </div>
                         )}
                       </div>
                     </div>
                   </Panel>
-                  <PanelResizeHandle className="w-1 bg-[#E6E6E6] hover:bg-[#FFE600] transition-colors" />
+                  <PanelResizeHandle className="w-1 bg-border hover:bg-brand transition-colors" />
                   {/* RIGHT — Code Chat (iter-17.18) */}
                   <Panel defaultSize={30} minSize={18}>
-                    <div className="h-full bg-white flex flex-col">
-                      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-1 bg-[#FAFAFC]">
+                    <div className="h-full bg-surface flex flex-col">
+                      <div className="px-3 py-2 border-b border-border flex items-center gap-1 bg-surface-2">
                         <Code2 className="w-3 h-3" />
-                        <span className="text-[11px] font-semibold">Code Chat</span>
-                        <span className="text-[10px] text-[#747480] ml-auto truncate">
+                        <span className="text-micro font-semibold">Code Chat</span>
+                        <span className="text-micro text-fg-muted ml-auto truncate">
                           {selectedFileMeta
                             ? `→ ${String(selectedFileMeta.path || "").split("/").pop()}`
                             : "no file"}
@@ -2225,7 +2225,7 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                         data-testid="codegen-ma-chat-log"
                       >
                         {chatMessages.length === 0 && (
-                          <div className="text-[11px] text-[#747480]">
+                          <div className="text-micro text-fg-muted">
                             Ask the codegen-LLM to refactor, fix, or add tests. The LLM may
                             emit one or more{" "}
                             <code>[FILE_CHANGE:path/to/file]…[/FILE_CHANGE]</code> blocks —
@@ -2238,26 +2238,26 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                             className={cls(
                               "text-[12px] p-2 rounded-sm",
                               m.role === "user"
-                                ? "bg-[#FFFCE6] border border-[#FFE600]"
-                                : "bg-[#F6F6FA] border border-[#E6E6E6]",
+                                ? "bg-brand-tint border border-brand"
+                                : "bg-bg border border-border",
                             )}
                           >
-                            <div className="text-[9px] uppercase font-bold text-[#747480] mb-1">
+                            <div className="text-micro uppercase font-bold text-fg-muted mb-1">
                               {m.role}
                             </div>
-                            <pre className="whitespace-pre-wrap text-[12px] leading-snug text-[#2E2E38]">
+                            <pre className="whitespace-pre-wrap text-[12px] leading-snug text-fg">
                               {m.content}
                             </pre>
                             {m.file_changes?.length > 0 && (
                               <div className="mt-1.5 space-y-1">
                                 {m.file_changes.map((fc, j) => (
-                                  <div key={j} className="text-[10px] flex items-center gap-1">
+                                  <div key={j} className="text-micro flex items-center gap-1">
                                     <span className="font-mono truncate flex-1">{fc.file_path}</span>
                                     <button
                                       type="button"
                                       onClick={() => onApplyFileChange(fc, m.message_id)}
                                       data-testid={`codegen-ma-apply-fc-${i}-${j}`}
-                                      className="px-2 py-0.5 bg-[#2E2E38] text-white rounded-sm"
+                                      className="px-2 py-0.5 bg-ink text-ink-fg rounded-sm"
                                     >
                                       Apply
                                     </button>
@@ -2268,12 +2268,12 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                           </div>
                         ))}
                         {chatBusy && (
-                          <div className="text-[11px] text-[#747480] flex items-center gap-1">
+                          <div className="text-micro text-fg-muted flex items-center gap-1">
                             <Loader2 className="w-3 h-3 animate-spin" /> Thinking…
                           </div>
                         )}
                       </div>
-                      <div className="border-t border-[#E6E6E6] p-2 flex gap-1">
+                      <div className="border-t border-border p-2 flex gap-1">
                         <textarea
                           rows={2}
                           value={chatInput}
@@ -2286,13 +2286,13 @@ export default function CodeGenMultiAgentPanel({ projectId }) {
                           }}
                           placeholder="Ask about the code…"
                           data-testid="codegen-ma-chat-input"
-                          className="flex-1 text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-1.5 resize-none"
+                          className="flex-1 text-[12px] border border-border focus:border-fg outline-none rounded-sm px-2 py-1.5 resize-none"
                         />
                         <Button
                           data-testid="codegen-ma-chat-send"
                           onClick={onSendChat}
                           disabled={chatBusy}
-                          className="h-auto bg-[#2E2E38] text-white px-3"
+                          className="h-auto bg-ink text-ink-fg px-3"
                         >
                           <Send className="w-3 h-3" />
                         </Button>

@@ -42,32 +42,32 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen w-screen flex items-center justify-center bg-[#F6F6FA]" data-testid="login-page">
-      <div className="bg-white border border-[#E6E6E6] rounded-sm shadow-sm w-full max-w-sm p-7">
+    <div className="min-h-screen w-screen flex items-center justify-center bg-bg" data-testid="login-page">
+      <div className="bg-surface border border-border rounded-sm shadow-sm w-full max-w-sm p-7">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 bg-[#FFE600] text-[#2E2E38] flex items-center justify-center rounded-sm font-display font-bold text-base">
+          <div className="w-10 h-10 bg-brand text-fg flex items-center justify-center rounded-sm font-display font-bold text-base">
             L
           </div>
           <div>
-            <div className="font-display font-bold text-xl leading-none tracking-tight text-[#2E2E38]">LAMA</div>
-            <div className="text-[10px] uppercase tracking-widest text-[#747480] mt-1 leading-tight">
+            <div className="font-display font-bold text-xl leading-none tracking-tight text-fg">LAMA</div>
+            <div className="text-micro uppercase tracking-widest text-fg-muted mt-1 leading-tight">
               Legacy Application Modernisation AI Studio
             </div>
           </div>
         </div>
 
-        <h1 className="font-display font-bold text-base text-[#2E2E38] mb-1 flex items-center gap-1.5">
-          <ShieldCheck className="w-4 h-4 text-[#FFE600]" /> Sign in
+        <h1 className="font-display font-bold text-base text-fg mb-1 flex items-center gap-1.5">
+          <ShieldCheck className="w-4 h-4 text-brand" /> Sign in
         </h1>
-        <p className="text-[12px] text-[#747480] mb-4">
+        <p className="text-[12px] text-fg-muted mb-4">
           Enter your tenant credentials. Super-admins manage tenants &amp; users from the admin dashboard.
         </p>
 
         <form onSubmit={onSubmit} className="space-y-3">
           <label className="block">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Username</span>
-            <div className="mt-0.5 flex items-center border border-[#E6E6E6] rounded-sm px-2 py-1.5 focus-within:border-[#2E2E38]">
-              <UserIcon className="w-3.5 h-3.5 text-[#747480] mr-1.5" />
+            <span className="text-micro uppercase font-bold tracking-wider text-fg-muted">Username</span>
+            <div className="mt-0.5 flex items-center border border-border rounded-sm px-2 py-1.5 focus-within:border-fg">
+              <UserIcon className="w-3.5 h-3.5 text-fg-muted mr-1.5" />
               <input
                 data-testid="login-username"
                 value={username}
@@ -81,9 +81,9 @@ export default function LoginPage() {
           </label>
 
           <label className="block">
-            <span className="text-[10px] uppercase font-bold tracking-wider text-[#747480]">Password</span>
-            <div className="mt-0.5 flex items-center border border-[#E6E6E6] rounded-sm px-2 py-1.5 focus-within:border-[#2E2E38]">
-              <Lock className="w-3.5 h-3.5 text-[#747480] mr-1.5" />
+            <span className="text-micro uppercase font-bold tracking-wider text-fg-muted">Password</span>
+            <div className="mt-0.5 flex items-center border border-border rounded-sm px-2 py-1.5 focus-within:border-fg">
+              <Lock className="w-3.5 h-3.5 text-fg-muted mr-1.5" />
               <input
                 data-testid="login-password"
                 type="password"
@@ -100,15 +100,15 @@ export default function LoginPage() {
             type="submit"
             data-testid="login-submit"
             disabled={busy}
-            className="w-full mt-2 px-3 py-2 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold text-sm border border-[#2E2E38] hover:bg-[#FFD500] disabled:opacity-50 flex items-center justify-center gap-2"
+            className="w-full mt-2 px-3 py-2 rounded-sm bg-brand text-fg font-bold text-sm border border-fg hover:bg-brand-hover disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             Sign in
           </button>
         </form>
 
-        <div className="mt-5 text-[10px] text-[#747480] leading-relaxed">
-          Default super-admin (first-boot only): <code className="bg-[#F6F6FA] px-1 rounded-sm">superadmin / lama-admin-2026</code>.
+        <div className="mt-5 text-micro text-fg-muted leading-relaxed">
+          Default super-admin (first-boot only): <code className="bg-bg px-1 rounded-sm">superadmin / lama-admin-2026</code>.
           Override via <code>LAMA_SUPERADMIN_USER</code> / <code>LAMA_SUPERADMIN_PASS</code> env vars and rotate as soon as you log in.
         </div>
       </div>

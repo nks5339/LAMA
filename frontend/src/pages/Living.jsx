@@ -67,14 +67,14 @@ function ResetModal({ open, onClose, onConfirm }) {
   if (!open) return null;
   const enabled = t === "RESET";
   return (
-    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center" data-testid="living-reset-modal">
-      <div className="bg-white border-2 border-orange-500 max-w-md w-full rounded-sm p-5">
+    <div className="fixed inset-0 bg-ink/40 z-50 flex items-center justify-center" data-testid="living-reset-modal">
+      <div className="bg-surface border-2 border-orange-500 max-w-md w-full rounded-sm p-5">
         <h3 className="font-display font-bold text-orange-700 flex items-center gap-1"><RotateCcw className="w-4 h-4" /> Reset Stage 5 — Living</h3>
-        <p className="text-xs text-[#2E2E38] mt-2">Deletes all Selenium / JMeter / Drift / SRS-diff artifacts and unlocks Living for re-generation.</p>
-        <p className="text-[10px] text-[#747480] mt-2">Type <code className="bg-[#F6F6FA] px-1">RESET</code> to confirm.</p>
-        <input value={t} onChange={(e) => setT(e.target.value)} data-testid="living-reset-input" className="w-full text-sm border border-[#E6E6E6] focus:border-orange-500 outline-none rounded-sm px-2 py-1.5 mt-1" autoFocus />
+        <p className="text-xs text-fg mt-2">Deletes all Selenium / JMeter / Drift / SRS-diff artifacts and unlocks Living for re-generation.</p>
+        <p className="text-micro text-fg-muted mt-2">Type <code className="bg-bg px-1">RESET</code> to confirm.</p>
+        <input value={t} onChange={(e) => setT(e.target.value)} data-testid="living-reset-input" className="w-full text-sm border border-border focus:border-orange-500 outline-none rounded-sm px-2 py-1.5 mt-1" autoFocus />
         <div className="flex justify-end gap-2 mt-3">
-          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-[#E6E6E6] rounded-sm">Cancel</button>
+          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-border rounded-sm">Cancel</button>
           <button disabled={!enabled} onClick={onConfirm} data-testid="living-reset-confirm" className={`text-xs px-3 py-1.5 rounded-sm font-bold text-white ${enabled ? "bg-orange-600 hover:bg-orange-700" : "bg-orange-300 cursor-not-allowed"}`}>Reset Stage 5</button>
         </div>
       </div>
@@ -86,19 +86,19 @@ function ProgressBar({ job, label }) {
   if (!job) return null;
   if (job.status === "error") {
     return (
-      <div className="text-[11px] bg-rose-50 border border-rose-200 text-rose-700 p-2 rounded-sm" data-testid={`job-error-${label}`}>
+      <div className="text-micro bg-rose-50 border border-rose-200 text-rose-700 p-2 rounded-sm" data-testid={`job-error-${label}`}>
         <AlertTriangle className="w-3 h-3 inline mr-1" /> {job.error || "Failed"}
       </div>
     );
   }
   return (
     <div className="space-y-1" data-testid={`job-progress-${label}`}>
-      <div className="flex items-center justify-between text-[10px]">
-        <span className="text-[#747480] truncate">{label}: {job.step}</span>
-        <span className="text-[#2E2E38] font-semibold">{job.pct || 0}%</span>
+      <div className="flex items-center justify-between text-micro">
+        <span className="text-fg-muted truncate">{label}: {job.step}</span>
+        <span className="text-fg font-semibold">{job.pct || 0}%</span>
       </div>
-      <div className="h-1 bg-[#F6F6FA] rounded-sm overflow-hidden">
-        <div className="h-full bg-[#FFE600] transition-all" style={{ width: `${job.pct || 0}%` }} />
+      <div className="h-1 bg-bg rounded-sm overflow-hidden">
+        <div className="h-full bg-brand transition-all" style={{ width: `${job.pct || 0}%` }} />
       </div>
     </div>
   );
@@ -178,14 +178,14 @@ function TestCoverageMeter({ artifact, job, isVisible }) {
   };
   
   return (
-    <div className={`bg-gradient-to-r from-[#FFFCE6] to-[#F6F6FA] border border-[#E6E6E6] rounded-sm p-4 mb-4 ${isVisible ? '' : 'hidden'}`} data-testid="test-coverage-meter">
+    <div className={`bg-gradient-to-r from-brand-tint to-bg border border-border rounded-sm p-4 mb-4 ${isVisible ? '' : 'hidden'}`} data-testid="test-coverage-meter">
       {/* Main coverage meter */}
       <div className="flex items-center gap-4">
         {/* Circular gauge - larger and prominent */}
         <div className="relative w-20 h-20 flex-shrink-0">
           <svg className="w-20 h-20 transform -rotate-90" viewBox="0 0 36 36">
             <path
-              className="text-[#E6E6E6]"
+              className="text-border"
               strokeWidth="3"
               fill="none"
               stroke="currentColor"
@@ -203,26 +203,26 @@ function TestCoverageMeter({ artifact, job, isVisible }) {
           </svg>
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <span className={`text-xl font-bold ${getTextColor(pct)}`}>{pct}%</span>
-            <span className="text-[8px] text-[#747480]">Coverage</span>
+            <span className="text-micro text-fg-muted">Coverage</span>
           </div>
         </div>
         
         {/* Progress bar and stats */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[12px] font-semibold text-[#2E2E38]">Test Case Generation Progress</span>
-            <span className={`text-[11px] font-medium px-2 py-0.5 rounded ${status === "complete" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
+            <span className="text-[12px] font-semibold text-fg">Test Case Generation Progress</span>
+            <span className={`text-micro font-medium px-2 py-0.5 rounded ${status === "complete" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700"}`}>
               {status === "under_floor" ? "In Progress" : status === "complete" ? "Complete" : status}
             </span>
           </div>
-          <div className="h-2 bg-[#E6E6E6] rounded-full overflow-hidden mb-2">
+          <div className="h-2 bg-border rounded-full overflow-hidden mb-2">
             <div 
               className={`h-full ${getColor(pct)} transition-all duration-500`} 
               style={{ width: `${Math.min(pct, 100)}%` }} 
             />
           </div>
-          <div className="text-[10px] text-[#747480]">
-            <span className="font-semibold text-[#2E2E38]">{total}</span> / {target_total} test cases
+          <div className="text-micro text-fg-muted">
+            <span className="font-semibold text-fg">{total}</span> / {target_total} test cases
             {isIncremental && !hasJobData && (
               <span className="ml-1 text-green-600 font-medium">(+{newTcsAdded} new this run)</span>
             )}
@@ -233,24 +233,24 @@ function TestCoverageMeter({ artifact, job, isVisible }) {
         {/* Stats boxes — iter-14.87: Show counts that actually drive the target */}
         <div className="flex gap-2 flex-shrink-0">
           {/* Show Use Cases if available, else Screens */}
-          <div className="bg-white rounded-sm px-3 py-2 border border-[#E6E6E6] text-center min-w-[55px]" title="Use Cases from SRS">
-            <div className="text-lg font-bold text-[#2E2E38]">{n_use_cases || n_screens || 0}</div>
-            <div className="text-[8px] text-[#747480]">{n_use_cases ? "UC" : "Screens"}</div>
+          <div className="bg-surface rounded-sm px-3 py-2 border border-border text-center min-w-[55px]" title="Use Cases from SRS">
+            <div className="text-lg font-bold text-fg">{n_use_cases || n_screens || 0}</div>
+            <div className="text-micro text-fg-muted">{n_use_cases ? "UC" : "Screens"}</div>
           </div>
           {/* Show Business Rules if available, else Endpoints */}
-          <div className="bg-white rounded-sm px-3 py-2 border border-[#E6E6E6] text-center min-w-[55px]" title="Business Rules from SRS">
-            <div className="text-lg font-bold text-[#2E2E38]">{n_business_rules || n_endpoints || 0}</div>
-            <div className="text-[8px] text-[#747480]">{n_business_rules ? "BR" : "APIs"}</div>
+          <div className="bg-surface rounded-sm px-3 py-2 border border-border text-center min-w-[55px]" title="Business Rules from SRS">
+            <div className="text-lg font-bold text-fg">{n_business_rules || n_endpoints || 0}</div>
+            <div className="text-micro text-fg-muted">{n_business_rules ? "BR" : "APIs"}</div>
           </div>
-          <div className="bg-white rounded-sm px-3 py-2 border border-[#E6E6E6] text-center min-w-[55px]" title="Non-Functional Requirements">
-            <div className="text-lg font-bold text-[#2E2E38]">{n_nfr || 0}</div>
-            <div className="text-[8px] text-[#747480]">NFR</div>
+          <div className="bg-surface rounded-sm px-3 py-2 border border-border text-center min-w-[55px]" title="Non-Functional Requirements">
+            <div className="text-lg font-bold text-fg">{n_nfr || 0}</div>
+            <div className="text-micro text-fg-muted">NFR</div>
           </div>
           {/* Show KB Routes if available */}
           {n_routes > 0 && (
-            <div className="bg-white rounded-sm px-3 py-2 border border-[#E6E6E6] text-center min-w-[55px]" title="Routes from Knowledge Base">
-              <div className="text-lg font-bold text-[#2E2E38]">{n_routes}</div>
-              <div className="text-[8px] text-[#747480]">Routes</div>
+            <div className="bg-surface rounded-sm px-3 py-2 border border-border text-center min-w-[55px]" title="Routes from Knowledge Base">
+              <div className="text-lg font-bold text-fg">{n_routes}</div>
+              <div className="text-micro text-fg-muted">Routes</div>
             </div>
           )}
         </div>
@@ -268,7 +268,7 @@ function ArtifactPanel({ kind, artifact, projectId, onRefresh }) {
 
   if (!artifact) {
     return (
-      <div className="p-6 text-center text-[#747480] text-[11px]">
+      <div className="p-6 text-center text-fg-muted text-micro">
         Nothing generated yet for <strong>{kind}</strong>. Click <strong>Generate</strong> above.
       </div>
     );
@@ -287,34 +287,34 @@ function ArtifactPanel({ kind, artifact, projectId, onRefresh }) {
   const isMarkdownKind = kind === "drift" || kind === "srs_diff";
 
   return (
-    <div className="bg-white border border-[#E6E6E6] rounded-sm" data-testid={`artifact-${kind}`}>
-      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
-        <span className="text-[10px] uppercase font-bold text-[#747480]">Artifact</span>
-        <span className="text-[11px] font-mono">v{artifact.version}</span>
-        <span className="text-[10px] text-[#747480]">{files.length} file(s)</span>
-        {artifact.frozen && <span className="text-[9px] uppercase bg-[#FFE600] text-[#2E2E38] font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-1"><Lock className="w-2.5 h-2.5" /> Frozen</span>}
+    <div className="bg-surface border border-border rounded-sm" data-testid={`artifact-${kind}`}>
+      <div className="px-3 py-2 border-b border-border flex items-center gap-2">
+        <span className="text-micro uppercase font-bold text-fg-muted">Artifact</span>
+        <span className="text-micro font-mono">v{artifact.version}</span>
+        <span className="text-micro text-fg-muted">{files.length} file(s)</span>
+        {artifact.frozen && <span className="text-micro uppercase bg-brand text-fg font-bold px-1.5 py-0.5 rounded-sm flex items-center gap-1"><Lock className="w-2.5 h-2.5" /> Frozen</span>}
         <div className="ml-auto flex gap-1">
           {!artifact.frozen && (editing ? (
             <>
-              <button onClick={() => setEditing(false)} className="text-[11px] px-2 py-1 border border-[#E6E6E6] rounded-sm">Cancel</button>
-              <button onClick={onSave} data-testid={`save-${kind}`} className="text-[11px] px-2 py-1 bg-[#2E2E38] text-white rounded-sm">Save</button>
+              <button onClick={() => setEditing(false)} className="text-micro px-2 py-1 border border-border rounded-sm">Cancel</button>
+              <button onClick={onSave} data-testid={`save-${kind}`} className="text-micro px-2 py-1 bg-ink text-ink-fg rounded-sm">Save</button>
             </>
           ) : (
-            <button onClick={() => setEditing(true)} data-testid={`edit-${kind}`} className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm">Edit</button>
+            <button onClick={() => setEditing(true)} data-testid={`edit-${kind}`} className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm">Edit</button>
           ))}
-          {!artifact.frozen && <button onClick={onFreeze} data-testid={`freeze-${kind}`} className="text-[11px] px-2 py-1 bg-[#2E2E38] text-white rounded-sm flex items-center gap-1"><Lock className="w-3 h-3" /> Freeze</button>}
-          <a href={downloadLivingArtifactUrl(projectId, artifact.id)} data-testid={`download-${kind}`} className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /></a>
+          {!artifact.frozen && <button onClick={onFreeze} data-testid={`freeze-${kind}`} className="text-micro px-2 py-1 bg-ink text-ink-fg rounded-sm flex items-center gap-1"><Lock className="w-3 h-3" /> Freeze</button>}
+          <a href={downloadLivingArtifactUrl(projectId, artifact.id)} data-testid={`download-${kind}`} className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /></a>
         </div>
       </div>
       <div className="grid grid-cols-12 min-h-[420px]">
         {files.length > 1 && (
-          <div className="col-span-3 border-r border-[#E6E6E6] overflow-y-auto max-h-[600px]">
+          <div className="col-span-3 border-r border-border overflow-y-auto max-h-[600px]">
             {files.map((f, i) => (
               <button
                 key={i}
                 onClick={() => setOpenIdx(i)}
                 data-testid={`file-tab-${kind}-${i}`}
-                className={`w-full text-left text-[11px] font-mono px-2 py-1 border-l-2 truncate ${openIdx === i ? "border-[#FFE600] bg-[#FFFCE6]" : "border-transparent hover:bg-[#F6F6FA]"}`}
+                className={`w-full text-left text-micro font-mono px-2 py-1 border-l-2 truncate ${openIdx === i ? "border-brand bg-brand-tint" : "border-transparent hover:bg-bg"}`}
               >
                 {f.path}
               </button>
@@ -334,11 +334,11 @@ function ArtifactPanel({ kind, artifact, projectId, onRefresh }) {
               data-testid={`edit-textarea-${kind}`}
             />
           ) : isMarkdownKind ? (
-            <div className="prose prose-sm max-w-none p-4 text-[#2E2E38]">
+            <div className="prose prose-sm max-w-none p-4 text-fg">
               <ReactMarkdown remarkPlugins={[remarkGfm]}>{files[openIdx].content || ""}</ReactMarkdown>
             </div>
           ) : (
-            <pre className="p-3 font-mono text-[12px] whitespace-pre-wrap text-[#2E2E38]">{files[openIdx].content}</pre>
+            <pre className="p-3 font-mono text-[12px] whitespace-pre-wrap text-fg">{files[openIdx].content}</pre>
           ))}
         </div>
       </div>
@@ -363,20 +363,20 @@ function SectionContent({
     <div className="space-y-4">
       {/* Section header */}
       <div className="flex items-center gap-3">
-        <div className="w-10 h-10 rounded-lg bg-[#FFFCE6] flex items-center justify-center">
-          <sec.icon className="w-5 h-5 text-[#2E2E38]" />
+        <div className="w-10 h-10 rounded-lg bg-brand-tint flex items-center justify-center">
+          <sec.icon className="w-5 h-5 text-fg" />
         </div>
         <div>
-          <h2 className="font-display font-bold text-[#2E2E38] text-lg">{sec.label}</h2>
-          <p className="text-[11px] text-[#747480]">{sec.desc}</p>
+          <h2 className="font-display font-bold text-fg text-lg">{sec.label}</h2>
+          <p className="text-micro text-fg-muted">{sec.desc}</p>
         </div>
       </div>
 
       {/* Generator controls */}
-      <div className="bg-white border border-[#E6E6E6] rounded-sm p-4">
+      <div className="bg-surface border border-border rounded-sm p-4">
         {sec.id === "test_cases" && (
           <>
-            <div className="text-[12px] text-[#2E2E38] mb-3">
+            <div className="text-[12px] text-fg mb-3">
               {isIncremental ? (
                 <>
                   <strong>Incremental Mode:</strong> Each regeneration <strong>adds more test cases</strong> on top of existing ones,
@@ -388,7 +388,7 @@ function SectionContent({
                   Covers positive / negative / security / contract / boundary / NFR / e2e.
                 </>
               )}
-              <span className="text-[10px] text-[#747480] ml-1">Editable in Prompt Library</span>
+              <span className="text-micro text-fg-muted ml-1">Editable in Prompt Library</span>
             </div>
             <div className="flex flex-wrap gap-2 items-center justify-between">
               <div className="flex gap-2 items-center">
@@ -396,7 +396,7 @@ function SectionContent({
                   onClick={() => onGenerate("test_cases")}
                   disabled={!!tcJob.job && tcJob.job.status === "running"}
                   data-testid="btn-gen-test-cases"
-                  className="h-9 text-[12px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]"
+                  className="h-9 text-[12px] bg-brand text-fg hover:bg-brand-hover"
                 >
                   {tcJob.job && tcJob.job.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
                   {has ? "Add More Test Cases" : "Generate Test Cases"}
@@ -423,7 +423,7 @@ function SectionContent({
                   <a
                     href={downloadTestCasesExcelUrl(projectId, has.id)}
                     data-testid="btn-download-tc-excel"
-                    className="h-9 text-[12px] px-3 border border-[#2E2E38] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1.5 text-[#2E2E38] font-semibold"
+                    className="h-9 text-[12px] px-3 border border-fg hover:bg-bg rounded-sm flex items-center gap-1.5 text-fg font-semibold"
                   >
                     <FileSpreadsheet className="w-3.5 h-3.5" /> Download Excel
                   </a>
@@ -446,16 +446,16 @@ function SectionContent({
         )}
         {sec.id === "selenium" && (
           <>
-            <div className="text-[12px] text-[#2E2E38] mb-3">
+            <div className="text-[12px] text-fg mb-3">
               Production-grade Selenium suite (JUnit 5 + Page Object Model + WebDriverManager + Allure).
-              Includes <code className="bg-[#F6F6FA] px-1 text-[11px]">pom.xml</code>, <code className="bg-[#F6F6FA] px-1 text-[11px]">BaseTest</code>, <code className="bg-[#F6F6FA] px-1 text-[11px]">DriverFactory</code>, GitHub Actions workflow.
+              Includes <code className="bg-bg px-1 text-micro">pom.xml</code>, <code className="bg-bg px-1 text-micro">BaseTest</code>, <code className="bg-bg px-1 text-micro">DriverFactory</code>, GitHub Actions workflow.
             </div>
             <div className="flex flex-wrap gap-2 items-center justify-end">
               {has && (
                 <a
                   href={downloadLivingArtifactUrl(projectId, has.id)}
                   data-testid="btn-download-selenium"
-                  className="h-9 text-[12px] px-3 border border-[#2E2E38] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1.5 text-[#2E2E38] font-semibold"
+                  className="h-9 text-[12px] px-3 border border-fg hover:bg-bg rounded-sm flex items-center gap-1.5 text-fg font-semibold"
                 >
                   <Download className="w-3.5 h-3.5" /> Download ZIP
                 </a>
@@ -464,7 +464,7 @@ function SectionContent({
                 onClick={() => onGenerate("selenium")}
                 disabled={!!seleniumJob.job && seleniumJob.job.status === "running"}
                 data-testid="btn-gen-selenium"
-                className="h-9 text-[12px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]"
+                className="h-9 text-[12px] bg-brand text-fg hover:bg-brand-hover"
               >
                 {seleniumJob.job && seleniumJob.job.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
                 {has ? "Regenerate" : "Generate"} Selenium
@@ -474,7 +474,7 @@ function SectionContent({
         )}
         {sec.id === "jmeter" && (
           <>
-            <div className="text-[12px] text-[#2E2E38] mb-3">
+            <div className="text-[12px] text-fg mb-3">
               Apache JMeter (.jmx) plan combining <strong>load AND API contract testing</strong>.
               4 samplers per endpoint: Positive-Load / Negative-Auth / Boundary / Contract.
               Downloadable as ZIP (JMX + CSV + Runbook).
@@ -484,7 +484,7 @@ function SectionContent({
                 <a
                   href={downloadLivingArtifactUrl(projectId, has.id)}
                   data-testid="btn-download-jmeter"
-                  className="h-9 text-[12px] px-3 border border-[#2E2E38] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1.5 text-[#2E2E38] font-semibold"
+                  className="h-9 text-[12px] px-3 border border-fg hover:bg-bg rounded-sm flex items-center gap-1.5 text-fg font-semibold"
                 >
                   <Download className="w-3.5 h-3.5" /> Download ZIP
                 </a>
@@ -493,7 +493,7 @@ function SectionContent({
                 onClick={() => onGenerate("jmeter")}
                 disabled={!!jmeterJob.job && jmeterJob.job.status === "running"}
                 data-testid="btn-gen-jmeter"
-                className="h-9 text-[12px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]"
+                className="h-9 text-[12px] bg-brand text-fg hover:bg-brand-hover"
               >
                 {jmeterJob.job && jmeterJob.job.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
                 {has ? "Regenerate" : "Generate"} Plan
@@ -503,7 +503,7 @@ function SectionContent({
         )}
         {sec.id === "drift" && (
           <>
-            <div className="text-[12px] text-[#2E2E38] mb-3">
+            <div className="text-[12px] text-fg mb-3">
               Paste signals from your live system (logs, route inventory, telemetry, schema introspection).
               LAMA compares against the frozen SRS and produces a P0/P1/P2 drift report.
             </div>
@@ -512,14 +512,14 @@ function SectionContent({
               onChange={(e) => setLiveSignals(e.target.value)}
               placeholder="POST /api/orders responded with 503 12% of the time…&#10;GET /api/users — not present in deployed routes…&#10;dim_customer column 'tier' added on 2026-04-22…"
               data-testid="drift-signals-input"
-              className="w-full h-32 border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-[#FAFAFC] mb-3"
+              className="w-full h-32 border border-border focus:border-fg outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-surface-2 mb-3"
             />
             <div className="flex justify-end">
               <Button
                 onClick={() => onGenerate("drift")}
                 disabled={!liveSignals.trim() || (driftJob.job && driftJob.job.status === "running")}
                 data-testid="btn-gen-drift"
-                className="h-9 text-[12px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]"
+                className="h-9 text-[12px] bg-brand text-fg hover:bg-brand-hover"
               >
                 {driftJob.job && driftJob.job.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
                 Generate Drift Report
@@ -529,28 +529,28 @@ function SectionContent({
         )}
         {sec.id === "srs_diff" && (
           <>
-            <div className="text-[12px] text-[#2E2E38] mb-3">
+            <div className="text-[12px] text-fg mb-3">
               Compare two SRS versions. Identifies added/removed/modified requirements + which downstream artifacts to regenerate.
             </div>
             <div className="grid grid-cols-2 gap-3 mb-3">
               <div>
-                <label className="text-[10px] uppercase text-[#747480] font-semibold mb-1 block">SRS A (e.g. frozen v1)</label>
+                <label className="text-micro uppercase text-fg-muted font-semibold mb-1 block">SRS A (e.g. frozen v1)</label>
                 <textarea
                   value={srsA}
                   onChange={(e) => setSrsA(e.target.value)}
                   placeholder="Paste first SRS version…"
                   data-testid="srs-a-input"
-                  className="w-full h-32 border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-[#FAFAFC]"
+                  className="w-full h-32 border border-border focus:border-fg outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-surface-2"
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase text-[#747480] font-semibold mb-1 block">SRS B (e.g. current draft)</label>
+                <label className="text-micro uppercase text-fg-muted font-semibold mb-1 block">SRS B (e.g. current draft)</label>
                 <textarea
                   value={srsB}
                   onChange={(e) => setSrsB(e.target.value)}
                   placeholder="Paste second SRS version…"
                   data-testid="srs-b-input"
-                  className="w-full h-32 border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-[#FAFAFC]"
+                  className="w-full h-32 border border-border focus:border-fg outline-none rounded-sm p-3 font-mono text-[12px] resize-y bg-surface-2"
                 />
               </div>
             </div>
@@ -559,7 +559,7 @@ function SectionContent({
                 onClick={() => onGenerate("srs-diff")}
                 disabled={!srsA.trim() || !srsB.trim() || (diffJob.job && diffJob.job.status === "running")}
                 data-testid="btn-gen-srs-diff"
-                className="h-9 text-[12px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]"
+                className="h-9 text-[12px] bg-brand text-fg hover:bg-brand-hover"
               >
                 {diffJob.job && diffJob.job.status === "running" ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" /> : <Wand2 className="w-3.5 h-3.5 mr-1.5" />}
                 Diff SRS
@@ -685,7 +685,7 @@ export default function LivingPage() {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="text-xs px-3 py-1.5 bg-[#FFE600] text-[#2E2E38] rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2E2E38]"
+          className="text-xs px-3 py-1.5 bg-brand text-fg rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-fg"
           data-testid="empty-goto-discovery"
         >
           Go to Discovery →
@@ -696,17 +696,17 @@ export default function LivingPage() {
 
   if (isLocked) {
     return (
-      <div className="flex-1 flex flex-col bg-[#F6F6FA]" data-testid="living-locked">
-        <header className="bg-white border-b-2 border-[#FFE600] px-6 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 5 of 5</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Living System</h1>
+      <div className="flex-1 flex flex-col bg-bg" data-testid="living-locked">
+        <header className="bg-surface border-b-2 border-brand px-6 py-3">
+          <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 5 of 5</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg">Living System</h1>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-md bg-white border border-[#E6E6E6] rounded-sm p-6 text-center">
-            <Lock className="w-8 h-8 mx-auto text-[#747480] mb-3" />
-            <h2 className="font-display font-bold text-[#2E2E38]">Locked — CodeGen not frozen</h2>
-            <p className="text-xs text-[#747480] mt-2">Generate code and freeze Stage 4 to unlock Living.</p>
-            <button onClick={() => navigate("/code-gen")} className="mt-4 text-xs px-3 py-1.5 bg-[#2E2E38] text-white rounded-sm">Open CodeGen →</button>
+          <div className="max-w-md bg-surface border border-border rounded-sm p-6 text-center">
+            <Lock className="w-8 h-8 mx-auto text-fg-muted mb-3" />
+            <h2 className="font-display font-bold text-fg">Locked — CodeGen not frozen</h2>
+            <p className="text-xs text-fg-muted mt-2">Generate code and freeze Stage 4 to unlock Living.</p>
+            <button onClick={() => navigate("/code-gen")} className="mt-4 text-xs px-3 py-1.5 bg-ink text-ink-fg rounded-sm">Open CodeGen →</button>
           </div>
         </div>
       </div>
@@ -714,20 +714,20 @@ export default function LivingPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#F6F6FA]" data-testid="living-page">
-      <header className="bg-white border-b-2 border-[#FFE600] px-4 sm:px-6 py-2 flex items-center justify-between gap-4 shrink-0">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg" data-testid="living-page">
+      <header className="bg-surface border-b-2 border-brand px-4 sm:px-6 py-2 flex items-center justify-between gap-4 shrink-0">
         <div className="flex items-center gap-3">
-          <Activity className="w-5 h-5 text-[#FFE600]" />
+          <Activity className="w-5 h-5 text-brand" />
           <div>
-            <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 5 of 5</div>
-            <h1 className="font-display text-base font-bold tracking-tight text-[#2E2E38]">Living System</h1>
+            <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 5 of 5</div>
+            <h1 className="font-display text-base font-bold tracking-tight text-fg">Living System</h1>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-[#747480]">{artifacts.length} artifact(s)</span>
-          {isFrozen && <span className="text-[10px] uppercase font-bold bg-[#FFE600] text-[#2E2E38] px-2 py-0.5 rounded-sm">Frozen</span>}
+          <span className="text-micro text-fg-muted">{artifacts.length} artifact(s)</span>
+          {isFrozen && <span className="text-micro uppercase font-bold bg-brand text-fg px-2 py-0.5 rounded-sm">Frozen</span>}
           {!isFrozen && artifacts.length > 0 && (
-            <Button onClick={onFreezeStage} data-testid="freeze-living-stage" className="h-7 text-[11px] bg-[#2E2E38] text-white">
+            <Button onClick={onFreezeStage} data-testid="freeze-living-stage" className="h-7 text-micro bg-ink text-ink-fg">
               <Lock className="w-3 h-3 mr-1" /> Freeze Stage 5
             </Button>
           )}
@@ -740,27 +740,27 @@ export default function LivingPage() {
       {/* Main content - Sidebar + Content grid */}
       <div className="flex-1 flex min-h-0 overflow-hidden">
         {/* Collapsible Left Sidebar - LAMA style */}
-        <aside className={`${sidebarCollapsed ? "w-12" : "w-52"} bg-white border-r border-[#E6E6E6] flex flex-col shrink-0 transition-all duration-200`}>
+        <aside className={`${sidebarCollapsed ? "w-12" : "w-52"} bg-surface border-r border-border flex flex-col shrink-0 transition-all duration-200`}>
           {/* Header with inline collapse toggle */}
           {sidebarCollapsed ? (
             /* Collapsed: Show "QA" expand button */
             <button
               onClick={() => setSidebarCollapsed(false)}
-              className="w-9 h-9 m-1.5 bg-[#FFE600] text-[#2E2E38] flex items-center justify-center rounded-sm font-display font-bold text-[10px]"
+              className="w-9 h-9 m-1.5 bg-brand text-fg flex items-center justify-center rounded-sm font-display font-bold text-micro"
               title="Expand sidebar"
             >
               QA
             </button>
           ) : (
             /* Expanded: Header row with title + collapse chevron */
-            <div className="flex items-center justify-between px-3 py-2 border-b border-[#E6E6E6]">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border">
               <div className="flex items-center gap-2">
-                <Activity className="w-4 h-4 text-[#FFE600]" />
-                <span className="text-[11px] font-bold text-[#2E2E38] uppercase tracking-wide">QA Panel</span>
+                <Activity className="w-4 h-4 text-brand" />
+                <span className="text-micro font-bold text-fg uppercase tracking-wide">QA Panel</span>
               </div>
               <button
                 onClick={() => setSidebarCollapsed(true)}
-                className="text-[#747480] hover:text-[#2E2E38] p-1 -mr-1"
+                className="text-fg-muted hover:text-fg p-1 -mr-1"
                 title="Collapse sidebar"
               >
                 <ChevronLeft className="w-4 h-4" />
@@ -772,7 +772,7 @@ export default function LivingPage() {
             {/* Testing group */}
             {!sidebarCollapsed && (
               <div className="px-3 py-1.5">
-                <div className="text-[9px] uppercase tracking-widest text-[#747480] font-semibold">Testing</div>
+                <div className="text-micro uppercase tracking-widest text-fg-muted font-semibold">Testing</div>
               </div>
             )}
             {SECTIONS.filter(s => s.group === "testing").map((sec) => {
@@ -786,28 +786,28 @@ export default function LivingPage() {
                   title={sidebarCollapsed ? `${sec.label}${has ? ` (v${has.version})` : ""}` : undefined}
                   className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 text-left transition-colors ${
                     isActive
-                      ? "bg-[#FFFCE6] border-l-2 border-[#FFE600]"
-                      : "hover:bg-[#FAFAFC] border-l-2 border-transparent"
+                      ? "bg-brand-tint border-l-2 border-brand"
+                      : "hover:bg-surface-2 border-l-2 border-transparent"
                   }`}
                 >
                   <div className="relative">
-                    <sec.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-[#2E2E38]" : "text-[#747480]"}`} />
+                    <sec.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-fg" : "text-fg-muted"}`} />
                     {sidebarCollapsed && has?.frozen && (
-                      <Lock className="w-2 h-2 text-[#FFE600] absolute -top-1 -right-1" />
+                      <Lock className="w-2 h-2 text-brand absolute -top-1 -right-1" />
                     )}
                   </div>
                   {!sidebarCollapsed && (
                     <>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-[12px] truncate ${isActive ? "text-[#2E2E38] font-semibold" : "text-[#747480]"}`}>
+                        <div className={`text-[12px] truncate ${isActive ? "text-fg font-semibold" : "text-fg-muted"}`}>
                           {sec.label}
                         </div>
-                        <div className="text-[9px] text-[#A0A0AB] truncate">{sec.desc}</div>
+                        <div className="text-micro text-fg-subtle truncate">{sec.desc}</div>
                       </div>
                       {has && (
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[9px] bg-[#F6F6FA] px-1 rounded-sm font-mono">v{has.version}</span>
-                          {has.frozen && <Lock className="w-2.5 h-2.5 text-[#FFE600]" />}
+                          <span className="text-micro bg-bg px-1 rounded-sm font-mono">v{has.version}</span>
+                          {has.frozen && <Lock className="w-2.5 h-2.5 text-brand" />}
                         </div>
                       )}
                     </>
@@ -817,8 +817,8 @@ export default function LivingPage() {
             })}
             
             {/* Quality group */}
-            <div className={`${sidebarCollapsed ? "my-2 mx-2 border-t border-[#E6E6E6]" : "px-3 py-1.5 mt-3 border-t border-[#E6E6E6]"}`}>
-              {!sidebarCollapsed && <div className="text-[9px] uppercase tracking-widest text-[#747480] font-semibold pt-2">Quality</div>}
+            <div className={`${sidebarCollapsed ? "my-2 mx-2 border-t border-border" : "px-3 py-1.5 mt-3 border-t border-border"}`}>
+              {!sidebarCollapsed && <div className="text-micro uppercase tracking-widest text-fg-muted font-semibold pt-2">Quality</div>}
             </div>
             {SECTIONS.filter(s => s.group === "quality").map((sec) => {
               const has = artifacts.find((a) => a.kind === sec.id);
@@ -831,28 +831,28 @@ export default function LivingPage() {
                   title={sidebarCollapsed ? `${sec.label}${has ? ` (v${has.version})` : ""}` : undefined}
                   className={`w-full flex items-center ${sidebarCollapsed ? "justify-center px-2" : "gap-2.5 px-3"} py-2 text-left transition-colors ${
                     isActive
-                      ? "bg-[#FFFCE6] border-l-2 border-[#FFE600]"
-                      : "hover:bg-[#FAFAFC] border-l-2 border-transparent"
+                      ? "bg-brand-tint border-l-2 border-brand"
+                      : "hover:bg-surface-2 border-l-2 border-transparent"
                   }`}
                 >
                   <div className="relative">
-                    <sec.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-[#2E2E38]" : "text-[#747480]"}`} />
+                    <sec.icon className={`w-4 h-4 shrink-0 ${isActive ? "text-fg" : "text-fg-muted"}`} />
                     {sidebarCollapsed && has?.frozen && (
-                      <Lock className="w-2 h-2 text-[#FFE600] absolute -top-1 -right-1" />
+                      <Lock className="w-2 h-2 text-brand absolute -top-1 -right-1" />
                     )}
                   </div>
                   {!sidebarCollapsed && (
                     <>
                       <div className="flex-1 min-w-0">
-                        <div className={`text-[12px] truncate ${isActive ? "text-[#2E2E38] font-semibold" : "text-[#747480]"}`}>
+                        <div className={`text-[12px] truncate ${isActive ? "text-fg font-semibold" : "text-fg-muted"}`}>
                           {sec.label}
                         </div>
-                        <div className="text-[9px] text-[#A0A0AB] truncate">{sec.desc}</div>
+                        <div className="text-micro text-fg-subtle truncate">{sec.desc}</div>
                       </div>
                       {has && (
                         <div className="flex items-center gap-1 shrink-0">
-                          <span className="text-[9px] bg-[#F6F6FA] px-1 rounded-sm font-mono">v{has.version}</span>
-                          {has.frozen && <Lock className="w-2.5 h-2.5 text-[#FFE600]" />}
+                          <span className="text-micro bg-bg px-1 rounded-sm font-mono">v{has.version}</span>
+                          {has.frozen && <Lock className="w-2.5 h-2.5 text-brand" />}
                         </div>
                       )}
                     </>

@@ -199,13 +199,13 @@ function GraphView({ entities, relationships, search, activeDomains, palette, on
   };
 
   return (
-    <div className="relative w-full h-full overflow-hidden bg-[#FAFAFC]" data-testid="ontology-graph">
-      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 bg-white border border-[#E6E6E6] rounded-sm shadow-sm">
-        <button onClick={() => setView((v) => ({ ...v, scale: Math.min(4, v.scale * 1.2) }))} className="p-1.5 hover:bg-[#F6F6FA]" data-testid="graph-zoom-in"><ZoomIn className="w-3 h-3" /></button>
-        <button onClick={() => setView((v) => ({ ...v, scale: Math.max(0.2, v.scale / 1.2) }))} className="p-1.5 hover:bg-[#F6F6FA]" data-testid="graph-zoom-out"><ZoomOut className="w-3 h-3" /></button>
-        <button onClick={() => setView({ scale: 1, tx: 0, ty: 0 })} className="p-1.5 hover:bg-[#F6F6FA]" data-testid="graph-reset"><RotateCcw className="w-3 h-3" /></button>
+    <div className="relative w-full h-full overflow-hidden bg-surface-2" data-testid="ontology-graph">
+      <div className="absolute top-3 right-3 z-10 flex flex-col gap-1 bg-surface border border-border rounded-sm shadow-sm">
+        <button onClick={() => setView((v) => ({ ...v, scale: Math.min(4, v.scale * 1.2) }))} className="p-1.5 hover:bg-bg" data-testid="graph-zoom-in"><ZoomIn className="w-3 h-3" /></button>
+        <button onClick={() => setView((v) => ({ ...v, scale: Math.max(0.2, v.scale / 1.2) }))} className="p-1.5 hover:bg-bg" data-testid="graph-zoom-out"><ZoomOut className="w-3 h-3" /></button>
+        <button onClick={() => setView({ scale: 1, tx: 0, ty: 0 })} className="p-1.5 hover:bg-bg" data-testid="graph-reset"><RotateCcw className="w-3 h-3" /></button>
       </div>
-      <div className="absolute bottom-3 left-3 z-10 bg-white border border-[#E6E6E6] rounded-sm px-2 py-1 text-[10px] text-[#747480]" data-testid="graph-stats">
+      <div className="absolute bottom-3 left-3 z-10 bg-surface border border-border rounded-sm px-2 py-1 text-micro text-fg-muted" data-testid="graph-stats">
         {positioned.length} entities · {filteredRels.length} relationships · zoom {Math.round(view.scale * 100)}%
       </div>
       <svg
@@ -363,25 +363,25 @@ function TreeView({ entities, search, activeDomains, palette, onSelect, selected
   }, [entities, search, activeDomains]);
 
   return (
-    <div className="overflow-y-auto h-full p-3 bg-white border-r border-[#E6E6E6]" data-testid="ontology-tree">
+    <div className="overflow-y-auto h-full p-3 bg-surface border-r border-border" data-testid="ontology-tree">
       {Object.entries(grouped).map(([dom, list]) => {
         const meta = palette[dom] || DOMAIN_PALETTE[0];
         return (
           <div key={dom} className="mb-3">
-            <div className="text-[10px] uppercase font-bold mb-1" style={{ color: meta.color }}>
-              {dom} <span className="text-[#747480]">({list.length})</span>
+            <div className="text-micro uppercase font-bold mb-1" style={{ color: meta.color }}>
+              {dom} <span className="text-fg-muted">({list.length})</span>
             </div>
             <div className="space-y-0.5">
               {list.map((e) => (
                 <button key={e.id} onClick={() => onSelect(e)}
                   data-testid={`tree-${e.id}`}
-                  className={`w-full text-left text-[11px] px-2 py-1 rounded-sm truncate ${
-                    selected === e.id ? "bg-[#FFFCE6] border border-[#FFE600]" : "hover:bg-[#F6F6FA]"
+                  className={`w-full text-left text-micro px-2 py-1 rounded-sm truncate ${
+                    selected === e.id ? "bg-brand-tint border border-brand" : "hover:bg-bg"
                   }`}
                   style={{ borderLeft: `3px solid ${meta.border}` }}>
                   <span className="font-semibold">{e.name}</span>
                   {e.lifecycle_states && e.lifecycle_states.length > 0 && (
-                    <span className="text-[9px] text-[#747480] ml-1">· {e.lifecycle_states.length} states</span>
+                    <span className="text-micro text-fg-muted ml-1">· {e.lifecycle_states.length} states</span>
                   )}
                 </button>
               ))}
@@ -390,7 +390,7 @@ function TreeView({ entities, search, activeDomains, palette, onSelect, selected
         );
       })}
       {Object.keys(grouped).length === 0 && (
-        <div className="text-[11px] text-[#747480] py-4">No entities match.</div>
+        <div className="text-micro text-fg-muted py-4">No entities match.</div>
       )}
     </div>
   );
@@ -402,9 +402,9 @@ function TreeView({ entities, search, activeDomains, palette, onSelect, selected
 function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
   if (!entity) {
     return (
-      <div className="p-4 text-[11px] text-[#747480] flex items-center justify-center h-full">
+      <div className="p-4 text-micro text-fg-muted flex items-center justify-center h-full">
         <div className="text-center">
-          <Building2 className="w-6 h-6 mx-auto mb-2 text-[#FFE600]" />
+          <Building2 className="w-6 h-6 mx-auto mb-2 text-brand" />
           Click any entity to see its description, source tables, owning role and lifecycle.
         </div>
       </div>
@@ -413,15 +413,15 @@ function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
   const meta = palette[entity.domain] || DOMAIN_PALETTE[0];
   const rels = relationships.filter((r) => r.source === entity.id || r.target === entity.id);
   return (
-    <div className="p-3 overflow-y-auto h-full bg-white" data-testid={`detail-${entity.id}`}>
-      <div className="text-[9px] uppercase font-bold tracking-wider mb-1" style={{ color: meta.color }}>
+    <div className="p-3 overflow-y-auto h-full bg-surface" data-testid={`detail-${entity.id}`}>
+      <div className="text-micro uppercase font-bold tracking-wider mb-1" style={{ color: meta.color }}>
         {entity.domain}
       </div>
-      <div className="font-display font-bold text-[#2E2E38] text-base break-all leading-tight">{entity.name}</div>
-      <div className="text-[10px] font-mono text-[#747480] break-all mt-0.5">id: {entity.id}</div>
+      <div className="font-display font-bold text-fg text-base break-all leading-tight">{entity.name}</div>
+      <div className="text-micro font-mono text-fg-muted break-all mt-0.5">id: {entity.id}</div>
 
       {entity.description && (
-        <div className="mt-3 text-[11px] text-[#2E2E38] leading-relaxed bg-[#FAFAFC] border-l-2 border-[#FFE600] px-2 py-1.5">
+        <div className="mt-3 text-micro text-fg leading-relaxed bg-surface-2 border-l-2 border-brand px-2 py-1.5">
           {entity.description}
         </div>
       )}
@@ -432,12 +432,12 @@ function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
         )}
         {entity.lifecycle_states && entity.lifecycle_states.length > 0 && (
           <div>
-            <div className="text-[9px] uppercase font-bold text-[#747480] flex items-center gap-1 mb-0.5">
+            <div className="text-micro uppercase font-bold text-fg-muted flex items-center gap-1 mb-0.5">
               <Tag className="w-3 h-3" /> Lifecycle states
             </div>
             <div className="flex flex-wrap gap-1">
               {entity.lifecycle_states.map((s, i) => (
-                <span key={i} className="text-[10px] bg-[#FFFCE6] border border-[#FFE600] px-1.5 py-0.5 rounded-sm font-mono">
+                <span key={i} className="text-micro bg-brand-tint border border-brand px-1.5 py-0.5 rounded-sm font-mono">
                   {s}
                 </span>
               ))}
@@ -456,7 +456,7 @@ function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
 
       {rels.length > 0 && (
         <div className="mt-4">
-          <div className="text-[10px] uppercase font-bold text-[#747480] mb-1">
+          <div className="text-micro uppercase font-bold text-fg-muted mb-1">
             Relationships ({rels.length})
           </div>
           <div className="space-y-0.5">
@@ -468,16 +468,16 @@ function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
               const otherMeta = palette[other.domain] || DOMAIN_PALETTE[0];
               return (
                 <button key={i} onClick={() => onSelect(other)}
-                  className="w-full flex items-center gap-2 text-[10px] px-2 py-1 rounded-sm hover:bg-[#F6F6FA] text-left">
-                  <span className="text-[9px] font-mono text-[#747480] w-4">{isOut ? "→" : "←"}</span>
-                  <span className="text-[#2E2E38] font-semibold uppercase text-[9px] tracking-wide">
+                  className="w-full flex items-center gap-2 text-micro px-2 py-1 rounded-sm hover:bg-bg text-left">
+                  <span className="text-micro font-mono text-fg-muted w-4">{isOut ? "→" : "←"}</span>
+                  <span className="text-fg font-semibold uppercase text-micro tracking-wide">
                     {r.verb || "relates to"}
                   </span>
                   <span className="font-semibold truncate" style={{ color: otherMeta.color }}>
                     {other.name}
                   </span>
                   {r.kind === "fk" && (
-                    <span className="text-[8px] text-[#9CA3AF] uppercase ml-auto">fk</span>
+                    <span className="text-micro text-fg-subtle uppercase ml-auto">fk</span>
                   )}
                 </button>
               );
@@ -492,10 +492,10 @@ function DetailPanel({ entity, relationships, byId, palette, onSelect }) {
 function DetailRow({ icon: Icon, label, value }) {
   return (
     <div>
-      <div className="text-[9px] uppercase font-bold text-[#747480] flex items-center gap-1 mb-0.5">
+      <div className="text-micro uppercase font-bold text-fg-muted flex items-center gap-1 mb-0.5">
         <Icon className="w-3 h-3" /> {label}
       </div>
-      <div className="text-[11px] text-[#2E2E38]">{value}</div>
+      <div className="text-micro text-fg">{value}</div>
     </div>
   );
 }
@@ -503,17 +503,17 @@ function DetailRow({ icon: Icon, label, value }) {
 function ListSection({ icon: Icon, label, items }) {
   return (
     <div>
-      <div className="text-[9px] uppercase font-bold text-[#747480] flex items-center gap-1 mb-0.5">
+      <div className="text-micro uppercase font-bold text-fg-muted flex items-center gap-1 mb-0.5">
         <Icon className="w-3 h-3" /> {label}
       </div>
       <div className="flex flex-wrap gap-1">
         {items.slice(0, 30).map((s, i) => (
-          <span key={i} className="text-[10px] bg-[#F6F6FA] border border-[#E6E6E6] px-1.5 py-0.5 rounded-sm font-mono break-all">
+          <span key={i} className="text-micro bg-bg border border-border px-1.5 py-0.5 rounded-sm font-mono break-all">
             {s}
           </span>
         ))}
         {items.length > 30 && (
-          <span className="text-[10px] text-[#747480]">+{items.length - 30} more</span>
+          <span className="text-micro text-fg-muted">+{items.length - 30} more</span>
         )}
       </div>
     </div>
@@ -590,6 +590,7 @@ export default function OntologyStudioPage() {
       const jobId = start.job_id;
       // Poll every 2s
       pollRef.current = setInterval(async () => {
+      if (document.hidden) return;
         try {
           const j = await getBusinessOntologyJob(projectId, jobId);
           setJobStatus(j.status);
@@ -646,26 +647,26 @@ export default function OntologyStudioPage() {
   };
 
   if (!projectId) {
-    return <div className="p-8 text-[#747480]" data-testid="ontology-no-project">No active project selected.</div>;
+    return <div className="p-8 text-fg-muted" data-testid="ontology-no-project">No active project selected.</div>;
   }
 
   const running = jobStatus === "queued" || jobStatus === "running";
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#F6F6FA]" data-testid="ontology-studio-page">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg" data-testid="ontology-studio-page">
       {/* Header */}
-      <header className="bg-white border-b-2 border-[#FFE600] px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <header className="bg-surface border-b-2 border-brand px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <Link to="/discovery" data-testid="back-to-discovery" className="text-[10px] uppercase tracking-widest text-[#747480] flex items-center gap-1 hover:text-[#2E2E38]">
+          <Link to="/discovery" data-testid="back-to-discovery" className="text-micro uppercase tracking-widest text-fg-muted flex items-center gap-1 hover:text-fg">
             <ArrowLeft className="w-3 h-3" /> Back to Discovery
           </Link>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center gap-2">
-            <Boxes className="w-4 h-4 text-[#FFE600]" /> Ontology Studio · Business Domain
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2">
+            <Boxes className="w-4 h-4 text-brand" /> Ontology Studio · Business Domain
             {active?.name && (
               <span
                 data-testid="ontology-active-project"
                 title={`Project: ${active.name} (${projectId})`}
-                className="ml-2 text-[10px] font-mono font-normal text-[#747480] bg-[#FAFAFC] border border-[#E6E6E6] rounded-sm px-1.5 py-0.5">
+                className="ml-2 text-micro font-mono font-normal text-fg-muted bg-surface-2 border border-border rounded-sm px-1.5 py-0.5">
                 {active.name}
               </span>
             )}
@@ -673,27 +674,27 @@ export default function OntologyStudioPage() {
         </div>
         <div className="flex items-center gap-2">
           {data && (
-            <span className="text-[11px] text-[#747480]" data-testid="ontology-overall-stats">
+            <span className="text-micro text-fg-muted" data-testid="ontology-overall-stats">
               {data.stats?.total_entities || 0} entities · {data.stats?.total_relationships || 0} relationships · {data.stats?.total_domains || 0} domains
             </span>
           )}
-          <div className="flex border border-[#E6E6E6] rounded-sm overflow-hidden">
+          <div className="flex border border-border rounded-sm overflow-hidden">
             <button onClick={() => setMode("graph")} data-testid="mode-graph"
-              className={`text-[11px] px-2 py-1 ${mode === "graph" ? "bg-[#FFE600] text-[#2E2E38] font-bold" : "bg-white text-[#747480]"}`}>
+              className={`text-micro px-2 py-1 ${mode === "graph" ? "bg-brand text-fg font-bold" : "bg-surface text-fg-muted"}`}>
               <Network className="w-3 h-3 inline mr-1" /> Graph
             </button>
             <button onClick={() => setMode("tree")} data-testid="mode-tree"
-              className={`text-[11px] px-2 py-1 ${mode === "tree" ? "bg-[#FFE600] text-[#2E2E38] font-bold" : "bg-white text-[#747480]"}`}>
+              className={`text-micro px-2 py-1 ${mode === "tree" ? "bg-brand text-fg font-bold" : "bg-surface text-fg-muted"}`}>
               <ListTree className="w-3 h-3 inline mr-1" /> Tree
             </button>
           </div>
           <Button onClick={() => startJob(true)} disabled={running}
-            variant="outline" className="h-7 text-[11px]" data-testid="regenerate-btn">
+            variant="outline" className="h-7 text-micro" data-testid="regenerate-btn">
             {running ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <RefreshCw className="w-3 h-3 mr-1" />}
             {data ? "Regenerate" : "Build now"}
           </Button>
           <Button onClick={exportJson} disabled={!data}
-            variant="outline" className="h-7 text-[11px]" data-testid="export-ontology">
+            variant="outline" className="h-7 text-micro" data-testid="export-ontology">
             <Download className="w-3 h-3 mr-1" /> Export JSON
           </Button>
         </div>
@@ -701,7 +702,7 @@ export default function OntologyStudioPage() {
 
       {/* Stale banner */}
       {data?.stale && (
-        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-[11px] text-amber-800 flex items-center gap-2" data-testid="stale-banner">
+        <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 text-micro text-amber-800 flex items-center gap-2" data-testid="stale-banner">
           <AlertTriangle className="w-3 h-3" />
           <span>Your KB has changed since this ontology was generated. Click <strong>Regenerate</strong> to refresh.</span>
         </div>
@@ -709,16 +710,16 @@ export default function OntologyStudioPage() {
 
       {/* Filter strip */}
       {data && (
-        <div className="bg-white border-b border-[#E6E6E6] px-6 py-2 flex items-center gap-3 flex-wrap">
+        <div className="bg-surface border-b border-border px-6 py-2 flex items-center gap-3 flex-wrap">
           <div className="flex items-center gap-1">
-            <Search className="w-3 h-3 text-[#747480]" />
+            <Search className="w-3 h-3 text-fg-muted" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
               placeholder="Search entities…"
               data-testid="ontology-search"
-              className="text-[11px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-1 w-44" />
+              className="text-micro border border-border focus:border-fg outline-none rounded-sm px-2 py-1 w-44" />
           </div>
           <div className="flex items-center gap-1 flex-wrap">
-            <Filter className="w-3 h-3 text-[#747480]" />
+            <Filter className="w-3 h-3 text-fg-muted" />
             {(data.domains || []).map((d) => {
               const meta = palette[d] || DOMAIN_PALETTE[0];
               const on = activeDomains.has(d);
@@ -726,7 +727,7 @@ export default function OntologyStudioPage() {
               return (
                 <button key={d} onClick={() => toggleDomain(d)}
                   data-testid={`filter-${d}`}
-                  className={`text-[10px] px-1.5 py-0.5 rounded-sm border ${on ? "" : "opacity-40"}`}
+                  className={`text-micro px-1.5 py-0.5 rounded-sm border ${on ? "" : "opacity-40"}`}
                   style={{ background: meta.bg, color: meta.color, borderColor: meta.border }}>
                   {d} <span className="opacity-70">·{count}</span>
                 </button>
@@ -734,7 +735,7 @@ export default function OntologyStudioPage() {
             })}
           </div>
           {data.source === "deterministic" && (
-            <span className="ml-auto text-[10px] text-amber-700">
+            <span className="ml-auto text-micro text-amber-700">
               ⚠ LLM enrichment was skipped — showing deterministic clusters only.
             </span>
           )}
@@ -747,33 +748,33 @@ export default function OntologyStudioPage() {
           <div className="col-span-12 flex items-center justify-center text-center p-8" data-testid="ontology-empty">
             {running ? (
               <div>
-                <Loader2 className="w-8 h-8 text-[#FFE600] animate-spin mx-auto mb-3" />
-                <div className="font-display text-sm font-bold text-[#2E2E38]">Building business ontology…</div>
-                <div className="text-[11px] text-[#747480] mt-1">
+                <Loader2 className="w-8 h-8 text-brand animate-spin mx-auto mb-3" />
+                <div className="font-display text-sm font-bold text-fg">Building business ontology…</div>
+                <div className="text-micro text-fg-muted mt-1">
                   Clustering by domain, then asking the LLM to rename + enrich entities. Usually 30–90s.
                 </div>
-                <div className="w-64 h-1 bg-[#E6E6E6] rounded-sm mt-3 mx-auto overflow-hidden">
-                  <div className="h-full bg-[#FFE600] transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+                <div className="w-64 h-1 bg-border rounded-sm mt-3 mx-auto overflow-hidden">
+                  <div className="h-full bg-brand transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
                 </div>
               </div>
             ) : jobStatus === "error" ? (
               <div>
                 <AlertTriangle className="w-8 h-8 text-rose-500 mx-auto mb-3" />
-                <div className="font-display text-sm font-bold text-[#2E2E38]">Generation failed</div>
-                <div className="text-[11px] text-rose-700 mt-1 max-w-md">{jobError}</div>
-                <Button onClick={() => startJob(true)} className="mt-3 h-7 text-[11px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]" data-testid="retry-btn">
+                <div className="font-display text-sm font-bold text-fg">Generation failed</div>
+                <div className="text-micro text-rose-700 mt-1 max-w-md">{jobError}</div>
+                <Button onClick={() => startJob(true)} className="mt-3 h-7 text-micro bg-brand text-fg hover:bg-brand-hover" data-testid="retry-btn">
                   Retry
                 </Button>
               </div>
             ) : (
               <div>
-                <Boxes className="w-10 h-10 text-[#FFE600] mx-auto mb-3" />
-                <div className="font-display text-sm font-bold text-[#2E2E38]">No business ontology yet</div>
-                <div className="text-[11px] text-[#747480] mt-1 max-w-md">
+                <Boxes className="w-10 h-10 text-brand mx-auto mb-3" />
+                <div className="font-display text-sm font-bold text-fg">No business ontology yet</div>
+                <div className="text-micro text-fg-muted mt-1 max-w-md">
                   Click <strong>Build now</strong> to derive business-domain entities from your KB
                   (deterministic clustering + LLM enrichment).
                 </div>
-                <Button onClick={() => startJob(false)} className="mt-3 h-8 text-[11px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]" data-testid="build-now-btn">
+                <Button onClick={() => startJob(false)} className="mt-3 h-8 text-micro bg-brand text-fg hover:bg-brand-hover" data-testid="build-now-btn">
                   <RefreshCw className="w-3 h-3 mr-1" /> Build now
                 </Button>
               </div>
@@ -781,7 +782,7 @@ export default function OntologyStudioPage() {
           </div>
         ) : (
           <>
-            <div className="col-span-2 min-w-0 overflow-hidden border-r border-[#E6E6E6]">
+            <div className="col-span-2 min-w-0 overflow-hidden border-r border-border">
               <TreeView
                 entities={data.entities || []}
                 search={search} activeDomains={activeDomains} palette={palette}
@@ -804,10 +805,10 @@ export default function OntologyStudioPage() {
               )}
             </div>
             {selected && (
-              <div className="col-span-3 min-w-0 overflow-hidden border-l border-[#E6E6E6] relative">
+              <div className="col-span-3 min-w-0 overflow-hidden border-l border-border relative">
                 <button onClick={() => setSelectedId(null)}
                   data-testid="detail-close"
-                  className="absolute top-2 right-2 z-10 text-[#747480] hover:text-[#2E2E38] bg-white border border-[#E6E6E6] rounded-sm p-0.5">
+                  className="absolute top-2 right-2 z-10 text-fg-muted hover:text-fg bg-surface border border-border rounded-sm p-0.5">
                   <X className="w-3 h-3" />
                 </button>
                 <DetailPanel entity={selected} relationships={data.relationships || []}

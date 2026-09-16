@@ -75,12 +75,12 @@ function toSafeText(val) {
   }
 }
 
-const CARD_CLS = "rounded-xl border border-slate-200 bg-white shadow-sm";
-const CARD_HEAD_CLS = "px-5 py-4 border-b border-slate-100 flex items-center gap-3";
+const CARD_CLS = "rounded-xl border border-border bg-surface shadow-sm";
+const CARD_HEAD_CLS = "px-5 py-4 border-b border-border flex items-center gap-3";
 const CHIP_CLS = "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium";
 const FOCUS_RING = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500";
 const BTN_PRIMARY = `inline-flex items-center justify-center gap-2 rounded-lg bg-violet-600 text-white font-semibold hover:bg-violet-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${FOCUS_RING}`;
-const BTN_OUTLINE = `inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white text-slate-700 font-medium hover:bg-slate-50 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${FOCUS_RING}`;
+const BTN_OUTLINE = `inline-flex items-center justify-center gap-2 rounded-lg border border-border bg-surface text-fg-muted font-medium hover:bg-surface-2 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${FOCUS_RING}`;
 
 // iter-15.14 — Broadcast the transformer's current phase so the sidebar
 // Pipeline + the top StageProgress bar can highlight the correct stage
@@ -95,7 +95,10 @@ const broadcastTransformerPhase = (phase) => {
       window.localStorage.removeItem("lama:transformer:phase");
     }
     window.dispatchEvent(new CustomEvent("lama:transformer:phase", { detail: { phase } }));
-  } catch (_) {}
+  } catch (_) {
+  // localStorage/CustomEvent may be unavailable (private mode,
+  // blocked site data). The feature degrades; it never fails.
+  }
 };
 
 const normalizeGithubRepo = (repoUrl) =>
@@ -805,7 +808,10 @@ export default function TransformerPage() {
         const res = await listModels();
         const models = Array.isArray(res) ? res : (res?.models || []);
         setAvailableModels(models);
-      } catch {}
+      } catch {
+      // One failed poll tick is not an error — the next tick retries,
+      // and a toast every 2s during a network blip would be worse.
+      }
     })();
   }, []);
 
@@ -916,7 +922,10 @@ export default function TransformerPage() {
     if (!transformId) return;
     try {
       window.localStorage.setItem(`lama:transformer:lastId:${active?.id || "default"}`, transformId);
-    } catch (_) {}
+    } catch (_) {
+    // localStorage/CustomEvent may be unavailable (private mode,
+    // blocked site data). The feature degrades; it never fails.
+    }
   }, [transformId, active?.id]);
 
   useEffect(() => {
@@ -931,7 +940,10 @@ export default function TransformerPage() {
       let savedId = null;
       try {
         savedId = window.localStorage.getItem(`lama:transformer:lastId:${pid}`) || null;
-      } catch (_) {}
+      } catch (_) {
+      // localStorage/CustomEvent may be unavailable (private mode,
+      // blocked site data). The feature degrades; it never fails.
+      }
 
       if (savedId) {
         try {
@@ -1059,7 +1071,10 @@ export default function TransformerPage() {
           const arr = genFiles?.files || genFiles || [];
           loadedFiles = Array.isArray(arr) ? arr : [];
           setFiles(loadedFiles);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       // Multi-agent: fetch envelopes when awaiting_confirmation
       if (s.status === "awaiting_confirmation") {
@@ -1070,7 +1085,10 @@ export default function TransformerPage() {
         try {
           const envData = await getTransformationEnvelopes(tid);
           setEnvelopes(envData?.envelopes || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         // iter-15.41 — Load UI-ready traceability data (BE hop chains
         // and/or FE screen→API mapping) for the mandatory review gate.
         try {
@@ -1080,11 +1098,17 @@ export default function TransformerPage() {
         try {
           const tlData = await getAgentTimeline(tid);
           setAgentTimeline(tlData?.timeline || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         return;
       }
       if (s.status === "awaiting_task_confirmation") {
@@ -1095,11 +1119,17 @@ export default function TransformerPage() {
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const tlData = await getAgentTimeline(tid);
           setAgentTimeline(tlData?.timeline || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         return;
       }
       // Fetch agent timeline periodically during multi-agent runs.
@@ -1115,15 +1145,24 @@ export default function TransformerPage() {
         try {
           const tlData = await getAgentTimeline(tid);
           setAgentTimeline(tlData?.timeline || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const envData = await getTransformationEnvelopes(tid);
           if (envData?.envelopes?.length) setEnvelopes(envData.envelopes);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       if (s.status === "completed" || s.status === "completed_with_errors") {
         // iter-16.x — Do NOT stop polling if a compile-fix loop is still
@@ -1145,19 +1184,31 @@ export default function TransformerPage() {
           const genFiles = await getTransformationFiles(tid);
           const arr = genFiles?.files || genFiles || [];
           setFiles(Array.isArray(arr) ? arr : []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const compResult = await getCompilationResult(tid);
           setCompilationResult(compResult);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const tlData = await getAgentTimeline(tid);
           setAgentTimeline(tlData?.timeline || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       } else if (s.status === "failed") {
         stopPolling();
         setError(s.error || "Transformation failed");
@@ -1173,11 +1224,17 @@ export default function TransformerPage() {
           const genFiles = await getTransformationFiles(tid);
           const arr = genFiles?.files || genFiles || [];
           setFiles(Array.isArray(arr) ? arr : []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
     } catch (e) {
       // transient poll errors are OK — keep the interval alive
@@ -1348,13 +1405,19 @@ export default function TransformerPage() {
       try {
         const kbData = await getTransformerKB(tid);
         setKb(kbData);
-      } catch {}
+      } catch {
+      // One failed poll tick is not an error — the next tick retries,
+      // and a toast every 2s during a network blip would be worse.
+      }
       try {
         const genFiles = await getTransformationFiles(tid);
         const arr = genFiles?.files || genFiles || [];
         loadedFiles = Array.isArray(arr) ? arr : [];
         setFiles(loadedFiles);
-      } catch {}
+      } catch {
+      // One failed poll tick is not an error — the next tick retries,
+      // and a toast every 2s during a network blip would be worse.
+      }
       // iter-15.27 — Reloading a transformation (whether via the History
       // panel or the auto-restore-on-mount effect below) used to only
       // rehydrate KB + generated files, silently dropping the
@@ -1366,28 +1429,43 @@ export default function TransformerPage() {
       try {
         const tlData = await getAgentTimeline(tid);
         setAgentTimeline(tlData?.timeline || []);
-      } catch {}
+      } catch {
+      // One failed poll tick is not an error — the next tick retries,
+      // and a toast every 2s during a network blip would be worse.
+      }
       if (t.status === "awaiting_confirmation") {
         try {
           const envData = await getTransformationEnvelopes(tid);
           setEnvelopes(envData?.envelopes || []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       if (t.status === "awaiting_task_confirmation") {
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       if (t.status === "completed" || t.status === "completed_with_errors") {
         try {
           const compResult = await getCompilationResult(tid);
           setCompilationResult(compResult);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
         try {
           const taskData = await getTransformationTasks(tid);
           setTaskList(taskData);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       // Resume polling if still running
       stopPolling();
@@ -1401,7 +1479,7 @@ export default function TransformerPage() {
       if (t.status === "running" || t.status === "pending") {
         changeTab("kb");
         broadcastTransformerPhase(t.phase || "running");
-        pollRef.current = setInterval(() => pollStatus(tid), 2000);
+        pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(tid); }, 2000);
         pollStatus(tid);
       } else if (t.status === "awaiting_confirmation") {
         broadcastTransformerPhase("awaiting_confirmation");
@@ -1412,7 +1490,7 @@ export default function TransformerPage() {
         setCompilationLoading(true);
         broadcastTransformerPhase(t.phase || t.status || "compile_fix");
         changeTab("code");
-        pollRef.current = setInterval(() => pollStatus(tid), 2000);
+        pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(tid); }, 2000);
         pollStatus(tid);
       } else if (t.status === "completed" || t.status === "completed_with_errors" || loadedFiles.length > 0) {
         broadcastTransformerPhase(t.status || "completed");
@@ -1461,7 +1539,7 @@ export default function TransformerPage() {
       userPinnedAgentTabRef.current = false;
       syncSelectedAgentTab("planner", "running", { force: true });
       stopPolling();
-      pollRef.current = setInterval(() => pollStatus(transformId), 2000);
+      pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(transformId); }, 2000);
       pollStatus(transformId);
     } catch (e) {
       alert(`Confirm failed: ${e.response?.data?.detail || e.message}`);
@@ -1479,7 +1557,7 @@ export default function TransformerPage() {
       userPinnedAgentTabRef.current = false;
       syncSelectedAgentTab("coder", "running", { force: true });
       stopPolling();
-      pollRef.current = setInterval(() => pollStatus(transformId), 2000);
+      pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(transformId); }, 2000);
       pollStatus(transformId);
     } catch (e) {
       alert(`Confirm failed: ${e.response?.data?.detail || e.message}`);
@@ -1515,7 +1593,10 @@ export default function TransformerPage() {
           const genFiles = await getTransformationFiles(transformId);
           const arr = genFiles?.files || genFiles || [];
           setFiles(Array.isArray(arr) ? arr : []);
-        } catch {}
+        } catch {
+        // One failed poll tick is not an error — the next tick retries,
+        // and a toast every 2s during a network blip would be worse.
+        }
       }
       setPlanChat((prev) => ({
         ...prev,
@@ -1557,19 +1638,19 @@ export default function TransformerPage() {
   const renderPlanChatWidget = (panel) => {
     const state = planChat[panel] || { messages: [], input: "", busy: false };
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" data-testid={`plan-chat-${panel}`}>
-        <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2 bg-violet-50/60">
+      <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden" data-testid={`plan-chat-${panel}`}>
+        <div className="px-4 py-3 border-b border-border flex items-center gap-2 bg-violet-50/60">
           <div className="w-7 h-7 rounded-full bg-violet-600 text-white flex items-center justify-center flex-shrink-0">
             <Bot size={14} />
           </div>
           <div>
-            <h5 className="text-[12px] font-semibold text-slate-800">Ask the {panel === "planner" ? "Planner" : panel === "coder" ? "Coder" : "Verifier"} assistant</h5>
-            <p className="text-[10px] text-slate-500">Find, remove, or reassign items with plain English — changes save instantly.</p>
+            <h5 className="text-[12px] font-semibold text-fg">Ask the {panel === "planner" ? "Planner" : panel === "coder" ? "Coder" : "Verifier"} assistant</h5>
+            <p className="text-micro text-fg-subtle">Find, remove, or reassign items with plain English — changes save instantly.</p>
           </div>
         </div>
-        <div className="max-h-56 overflow-y-auto px-4 py-3 space-y-2 bg-slate-50/40">
+        <div className="max-h-56 overflow-y-auto px-4 py-3 space-y-2 bg-surface-2/40">
           {state.messages.length === 0 ? (
-            <p className="text-[11px] text-slate-400 italic">{PLAN_CHAT_PLACEHOLDERS[panel]}</p>
+            <p className="text-micro text-fg-subtle italic">{PLAN_CHAT_PLACEHOLDERS[panel]}</p>
           ) : (
             state.messages.map((m, idx) => (
               <div key={idx} className={`flex items-start gap-2 ${m.role === "user" ? "justify-end" : ""}`}>
@@ -1578,39 +1659,39 @@ export default function TransformerPage() {
                     <Bot size={12} />
                   </div>
                 )}
-                <div className={`max-w-[85%] rounded-xl px-3 py-1.5 text-[11px] ${
+                <div className={`max-w-[85%] rounded-xl px-3 py-1.5 text-micro ${
                   m.role === "user"
                     ? "bg-violet-600 text-white"
                     : m.isError
                       ? "bg-red-50 text-red-700 border border-red-200"
-                      : "bg-white text-slate-700 border border-slate-200"
+                      : "bg-surface text-fg-muted border border-border"
                 }`}>
                   {m.text}
                   {typeof m.matchedCount === "number" && m.matchedCount > 0 && (
-                    <span className="block mt-0.5 text-[10px] opacity-70">{m.matchedCount} item{m.matchedCount === 1 ? "" : "s"} matched</span>
+                    <span className="block mt-0.5 text-micro opacity-70">{m.matchedCount} item{m.matchedCount === 1 ? "" : "s"} matched</span>
                   )}
                 </div>
               </div>
             ))
           )}
           {state.busy && (
-            <div className="flex items-center gap-2 text-[11px] text-slate-400">
+            <div className="flex items-center gap-2 text-micro text-fg-subtle">
               <Loader2 size={12} className="animate-spin" /> thinking…
             </div>
           )}
         </div>
         <form
           onSubmit={(e) => { e.preventDefault(); handlePlanChatSend(panel); }}
-          className="px-3 py-2 border-t border-slate-100 flex items-center gap-2"
+          className="px-3 py-2 border-t border-border flex items-center gap-2"
         >
-          <MessageSquare size={13} className="text-slate-400 flex-shrink-0" />
+          <MessageSquare size={13} className="text-fg-subtle flex-shrink-0" />
           <input
             type="text"
             value={state.input}
             onChange={(e) => setPlanChat((prev) => ({ ...prev, [panel]: { ...prev[panel], input: e.target.value } }))}
             placeholder={PLAN_CHAT_PLACEHOLDERS[panel]}
             disabled={state.busy}
-            className="flex-1 text-[11px] px-2 py-1.5 rounded-lg border border-slate-200 focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:opacity-60"
+            className="flex-1 text-micro px-2 py-1.5 rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-violet-400 disabled:opacity-60"
             data-testid={`plan-chat-${panel}-input`}
           />
           <button
@@ -1637,7 +1718,10 @@ export default function TransformerPage() {
       const flags = {};
       (res?.agents || []).forEach((a) => { flags[a.agent] = !!a.is_overridden; });
       setAgentOverrideFlags(flags);
-    } catch {}
+    } catch {
+    // One failed poll tick is not an error — the next tick retries,
+    // and a toast every 2s during a network blip would be worse.
+    }
   }, []);
 
   useEffect(() => {
@@ -1744,7 +1828,7 @@ export default function TransformerPage() {
       setProgress({ phase: "super_agent", percent: 2, message: "Super Agent: Initializing pipeline (rerun)..." });
       syncSelectedAgentTab("super_agent", "running", { force: true });
       stopPolling();
-      pollRef.current = setInterval(() => pollStatus(transformId), 2000);
+      pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(transformId); }, 2000);
       pollStatus(transformId);
     } catch (e) {
       setAgentConfigError(e.response?.data?.detail || e.message || "Rerun failed");
@@ -1842,7 +1926,11 @@ export default function TransformerPage() {
                 + "Rerun compile to try again.",
             });
           }
-        } catch {}
+        } catch {
+          // One failed poll tick is not an error — the next tick retries.
+          // The stall detector below still fires on the elapsed clock, so a
+          // genuinely hung run is caught even if every poll is failing.
+        }
         if (Date.now() - started > TIMEOUT_MS) {
           clearInterval(poll);
           setCompilationLoading(false);
@@ -2011,7 +2099,7 @@ export default function TransformerPage() {
         await runTransformation(tid);
       }
       stopPolling();
-      pollRef.current = setInterval(() => pollStatus(tid), 2000);
+      pollRef.current = setInterval(() => { if (!document.hidden) pollStatus(tid); }, 2000);
       pollStatus(tid); // immediate first tick
     } catch (e) {
       setError(e.message || String(e));
@@ -2114,7 +2202,10 @@ export default function TransformerPage() {
     // auto-restored the next time this page mounts.
     try {
       window.localStorage.removeItem(`lama:transformer:lastId:${active?.id || "default"}`);
-    } catch (_) {}
+    } catch (_) {
+    // localStorage/CustomEvent may be unavailable (private mode,
+    // blocked site data). The feature degrades; it never fails.
+    }
     changeTab("input");
   };
 
@@ -2227,7 +2318,7 @@ export default function TransformerPage() {
 
   const formatConfidenceBadge = (value) => {
     if (typeof value !== "number") {
-      return "bg-slate-100 text-slate-600";
+      return "bg-surface-2 text-fg-muted";
     }
     // iter-16.x — the backend now only marks a file VERIFIED/compilable
     // at >= 95% confidence (operator-requested hard gate — see
@@ -2245,7 +2336,7 @@ export default function TransformerPage() {
     action === "TRANSFORM" ? "bg-blue-50 text-blue-700 border-blue-200" :
     action === "REWRITE" ? "bg-amber-50 text-amber-700 border-amber-200" :
     action === "DELETE" ? "bg-red-50 text-red-700 border-red-200" :
-    action === "NO_CHANGE" ? "bg-slate-100 text-slate-700 border-slate-200" :
+    action === "NO_CHANGE" ? "bg-surface-2 text-fg-muted border-border" :
     "bg-emerald-50 text-emerald-700 border-emerald-200"
   );
 
@@ -2257,7 +2348,7 @@ export default function TransformerPage() {
       normalized === "IN_PROGRESS" ? "bg-amber-100 text-amber-700 border-amber-200" :
       normalized === "APPROVED" ? "bg-blue-100 text-blue-700 border-blue-200" :
       normalized === "BLOCKED" ? "bg-red-100 text-red-700 border-red-200" :
-      "bg-slate-100 text-slate-700 border-slate-200";
+      "bg-surface-2 text-fg-muted border-border";
   };
 
   const getAgentNodeStatus = (agent) => {
@@ -2348,12 +2439,12 @@ export default function TransformerPage() {
   const renderKbSignalPanel = () => (
     <>
       {kb && kb.stats ? (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2">
+        <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center gap-2">
             <Database size={16} className="text-violet-500" />
             <div>
-              <h4 className="text-sm font-semibold text-slate-800">Knowledge Base Signal</h4>
-              <p className="text-[11px] text-slate-500">Live KB context reused across the downstream agent pipeline.</p>
+              <h4 className="text-sm font-semibold text-fg">Knowledge Base Signal</h4>
+              <p className="text-micro text-fg-subtle">Live KB context reused across the downstream agent pipeline.</p>
             </div>
           </div>
           {/* iter-15.33 — API Surface preview. The Context Manager tab owns
@@ -2363,39 +2454,39 @@ export default function TransformerPage() {
               leads with real API details/endpoints instead of only
               generic entity/file counts. */}
           {envelopes.length > 0 && (
-            <div className="border-b border-slate-100">
+            <div className="border-b border-border">
               <div className="px-5 pt-3 pb-1 flex items-center justify-between">
-                <span className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
                   API Surface ({envelopes.length})
                 </span>
                 <button
                   onClick={() => setSelectedAgentTab("context_manager")}
-                  className="text-[10px] font-semibold text-violet-600 hover:text-violet-800"
+                  className="text-micro font-semibold text-violet-600 hover:text-violet-800"
                 >
                   View full list →
                 </button>
               </div>
-              <div className="max-h-[160px] overflow-y-auto divide-y divide-slate-100">
+              <div className="max-h-[160px] overflow-y-auto divide-y divide-border">
                 {envelopes.slice(0, 8).map((env, idx) => (
                   <button
                     key={env.envelope_id || idx}
                     onClick={() => setSelectedEnvelope(env)}
                     className="w-full text-left px-5 py-2 hover:bg-violet-50/60 transition-colors flex items-center gap-2"
                   >
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase flex-shrink-0 ${
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-micro font-bold uppercase flex-shrink-0 ${
                       env.endpoint_method === "GET" ? "bg-blue-100 text-blue-700" :
                       env.endpoint_method === "POST" ? "bg-green-100 text-green-700" :
                       env.endpoint_method === "PUT" ? "bg-amber-100 text-amber-700" :
                       env.endpoint_method === "DELETE" ? "bg-red-100 text-red-700" :
-                      "bg-slate-100 text-slate-700"
+                      "bg-surface-2 text-fg-muted"
                     }`}>
                       {env.endpoint_method || env.layer || "INFRA"}
                     </span>
-                    <span className="font-mono text-[11px] text-slate-800 truncate">{env.endpoint_path || env.controller_class || "Infrastructure"}</span>
+                    <span className="font-mono text-micro text-fg truncate">{env.endpoint_path || env.controller_class || "Infrastructure"}</span>
                   </button>
                 ))}
                 {envelopes.length > 8 && (
-                  <div className="px-5 py-2 text-[10px] text-slate-500">+{envelopes.length - 8} more — view full list for details.</div>
+                  <div className="px-5 py-2 text-micro text-fg-subtle">+{envelopes.length - 8} more — view full list for details.</div>
                 )}
               </div>
             </div>
@@ -2409,28 +2500,28 @@ export default function TransformerPage() {
               { label: "Resolved Chains", value: kb.stats?.resolved_chains ?? 0, bg: "bg-green-50/60 border-green-100", tx: "text-green-700" },
             ].map((item) => (
               <div key={item.label} className={`rounded-xl border ${item.bg} px-3 py-2.5`}>
-                <div className="text-[10px] uppercase tracking-wide text-slate-500">{item.label}</div>
+                <div className="text-micro uppercase tracking-wide text-fg-subtle">{item.label}</div>
                 <div className={`text-lg font-bold ${item.tx} tabular-nums`}>{item.value}</div>
               </div>
             ))}
           </div>
           {kb.stats?.unresolved_chains > 0 && (
-            <div className="px-5 py-2 border-t border-slate-100 bg-amber-50/70 text-[11px] text-amber-700 flex items-center gap-1.5">
+            <div className="px-5 py-2 border-t border-border bg-amber-50/70 text-micro text-amber-700 flex items-center gap-1.5">
               <AlertTriangle size={12} />
               {kb.stats.unresolved_chains} cross-file reference(s) remain unresolved.
             </div>
           )}
-          <div className="border-t border-slate-100 px-5 py-4">
+          <div className="border-t border-border px-5 py-4">
             <div className="grid xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)] gap-4">
-              <div className="rounded-xl border border-slate-200 overflow-hidden">
-                <div className="grid grid-cols-[minmax(0,1fr)_88px_70px_72px_88px] gap-2 px-3 py-2 bg-slate-50/80 border-b border-slate-200 text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+              <div className="rounded-xl border border-border overflow-hidden">
+                <div className="grid grid-cols-[minmax(0,1fr)_88px_70px_72px_88px] gap-2 px-3 py-2 bg-surface-2/80 border-b border-border text-micro uppercase tracking-wide text-fg-subtle font-semibold">
                   <span>File</span>
                   <span>Type</span>
                   <span className="text-right">Size</span>
                   <span className="text-right">KB</span>
                   <span className="text-right">Refs</span>
                 </div>
-                <div className="max-h-[420px] overflow-y-auto divide-y divide-slate-100">
+                <div className="max-h-[420px] overflow-y-auto divide-y divide-border">
                   {(kbFileRows.length ? kbFileRows : (kb.entity_sample || []).map((e, i) => ({
                     id: e?.source_file || `entity-${i}`,
                     path: e?.source_file || `entity-${i}`,
@@ -2448,34 +2539,34 @@ export default function TransformerPage() {
                     const badge = file.kind === "ui" ? "bg-blue-50 text-blue-700 border-blue-200"
                       : file.kind === "api" ? "bg-violet-50 text-violet-700 border-violet-200"
                       : file.kind === "db" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-                      : "bg-slate-50 text-slate-700 border-slate-200";
+                      : "bg-surface-2 text-fg-muted border-border";
                     return (
                       <button
                         key={file.id || file.path}
                         onClick={() => setSelectedKbFile(file)}
-                        className={`w-full text-left px-3 py-3 transition-colors ${isActive ? "bg-violet-50/70" : "hover:bg-slate-50"}`}
+                        className={`w-full text-left px-3 py-3 transition-colors ${isActive ? "bg-violet-50/70" : "hover:bg-surface-2"}`}
                       >
                         <div className="grid grid-cols-[minmax(0,1fr)_88px_70px_72px_88px] gap-2 items-center">
                           <div className="min-w-0">
                             <div className="flex items-center gap-2 min-w-0">
-                              <FileCode size={12} className="text-slate-400 flex-shrink-0" />
-                              <div className="truncate text-[12px] font-medium text-slate-800" title={file.path}>{file.path}</div>
+                              <FileCode size={12} className="text-fg-subtle flex-shrink-0" />
+                              <div className="truncate text-[12px] font-medium text-fg" title={file.path}>{file.path}</div>
                             </div>
                             <div className="mt-1 flex items-center gap-1.5">
-                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${badge}`}>
+                              <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide ${badge}`}>
                                 {file.filetype || "code"}
                               </span>
-                              <span className="text-[10px] text-slate-400">
+                              <span className="text-micro text-fg-subtle">
                                 {file.kind === "ui" ? "UI file" : file.kind === "api" ? "API-heavy" : file.kind === "db" ? "Data-heavy" : "Source file"}
                               </span>
                             </div>
                           </div>
-                          <div className="text-[11px] text-slate-600 text-right tabular-nums">{String(file.entityCount || 0)} entities</div>
-                          <div className="text-[11px] text-slate-600 text-right tabular-nums">
+                          <div className="text-micro text-fg-muted text-right tabular-nums">{String(file.entityCount || 0)} entities</div>
+                          <div className="text-micro text-fg-muted text-right tabular-nums">
                             {typeof file.size === "number" ? (file.size < 1024 ? `${file.size} B` : `${(file.size / 1024).toFixed(1)} KB`) : "—"}
                           </div>
-                          <div className="text-[11px] text-slate-600 text-right tabular-nums">{String((file.chainCount || 0) + (file.resolvedCount || 0))}</div>
-                          <div className="text-[11px] text-slate-500 text-right">
+                          <div className="text-micro text-fg-muted text-right tabular-nums">{String((file.chainCount || 0) + (file.resolvedCount || 0))}</div>
+                          <div className="text-micro text-fg-subtle text-right">
                             {file.kind === "ui" ? `${file.resolvedCount || 0} resolved` : file.kind === "api" ? `${file.apiCount || 0} API` : `${file.dbCount || 0} DB`}
                           </div>
                         </div>
@@ -2485,20 +2576,20 @@ export default function TransformerPage() {
                 </div>
               </div>
 
-              <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <div className="rounded-xl border border-border bg-surface-2 p-4">
                 {selectedKbFile ? (
                   <div className="space-y-4">
                     <div>
-                      <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Selected file</div>
-                      <div className="text-sm font-semibold text-slate-800 break-all">{selectedKbFile.path}</div>
+                      <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">Selected file</div>
+                      <div className="text-sm font-semibold text-fg break-all">{selectedKbFile.path}</div>
                       <div className="mt-2 flex flex-wrap gap-2">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface border border-border text-micro font-semibold uppercase tracking-wide text-fg-muted">
                           {selectedKbFile.filetype || "code"}
                         </span>
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface border border-border text-micro font-semibold uppercase tracking-wide text-fg-muted">
                           {selectedKbFile.kind === "ui" ? "UI" : selectedKbFile.kind === "api" ? "API" : selectedKbFile.kind === "db" ? "DB" : "Source"}
                         </span>
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-white border border-slate-200 text-[10px] font-semibold uppercase tracking-wide text-slate-600">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-full bg-surface border border-border text-micro font-semibold uppercase tracking-wide text-fg-muted">
                           {typeof selectedKbFile.size === "number" ? `${Math.max(1, Math.round(selectedKbFile.size / 1024))} KB` : "—"}
                         </span>
                       </div>
@@ -2510,35 +2601,35 @@ export default function TransformerPage() {
                         ["DB", selectedKbFile.dbCount || 0],
                         ["UI", selectedKbFile.uiCount || 0],
                       ].map(([label, value]) => (
-                        <div key={label} className="rounded-lg border border-slate-200 bg-white px-3 py-2">
-                          <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
-                          <div className="text-base font-bold text-slate-800 tabular-nums">{value}</div>
+                        <div key={label} className="rounded-lg border border-border bg-surface px-3 py-2">
+                          <div className="text-micro uppercase tracking-wide text-fg-subtle">{label}</div>
+                          <div className="text-base font-bold text-fg tabular-nums">{value}</div>
                         </div>
                       ))}
                     </div>
-                    <div className="rounded-lg border border-slate-200 bg-white p-3">
-                      <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Extracted entities</div>
-                      <div className="max-h-40 overflow-y-auto space-y-1 text-[11px] text-slate-700">
+                    <div className="rounded-lg border border-border bg-surface p-3">
+                      <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-2">Extracted entities</div>
+                      <div className="max-h-40 overflow-y-auto space-y-1 text-micro text-fg-muted">
                         {(kb.entity_sample || [])
                           .filter((entity) => (entity?.source_file || "") === selectedKbFile.path)
                           .slice(0, 12)
                           .map((entity, idx) => (
-                            <div key={`${entity?.type || "entity"}-${idx}`} className="flex items-start justify-between gap-2 border-b border-slate-100 pb-1 last:border-b-0 last:pb-0">
+                            <div key={`${entity?.type || "entity"}-${idx}`} className="flex items-start justify-between gap-2 border-b border-border pb-1 last:border-b-0 last:pb-0">
                               <div className="min-w-0">
-                                <div className="font-semibold text-slate-800 truncate">{entity?.name || entity?.path || "entity"}</div>
-                                <div className="text-[10px] text-slate-500 uppercase tracking-wide">{entity?.type || "ENTITY"}</div>
+                                <div className="font-semibold text-fg truncate">{entity?.name || entity?.path || "entity"}</div>
+                                <div className="text-micro text-fg-subtle uppercase tracking-wide">{entity?.type || "ENTITY"}</div>
                               </div>
-                              <span className="text-[10px] text-slate-400 flex-shrink-0">{entity?.source_file ? "kb" : ""}</span>
+                              <span className="text-micro text-fg-subtle flex-shrink-0">{entity?.source_file ? "kb" : ""}</span>
                             </div>
                           ))}
                         {!(kb.entity_sample || []).some((entity) => (entity?.source_file || "") === selectedKbFile.path) && (
-                          <div className="text-[11px] text-slate-500">No sampled entities were attached to this file.</div>
+                          <div className="text-micro text-fg-subtle">No sampled entities were attached to this file.</div>
                         )}
                       </div>
                     </div>
                   </div>
                 ) : (
-                  <div className="h-full min-h-[220px] flex items-center justify-center text-center text-slate-500 text-sm">
+                  <div className="h-full min-h-[220px] flex items-center justify-center text-center text-fg-subtle text-sm">
                     Select a file to inspect its KB signal.
                   </div>
                 )}
@@ -2547,14 +2638,14 @@ export default function TransformerPage() {
           </div>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+        <div className="rounded-2xl border border-border bg-surface shadow-sm p-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
               {status === "running" ? <RefreshCw size={18} className="animate-spin" /> : <Database size={18} />}
             </div>
             <div>
-              <div className="text-sm font-semibold text-slate-800">Knowledge Base {status === "running" ? "in progress" : "not loaded yet"}</div>
-              <div className="text-[11px] text-slate-500">
+              <div className="text-sm font-semibold text-fg">Knowledge Base {status === "running" ? "in progress" : "not loaded yet"}</div>
+              <div className="text-micro text-fg-subtle">
                 {status === "running"
                   ? "The first-pass KB summary will appear here as soon as the worker finishes indexing."
                   : "Run a transformation to populate KB statistics and indexed source files."}
@@ -2584,13 +2675,13 @@ export default function TransformerPage() {
             <div className="text-sm font-semibold text-amber-900 flex items-center gap-2">
               Traceability review required
               <span
-                className="text-[9px] uppercase tracking-wider px-1.5 py-0.5 bg-white border border-amber-300 text-amber-800 rounded font-semibold"
+                className="text-micro uppercase tracking-wider px-1.5 py-0.5 bg-surface border border-amber-300 text-amber-800 rounded font-semibold"
                 data-testid="traceability-mode-badge"
               >
                 {mode}
               </span>
             </div>
-            <div className="text-[11px] text-amber-800 mt-0.5">
+            <div className="text-micro text-amber-800 mt-0.5">
               {mode === "frontend"
                 ? "Confirm the discovered UI screens → API mapping below. Planner will not start until you approve."
                 : mode === "fullstack"
@@ -2611,17 +2702,17 @@ export default function TransformerPage() {
     return (
       <div
         data-testid="ui-to-api-wireframes"
-        className="rounded-2xl border border-sky-200 bg-white shadow-sm overflow-hidden mb-3"
+        className="rounded-2xl border border-sky-200 bg-surface shadow-sm overflow-hidden mb-3"
       >
         <div className="px-5 py-3 border-b border-sky-100 bg-sky-50/60 flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center">
             <Layers size={16} />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800">
+            <h4 className="text-sm font-semibold text-fg">
               UI → API Traceability ({rows.length} screen{rows.length === 1 ? "" : "s"})
             </h4>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-micro text-fg-subtle">
               Wireframe preview per screen with the APIs it calls. Confirm before Planner starts.
             </p>
           </div>
@@ -2631,54 +2722,54 @@ export default function TransformerPage() {
             <div
               key={`${row.screen_path}-${idx}`}
               data-testid={`ui-wireframe-${idx}`}
-              className="border border-slate-200 rounded-lg overflow-hidden bg-slate-50/40"
+              className="border border-border rounded-lg overflow-hidden bg-surface-2/40"
             >
               {/* CSS-only wireframe: file header + rough element list */}
-              <div className="px-3 py-2 bg-slate-100 border-b border-slate-200 flex items-center gap-2">
-                <FileCode size={12} className="text-slate-500" />
-                <span className="text-[11px] font-mono text-slate-700 truncate" title={row.screen_path}>
+              <div className="px-3 py-2 bg-surface-2 border-b border-border flex items-center gap-2">
+                <FileCode size={12} className="text-fg-subtle" />
+                <span className="text-micro font-mono text-fg-muted truncate" title={row.screen_path}>
                   {row.screen}
                 </span>
               </div>
-              <div className="p-3 space-y-1.5 bg-white border-b border-slate-200">
+              <div className="p-3 space-y-1.5 bg-surface border-b border-border">
                 {(row.elements || []).slice(0, 6).map((el, i) => (
                   <div
                     key={i}
-                    className={`text-[10px] flex items-center gap-2 ${
-                      el.kind === "button" ? "px-2 py-1 bg-slate-100 rounded border border-slate-300 w-fit"
+                    className={`text-micro flex items-center gap-2 ${
+                      el.kind === "button" ? "px-2 py-1 bg-surface-2 rounded border border-border-strong w-fit"
                       : el.kind === "input" || el.kind === "select"
-                        ? "px-2 py-1 border border-slate-300 rounded bg-white text-slate-400"
-                      : el.kind === "table" ? "border border-dashed border-slate-300 rounded px-2 py-2 text-slate-400"
-                      : "text-slate-600"
+                        ? "px-2 py-1 border border-border-strong rounded bg-surface text-fg-subtle"
+                      : el.kind === "table" ? "border border-dashed border-border-strong rounded px-2 py-2 text-fg-subtle"
+                      : "text-fg-muted"
                     }`}
                   >
-                    <span className="uppercase text-[8px] tracking-wider text-slate-400">{el.kind}</span>
+                    <span className="uppercase text-micro tracking-wider text-fg-subtle">{el.kind}</span>
                     <span className="truncate">{el.label || "(unlabelled)"}</span>
                   </div>
                 ))}
                 {(!row.elements || row.elements.length === 0) && (
-                  <div className="text-[10px] text-slate-400 italic">
+                  <div className="text-micro text-fg-subtle italic">
                     No UI elements auto-detected.
                   </div>
                 )}
               </div>
               <div className="px-3 py-2 bg-sky-50/50 space-y-1">
-                <div className="text-[9px] uppercase tracking-wider text-sky-700 font-semibold">
+                <div className="text-micro uppercase tracking-wider text-sky-700 font-semibold">
                   Calls {row.api_calls.length} API{row.api_calls.length === 1 ? "" : "s"}
                 </div>
                 {row.api_calls.slice(0, 5).map((c, i) => (
-                  <div key={i} className="text-[10px] font-mono text-slate-700 flex items-center gap-1 truncate">
+                  <div key={i} className="text-micro font-mono text-fg-muted flex items-center gap-1 truncate">
                     <span className="text-sky-600">→</span>
                     <span className="truncate" title={c.url}>{c.url}</span>
                     {c.resolved_tables && c.resolved_tables.length > 0 && (
-                      <span className="ml-1 text-emerald-700 text-[9px]">
+                      <span className="ml-1 text-emerald-700 text-micro">
                         ({c.resolved_tables.slice(0, 2).join(", ")})
                       </span>
                     )}
                   </div>
                 ))}
                 {row.api_calls.length > 5 && (
-                  <div className="text-[9px] text-slate-500">+{row.api_calls.length - 5} more…</div>
+                  <div className="text-micro text-fg-subtle">+{row.api_calls.length - 5} more…</div>
                 )}
               </div>
             </div>
@@ -2689,15 +2780,15 @@ export default function TransformerPage() {
   };
 
   const renderEnvelopeTable = () => (
-    <div className="rounded-2xl border border-violet-200 bg-white shadow-sm overflow-hidden">
+    <div className="rounded-2xl border border-violet-200 bg-surface shadow-sm overflow-hidden">
       <div className="px-5 py-4 border-b border-violet-100 bg-violet-50/40 flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
             <Layers size={18} />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-slate-800">Discovered Architecture</h4>
-            <p className="text-[11px] text-slate-500">
+            <h4 className="text-sm font-semibold text-fg">Discovered Architecture</h4>
+            <p className="text-micro text-fg-subtle">
               Context Manager identified {envelopes.length} endpoint and component envelopes for downstream planning.
             </p>
           </div>
@@ -2707,7 +2798,7 @@ export default function TransformerPage() {
             data-testid="confirm-traceability-btn"
             onClick={handleConfirmPlan}
             disabled={confirming}
-            className="px-4 py-2 bg-[#FFE600] text-[#2E2E38] font-semibold rounded-lg hover:bg-[#FFD500] transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-brand text-fg font-semibold rounded-lg hover:bg-brand-hover transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             {confirming ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
             {confirming ? "Starting..." : "Confirm Traceability & Start Planner"}
@@ -2715,19 +2806,19 @@ export default function TransformerPage() {
         )}
       </div>
       <div className="overflow-y-auto">
-        <table className="w-full text-[11px]">
-          <thead className="sticky top-0 bg-slate-50 border-b border-slate-200">
+        <table className="w-full text-micro">
+          <thead className="sticky top-0 bg-surface-2 border-b border-border">
             <tr>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Method</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Endpoint / Component</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Controller</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Service</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">DB Tables</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Action</th>
-              <th className="text-left px-3 py-2 font-semibold text-slate-600">Risk</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Method</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Endpoint / Component</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Controller</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Service</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">DB Tables</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Action</th>
+              <th className="text-left px-3 py-2 font-semibold text-fg-muted">Risk</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100">
+          <tbody className="divide-y divide-border">
             {pagedEnvelopes.map((env, idx) => (
               <tr
                 key={env.envelope_id || idx}
@@ -2737,57 +2828,57 @@ export default function TransformerPage() {
                 title="Click to view full envelope detail"
               >
                 <td className="px-3 py-2">
-                  <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-micro font-bold uppercase ${
                     env.endpoint_method === "GET" ? "bg-blue-100 text-blue-700" :
                     env.endpoint_method === "POST" ? "bg-green-100 text-green-700" :
                     env.endpoint_method === "PUT" ? "bg-amber-100 text-amber-700" :
                     env.endpoint_method === "DELETE" ? "bg-red-100 text-red-700" :
-                    "bg-slate-100 text-slate-700"
+                    "bg-surface-2 text-fg-muted"
                   }`}>
                     {env.endpoint_method || env.layer || "INFRA"}
                   </span>
                   {env.is_outbound_client && (
                     <span
-                      className="ml-1 inline-block px-1 py-0.5 rounded text-[8px] font-bold uppercase bg-sky-50 text-sky-700 border border-sky-200"
+                      className="ml-1 inline-block px-1 py-0.5 rounded text-micro font-bold uppercase bg-sky-50 text-sky-700 border border-sky-200"
                       title="Outbound REST-client call — not part of this service's own API surface"
                     >
                       external
                     </span>
                   )}
                 </td>
-                <td className="px-3 py-2 font-mono text-slate-800 truncate max-w-[200px]" title={env.endpoint_path}>
+                <td className="px-3 py-2 font-mono text-fg truncate max-w-[200px]" title={env.endpoint_path}>
                   {env.endpoint_path || env.controller_class || "Infrastructure"}
                 </td>
-                <td className="px-3 py-2 text-slate-600 truncate max-w-[120px]">{env.controller_class || "-"}</td>
-                <td className="px-3 py-2 text-slate-600 truncate max-w-[120px]">{env.service_class || "-"}</td>
+                <td className="px-3 py-2 text-fg-muted truncate max-w-[120px]">{env.controller_class || "-"}</td>
+                <td className="px-3 py-2 text-fg-muted truncate max-w-[120px]">{env.service_class || "-"}</td>
                 <td className="px-3 py-2">
                   {(env.db_tables || []).length > 0 ? (
                     <div className="flex flex-wrap gap-1">
                       {env.db_tables.slice(0, 3).map((tableName, i) => (
-                        <span key={i} className="px-1 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] border border-emerald-200">
+                        <span key={i} className="px-1 py-0.5 bg-emerald-50 text-emerald-700 rounded text-micro border border-emerald-200">
                           {tableName}
                         </span>
                       ))}
                       {env.db_tables.length > 3 && (
-                        <span className="text-[9px] text-slate-500">+{env.db_tables.length - 3}</span>
+                        <span className="text-micro text-fg-subtle">+{env.db_tables.length - 3}</span>
                       )}
                     </div>
-                  ) : <span className="text-slate-400">-</span>}
+                  ) : <span className="text-fg-subtle">-</span>}
                 </td>
                 <td className="px-3 py-2">
-                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                  <span className={`text-micro font-semibold px-1.5 py-0.5 rounded ${
                     env.action === "TRANSFORM" ? "bg-blue-50 text-blue-700" :
                     env.action === "REWRITE" ? "bg-amber-50 text-amber-700" :
                     env.action === "DELETE" ? "bg-red-50 text-red-700" :
                     env.action === "NEW" ? "bg-green-50 text-green-700" :
                     env.action === "INTEGRATE" ? "bg-sky-50 text-sky-700" :
-                    "bg-slate-50 text-slate-700"
+                    "bg-surface-2 text-fg-muted"
                   }`}>
                     {env.action}
                   </span>
                 </td>
                 <td className="px-3 py-2">
-                  <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded ${
+                  <span className={`text-micro font-semibold px-1.5 py-0.5 rounded ${
                     env.risk_level === "critical" ? "bg-red-100 text-red-700" :
                     env.risk_level === "high" ? "bg-amber-100 text-amber-700" :
                     env.risk_level === "medium" ? "bg-yellow-100 text-yellow-700" :
@@ -2803,7 +2894,7 @@ export default function TransformerPage() {
       </div>
       {envelopes.length > ENVELOPES_PER_PAGE && (
         <div
-          className="px-4 py-2 border-t border-violet-100 bg-white flex items-center justify-between text-[11px] text-slate-600"
+          className="px-4 py-2 border-t border-violet-100 bg-surface flex items-center justify-between text-micro text-fg-muted"
           data-testid="envelope-pagination"
         >
           <span>
@@ -2813,17 +2904,17 @@ export default function TransformerPage() {
             <button
               onClick={() => setEnvelopePage((page) => Math.max(1, page - 1))}
               disabled={envelopePage <= 1}
-              className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+              className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
               data-testid="envelope-pagination-prev"
               aria-label="Previous page"
             >
               <ChevronLeft size={14} />
             </button>
-            <span className="text-slate-500">Page <b>{envelopePage}</b> of <b>{totalEnvelopePages}</b></span>
+            <span className="text-fg-subtle">Page <b>{envelopePage}</b> of <b>{totalEnvelopePages}</b></span>
             <button
               onClick={() => setEnvelopePage((page) => Math.min(totalEnvelopePages, page + 1))}
               disabled={envelopePage >= totalEnvelopePages}
-              className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+              className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
               data-testid="envelope-pagination-next"
               aria-label="Next page"
             >
@@ -2832,7 +2923,7 @@ export default function TransformerPage() {
           </div>
         </div>
       )}
-      <div className="px-4 py-3 border-t border-violet-100 bg-violet-50/30 flex items-center gap-4 flex-wrap text-[11px] text-slate-600">
+      <div className="px-4 py-3 border-t border-violet-100 bg-violet-50/30 flex items-center gap-4 flex-wrap text-micro text-fg-muted">
         <span><b>{envelopes.filter((item) => item.endpoint_method && item.endpoint_method !== "INFRA" && !item.is_outbound_client).length}</b> API endpoints</span>
         <span><b>{envelopes.filter((item) => item.is_outbound_client).length}</b> external integrations</span>
         <span><b>{new Set(envelopes.flatMap((item) => item.db_tables || [])).size}</b> DB tables</span>
@@ -2862,7 +2953,7 @@ export default function TransformerPage() {
           <button
             onClick={handleConfirmTasks}
             disabled={confirmingTasks}
-            className="px-4 py-2 bg-[#FFE600] text-[#2E2E38] font-semibold rounded-lg hover:bg-[#FFD500] transition-colors flex items-center gap-2 disabled:opacity-50"
+            className="px-4 py-2 bg-brand text-fg font-semibold rounded-lg hover:bg-brand-hover transition-colors flex items-center gap-2 disabled:opacity-50"
           >
             {confirmingTasks ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}
             {confirmingTasks ? "Starting..." : "Confirm & Start Coding"}
@@ -2874,14 +2965,14 @@ export default function TransformerPage() {
 
       <div className="grid grid-cols-2 xl:grid-cols-5 gap-3">
         {[
-          ["Total", taskStats.total ?? allTasks.length ?? 0, "text-slate-800", "bg-white"],
+          ["Total", taskStats.total ?? allTasks.length ?? 0, "text-fg", "bg-surface"],
           ["Done", taskStats.done ?? 0, "text-emerald-700", "bg-emerald-50/70"],
           ["Verified", taskStats.verified ?? 0, "text-sky-700", "bg-sky-50/70"],
           ["Blocked", taskStats.blocked ?? 0, "text-red-700", "bg-red-50/70"],
           ["In Progress", taskStats.in_progress ?? 0, "text-amber-700", "bg-amber-50/70"],
         ].map(([label, value, textClass, bgClass]) => (
-          <div key={label} className={`rounded-2xl border border-slate-200 ${bgClass} px-4 py-3`}>
-            <div className="text-[10px] uppercase tracking-wide text-slate-500">{label}</div>
+          <div key={label} className={`rounded-2xl border border-border ${bgClass} px-4 py-3`}>
+            <div className="text-micro uppercase tracking-wide text-fg-subtle">{label}</div>
             <div className={`mt-1 text-2xl font-bold ${textClass} tabular-nums`}>{value}</div>
           </div>
         ))}
@@ -2892,36 +2983,36 @@ export default function TransformerPage() {
         const totalPages = Math.max(1, Math.ceil((wave.tasks || []).length / TASKS_PER_PAGE));
         const visibleTasks = (wave.tasks || []).slice((page - 1) * TASKS_PER_PAGE, page * TASKS_PER_PAGE);
         return (
-          <details key={wave.wave} className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" open>
-            <summary className="list-none cursor-pointer px-5 py-4 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
+          <details key={wave.wave} className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden" open>
+            <summary className="list-none cursor-pointer px-5 py-4 border-b border-border bg-surface-2/80 flex items-center justify-between gap-3">
               <div>
-                <div className="text-sm font-semibold text-slate-800">Wave {wave.wave}: {wave.name || `Wave ${wave.wave}`}</div>
-                <div className="text-[11px] text-slate-500">{(wave.tasks || []).length} task{(wave.tasks || []).length === 1 ? "" : "s"}</div>
+                <div className="text-sm font-semibold text-fg">Wave {wave.wave}: {wave.name || `Wave ${wave.wave}`}</div>
+                <div className="text-micro text-fg-subtle">{(wave.tasks || []).length} task{(wave.tasks || []).length === 1 ? "" : "s"}</div>
               </div>
-              <ChevronDown size={16} className="text-slate-400" />
+              <ChevronDown size={16} className="text-fg-subtle" />
             </summary>
             <div className="overflow-x-auto">
-              <table className="w-full text-[11px]">
-                <thead className="bg-slate-50 border-b border-slate-200">
+              <table className="w-full text-micro">
+                <thead className="bg-surface-2 border-b border-border">
                   <tr>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-600">Source Path</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-600">Target Path</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-600">Action</th>
-                    <th className="text-left px-3 py-2 font-semibold text-slate-600">Status</th>
+                    <th className="text-left px-3 py-2 font-semibold text-fg-muted">Source Path</th>
+                    <th className="text-left px-3 py-2 font-semibold text-fg-muted">Target Path</th>
+                    <th className="text-left px-3 py-2 font-semibold text-fg-muted">Action</th>
+                    <th className="text-left px-3 py-2 font-semibold text-fg-muted">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {visibleTasks.map((task, idx) => (
-                    <tr key={task.task_id || `${wave.wave}-${idx}`} className="hover:bg-slate-50/70">
-                      <td className="px-3 py-2 font-mono text-slate-700 break-all">{task.source_path || "—"}</td>
-                      <td className="px-3 py-2 font-mono text-slate-700 break-all">{task.target_path || "→ generated path"}</td>
+                    <tr key={task.task_id || `${wave.wave}-${idx}`} className="hover:bg-surface-2/70">
+                      <td className="px-3 py-2 font-mono text-fg-muted break-all">{task.source_path || "—"}</td>
+                      <td className="px-3 py-2 font-mono text-fg-muted break-all">{task.target_path || "→ generated path"}</td>
                       <td className="px-3 py-2">
-                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getTaskActionBadge(task.action)}`}>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide ${getTaskActionBadge(task.action)}`}>
                           {task.action || "TRANSFORM"}
                         </span>
                       </td>
                       <td className="px-3 py-2">
-                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getTaskStatusBadge(task.status)}`}>
+                        <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide ${getTaskStatusBadge(task.status)}`}>
                           {task.status || "PENDING"}
                         </span>
                       </td>
@@ -2931,7 +3022,7 @@ export default function TransformerPage() {
               </table>
             </div>
             {(wave.tasks || []).length > TASKS_PER_PAGE && (
-              <div className="px-4 py-2 border-t border-slate-100 bg-white flex items-center justify-between text-[11px] text-slate-600">
+              <div className="px-4 py-2 border-t border-border bg-surface flex items-center justify-between text-micro text-fg-muted">
                 <span>
                   Showing <b>{(page - 1) * TASKS_PER_PAGE + 1}</b>-<b>{Math.min(page * TASKS_PER_PAGE, (wave.tasks || []).length)}</b> of <b>{(wave.tasks || []).length}</b>
                 </span>
@@ -2939,7 +3030,7 @@ export default function TransformerPage() {
                   <button
                     onClick={() => setTaskPages((prev) => ({ ...prev, [wave.wave]: Math.max(1, page - 1) }))}
                     disabled={page <= 1}
-                    className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
                     aria-label={`Previous page for wave ${wave.wave}`}
                   >
                     <ChevronLeft size={14} />
@@ -2948,7 +3039,7 @@ export default function TransformerPage() {
                   <button
                     onClick={() => setTaskPages((prev) => ({ ...prev, [wave.wave]: Math.min(totalPages, page + 1) }))}
                     disabled={page >= totalPages}
-                    className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                    className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
                     aria-label={`Next page for wave ${wave.wave}`}
                   >
                     <ChevronRight size={14} />
@@ -2959,10 +3050,10 @@ export default function TransformerPage() {
           </details>
         );
       }) : (
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 text-center">
-          <Bot size={22} className="mx-auto mb-2 text-slate-300" />
-          <div className="text-sm font-semibold text-slate-700">Planner output will appear here</div>
-          <div className="text-[11px] text-slate-500 mt-1">
+        <div className="rounded-2xl border border-border bg-surface shadow-sm p-6 text-center">
+          <Bot size={22} className="mx-auto mb-2 text-fg-subtle" />
+          <div className="text-sm font-semibold text-fg-muted">Planner output will appear here</div>
+          <div className="text-micro text-fg-subtle mt-1">
             {status === "running" ? "Waiting for the Planner agent to finish the wave plan." : "No task list has been generated yet."}
           </div>
         </div>
@@ -2973,23 +3064,23 @@ export default function TransformerPage() {
   const renderCoderPanel = () => (
     <div className="space-y-4">
     {files.length > 0 && renderPlanChatWidget("coder")}
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-      <div className="px-5 py-4 border-b border-slate-100 flex items-center gap-2 flex-wrap">
-        <Code2 size={16} className="text-slate-500" />
-        <h4 className="text-sm font-semibold text-gray-800">{status === "running" ? "Live Transformed Code" : "Generated Code"}</h4>
+    <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center gap-2 flex-wrap">
+        <Code2 size={16} className="text-fg-subtle" />
+        <h4 className="text-sm font-semibold text-fg">{status === "running" ? "Live Transformed Code" : "Generated Code"}</h4>
         <span
-          className="text-[11px] text-slate-500"
+          className="text-micro text-fg-subtle"
           title="Generated output files persisted so far. This can exceed the header's Source count because one source file often produces multiple outputs (controller → DTO + service + test) and compile-fix rewrites add rows."
         >({files.length} generated files)</span>
         {status === "running" && (
-          <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">Live</span>
+          <span className="text-micro uppercase tracking-wide px-1.5 py-0.5 rounded bg-violet-50 text-violet-700">Live</span>
         )}
         <div className="ml-auto flex items-center gap-2">
-          <label className="text-[11px] text-slate-500">Regenerate with:</label>
+          <label className="text-micro text-fg-subtle">Regenerate with:</label>
           <select
             value={regenModel}
             onChange={(e) => setRegenModel(e.target.value)}
-            className="text-[11px] border border-slate-200 rounded px-2 py-1 bg-white focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none max-w-[220px]"
+            className="text-micro border border-border rounded px-2 py-1 bg-surface focus:border-brand focus:ring-1 focus:ring-brand outline-none max-w-[220px]"
             title="Model used when clicking Regenerate on a file"
           >
             <option value="">{factoryEnabled ? "Auto (Factory Droid picks)" : "Auto (Console routing)"}</option>
@@ -3000,15 +3091,15 @@ export default function TransformerPage() {
         </div>
       </div>
       {factoryEnabled && (
-        <div className="px-5 py-1.5 border-b border-slate-100 bg-violet-50/60 text-[10px] text-violet-700 flex items-center gap-1.5">
+        <div className="px-5 py-1.5 border-b border-border bg-violet-50/60 text-micro text-violet-700 flex items-center gap-1.5">
           <Bot size={12} /> Factory Droid is enabled for this project — model list below is Droid's catalogue.
         </div>
       )}
       {status === "running" && (
-        <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
-          <div className="flex items-center justify-between gap-3 text-[11px] text-slate-500">
+        <div className="px-5 py-3 border-b border-border bg-surface-2">
+          <div className="flex items-center justify-between gap-3 text-micro text-fg-subtle">
             <div className="min-w-0">
-              <div className="font-semibold text-slate-700 flex items-center gap-2">
+              <div className="font-semibold text-fg-muted flex items-center gap-2">
                 <RefreshCw size={12} className="text-violet-600 animate-spin" />
                 {progress.phase === "building_kb" ? "Knowledge base building" : "Code generation running"}
               </div>
@@ -3021,7 +3112,7 @@ export default function TransformerPage() {
               )}
             </div>
           </div>
-          <div className="mt-2 h-1.5 rounded-full bg-slate-200 overflow-hidden">
+          <div className="mt-2 h-1.5 rounded-full bg-surface-3 overflow-hidden">
             <div className="h-full rounded-full bg-gradient-to-r from-violet-500 to-violet-600 transition-all duration-300" style={{ width: `${progress.percent || 0}%` }} />
           </div>
         </div>
@@ -3035,14 +3126,14 @@ export default function TransformerPage() {
           it — still just a *minimum*, so shorter viewports aren't forced
           to overflow. */}
       <div className="grid xl:grid-cols-[minmax(0,320px)_minmax(0,1fr)] min-h-[560px] xl:min-h-[72vh]">
-        <div className="border-r border-slate-100 overflow-y-auto">
-          <div className="px-3 py-2 border-b border-slate-100 bg-slate-50 flex items-center justify-between">
+        <div className="border-r border-border overflow-y-auto">
+          <div className="px-3 py-2 border-b border-border bg-surface-2 flex items-center justify-between">
             <div>
-              <div className="text-[11px] font-semibold text-slate-700">Project Structure</div>
-              <div className="text-[10px] text-slate-500 tabular-nums">{activeStructureRows.length} nodes</div>
+              <div className="text-micro font-semibold text-fg-muted">Project Structure</div>
+              <div className="text-micro text-fg-subtle tabular-nums">{activeStructureRows.length} nodes</div>
             </div>
             {status === "running" && (
-              <div className="text-[10px] text-emerald-600 flex items-center gap-1">
+              <div className="text-micro text-emerald-600 flex items-center gap-1">
                 <RefreshCw size={10} className="animate-spin" /> streaming
               </div>
             )}
@@ -3056,16 +3147,16 @@ export default function TransformerPage() {
                     key={row.id}
                     onClick={() => toggleDir(row.path)}
                     data-testid={`transformer-dir-${row.path}`}
-                    className="w-full flex items-center gap-1 text-[11px] py-0.5 hover:bg-[#F6F6FA]"
+                    className="w-full flex items-center gap-1 text-micro py-0.5 hover:bg-bg"
                     style={{ paddingLeft: 8 + row.depth * 10 }}
                   >
                     {isOpen
-                      ? <ChevronDown className="w-3 h-3 text-[#747480] flex-shrink-0" />
-                      : <ChevronRight className="w-3 h-3 text-[#747480] flex-shrink-0" />}
+                      ? <ChevronDown className="w-3 h-3 text-fg-muted flex-shrink-0" />
+                      : <ChevronRight className="w-3 h-3 text-fg-muted flex-shrink-0" />}
                     {isOpen
-                      ? <FolderOpen className="w-3 h-3 text-[#FFE600] flex-shrink-0" />
-                      : <Folder className="w-3 h-3 text-[#FFE600] flex-shrink-0" />}
-                    <span className="text-[#2E2E38] truncate font-mono" title={row.path}>{row.label}</span>
+                      ? <FolderOpen className="w-3 h-3 text-brand flex-shrink-0" />
+                      : <Folder className="w-3 h-3 text-brand flex-shrink-0" />}
+                    <span className="text-fg truncate font-mono" title={row.path}>{row.label}</span>
                   </button>
                 );
               }
@@ -3088,56 +3179,56 @@ export default function TransformerPage() {
                     loadFileContent(row.raw);
                   }}
                   data-testid={`transformer-file-${row.path}`}
-                  className={`w-full flex items-center gap-1 text-[11px] py-0.5 ${isSelected ? "bg-[#FFFCE6] text-[#2E2E38] font-semibold" : "hover:bg-[#F6F6FA] text-[#2E2E38]"}`}
+                  className={`w-full flex items-center gap-1 text-micro py-0.5 ${isSelected ? "bg-brand-tint text-fg font-semibold" : "hover:bg-bg text-fg"}`}
                   style={{ paddingLeft: 8 + row.depth * 10 + 14 }}
                 >
-                  <FileCode className="w-3 h-3 text-[#747480] flex-shrink-0" />
+                  <FileCode className="w-3 h-3 text-fg-muted flex-shrink-0" />
                   <span className="font-mono truncate" title={row.path}>{row.label}</span>
                   {row.sourceOnly && (
-                    <span className="ml-auto shrink-0 text-[9px] font-semibold px-1 rounded-sm bg-[#F0F0F4] text-[#747480] border border-[#E6E6E6]">source</span>
+                    <span className="ml-auto shrink-0 text-micro font-semibold px-1 rounded-sm bg-surface-2 text-fg-muted border border-border">source</span>
                   )}
                   {typeof row.confidence === "number" && (
-                    <span className={`ml-auto shrink-0 text-[9px] font-semibold px-1 rounded-sm ${formatConfidenceBadge(row.confidence > 1 ? row.confidence : row.confidence * 100)}`}>
+                    <span className={`ml-auto shrink-0 text-micro font-semibold px-1 rounded-sm ${formatConfidenceBadge(row.confidence > 1 ? row.confidence : row.confidence * 100)}`}>
                       {Math.round((row.confidence > 1 ? row.confidence : row.confidence * 100))}%
                     </span>
                   )}
                   {status === "running" && isSelected && !row.sourceOnly && (
-                    <span className="text-[9px] text-violet-600 ml-1">live</span>
+                    <span className="text-micro text-violet-600 ml-1">live</span>
                   )}
                 </button>
               );
             })}
           </div>
-          <div className="px-3 py-2 border-t border-slate-100 bg-slate-50 text-[10px] text-slate-500">
+          <div className="px-3 py-2 border-t border-border bg-surface-2 text-micro text-fg-subtle">
             Click any generated file to preview the live class.
           </div>
         </div>
 
         <div className="flex flex-col min-h-0">
           {!selectedFile ? (
-            <div className="flex-1 flex items-center justify-center text-sm text-gray-400">
+            <div className="flex-1 flex items-center justify-center text-sm text-fg-subtle">
               <div className="text-center max-w-sm px-4">
                 <Eye size={28} className="mx-auto mb-2 opacity-50" />
-                <div className="font-medium text-slate-600">
+                <div className="font-medium text-fg-muted">
                   {files.length > 0 ? "Select a file from the structure to preview generated code" : "Source structure is loaded; generated files will appear here as the run progresses"}
                 </div>
-                <div className="mt-1 text-[11px] text-slate-400">
+                <div className="mt-1 text-micro text-fg-subtle">
                   Use the kebab menu to download, push to GitHub, or reopen a past transform if the list should be populated.
                 </div>
               </div>
             </div>
           ) : (
             <>
-              <div className="px-3 py-2 border-b border-slate-100 flex items-center gap-2 bg-slate-50">
-                <FileCode size={13} className="text-slate-500" />
-                <span className="text-[11px] font-mono truncate flex-1" title={selectedFile.path}>{selectedFile.path}</span>
+              <div className="px-3 py-2 border-b border-border flex items-center gap-2 bg-surface-2">
+                <FileCode size={13} className="text-fg-subtle" />
+                <span className="text-micro font-mono truncate flex-1" title={selectedFile.path}>{selectedFile.path}</span>
                 {progress.currentFile && !selectedFile.sourceOnly && (
-                  <span className="text-[10px] text-violet-600 px-1.5 py-0.5 rounded bg-violet-50">
+                  <span className="text-micro text-violet-600 px-1.5 py-0.5 rounded bg-violet-50">
                     {status === "running" ? "Live" : "Preview"}
                   </span>
                 )}
                 {typeof selectedFile.confidence === "number" && (
-                  <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${formatConfidenceBadge(selectedFile.confidence > 1 ? selectedFile.confidence : selectedFile.confidence * 100)}`}>
+                  <span className={`text-micro font-semibold px-1.5 py-0.5 rounded ${formatConfidenceBadge(selectedFile.confidence > 1 ? selectedFile.confidence : selectedFile.confidence * 100)}`}>
                     Confidence: {Math.round((selectedFile.confidence > 1 ? selectedFile.confidence : selectedFile.confidence * 100))}%
                   </span>
                 )}
@@ -3145,7 +3236,7 @@ export default function TransformerPage() {
                   <button
                     onClick={() => handleRegenerate(selectedFile)}
                     disabled={!!regeneratingIds[selectedFile.id]}
-                    className="text-[11px] px-2 py-1 bg-violet-100 text-violet-700 rounded hover:bg-violet-200 flex items-center gap-1 disabled:opacity-60"
+                    className="text-micro px-2 py-1 bg-violet-100 text-violet-700 rounded hover:bg-violet-200 flex items-center gap-1 disabled:opacity-60"
                     title="Re-run this file with the selected model"
                   >
                     {regeneratingIds[selectedFile.id]
@@ -3154,7 +3245,7 @@ export default function TransformerPage() {
                   </button>
                 )}
               </div>
-              <pre className="flex-1 overflow-auto text-[11px] font-mono p-4 bg-slate-900 text-slate-100 m-0 min-h-[520px] xl:min-h-[68vh]">{selectedFile.loading ? "// Loading…" : (selectedFile.content || "// (empty)")}</pre>
+              <pre className="flex-1 overflow-auto text-micro font-mono p-4 bg-ink text-fg-onDark m-0 min-h-[520px] xl:min-h-[68vh]">{selectedFile.loading ? "// Loading…" : (selectedFile.content || "// (empty)")}</pre>
             </>
           )}
         </div>
@@ -3178,51 +3269,51 @@ export default function TransformerPage() {
   const renderVerificationConsole = () => (
     <div className="space-y-4">
     {verifierRows.length > 0 && renderPlanChatWidget("tester")}
-    <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden" data-testid="verification-console">
-      <div className="px-5 py-3 border-b border-slate-100 bg-slate-900 flex items-center gap-2">
+    <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden" data-testid="verification-console">
+      <div className="px-5 py-3 border-b border-border bg-ink flex items-center gap-2">
         <TerminalSquare size={15} className="text-emerald-400" />
         <div>
           <h4 className="text-sm font-semibold text-white">Verification Console</h4>
-          <p className="text-[11px] text-slate-400">Per-file confidence, verdict, and issue counts produced by the Verifier agent.</p>
+          <p className="text-micro text-fg-subtle">Per-file confidence, verdict, and issue counts produced by the Verifier agent.</p>
         </div>
         {verifierRows.length > 0 && (
-          <span className="ml-auto text-[10px] font-mono text-emerald-400 tabular-nums">{verifierRows.length} file{verifierRows.length === 1 ? "" : "s"} verified</span>
+          <span className="ml-auto text-micro font-mono text-emerald-400 tabular-nums">{verifierRows.length} file{verifierRows.length === 1 ? "" : "s"} verified</span>
         )}
       </div>
       {verifierRows.length > 0 ? (
         <>
           <div className="overflow-x-auto max-h-[420px] overflow-y-auto">
-            <table className="w-full text-[11px]">
-              <thead className="bg-slate-50 border-b border-slate-200 sticky top-0">
+            <table className="w-full text-micro">
+              <thead className="bg-surface-2 border-b border-border sticky top-0">
                 <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600">Path</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600">Confidence</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600">Verdict</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600">Issues</th>
-                  <th className="text-left px-3 py-2 font-semibold text-slate-600">Summary</th>
+                  <th className="text-left px-3 py-2 font-semibold text-fg-muted">Path</th>
+                  <th className="text-left px-3 py-2 font-semibold text-fg-muted">Confidence</th>
+                  <th className="text-left px-3 py-2 font-semibold text-fg-muted">Verdict</th>
+                  <th className="text-left px-3 py-2 font-semibold text-fg-muted">Issues</th>
+                  <th className="text-left px-3 py-2 font-semibold text-fg-muted">Summary</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-border">
                 {pagedVerifierRows.map((row) => (
-                  <tr key={row.id} className="hover:bg-slate-50/70">
+                  <tr key={row.id} className="hover:bg-surface-2/70">
                     <td className="px-3 py-2">
-                      <div className="font-mono text-slate-700 break-all">{row.path}</div>
+                      <div className="font-mono text-fg-muted break-all">{row.path}</div>
                       {row.sourcePath && row.sourcePath !== row.path && (
-                        <div className="text-[10px] text-slate-400 font-mono break-all">from {row.sourcePath}</div>
+                        <div className="text-micro text-fg-subtle font-mono break-all">from {row.sourcePath}</div>
                       )}
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${formatConfidenceBadge(row.confidence)}`}>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-micro font-semibold ${formatConfidenceBadge(row.confidence)}`}>
                         {typeof row.confidence === "number" ? `${Math.round(row.confidence)}%` : "Pending"}
                       </span>
                     </td>
                     <td className="px-3 py-2">
-                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${getTaskStatusBadge(row.verdict === "PASS" ? "VERIFIED" : row.verdict === "REJECT" ? "BLOCKED" : row.status)}`}>
+                      <span className={`inline-flex items-center rounded-full border px-2 py-0.5 text-micro font-semibold uppercase tracking-wide ${getTaskStatusBadge(row.verdict === "PASS" ? "VERIFIED" : row.verdict === "REJECT" ? "BLOCKED" : row.status)}`}>
                         {row.verdict || row.status}
                       </span>
                     </td>
-                    <td className="px-3 py-2 text-slate-700 tabular-nums">{row.issueCount}</td>
-                    <td className="px-3 py-2 text-slate-600">{row.summary || "—"}</td>
+                    <td className="px-3 py-2 text-fg-muted tabular-nums">{row.issueCount}</td>
+                    <td className="px-3 py-2 text-fg-muted">{row.summary || "—"}</td>
                   </tr>
                 ))}
               </tbody>
@@ -3230,7 +3321,7 @@ export default function TransformerPage() {
           </div>
           {verifierRows.length > VERIFIER_PER_PAGE && (
             <div
-              className="px-4 py-2 border-t border-slate-200 bg-white flex items-center justify-between text-[11px] text-slate-600"
+              className="px-4 py-2 border-t border-border bg-surface flex items-center justify-between text-micro text-fg-muted"
               data-testid="verifier-pagination"
             >
               <span>
@@ -3240,17 +3331,17 @@ export default function TransformerPage() {
                 <button
                   onClick={() => setVerifierPage((page) => Math.max(1, page - 1))}
                   disabled={verifierPage <= 1}
-                  className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
                   data-testid="verifier-pagination-prev"
                   aria-label="Previous page"
                 >
                   <ChevronLeft size={14} />
                 </button>
-                <span className="text-slate-500">Page <b>{verifierPage}</b> of <b>{totalVerifierPages}</b></span>
+                <span className="text-fg-subtle">Page <b>{verifierPage}</b> of <b>{totalVerifierPages}</b></span>
                 <button
                   onClick={() => setVerifierPage((page) => Math.min(totalVerifierPages, page + 1))}
                   disabled={verifierPage >= totalVerifierPages}
-                  className="p-1 rounded border border-slate-200 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50"
+                  className="p-1 rounded border border-border disabled:opacity-40 disabled:cursor-not-allowed hover:bg-surface-2"
                   data-testid="verifier-pagination-next"
                   aria-label="Next page"
                 >
@@ -3262,9 +3353,9 @@ export default function TransformerPage() {
         </>
       ) : (
         <div className="p-8 text-center">
-          <CheckCircle size={24} className="mx-auto mb-2 text-slate-300" />
-          <p className="text-[11px] font-medium text-slate-600">Verification data will appear here</p>
-          <p className="text-[10px] text-slate-400 mt-1">
+          <CheckCircle size={24} className="mx-auto mb-2 text-fg-subtle" />
+          <p className="text-micro font-medium text-fg-muted">Verification data will appear here</p>
+          <p className="text-micro text-fg-subtle mt-1">
             {status === "running" ? "The Verifier agent has not published per-file scores yet." : "No per-file verification results are available yet."}
           </p>
         </div>
@@ -3290,24 +3381,24 @@ export default function TransformerPage() {
         {renderCoderPanel()}
 
         <details
-          className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+          className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden"
           open={awaitingPlanner || hasTasks}
           data-testid="planner-drawer"
         >
-          <summary className="list-none cursor-pointer px-5 py-3 border-b border-slate-100 bg-slate-50/60 flex items-center justify-between gap-3">
+          <summary className="list-none cursor-pointer px-5 py-3 border-b border-border bg-surface-2/60 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <Layers size={15} className="text-violet-500" />
-              <span className="text-sm font-semibold text-slate-800">
+              <span className="text-sm font-semibold text-fg">
                 Planner Details
               </span>
-              <span className="text-[11px] text-slate-500">
+              <span className="text-micro text-fg-subtle">
                 {taskWaves.length} wave{taskWaves.length === 1 ? "" : "s"} · {taskStats.total ?? allTasks.length ?? 0} tasks
-                {awaitingPlanner && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800"><AlertCircle size={9} /> Review required</span>}
+                {awaitingPlanner && <span className="ml-2 inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-micro font-semibold text-amber-800"><AlertCircle size={9} /> Review required</span>}
               </span>
             </div>
-            <ChevronDown size={16} className="text-slate-400" />
+            <ChevronDown size={16} className="text-fg-subtle" />
           </summary>
-          <div className="px-5 py-4 bg-slate-50/40">
+          <div className="px-5 py-4 bg-surface-2/40">
             {renderPlannerPanel()}
           </div>
         </details>
@@ -3340,14 +3431,14 @@ export default function TransformerPage() {
             </div>
           );
         })
-      : <span className="text-slate-500">No console output yet — click "Rerun compile" to invoke the real build tool.</span>;
+      : <span className="text-fg-subtle">No console output yet — click "Rerun compile" to invoke the real build tool.</span>;
 
     // iter-15.7x — Shared toolbar: copy / clear / maximize-minimize.
     // Reused by both the inline console header and the maximized overlay.
     const consoleToolbar = (
       <div className="flex items-center gap-1">
         {compileConsole.updatedAt && (
-          <span className="text-[10px] text-slate-500 mr-1.5 hidden sm:inline">
+          <span className="text-micro text-fg-subtle mr-1.5 hidden sm:inline">
             updated {new Date(compileConsole.updatedAt).toLocaleTimeString()}
           </span>
         )}
@@ -3355,7 +3446,7 @@ export default function TransformerPage() {
           type="button"
           onClick={handleCopyConsoleLog}
           disabled={compileConsole.lines.length === 0}
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+          className="p-1 rounded hover:bg-ink text-fg-muted hover:text-fg-onDark disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
           title="Copy console log"
           data-testid="console-copy-btn"
         >
@@ -3365,7 +3456,7 @@ export default function TransformerPage() {
           type="button"
           onClick={handleClearConsoleLog}
           disabled={compileConsole.lines.length === 0}
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400"
+          className="p-1 rounded hover:bg-ink text-fg-muted hover:text-red-400 disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-fg-muted"
           title="Delete console log"
           data-testid="console-clear-btn"
         >
@@ -3374,7 +3465,7 @@ export default function TransformerPage() {
         <button
           type="button"
           onClick={() => setConsoleMaximized((v) => !v)}
-          className="p-1 rounded hover:bg-slate-800 text-slate-400 hover:text-slate-100"
+          className="p-1 rounded hover:bg-ink text-fg-muted hover:text-fg-onDark"
           title={consoleMaximized ? "Restore console" : "Maximize console"}
           data-testid="console-maximize-btn"
         >
@@ -3386,13 +3477,13 @@ export default function TransformerPage() {
     return (
       <div className="space-y-4" data-testid="tester-panel">
         {/* ── Header ── */}
-        <div className="rounded-2xl border border-slate-200 bg-white shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
+        <div className="rounded-2xl border border-border bg-surface shadow-sm overflow-hidden">
+          <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <TerminalSquare size={16} className="text-blue-500" />
               <div>
-                <h4 className="text-sm font-semibold text-gray-800">Compile Console</h4>
-                <p className="text-[11px] text-slate-500">
+                <h4 className="text-sm font-semibold text-fg">Compile Console</h4>
+                <p className="text-micro text-fg-subtle">
                   {nativeMode
                     ? "Real subprocess build using the tool you picked at step 1. Per-component stdout/stderr tails below."
                     : "Static LLM-based compilation-readiness narrative."}
@@ -3402,7 +3493,7 @@ export default function TransformerPage() {
             <button
               onClick={handleRunCompilation}
               disabled={compilationLoading}
-              className="px-3 py-1.5 text-[11px] bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1.5 disabled:opacity-50"
+              className="px-3 py-1.5 text-micro bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 flex items-center gap-1.5 disabled:opacity-50"
               data-testid="rerun-compile-btn"
             >
               {compilationLoading ? <Loader2 size={12} className="animate-spin" /> : <Target size={12} />}
@@ -3417,12 +3508,12 @@ export default function TransformerPage() {
               while the Tester agent works, not just after it finishes. */}
           {(compileFixProgress || compilationLoading || compileConsole.lines.length > 0) && (
             <div
-              className="border-b border-slate-100 grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr]"
+              className="border-b border-border grid grid-cols-1 lg:grid-cols-[minmax(0,320px)_1fr]"
               data-testid="tester-console-split"
             >
               {/* ── Left: Tester running / status ── */}
               <div
-                className="min-w-0 px-5 py-4 border-b lg:border-b-0 lg:border-r border-slate-100 bg-violet-50/40 space-y-2"
+                className="min-w-0 px-5 py-4 border-b lg:border-b-0 lg:border-r border-border bg-violet-50/40 space-y-2"
                 data-testid="tester-running-panel"
               >
                 <div className="flex items-center gap-2">
@@ -3439,22 +3530,22 @@ export default function TransformerPage() {
                       <Loader2 size={14} className="animate-spin" /> Tester running
                     </div>
                   ) : (
-                    <div className="flex items-center gap-1.5 text-slate-500 text-xs font-semibold">
+                    <div className="flex items-center gap-1.5 text-fg-subtle text-xs font-semibold">
                       <TerminalSquare size={14} /> Tester idle
                     </div>
                   )}
                 </div>
                 {compileFixProgress && (
                   <>
-                    <div className="text-[11px] text-slate-600">
+                    <div className="text-micro text-fg-muted">
                       {compileFixProgress.iteration
                         ? `Iteration ${compileFixProgress.iteration}${compileFixProgress.max_iterations ? ` / ${compileFixProgress.max_iterations}` : ""} · ${compileFixProgress.phase}`
                         : compileFixProgress.phase}
                     </div>
-                    <div className="text-[11px] text-slate-600 break-words">{compileFixProgress.message || ""}</div>
+                    <div className="text-micro text-fg-muted break-words">{compileFixProgress.message || ""}</div>
                     {compileFixProgress.current_file && (
                       <div
-                        className="text-[10px] text-slate-500 font-mono break-all"
+                        className="text-micro text-fg-subtle font-mono break-all"
                         title={compileFixProgress.current_file}
                       >
                         ↳ {compileFixProgress.current_file}
@@ -3467,13 +3558,13 @@ export default function TransformerPage() {
                           <span
                             key={p}
                             title={p}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-white border border-red-200 text-red-700 font-mono break-all"
+                            className="text-micro px-1.5 py-0.5 rounded bg-surface border border-red-200 text-red-700 font-mono break-all"
                           >
                             {p}
                           </span>
                         ))}
                         {compileFixProgress.failing_files.length > 8 && (
-                          <span className="text-[10px] text-slate-500">
+                          <span className="text-micro text-fg-subtle">
                             +{compileFixProgress.failing_files.length - 8} more
                           </span>
                         )}
@@ -3485,14 +3576,14 @@ export default function TransformerPage() {
 
               {/* ── Right: realistic live Console (real subprocess stdout/
                   stderr, streamed line-by-line as the build actually runs) ── */}
-              <div className="min-w-0 bg-slate-950" data-testid="tester-live-console">
-                <div className="px-3 py-1.5 border-b border-slate-800 flex items-center justify-between gap-2">
-                  <span className="text-[10px] uppercase tracking-wide text-slate-400 font-semibold shrink-0">Console</span>
+              <div className="min-w-0 bg-ink" data-testid="tester-live-console">
+                <div className="px-3 py-1.5 border-b border-border-strong flex items-center justify-between gap-2">
+                  <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold shrink-0">Console</span>
                   {consoleToolbar}
                 </div>
                 <pre
                   ref={consoleMaximized ? null : compileConsoleRef}
-                  className="text-[11px] font-mono leading-relaxed text-slate-100 p-3 h-64 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-all"
+                  className="text-micro font-mono leading-relaxed text-fg-onDark p-3 h-64 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-all"
                 >
                   {consoleLines}
                 </pre>
@@ -3505,14 +3596,14 @@ export default function TransformerPage() {
               readable without the 260-320px side-panel constraint. Esc or
               the minimize button restores the inline split view above. */}
           {consoleMaximized && (
-            <div
-              className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4 sm:p-8"
+            <div aria-hidden="true"
+              className="fixed inset-0 z-50 bg-ink/70 flex items-center justify-center p-4 sm:p-8"
               data-testid="console-maximized-overlay"
               onClick={(e) => { if (e.target === e.currentTarget) setConsoleMaximized(false); }}
             >
-              <div className="w-full h-full max-w-6xl bg-slate-950 rounded-xl shadow-2xl flex flex-col overflow-hidden border border-slate-800">
-                <div className="px-4 py-2.5 border-b border-slate-800 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 text-slate-200">
+              <div className="w-full h-full max-w-6xl bg-ink rounded-xl shadow-2xl flex flex-col overflow-hidden border border-border-strong">
+                <div className="px-4 py-2.5 border-b border-border-strong flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2 text-fg-onDark">
                     <TerminalSquare size={14} className="text-blue-400" />
                     <span className="text-xs font-semibold uppercase tracking-wide">Compile Console</span>
                   </div>
@@ -3520,7 +3611,7 @@ export default function TransformerPage() {
                 </div>
                 <pre
                   ref={compileConsoleRef}
-                  className="flex-1 text-[12px] font-mono leading-relaxed text-slate-100 p-4 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-all"
+                  className="flex-1 text-[12px] font-mono leading-relaxed text-fg-onDark p-4 overflow-y-auto overflow-x-auto whitespace-pre-wrap break-all"
                 >
                   {consoleLines}
                 </pre>
@@ -3543,12 +3634,12 @@ export default function TransformerPage() {
                   {cr.overall_score ?? 0}%
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold text-slate-800">
+                  <div className="text-sm font-semibold text-fg">
                     {cr.compilation_ready ? "Compilation ready" : "Issues found"}
                   </div>
-                  <div className="text-[11px] text-slate-600">{cr.summary || ""}</div>
+                  <div className="text-micro text-fg-muted">{cr.summary || ""}</div>
                   {nativeMode && (
-                    <div className="text-[10px] text-slate-400 mt-1">
+                    <div className="text-micro text-fg-subtle mt-1">
                       timeout={cr.timeout_sec}s · mode=native
                     </div>
                   )}
@@ -3559,7 +3650,7 @@ export default function TransformerPage() {
                     className="flex flex-col items-center px-4 py-2 rounded-xl border border-sky-200 bg-sky-50"
                     data-testid="coverage-widget"
                   >
-                    <div className="text-[10px] uppercase tracking-wide text-sky-700">Coverage</div>
+                    <div className="text-micro uppercase tracking-wide text-sky-700">Coverage</div>
                     <div className="text-lg font-bold text-sky-800 tabular-nums">{overallCov}%</div>
                   </div>
                 )}
@@ -3576,22 +3667,22 @@ export default function TransformerPage() {
                       <TestTube2 size={16} />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[12px] font-semibold text-slate-800">
+                      <div className="text-[12px] font-semibold text-fg">
                         {testGen.total} test file{testGen.total === 1 ? "" : "s"} generated
                       </div>
-                      <div className="text-[11px] text-slate-600 truncate">{toSafeText(testGen.summary)}</div>
+                      <div className="text-micro text-fg-muted truncate">{toSafeText(testGen.summary)}</div>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
                     {["business", "api", "integration"].map((tier) => (
-                      <span key={tier} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-white border border-violet-200 text-[10px] font-semibold text-violet-700">
+                      <span key={tier} className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-surface border border-violet-200 text-micro font-semibold text-violet-700">
                         {tier}
-                        <span className="text-slate-500 tabular-nums">{testGen.by_tier?.[tier] ?? 0}</span>
+                        <span className="text-fg-subtle tabular-nums">{testGen.by_tier?.[tier] ?? 0}</span>
                       </span>
                     ))}
                     <a
                       href={transformId ? downloadTransformedTests(transformId) : "#"}
-                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-[10px] font-semibold hover:bg-violet-700 ${!transformId ? "pointer-events-none opacity-40" : ""}`}
+                      className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-violet-600 text-white text-micro font-semibold hover:bg-violet-700 ${!transformId ? "pointer-events-none opacity-40" : ""}`}
                       data-testid="tester-download-tests-btn"
                     >
                       <Download size={10} /> Tests ZIP
@@ -3603,54 +3694,54 @@ export default function TransformerPage() {
               {/* ── Native per-component compile rows ── */}
               {nativeMode && Array.isArray(cr.components) && cr.components.length > 0 && (
                 <div>
-                  <div className="text-[11px] font-semibold text-slate-700 mb-2">Components</div>
+                  <div className="text-micro font-semibold text-fg-muted mb-2">Components</div>
                   <div className="space-y-2">
                     {cr.components.map((comp, i) => (
                       <details
                         key={comp.component || i}
-                        className="rounded-lg border border-slate-200 bg-white overflow-hidden"
+                        className="rounded-lg border border-border bg-surface overflow-hidden"
                         data-testid={`compile-component-${comp.component}`}
                       >
-                        <summary className="list-none cursor-pointer px-3 py-2 flex items-center justify-between gap-3 hover:bg-slate-50/70">
+                        <summary className="list-none cursor-pointer px-3 py-2 flex items-center justify-between gap-3 hover:bg-surface-2/70">
                           <div className="flex items-center gap-2 min-w-0">
                             <span
-                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase ${
+                              className={`inline-flex items-center rounded-full border px-2 py-0.5 text-micro font-semibold uppercase ${
                                 comp.status === "passed" ? "border-emerald-200 bg-emerald-50 text-emerald-700"
                                   : comp.status === "failed" ? "border-red-200 bg-red-50 text-red-700"
-                                  : "border-slate-200 bg-slate-50 text-slate-600"
+                                  : "border-border bg-surface-2 text-fg-muted"
                               }`}
                             >
                               {comp.status}
                             </span>
-                            <span className="text-[12px] font-semibold text-slate-800">{comp.component}</span>
-                            <span className="text-[11px] text-slate-500 truncate">tool={comp.tool}</span>
+                            <span className="text-[12px] font-semibold text-fg">{comp.component}</span>
+                            <span className="text-micro text-fg-subtle truncate">tool={comp.tool}</span>
                             {typeof comp.coverage_pct === "number" && (
-                              <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 tabular-nums">
+                              <span className="ml-2 text-micro px-1.5 py-0.5 rounded-full bg-sky-50 border border-sky-200 text-sky-700 tabular-nums">
                                 cov {comp.coverage_pct}%
                               </span>
                             )}
                           </div>
-                          <ChevronDown size={14} className="text-slate-400" />
+                          <ChevronDown size={14} className="text-fg-subtle" />
                         </summary>
                         {comp.reason && (
-                          <div className="px-3 py-2 border-t border-slate-100 text-[11px] text-slate-600 bg-slate-50/40">
+                          <div className="px-3 py-2 border-t border-border text-micro text-fg-muted bg-surface-2/40">
                             {toSafeText(comp.reason)}
                           </div>
                         )}
                         {(comp.invocations || []).map((inv, j) => (
-                          <div key={j} className="px-3 py-2 border-t border-slate-100 space-y-1.5">
-                            <div className="flex items-center gap-2 text-[11px] text-slate-600">
-                              <span className="font-mono text-slate-500">{inv.cwd || "."}</span>
-                              <span className="text-slate-300">·</span>
+                          <div key={j} className="px-3 py-2 border-t border-border space-y-1.5">
+                            <div className="flex items-center gap-2 text-micro text-fg-muted">
+                              <span className="font-mono text-fg-subtle">{inv.cwd || "."}</span>
+                              <span className="text-fg-subtle">·</span>
                               <span className="font-mono">{inv.label}</span>
                               {typeof inv.duration_ms === "number" && (
-                                <span className="text-slate-400 tabular-nums">
+                                <span className="text-fg-subtle tabular-nums">
                                   {(inv.duration_ms / 1000).toFixed(1)}s
                                 </span>
                               )}
                               {typeof inv.exit_code === "number" && (
                                 <span
-                                  className={`ml-auto text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                  className={`ml-auto text-micro font-mono px-1.5 py-0.5 rounded ${
                                     inv.exit_code === 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
                                   }`}
                                 >
@@ -3659,12 +3750,12 @@ export default function TransformerPage() {
                               )}
                             </div>
                             {inv.stdout_tail && (
-                              <pre className="text-[10px] font-mono whitespace-pre-wrap bg-slate-900 text-slate-100 rounded p-2 max-h-52 overflow-y-auto">
+                              <pre className="text-micro font-mono whitespace-pre-wrap bg-ink text-fg-onDark rounded p-2 max-h-52 overflow-y-auto">
                                 {inv.stdout_tail}
                               </pre>
                             )}
                             {inv.stderr_tail && (
-                              <pre className="text-[10px] font-mono whitespace-pre-wrap bg-red-950 text-red-100 rounded p-2 max-h-52 overflow-y-auto">
+                              <pre className="text-micro font-mono whitespace-pre-wrap bg-red-950 text-red-100 rounded p-2 max-h-52 overflow-y-auto">
                                 {inv.stderr_tail}
                               </pre>
                             )}
@@ -3678,21 +3769,21 @@ export default function TransformerPage() {
 
               {/* ── Coverage per component ── */}
               {Array.isArray(coverage?.components) && coverage.components.length > 0 && (
-                <details className="rounded-lg border border-slate-200 bg-white overflow-hidden">
-                  <summary className="list-none cursor-pointer px-3 py-2 flex items-center justify-between hover:bg-slate-50/70">
+                <details className="rounded-lg border border-border bg-surface overflow-hidden">
+                  <summary className="list-none cursor-pointer px-3 py-2 flex items-center justify-between hover:bg-surface-2/70">
                     <div className="flex items-center gap-2">
-                      <span className="text-[12px] font-semibold text-slate-800">Coverage details</span>
-                      <span className="text-[11px] text-slate-500">
+                      <span className="text-[12px] font-semibold text-fg">Coverage details</span>
+                      <span className="text-micro text-fg-subtle">
                         overall {overallCov ?? "n/a"}%
                       </span>
                     </div>
-                    <ChevronDown size={14} className="text-slate-400" />
+                    <ChevronDown size={14} className="text-fg-subtle" />
                   </summary>
-                  <div className="px-3 py-2 border-t border-slate-100 space-y-1">
+                  <div className="px-3 py-2 border-t border-border space-y-1">
                     {coverage.components.map((c, i) => (
-                      <div key={i} className="flex items-center justify-between text-[11px] text-slate-700">
+                      <div key={i} className="flex items-center justify-between text-micro text-fg-muted">
                         <span className="font-semibold">{c.component}</span>
-                        <span className="text-slate-500 font-mono">
+                        <span className="text-fg-subtle font-mono">
                           {typeof c.coverage_pct === "number" ? `${c.coverage_pct}%` : (c.reason || c.status)}
                         </span>
                       </div>
@@ -3703,26 +3794,26 @@ export default function TransformerPage() {
 
               {/* ── Legacy static-analysis narrative ── */}
               {staticNarrative && (staticNarrative.checks?.length || staticNarrative.summary) && (
-                <details className="rounded-lg border border-slate-200 bg-slate-50/40 overflow-hidden">
-                  <summary className="list-none cursor-pointer px-3 py-2 flex items-center gap-2 hover:bg-slate-100/50">
-                    <Sparkles size={12} className="text-slate-500" />
-                    <span className="text-[11px] font-semibold text-slate-700">
+                <details className="rounded-lg border border-border bg-surface-2/40 overflow-hidden">
+                  <summary className="list-none cursor-pointer px-3 py-2 flex items-center gap-2 hover:bg-surface-2/50">
+                    <Sparkles size={12} className="text-fg-subtle" />
+                    <span className="text-micro font-semibold text-fg-muted">
                       Static analysis narrative
                     </span>
-                    <span className="text-[10px] text-slate-500 truncate">
+                    <span className="text-micro text-fg-subtle truncate">
                       {staticNarrative.summary}
                     </span>
-                    <ChevronDown size={13} className="text-slate-400 ml-auto" />
+                    <ChevronDown size={13} className="text-fg-subtle ml-auto" />
                   </summary>
-                  <div className="px-3 py-2 border-t border-slate-100 space-y-2">
+                  <div className="px-3 py-2 border-t border-border space-y-2">
                     {staticNarrative.missing_dependencies?.length > 0 && (
-                      <div className="text-[11px]">
+                      <div className="text-micro">
                         <span className="font-semibold text-amber-800">Missing dependencies: </span>
-                        <span className="text-slate-700">{staticNarrative.missing_dependencies.join(", ")}</span>
+                        <span className="text-fg-muted">{staticNarrative.missing_dependencies.join(", ")}</span>
                       </div>
                     )}
                     {staticNarrative.checks?.length > 0 && (
-                      <div className="rounded border border-slate-200 divide-y divide-slate-100">
+                      <div className="rounded border border-border divide-y divide-border">
                         {staticNarrative.checks.map((check, i) => (
                           <div key={i} className="px-2 py-1.5 flex items-start gap-2">
                             <span className={`mt-0.5 w-3.5 h-3.5 rounded-full flex items-center justify-center flex-shrink-0 ${
@@ -3732,10 +3823,10 @@ export default function TransformerPage() {
                             }`}>
                               {check.status === "PASS" ? <Check size={8} /> : check.status === "WARN" ? <AlertTriangle size={8} /> : <AlertCircle size={8} />}
                             </span>
-                            <div className="min-w-0 flex-1 text-[11px] text-slate-700">
+                            <div className="min-w-0 flex-1 text-micro text-fg-muted">
                               {toSafeText(check.details)}
                               {check.fix_suggestion && (
-                                <div className="text-[10px] text-blue-600 mt-0.5">Fix: {toSafeText(check.fix_suggestion)}</div>
+                                <div className="text-micro text-blue-600 mt-0.5">Fix: {toSafeText(check.fix_suggestion)}</div>
                               )}
                             </div>
                           </div>
@@ -3750,11 +3841,11 @@ export default function TransformerPage() {
             <div className="p-8 text-center">
               {status === "running" && progress.phase === "tester"
                 ? <Loader2 size={24} className="mx-auto mb-2 text-blue-400 animate-spin" />
-                : <Target size={24} className="mx-auto mb-2 text-slate-300" />}
-              <p className="text-[11px] font-medium text-slate-600">
+                : <Target size={24} className="mx-auto mb-2 text-fg-subtle" />}
+              <p className="text-micro font-medium text-fg-muted">
                 {status === "running" && progress.phase === "tester" ? "Tester is compiling the transformed code" : "No compile run yet"}
               </p>
-              <p className="text-[10px] text-slate-400 mt-1">
+              <p className="text-micro text-fg-subtle mt-1">
                 {status === "running" && progress.phase === "tester"
                   ? "Per-component pass/fail + coverage will populate automatically when the build finishes."
                   : "Click \"Rerun compile\" to invoke the build tool you picked at step 1."}
@@ -3768,48 +3859,48 @@ export default function TransformerPage() {
 
   const renderSuperAgentPanel = () => (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-5">
+      <div className="rounded-2xl border border-border bg-surface shadow-sm p-5">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div className="flex items-start gap-3">
             <div className="w-11 h-11 rounded-xl bg-violet-100 text-violet-700 flex items-center justify-center">
               <Bot size={18} />
             </div>
             <div>
-              <h4 className="text-sm font-semibold text-slate-800">Pipeline Overview</h4>
-              <p className="text-[11px] text-slate-500">Detected source stack, chosen targets, file counts, and run summary.</p>
+              <h4 className="text-sm font-semibold text-fg">Pipeline Overview</h4>
+              <p className="text-micro text-fg-subtle">Detected source stack, chosen targets, file counts, and run summary.</p>
             </div>
           </div>
           {(status === "completed" || status === "completed_with_errors" || status === "stopped") && (
-            <button onClick={reset} className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-gray-100 rounded-lg hover:bg-gray-200">
+            <button onClick={reset} className="px-3 py-1.5 text-sm font-medium text-fg-muted bg-surface-2 rounded-lg hover:bg-surface-3">
               New Transform
             </button>
           )}
         </div>
         <div className="mt-4 grid md:grid-cols-2 xl:grid-cols-4 gap-3">
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500">Status</div>
-            <div className="mt-1 text-lg font-semibold text-slate-800">{paused ? "Paused" : status || "Draft"}</div>
+          <div className="rounded-xl border border-border bg-surface-2 px-4 py-3">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle">Status</div>
+            <div className="mt-1 text-lg font-semibold text-fg">{paused ? "Paused" : status || "Draft"}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500">Source Files</div>
-            <div className="mt-1 text-lg font-semibold text-slate-800 tabular-nums">{sourceFiles.length || progress.filesTotal || files.length || 0}</div>
+          <div className="rounded-xl border border-border bg-surface-2 px-4 py-3">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle">Source Files</div>
+            <div className="mt-1 text-lg font-semibold text-fg tabular-nums">{sourceFiles.length || progress.filesTotal || files.length || 0}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500">Generated Files</div>
-            <div className="mt-1 text-lg font-semibold text-slate-800 tabular-nums">{files.length || 0}</div>
+          <div className="rounded-xl border border-border bg-surface-2 px-4 py-3">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle">Generated Files</div>
+            <div className="mt-1 text-lg font-semibold text-fg tabular-nums">{files.length || 0}</div>
           </div>
-          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500">Average Confidence</div>
-            <div className="mt-1 text-lg font-semibold text-slate-800 tabular-nums">
+          <div className="rounded-xl border border-border bg-surface-2 px-4 py-3">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle">Average Confidence</div>
+            <div className="mt-1 text-lg font-semibold text-fg tabular-nums">
               {typeof result?.avg_confidence === "number" ? `${Math.round(result.avg_confidence * 100)}%` : "—"}
             </div>
           </div>
         </div>
         <div className="mt-4 grid xl:grid-cols-2 gap-4">
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Detected source stack</div>
+          <div className="rounded-xl border border-border p-4">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-2">Detected source stack</div>
             {detectedStack?.raw_detection?.summary && (
-              <div className="text-[12px] text-slate-600 mb-2 pb-2 border-b border-slate-100">
+              <div className="text-[12px] text-fg-muted mb-2 pb-2 border-b border-border">
                 {toSafeText(detectedStack.raw_detection.summary)}
               </div>
             )}
@@ -3818,14 +3909,14 @@ export default function TransformerPage() {
                 .filter(([key]) => key !== "raw_detection" && TECH_CATEGORIES[key])
                 .map(([key, value]) => (
                 <div key={key} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-slate-500">{TECH_CATEGORIES[key]?.label || key}</span>
-                  <span className="font-semibold text-slate-800">{TECH_CATEGORIES[key]?.options.find((opt) => opt.id === value)?.name || value || "—"}</span>
+                  <span className="text-fg-subtle">{TECH_CATEGORIES[key]?.label || key}</span>
+                  <span className="font-semibold text-fg">{TECH_CATEGORIES[key]?.options.find((opt) => opt.id === value)?.name || value || "—"}</span>
                 </div>
-              )) : <div className="text-[11px] text-slate-500">No detected stack yet.</div>}
+              )) : <div className="text-micro text-fg-subtle">No detected stack yet.</div>}
             </div>
           </div>
-          <div className="rounded-xl border border-slate-200 p-4">
-            <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-2">Selected target stack</div>
+          <div className="rounded-xl border border-border p-4">
+            <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-2">Selected target stack</div>
             <div className="flex flex-wrap gap-2">
               {Object.entries(selectedTransforms).filter(([, value]) => value).length > 0 ? Object.entries(selectedTransforms)
                 .filter(([, value]) => value)
@@ -3834,7 +3925,7 @@ export default function TransformerPage() {
                     <Check size={12} />
                     {TECH_CATEGORIES[cat]?.label}: {TECH_CATEGORIES[cat]?.options.find((opt) => opt.id === target)?.name || target}
                   </span>
-                )) : <div className="text-[11px] text-slate-500">No target stack selected.</div>}
+                )) : <div className="text-micro text-fg-subtle">No target stack selected.</div>}
             </div>
           </div>
         </div>
@@ -3854,16 +3945,16 @@ export default function TransformerPage() {
       )
       : (
         <div className="space-y-4">
-          <div className="rounded-2xl border border-slate-200 bg-white shadow-sm p-6 text-center">
-            <Layers size={22} className="mx-auto mb-2 text-slate-300" />
-            <div className="text-sm font-semibold text-slate-700">Discovered APIs will appear here</div>
-            <div className="text-[11px] text-slate-500 mt-1">
+          <div className="rounded-2xl border border-border bg-surface shadow-sm p-6 text-center">
+            <Layers size={22} className="mx-auto mb-2 text-fg-subtle" />
+            <div className="text-sm font-semibold text-fg-muted">Discovered APIs will appear here</div>
+            <div className="text-micro text-fg-subtle mt-1">
               {status === "running"
                 ? "The Context Manager is scanning the uploaded source to identify endpoints, controllers, services, and DB tables."
                 : "No architecture envelopes are available yet."}
             </div>
             {kb?.stats?.api_routes > 0 && (
-              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-[11px] font-semibold border border-blue-200">
+              <div className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 bg-blue-50 text-blue-700 rounded-full text-micro font-semibold border border-blue-200">
                 <Layers size={11} />
                 {kb.stats.api_routes} API route{kb.stats.api_routes === 1 ? "" : "s"} detected in KB — envelopes pending
               </div>
@@ -3945,7 +4036,7 @@ export default function TransformerPage() {
     const tone = status === "completed" ? "bg-emerald-50 text-emerald-700 border-emerald-200"
       : status === "completed_with_errors" ? "bg-amber-50 text-amber-700 border-amber-200"
       : status === "failed" ? "bg-red-50 text-red-700 border-red-200"
-        : status === "stopped" ? "bg-slate-100 text-slate-600 border-slate-200"
+        : status === "stopped" ? "bg-surface-2 text-fg-muted border-border"
           : (status === "awaiting_confirmation" || status === "awaiting_task_confirmation" || paused) ? "bg-amber-50 text-amber-700 border-amber-200"
             : "bg-violet-50 text-violet-700 border-violet-200";
     const icon = status === "completed" ? <CheckCircle size={12} />
@@ -4004,7 +4095,7 @@ export default function TransformerPage() {
             onClick={() => setShowStopConfirm(true)}
             disabled={busyControl === "stop" || stopped}
             data-testid="transformer-stop-btn"
-            className={`inline-flex items-center gap-2 rounded-lg border border-red-300 bg-white text-red-600 font-medium hover:bg-red-50 h-9 px-3 text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${FOCUS_RING}`}
+            className={`inline-flex items-center gap-2 rounded-lg border border-red-300 bg-surface text-red-600 font-medium hover:bg-red-50 h-9 px-3 text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed ${FOCUS_RING}`}
             aria-label="Stop transformation"
             title="Stop transformation (keeps completed files)"
           >
@@ -4031,7 +4122,7 @@ export default function TransformerPage() {
     return null;
   };
 
-  const KEBAB_ITEM = "w-full text-left px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 flex items-center gap-2 rounded-md";
+  const KEBAB_ITEM = "w-full text-left px-3 py-2 text-sm text-fg-muted hover:bg-surface-2 flex items-center gap-2 rounded-md";
   const renderKebabMenu = () => (
     <>
       <button
@@ -4041,7 +4132,7 @@ export default function TransformerPage() {
       >
         <FilePlus size={14} /> New project
       </button>
-      <div className="my-1 border-t border-slate-100" />
+      <div className="my-1 border-t border-border" />
       <a
         href={transformId ? downloadTransformedCode(transformId) : "#"}
         className={`${KEBAB_ITEM} ${!transformId ? "pointer-events-none opacity-40" : ""}`}
@@ -4082,7 +4173,7 @@ export default function TransformerPage() {
       >
         <History size={14} /> History
       </button>
-      <div className="my-1 border-t border-slate-100" />
+      <div className="my-1 border-t border-border" />
       <button
         onClick={() => { setShowKebab(false); setShowRemoveConfirm(true); }}
         disabled={!transformId}
@@ -4102,8 +4193,8 @@ export default function TransformerPage() {
             {Icon ? <Icon size={16} /> : num}
           </div>
           <div className="min-w-0">
-            <h3 className="text-base font-semibold text-slate-800 truncate">{title}</h3>
-            {subtitle && <p className="text-xs text-slate-500 truncate">{subtitle}</p>}
+            <h3 className="text-base font-semibold text-fg truncate">{title}</h3>
+            {subtitle && <p className="text-xs text-fg-subtle truncate">{subtitle}</p>}
           </div>
         </div>
         {badge}
@@ -4160,7 +4251,7 @@ export default function TransformerPage() {
             (
               <div className="space-y-4">
                 <div>
-                  <label htmlFor="transformer-name-input" className="text-xs font-medium text-slate-600 mb-1.5 block">
+                  <label htmlFor="transformer-name-input" className="text-xs font-medium text-fg-muted mb-1.5 block">
                     Transformation name
                   </label>
                   <input
@@ -4169,7 +4260,7 @@ export default function TransformerPage() {
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     placeholder="e.g., Helidon to Spring Boot"
-                    className={`w-full text-sm px-3 py-2 rounded-lg border border-slate-200 bg-white placeholder-slate-400 ${FOCUS_RING} focus-visible:border-violet-400`}
+                    className={`w-full text-sm px-3 py-2 rounded-lg border border-border bg-surface placeholder-slate-400 ${FOCUS_RING} focus-visible:border-violet-400`}
                   />
                 </div>
                 <div ref={dropRef} onDragOver={handleDragOver} onDragLeave={handleDragLeave} onDrop={handleDrop}>
@@ -4184,35 +4275,35 @@ export default function TransformerPage() {
                   <label
                     htmlFor="source-upload"
                     className={`flex flex-col items-center justify-center min-h-40 py-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 ${
-                      isDragging ? "border-violet-400 bg-violet-50" : "border-slate-300 hover:border-violet-300 hover:bg-slate-50"
+                      isDragging ? "border-violet-400 bg-violet-50" : "border-border-strong hover:border-violet-300 hover:bg-surface-2"
                     }`}
                   >
-                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${isDragging ? "bg-violet-100 text-violet-600" : "bg-slate-100 text-slate-400"}`}>
+                    <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${isDragging ? "bg-violet-100 text-violet-600" : "bg-surface-2 text-fg-subtle"}`}>
                       <Upload size={22} />
                     </div>
-                    <p className="text-sm font-medium text-slate-700">
+                    <p className="text-sm font-medium text-fg-muted">
                       {isDragging ? "Drop the files here" : "Drop a ZIP or click to upload"}
                     </p>
-                    <p className="text-xs text-slate-500 mt-1">ZIP / TAR archives or individual source files</p>
+                    <p className="text-xs text-fg-subtle mt-1">ZIP / TAR archives or individual source files</p>
                   </label>
                 </div>
                 {sourceFiles.length > 0 && (
                   <div>
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs font-medium text-slate-600">
+                      <span className="text-xs font-medium text-fg-muted">
                         {sourceFiles.length} file{sourceFiles.length !== 1 ? "s" : ""} uploaded
                       </span>
                       <button
                         onClick={() => { setSourceFiles([]); setDetectedStack(null); }}
-                        className={`text-xs text-slate-500 hover:text-red-600 flex items-center gap-1 rounded ${FOCUS_RING}`}
+                        className={`text-xs text-fg-subtle hover:text-red-600 flex items-center gap-1 rounded ${FOCUS_RING}`}
                       >
                         <Trash2 size={12} /> Clear all
                       </button>
                     </div>
                     <div className="flex flex-wrap gap-2">
                       {shownFiles.map((f, i) => (
-                        <span key={i} className={`${CHIP_CLS} bg-slate-100 text-slate-700 max-w-[220px]`}>
-                          <Archive size={12} className="text-slate-400 flex-shrink-0" />
+                        <span key={i} className={`${CHIP_CLS} bg-surface-2 text-fg-muted max-w-[220px]`}>
+                          <Archive size={12} className="text-fg-subtle flex-shrink-0" />
                           <span className="truncate">{f.name}</span>
                           <button
                             onClick={() => {
@@ -4221,7 +4312,7 @@ export default function TransformerPage() {
                               if (nf.length === 0) setDetectedStack(null);
                             }}
                             data-testid={`transformer-source-remove-${i}`}
-                            className="text-slate-400 hover:text-red-600 flex-shrink-0"
+                            className="text-fg-subtle hover:text-red-600 flex-shrink-0"
                             aria-label={`Remove ${f.name}`}
                           >
                             <X size={12} />
@@ -4229,7 +4320,7 @@ export default function TransformerPage() {
                         </span>
                       ))}
                       {extraFiles > 0 && (
-                        <span className={`${CHIP_CLS} bg-slate-50 text-slate-500`}>+{extraFiles} more</span>
+                        <span className={`${CHIP_CLS} bg-surface-2 text-fg-subtle`}>+{extraFiles} more</span>
                       )}
                     </div>
                   </div>
@@ -4249,11 +4340,11 @@ export default function TransformerPage() {
             ) : null),
             (sourceFiles.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                <div className="w-12 h-12 rounded-full bg-surface-2 text-fg-subtle flex items-center justify-center mb-3">
                   <Database size={22} />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Upload files first</p>
-                <p className="text-xs text-slate-500 mt-1">The knowledge base is built from your uploaded source.</p>
+                <p className="text-sm font-medium text-fg-muted">Upload files first</p>
+                <p className="text-xs text-fg-subtle mt-1">The knowledge base is built from your uploaded source.</p>
               </div>
             ) : (
               <div className="space-y-4">
@@ -4266,7 +4357,7 @@ export default function TransformerPage() {
                     {analyzing ? <Loader2 size={14} className="animate-spin" /> : <RefreshCw size={14} />}
                     {detectedStack ? "Re-analyse" : "Analyse KB"}
                   </button>
-                  {analyzing && <span className="text-xs text-slate-500">Analysing source code…</span>}
+                  {analyzing && <span className="text-xs text-fg-subtle">Analysing source code…</span>}
                   {kb?.stats?.entities != null && (
                     <span className={`${CHIP_CLS} bg-violet-50 text-violet-700`}>
                       <Database size={12} /> {kb.stats.entities} KB entities
@@ -4274,10 +4365,10 @@ export default function TransformerPage() {
                   )}
                 </div>
                 {detectedStack && detectedStack.raw_detection && (
-                  <div className="rounded-xl bg-slate-50 border border-slate-200 p-4">
-                    <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2">Detected source stack</div>
+                  <div className="rounded-xl bg-surface-2 border border-border p-4">
+                    <div className="text-xs uppercase tracking-wide text-fg-subtle font-semibold mb-2">Detected source stack</div>
                     {detectedStack.raw_detection.summary && (
-                      <div className="text-sm text-slate-700 font-medium mb-2">{toSafeText(detectedStack.raw_detection.summary)}</div>
+                      <div className="text-sm text-fg-muted font-medium mb-2">{toSafeText(detectedStack.raw_detection.summary)}</div>
                     )}
                     <div className="flex flex-wrap gap-2">
                       {(detectedStack.raw_detection.languages || []).slice(0, 5).map(([lang, count], i) => (
@@ -4292,13 +4383,13 @@ export default function TransformerPage() {
                         <span key={`db-${i}`} className={`${CHIP_CLS} bg-emerald-50 text-emerald-700`}>{db}</span>
                       ))}
                       {detectedStack.raw_detection.build && (
-                        <span className={`${CHIP_CLS} bg-slate-100 text-slate-700`}>{detectedStack.raw_detection.build}</span>
+                        <span className={`${CHIP_CLS} bg-surface-2 text-fg-muted`}>{detectedStack.raw_detection.build}</span>
                       )}
                     </div>
                   </div>
                 )}
                 {detectedStack && !detectedStack.raw_detection && !analyzing && (
-                  <div className="text-sm text-slate-600">Stack analysed. Continue to choose your target stack below.</div>
+                  <div className="text-sm text-fg-muted">Stack analysed. Continue to choose your target stack below.</div>
                 )}
               </div>
             ))
@@ -4311,17 +4402,17 @@ export default function TransformerPage() {
             ) : null,
             ((!detectedStack || analyzing) ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-400 flex items-center justify-center mb-3">
+                <div className="w-12 h-12 rounded-full bg-surface-2 text-fg-subtle flex items-center justify-center mb-3">
                   <Sparkles size={22} />
                 </div>
-                <p className="text-sm font-medium text-slate-600">Analyse the KB first</p>
-                <p className="text-xs text-slate-500 mt-1">Target recommendations appear once the source stack is detected.</p>
+                <p className="text-sm font-medium text-fg-muted">Analyse the KB first</p>
+                <p className="text-xs text-fg-subtle mt-1">Target recommendations appear once the source stack is detected.</p>
               </div>
             ) : (
               <div className="-my-1">
-                <div className="divide-y divide-slate-100">
+                <div className="divide-y divide-border">
                   {categoryKeysToShow.length === 0 && (
-                    <div className="py-6 text-center text-sm text-slate-500">
+                    <div className="py-6 text-center text-sm text-fg-subtle">
                       No target-stack categories match the uploaded source. Add more files
                       (e.g. backend, DB scripts) to see additional transformation options.
                     </div>
@@ -4344,17 +4435,17 @@ export default function TransformerPage() {
                     return (
                       <div key={catKey} className="py-3">
                         <div className="flex items-center gap-2 mb-2">
-                          <CatIcon size={14} className={detected ? "text-violet-600" : "text-slate-400"} />
-                          <span className="text-xs font-semibold text-slate-700 uppercase tracking-wide">{cat.label}</span>
+                          <CatIcon size={14} className={detected ? "text-violet-600" : "text-fg-subtle"} />
+                          <span className="text-xs font-semibold text-fg-muted uppercase tracking-wide">{cat.label}</span>
                           {detected && (
-                            <span className="text-xs font-mono px-1.5 py-0.5 bg-slate-100 text-slate-600 rounded border border-slate-200">
+                            <span className="text-xs font-mono px-1.5 py-0.5 bg-surface-2 text-fg-muted rounded border border-border">
                               Detected: {detectedName}
                             </span>
                           )}
                           {selected && (
                             <button
                               onClick={() => handleTransformChange(catKey, null)}
-                              className={`ml-auto text-xs text-slate-400 hover:text-red-600 flex items-center gap-1 rounded ${FOCUS_RING}`}
+                              className={`ml-auto text-xs text-fg-subtle hover:text-red-600 flex items-center gap-1 rounded ${FOCUS_RING}`}
                               title="Clear selection"
                             >
                               <X size={12} /> Clear
@@ -4372,7 +4463,7 @@ export default function TransformerPage() {
                                 className={`block border rounded-lg px-3 py-2 cursor-pointer transition-all duration-200 ${
                                   checked
                                     ? "border-violet-500 bg-violet-50 shadow-sm"
-                                    : "border-slate-200 bg-white hover:border-violet-300"
+                                    : "border-border bg-surface hover:border-violet-300"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
@@ -4384,7 +4475,7 @@ export default function TransformerPage() {
                                     onChange={() => handleTransformChange(catKey, opt.id)}
                                   />
                                   <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: opt.color }} />
-                                  <span className="text-sm font-medium text-slate-800 flex-1 truncate">{opt.name}</span>
+                                  <span className="text-sm font-medium text-fg flex-1 truncate">{opt.name}</span>
                                   {isRecommended && (
                                     <span className="text-xs uppercase tracking-wide px-1.5 py-0.5 bg-amber-100 text-amber-800 border border-amber-200 rounded font-semibold">
                                       Top pick
@@ -4401,8 +4492,8 @@ export default function TransformerPage() {
                               <div className="flex items-center gap-2">
                                 <input type="radio" name={`target-${catKey}`} checked readOnly className="shrink-0 accent-violet-600" />
                                 <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: selectedOpt.color }} />
-                                <span className="text-sm font-medium text-slate-800 flex-1 truncate">{selectedOpt.name}</span>
-                                <span className="text-xs uppercase tracking-wide px-1.5 py-0.5 bg-slate-100 text-slate-700 border border-slate-200 rounded font-semibold">
+                                <span className="text-sm font-medium text-fg flex-1 truncate">{selectedOpt.name}</span>
+                                <span className="text-xs uppercase tracking-wide px-1.5 py-0.5 bg-surface-2 text-fg-muted border border-border rounded font-semibold">
                                   Custom
                                 </span>
                                 <Check size={14} className="text-emerald-600" />
@@ -4432,7 +4523,7 @@ export default function TransformerPage() {
                                 }
                                 setShowOthers(prev => ({ ...prev, [catKey]: !prev[catKey] }));
                               }}
-                              className={`text-xs font-semibold text-slate-600 hover:text-slate-900 flex items-center gap-1 rounded ${FOCUS_RING}`}
+                              className={`text-xs font-semibold text-fg-muted hover:text-fg flex items-center gap-1 rounded ${FOCUS_RING}`}
                               data-testid={`transformer-others-${catKey}`}
                             >
                               <Layers size={12} />
@@ -4441,9 +4532,9 @@ export default function TransformerPage() {
                             </button>
                             {showOthers[catKey] && (
                               <>
-                                <div className="fixed inset-0 z-[60]" onClick={() => setShowOthers(prev => ({ ...prev, [catKey]: false }))} />
+                                <div aria-hidden="true" className="fixed inset-0 z-[60]" onClick={() => setShowOthers(prev => ({ ...prev, [catKey]: false }))} />
                                 <div
-                                  className="fixed z-[61] bg-white border border-slate-200 rounded-xl shadow-xl flex flex-col"
+                                  className="fixed z-[61] bg-surface border border-border rounded-xl shadow-xl flex flex-col"
                                   style={{
                                     top: othersAnchor[catKey]?.top ?? 0,
                                     left: othersAnchor[catKey]?.left ?? 0,
@@ -4451,9 +4542,9 @@ export default function TransformerPage() {
                                     maxHeight: 420,
                                   }}
                                 >
-                                  <div className="px-3 py-2 text-xs uppercase tracking-wide text-slate-500 font-semibold border-b border-slate-100 flex items-center justify-between bg-slate-50 flex-shrink-0">
+                                  <div className="px-3 py-2 text-xs uppercase tracking-wide text-fg-subtle font-semibold border-b border-border flex items-center justify-between bg-surface-2 flex-shrink-0">
                                     <span>All {cat.label} options ({otherOptions.length})</span>
-                                    <button onClick={() => setShowOthers(prev => ({ ...prev, [catKey]: false }))} className="text-slate-400 hover:text-slate-700">
+                                    <button onClick={() => setShowOthers(prev => ({ ...prev, [catKey]: false }))} className="text-fg-subtle hover:text-fg-muted">
                                       <X size={12} />
                                     </button>
                                   </div>
@@ -4465,7 +4556,7 @@ export default function TransformerPage() {
                                           handleTransformChange(catKey, opt.id);
                                           setShowOthers(prev => ({ ...prev, [catKey]: false }));
                                         }}
-                                        className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-slate-50 ${
+                                        className={`w-full text-left px-3 py-2 flex items-center gap-2 text-sm hover:bg-surface-2 ${
                                           selected === opt.id ? "bg-violet-50" : ""
                                         }`}
                                       >
@@ -4498,7 +4589,7 @@ export default function TransformerPage() {
               <span className={`${CHIP_CLS} bg-amber-50 text-amber-700`}>Awaiting confirmation</span>
             )) : null,
             (!buildOptionsPresent ? (
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-fg-muted">
                 {hasSelections
                   ? "No build-tool choices are required for the selected target stack."
                   : "Choose a target stack first to see build-tool options."}
@@ -4507,9 +4598,9 @@ export default function TransformerPage() {
               <div data-testid="build-system-picker" className="space-y-3">
                 {Object.entries(buildToolOptions).map(([component, tools]) => (
                   <div key={component} data-testid={`build-tool-row-${component}`} className="flex items-center gap-3 flex-wrap">
-                    <span className="text-sm font-medium text-slate-700 w-24 capitalize">{component}</span>
-                    <span className="text-xs text-slate-400 font-mono">{selectedTransforms[component]}</span>
-                    <span className="text-slate-300">→</span>
+                    <span className="text-sm font-medium text-fg-muted w-24 capitalize">{component}</span>
+                    <span className="text-xs text-fg-subtle font-mono">{selectedTransforms[component]}</span>
+                    <span className="text-fg-subtle">→</span>
                     <select
                       data-testid={`build-tool-select-${component}`}
                       value={selectedBuildTools[component] || tools[0]}
@@ -4518,7 +4609,7 @@ export default function TransformerPage() {
                         setSelectedBuildTools((prev) => ({ ...prev, [component]: v }));
                         setBuildToolsConfirmed(false);
                       }}
-                      className={`text-sm border border-slate-200 rounded-lg px-2 py-1.5 bg-white ${FOCUS_RING}`}
+                      className={`text-sm border border-border rounded-lg px-2 py-1.5 bg-surface ${FOCUS_RING}`}
                     >
                       {tools.map((t, idx) => (
                         <option key={t} value={t}>{t}{idx === 0 ? " (recommended)" : ""}</option>
@@ -4536,7 +4627,7 @@ export default function TransformerPage() {
                     <Check size={14} />
                     {buildToolsConfirmed ? "Confirmed" : "Confirm build system"}
                   </button>
-                  <span className="text-xs text-slate-500">Required — the Planner will not start until confirmed.</span>
+                  <span className="text-xs text-fg-subtle">Required — the Planner will not start until confirmed.</span>
                 </div>
               </div>
             ))
@@ -4547,14 +4638,14 @@ export default function TransformerPage() {
             (
               <div className="space-y-4">
                 <div className="flex items-center gap-3">
-                  <span className="text-xs font-medium text-slate-600">Pipeline mode</span>
-                  <div className="inline-flex rounded-lg border border-slate-200 p-0.5 bg-slate-50">
+                  <span className="text-xs font-medium text-fg-muted">Pipeline mode</span>
+                  <div className="inline-flex rounded-lg border border-border p-0.5 bg-surface-2">
                     {[["multi_agent", "Multi-agent"], ["single", "Single agent"]].map(([val, lbl]) => (
                       <button
                         key={val}
                         onClick={() => setPipelineMode(val)}
                         className={`px-3 py-1.5 rounded-md text-xs font-medium transition-all duration-200 ${
-                          pipelineMode === val ? "bg-violet-600 text-white" : "text-slate-600 hover:text-slate-900"
+                          pipelineMode === val ? "bg-violet-600 text-white" : "text-fg-muted hover:text-fg"
                         }`}
                       >
                         {lbl}
@@ -4596,9 +4687,9 @@ export default function TransformerPage() {
 
   const renderAgentRail = () => (
     <div className="h-full flex flex-col">
-      <div className="px-3 py-3 border-b border-slate-100 flex items-center gap-2 flex-shrink-0">
+      <div className="px-3 py-3 border-b border-border flex items-center gap-2 flex-shrink-0">
         <Network size={14} className="text-violet-500" />
-        <span className="text-sm font-semibold text-slate-800">Pipeline</span>
+        <span className="text-sm font-semibold text-fg">Pipeline</span>
       </div>
       <div className="flex-1 overflow-y-auto p-2 space-y-1.5 min-h-0">
         {AGENT_ORDER.map((agent) => {
@@ -4614,18 +4705,18 @@ export default function TransformerPage() {
             : st === "running" ? "bg-violet-500 text-white"
               : st === "failed" ? "bg-red-500 text-white"
                 : st === "awaiting" ? "bg-amber-500 text-white"
-                  : "bg-slate-300 text-white";
+                  : "bg-surface-3 text-white";
           const bar = st === "completed" ? "bg-emerald-500 w-full"
             : st === "running" ? "bg-violet-500 w-2/3 motion-safe:animate-pulse"
               : st === "awaiting" ? "bg-amber-500 w-1/2"
                 : st === "failed" ? "bg-red-500 w-full"
-                  : st === "stopped" ? "bg-slate-400 w-1/3"
-                    : "bg-slate-200 w-0";
+                  : st === "stopped" ? "bg-fg-subtle w-1/3"
+                    : "bg-surface-3 w-0";
           return (
             <div
               key={agent}
               className={`relative rounded-lg border border-l-4 ${leftBorder} transition-all duration-200 ${
-                isSelected ? "bg-violet-50 border-violet-200" : "bg-white border-slate-200 hover:bg-slate-50"
+                isSelected ? "bg-violet-50 border-violet-200" : "bg-surface border-border hover:bg-surface-2"
               }`}
             >
               <button
@@ -4641,23 +4732,23 @@ export default function TransformerPage() {
                     {renderAgentNodeIcon(st, 14)}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-sm font-medium text-slate-800 truncate flex items-center gap-1.5">
+                    <div className="text-sm font-medium text-fg truncate flex items-center gap-1.5">
                       {AGENT_META[agent].shortLabel}
                       {agentOverrideFlags[agent] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" title="Overridden for this run" />}
                     </div>
-                    <div className="text-xs text-slate-500 capitalize truncate">
+                    <div className="text-xs text-fg-subtle capitalize truncate">
                       {st}{st === "awaiting" ? " · review" : ""}
                     </div>
                   </div>
                 </div>
-                <div className="mt-1.5 h-1 rounded-full bg-slate-100 overflow-hidden">
+                <div className="mt-1.5 h-1 rounded-full bg-surface-2 overflow-hidden">
                   <div className={`h-full rounded-full transition-[width] duration-500 ${bar}`} />
                 </div>
               </button>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); openAgentConfig(agent); }}
-                className={`absolute top-2 right-2 w-6 h-6 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center ${FOCUS_RING}`}
+                className={`absolute top-2 right-2 w-6 h-6 rounded-md text-fg-subtle hover:text-fg-muted hover:bg-surface-2 flex items-center justify-center ${FOCUS_RING}`}
                 title={`Configure ${AGENT_META[agent].label}`}
                 aria-label={`Configure ${AGENT_META[agent].label}`}
               >
@@ -4679,14 +4770,14 @@ export default function TransformerPage() {
           : st === "running" ? "bg-violet-500 text-white"
             : st === "failed" ? "bg-red-500 text-white"
               : st === "awaiting" ? "bg-amber-500 text-white"
-                : "bg-slate-300 text-white";
+                : "bg-surface-3 text-white";
         return (
           <button
             key={agent}
             onClick={() => handleSelectAgentTab(agent)}
             data-testid={`agent-pipeline-node-${agent}`}
             className={`flex items-center gap-2 rounded-lg border px-3 py-2 flex-shrink-0 ${FOCUS_RING} ${
-              isSelected ? "border-violet-300 bg-violet-50" : "border-slate-200 bg-white hover:bg-slate-50"
+              isSelected ? "border-violet-300 bg-violet-50" : "border-border bg-surface hover:bg-surface-2"
             }`}
             title={AGENT_META[agent].label}
             aria-label={`Inspect ${AGENT_META[agent].label} (${st})`}
@@ -4694,7 +4785,7 @@ export default function TransformerPage() {
             <span className={`w-6 h-6 rounded-md flex items-center justify-center ${iconTone}`}>
               {renderAgentNodeIcon(st, 12)}
             </span>
-            <span className="text-sm font-medium text-slate-700">{AGENT_META[agent].shortLabel}</span>
+            <span className="text-sm font-medium text-fg-muted">{AGENT_META[agent].shortLabel}</span>
             {agentOverrideFlags[agent] && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
           </button>
         );
@@ -4703,8 +4794,8 @@ export default function TransformerPage() {
   );
 
   const renderCenterWorkspace = () => (
-    <div className="h-full flex flex-col bg-white min-h-0">
-      <div className="border-b border-slate-100 px-3 flex items-center gap-1 overflow-x-auto flex-shrink-0">
+    <div className="h-full flex flex-col bg-surface min-h-0">
+      <div className="border-b border-border px-3 flex items-center gap-1 overflow-x-auto flex-shrink-0">
         {CENTER_TABS.map((t) => {
           const activeTab = centerTab === t.key;
           const count = t.key === "envelopes" ? envelopes.length
@@ -4716,7 +4807,7 @@ export default function TransformerPage() {
               key={t.key}
               onClick={() => handleSelectAgentTab(t.agent)}
               className={`relative px-3 py-3 text-sm font-medium whitespace-nowrap transition-colors rounded ${FOCUS_RING} ${
-                activeTab ? "text-violet-700" : "text-slate-500 hover:text-slate-800"
+                activeTab ? "text-violet-700" : "text-fg-subtle hover:text-fg"
               }`}
               aria-current={activeTab ? "page" : undefined}
               title={
@@ -4732,7 +4823,7 @@ export default function TransformerPage() {
               <span className="flex items-center gap-1.5">
                 {t.label}
                 {count != null && count > 0 && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${activeTab ? "bg-violet-100 text-violet-700" : "bg-slate-100 text-slate-500"}`}>
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold ${activeTab ? "bg-violet-100 text-violet-700" : "bg-surface-2 text-fg-subtle"}`}>
                     {count}
                   </span>
                 )}
@@ -4749,7 +4840,7 @@ export default function TransformerPage() {
           <Settings2 size={13} /> Configure
         </button>
       </div>
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50/40 min-h-0">
+      <div className="flex-1 overflow-y-auto p-4 bg-surface-2/40 min-h-0">
         {centerTab === "overview" && renderSuperAgentPanel()}
         {centerTab === "files" && renderCoderPlannerStacked()}
         {centerTab === "planner" && renderPlannerPanel()}
@@ -4763,12 +4854,12 @@ export default function TransformerPage() {
     const st = getAgentNodeStatus(selectedAgentTab);
     const recent = [...agentTimeline].slice(-8).reverse();
     return (
-      <div className="h-full flex flex-col bg-white min-h-0">
-        <div className="px-3 py-3 border-b border-slate-100 flex items-center justify-between flex-shrink-0">
-          <span className="text-sm font-semibold text-slate-800">Activity</span>
+      <div className="h-full flex flex-col bg-surface min-h-0">
+        <div className="px-3 py-3 border-b border-border flex items-center justify-between flex-shrink-0">
+          <span className="text-sm font-semibold text-fg">Activity</span>
           <button
             onClick={() => setActivityCollapsed(true)}
-            className={`w-7 h-7 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-100 flex items-center justify-center ${FOCUS_RING}`}
+            className={`w-7 h-7 rounded-md text-fg-subtle hover:text-fg-muted hover:bg-surface-2 flex items-center justify-center ${FOCUS_RING}`}
             aria-label="Collapse activity rail"
             title="Collapse"
           >
@@ -4782,19 +4873,19 @@ export default function TransformerPage() {
                 <Bot size={16} />
               </div>
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-800 truncate">{selectedAgentMeta.label}</div>
-                <div className="text-xs text-slate-500 capitalize">{st}</div>
+                <div className="text-sm font-semibold text-fg truncate">{selectedAgentMeta.label}</div>
+                <div className="text-xs text-fg-subtle capitalize">{st}</div>
               </div>
             </div>
-            <p className="text-xs text-slate-600">{selectedAgentMeta.description}</p>
+            <p className="text-xs text-fg-muted">{selectedAgentMeta.description}</p>
             <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
               <div>
-                <div className="text-slate-500">Elapsed</div>
-                <div className="font-semibold text-slate-800 tabular-nums">{formatElapsed(elapsedMs)}</div>
+                <div className="text-fg-subtle">Elapsed</div>
+                <div className="font-semibold text-fg tabular-nums">{formatElapsed(elapsedMs)}</div>
               </div>
               <div>
-                <div className="text-slate-500">Override</div>
-                <div className="font-semibold text-slate-800">{agentOverrideFlags[selectedAgentTab] ? "Yes" : "No"}</div>
+                <div className="text-fg-subtle">Override</div>
+                <div className="font-semibold text-fg">{agentOverrideFlags[selectedAgentTab] ? "Yes" : "No"}</div>
               </div>
             </div>
             <button
@@ -4833,15 +4924,15 @@ export default function TransformerPage() {
           {selectedAgentTab === "tester" && testerProgress && (
             <div className={`${CARD_CLS} p-4`} data-testid="tester-live-panel">
               <div className="flex items-center justify-between gap-2 mb-3">
-                <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                <div className="text-sm font-semibold text-fg flex items-center gap-1.5">
                   <FlaskConical size={14} className="text-violet-600" /> Test generation
                 </div>
-                <span className="text-xs tabular-nums text-slate-500">
+                <span className="text-xs tabular-nums text-fg-subtle">
                   {(testerProgress.done || 0)}/{(testerProgress.total || 0)}
                 </span>
               </div>
               {/* Overall progress bar */}
-              <div className="h-1.5 rounded-full bg-slate-100 overflow-hidden mb-1">
+              <div className="h-1.5 rounded-full bg-surface-2 overflow-hidden mb-1">
                 <div
                   className="h-full bg-violet-500 transition-[width] duration-500"
                   style={{
@@ -4851,7 +4942,7 @@ export default function TransformerPage() {
                   }}
                 />
               </div>
-              <div className="flex items-center justify-between text-[11px] text-slate-500 mb-3">
+              <div className="flex items-center justify-between text-micro text-fg-subtle mb-3">
                 <span>
                   {testerProgress.completed_at
                     ? `Completed in ${Math.round((testerProgress.duration_ms || 0) / 1000)}s`
@@ -4876,11 +4967,11 @@ export default function TransformerPage() {
                     : "bg-amber-500";
                   return (
                     <div key={tier} data-testid={`tester-tier-${tier}`}>
-                      <div className="flex items-center justify-between text-[11px] mb-0.5">
-                        <span className="text-slate-600 capitalize font-medium">{tier}</span>
-                        <span className="tabular-nums text-slate-500">{done}/{total}</span>
+                      <div className="flex items-center justify-between text-micro mb-0.5">
+                        <span className="text-fg-muted capitalize font-medium">{tier}</span>
+                        <span className="tabular-nums text-fg-subtle">{done}/{total}</span>
                       </div>
-                      <div className="h-1 rounded-full bg-slate-100 overflow-hidden">
+                      <div className="h-1 rounded-full bg-surface-2 overflow-hidden">
                         <div className={`h-full ${tone} transition-[width] duration-500`} style={{ width: `${pct}%` }} />
                       </div>
                     </div>
@@ -4891,15 +4982,15 @@ export default function TransformerPage() {
               {/* In-flight tests */}
               {(testerProgress.in_flight?.length || 0) > 0 && (
                 <div className="mb-3">
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">Generating now</div>
+                  <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-1.5">Generating now</div>
                   <div className="space-y-1">
                     {testerProgress.in_flight.slice(0, 6).map((slot, i) => (
                       <div key={slot.key || i} className="flex items-center gap-2 rounded-md bg-violet-50 border border-violet-100 px-2 py-1.5">
                         <Loader2 size={11} className="text-violet-600 animate-spin flex-shrink-0" />
-                        <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-white text-[10px] font-medium text-violet-700 border border-violet-200 uppercase tracking-wide">
+                        <span className="inline-flex items-center h-4 px-1.5 rounded-full bg-surface text-micro font-medium text-violet-700 border border-violet-200 uppercase tracking-wide">
                           {slot.tier}
                         </span>
-                        <span className="text-xs text-slate-700 font-mono truncate">{slot.envelope}</span>
+                        <span className="text-xs text-fg-muted font-mono truncate">{slot.envelope}</span>
                       </div>
                     ))}
                   </div>
@@ -4909,19 +5000,19 @@ export default function TransformerPage() {
               {/* Recent completions */}
               {(testerProgress.recent?.length || 0) > 0 && (
                 <div>
-                  <div className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold mb-1.5">Latest files</div>
+                  <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-1.5">Latest files</div>
                   <div className="space-y-1 max-h-56 overflow-y-auto">
                     {[...(testerProgress.recent || [])].reverse().slice(0, 12).map((row, i) => {
                       const tone = row.tier === "business" ? "text-emerald-700 bg-emerald-50 border-emerald-200"
                         : row.tier === "api" ? "text-violet-700 bg-violet-50 border-violet-200"
                         : "text-amber-700 bg-amber-50 border-amber-200";
                       return (
-                        <div key={i} className="flex items-center gap-2 rounded-md border border-slate-100 bg-white px-2 py-1">
+                        <div key={i} className="flex items-center gap-2 rounded-md border border-border bg-surface px-2 py-1">
                           <Check size={11} className="text-emerald-500 flex-shrink-0" />
-                          <span className={`inline-flex items-center h-4 px-1.5 rounded-full text-[10px] font-medium border uppercase tracking-wide ${tone}`}>
+                          <span className={`inline-flex items-center h-4 px-1.5 rounded-full text-micro font-medium border uppercase tracking-wide ${tone}`}>
                             {row.tier}
                           </span>
-                          <span className="text-xs text-slate-700 font-mono truncate flex-1" title={row.path}>{row.path.split("/").slice(-2).join("/")}</span>
+                          <span className="text-xs text-fg-muted font-mono truncate flex-1" title={row.path}>{row.path.split("/").slice(-2).join("/")}</span>
                         </div>
                       );
                     })}
@@ -4932,17 +5023,17 @@ export default function TransformerPage() {
           )}
           {selectedAgentTab === "tester" && !testerProgress && status === "running" && (
             <div className={`${CARD_CLS} p-4`}>
-              <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5 mb-1">
+              <div className="text-sm font-semibold text-fg flex items-center gap-1.5 mb-1">
                 <FlaskConical size={14} className="text-violet-600" /> Test generation
               </div>
-              <div className="text-xs text-slate-500">Waiting for tester to start — no progress reported yet.</div>
+              <div className="text-xs text-fg-subtle">Waiting for tester to start — no progress reported yet.</div>
             </div>
           )}
 
           {/* iter-15.59 — Tester-embedded Compile Console + Test Report */}
           {selectedAgentTab === "tester" && (compileFixProgress || compilationResult) && (
             <div className={`${CARD_CLS} p-4`} data-testid="tester-compile-panel">
-              <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5 mb-2">
+              <div className="text-sm font-semibold text-fg flex items-center gap-1.5 mb-2">
                 <TerminalSquare size={14} className="text-blue-500" /> Compile Console
               </div>
               {compileFixProgress && (
@@ -4965,11 +5056,11 @@ export default function TransformerPage() {
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-600 mt-1 break-words">
+                  <div className="text-micro text-fg-muted mt-1 break-words">
                     {compileFixProgress.message || ""}
                   </div>
                   {compileFixProgress.current_file && (
-                    <div className="text-[10px] text-slate-500 font-mono truncate mt-1">
+                    <div className="text-micro text-fg-subtle font-mono truncate mt-1">
                       ↳ {compileFixProgress.current_file}
                     </div>
                   )}
@@ -4981,18 +5072,18 @@ export default function TransformerPage() {
                     compilationResult.compilation_ready
                       ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"
                   }`}>
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500">Score</div>
+                    <div className="text-micro uppercase tracking-wide text-fg-subtle">Score</div>
                     <div className={`text-sm font-bold ${
                       compilationResult.compilation_ready ? "text-emerald-700" : "text-red-700"
                     }`}>{compilationResult.overall_score ?? 0}%</div>
                   </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500">Iterations</div>
-                    <div className="text-sm font-bold text-slate-800">{compilationResult.iterations_used || 1}</div>
+                  <div className="rounded-lg border border-border bg-surface p-2">
+                    <div className="text-micro uppercase tracking-wide text-fg-subtle">Iterations</div>
+                    <div className="text-sm font-bold text-fg">{compilationResult.iterations_used || 1}</div>
                   </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-2">
-                    <div className="text-[10px] uppercase tracking-wide text-slate-500">Components</div>
-                    <div className="text-sm font-bold text-slate-800">{(compilationResult.components || []).length}</div>
+                  <div className="rounded-lg border border-border bg-surface p-2">
+                    <div className="text-micro uppercase tracking-wide text-fg-subtle">Components</div>
+                    <div className="text-sm font-bold text-fg">{(compilationResult.components || []).length}</div>
                   </div>
                 </div>
               )}
@@ -5005,12 +5096,12 @@ export default function TransformerPage() {
               decides the run's final status, so it has to be visible and
               it has to say what it wants changed. */}
           {selectedAgentTab === "tester" && dependencyAudit && (
-            <div className="rounded-xl border border-[#E6E6E6] bg-white p-3 space-y-2">
+            <div className="rounded-xl border border-border bg-surface p-3 space-y-2">
               <div className="flex items-center justify-between">
-                <div className="text-xs font-display font-bold text-[#2E2E38]">DevOps — Dependency Audit</div>
+                <div className="text-xs font-display font-bold text-fg">DevOps — Dependency Audit</div>
                 <span
                   data-testid="devops-audit-verdict"
-                  className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded-sm ${
+                  className={`text-micro uppercase font-bold px-2 py-0.5 rounded-sm ${
                     dependencyAudit.production_ready
                       ? "bg-emerald-100 text-emerald-700"
                       : "bg-red-100 text-red-700"
@@ -5021,26 +5112,26 @@ export default function TransformerPage() {
               </div>
 
               {dependencyAudit.summary && (
-                <div className="text-[11px] text-slate-600 break-words">{dependencyAudit.summary}</div>
+                <div className="text-micro text-fg-muted break-words">{dependencyAudit.summary}</div>
               )}
 
               {/* What the agent actually did about it — the audit is no
                   longer a read-only opinion. */}
               {(dependencyAudit.remediation_rounds || []).length > 0 && (
-                <div className="rounded-lg border border-slate-200 bg-slate-50 p-2 space-y-1">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500">
+                <div className="rounded-lg border border-border bg-surface-2 p-2 space-y-1">
+                  <div className="text-micro uppercase tracking-wide text-fg-subtle">
                     Remediation — {dependencyAudit.remediation_rounds_used || 0} round(s)
                   </div>
                   {(dependencyAudit.remediation_rounds || []).map((r) => (
-                    <div key={r.round} className="text-[10px] text-slate-600 flex items-baseline gap-1.5">
-                      <span className="font-mono text-slate-400">#{r.round}</span>
+                    <div key={r.round} className="text-micro text-fg-muted flex items-baseline gap-1.5">
+                      <span className="font-mono text-fg-subtle">#{r.round}</span>
                       <span className="font-semibold">{r.status}</span>
                       {typeof r.findings_before === "number" && (
-                        <span className="text-slate-500">
+                        <span className="text-fg-subtle">
                           {r.findings_before} → {r.findings_after} finding(s)
                         </span>
                       )}
-                      {r.summary && <span className="text-slate-500 break-words">{r.summary}</span>}
+                      {r.summary && <span className="text-fg-subtle break-words">{r.summary}</span>}
                     </div>
                   ))}
                 </div>
@@ -5053,18 +5144,18 @@ export default function TransformerPage() {
                     const tone =
                       sev === "critical" ? "border-red-200 bg-red-50 text-red-700"
                         : sev === "major" ? "border-amber-200 bg-amber-50 text-amber-700"
-                          : "border-slate-200 bg-slate-50 text-slate-600";
+                          : "border-border bg-surface-2 text-fg-muted";
                     return (
                       <div key={`${f.manifest}-${i}`} className={`rounded-md border p-2 ${tone}`}>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[9px] uppercase font-bold">{sev || "note"}</span>
+                          <span className="text-micro uppercase font-bold">{sev || "note"}</span>
                           {f.manifest && (
-                            <span className="text-[10px] font-mono text-slate-500 truncate">{f.manifest}</span>
+                            <span className="text-micro font-mono text-fg-subtle truncate">{f.manifest}</span>
                           )}
                         </div>
-                        <div className="text-[11px] mt-0.5 break-words">{f.issue}</div>
+                        <div className="text-micro mt-0.5 break-words">{f.issue}</div>
                         {f.fix && (
-                          <div className="text-[10px] mt-0.5 text-slate-600 break-words">
+                          <div className="text-micro mt-0.5 text-fg-muted break-words">
                             <span className="font-semibold">Fix: </span>{f.fix}
                           </div>
                         )}
@@ -5073,7 +5164,7 @@ export default function TransformerPage() {
                   })}
                 </div>
               ) : (
-                <div className="text-[11px] text-slate-500">
+                <div className="text-micro text-fg-subtle">
                   No outstanding manifest findings.
                 </div>
               )}
@@ -5104,7 +5195,7 @@ export default function TransformerPage() {
             return (
               <div className={`${CARD_CLS} p-4`} data-testid="tester-report-panel">
                 <div className="flex items-center justify-between mb-3">
-                  <div className="text-sm font-semibold text-slate-800 flex items-center gap-1.5">
+                  <div className="text-sm font-semibold text-fg flex items-center gap-1.5">
                     <FlaskConical size={14} className="text-violet-600" /> Test Report
                   </div>
                   <div className={`text-xs font-bold px-2 py-0.5 rounded-full ${
@@ -5117,21 +5208,21 @@ export default function TransformerPage() {
                 </div>
 
                 <div className="grid grid-cols-4 gap-2 mb-3 text-center">
-                  <div className="rounded-lg bg-slate-50 border border-slate-200 p-2">
-                    <div className="text-[10px] uppercase text-slate-500">Total</div>
-                    <div className="text-sm font-bold text-slate-800">{totals.total}</div>
+                  <div className="rounded-lg bg-surface-2 border border-border p-2">
+                    <div className="text-micro uppercase text-fg-subtle">Total</div>
+                    <div className="text-sm font-bold text-fg">{totals.total}</div>
                   </div>
                   <div className="rounded-lg bg-emerald-50 border border-emerald-200 p-2">
-                    <div className="text-[10px] uppercase text-emerald-700">Passed</div>
+                    <div className="text-micro uppercase text-emerald-700">Passed</div>
                     <div className="text-sm font-bold text-emerald-700">{totals.passed}</div>
                   </div>
                   <div className="rounded-lg bg-red-50 border border-red-200 p-2">
-                    <div className="text-[10px] uppercase text-red-700">Failed</div>
+                    <div className="text-micro uppercase text-red-700">Failed</div>
                     <div className="text-sm font-bold text-red-700">{totals.failed}</div>
                   </div>
-                  <div className="rounded-lg bg-slate-100 border border-slate-200 p-2">
-                    <div className="text-[10px] uppercase text-slate-500">Skipped</div>
-                    <div className="text-sm font-bold text-slate-600">{totals.skipped}</div>
+                  <div className="rounded-lg bg-surface-2 border border-border p-2">
+                    <div className="text-micro uppercase text-fg-subtle">Skipped</div>
+                    <div className="text-sm font-bold text-fg-muted">{totals.skipped}</div>
                   </div>
                 </div>
 
@@ -5141,17 +5232,17 @@ export default function TransformerPage() {
                     const w = bar(b);
                     return (
                       <div key={t.key} data-testid={`tester-report-tier-${t.key}`}>
-                        <div className="flex items-center justify-between text-[11px] mb-1">
-                          <span className="font-medium text-slate-700">{t.label}</span>
-                          <span className="text-slate-500">
+                        <div className="flex items-center justify-between text-micro mb-1">
+                          <span className="font-medium text-fg-muted">{t.label}</span>
+                          <span className="text-fg-subtle">
                             {b.passed}/{b.total} passed{b.failed ? ` · ${b.failed} failed` : ""}
                             {b.skipped ? ` · ${b.skipped} skipped` : ""}
                           </span>
                         </div>
-                        <div className="w-full h-2.5 rounded-full bg-slate-100 overflow-hidden flex">
+                        <div className="w-full h-2.5 rounded-full bg-surface-2 overflow-hidden flex">
                           <div className="bg-emerald-500 h-full" style={{ width: `${w.p}%` }} />
                           <div className="bg-red-500 h-full" style={{ width: `${w.f}%` }} />
-                          <div className="bg-slate-400 h-full" style={{ width: `${w.s}%` }} />
+                          <div className="bg-fg-subtle h-full" style={{ width: `${w.s}%` }} />
                         </div>
                       </div>
                     );
@@ -5160,17 +5251,17 @@ export default function TransformerPage() {
 
                 {Array.isArray(tr.cases) && tr.cases.filter((c) => c.status === "failed").length > 0 && (
                   <div>
-                    <div className="text-[10px] uppercase tracking-wide text-red-700 font-semibold mb-1">
+                    <div className="text-micro uppercase tracking-wide text-red-700 font-semibold mb-1">
                       Failing tests ({tr.cases.filter((c) => c.status === "failed").length})
                     </div>
                     <div className="space-y-1 max-h-40 overflow-auto">
                       {tr.cases.filter((c) => c.status === "failed").slice(0, 12).map((c, i) => (
                         <div key={i} className="rounded border border-red-100 bg-red-50 px-2 py-1.5">
-                          <div className="text-[11px] font-mono text-red-800 truncate">
+                          <div className="text-micro font-mono text-red-800 truncate">
                             {c.classname ? `${c.classname}.` : ""}{c.name}
                           </div>
                           {c.message && (
-                            <div className="text-[10px] text-red-600 truncate mt-0.5">{c.message}</div>
+                            <div className="text-micro text-red-600 truncate mt-0.5">{c.message}</div>
                           )}
                         </div>
                       ))}
@@ -5182,9 +5273,9 @@ export default function TransformerPage() {
           })()}
 
           <div>
-            <div className="text-xs uppercase tracking-wide text-slate-500 font-semibold mb-2 px-1">Recent activity</div>
+            <div className="text-xs uppercase tracking-wide text-fg-subtle font-semibold mb-2 px-1">Recent activity</div>
             {recent.length === 0 ? (
-              <div className="text-xs text-slate-500 px-1">No agent events yet.</div>
+              <div className="text-xs text-fg-subtle px-1">No agent events yet.</div>
             ) : (
               <div className="space-y-1.5">
                 {recent.map((row, i) => {
@@ -5192,13 +5283,13 @@ export default function TransformerPage() {
                   const dot = (rs === "completed" || rs === "done") ? "bg-emerald-500"
                     : (rs === "running" || rs === "in_progress") ? "bg-violet-500"
                       : rs === "failed" ? "bg-red-500"
-                        : "bg-slate-300";
+                        : "bg-surface-3";
                   return (
-                    <div key={i} className="flex items-start gap-2 rounded-lg border border-slate-100 bg-white px-2.5 py-2">
+                    <div key={i} className="flex items-start gap-2 rounded-lg border border-border bg-surface px-2.5 py-2">
                       <span className={`w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${dot}`} />
                       <div className="min-w-0">
-                        <div className="text-xs font-medium text-slate-700 truncate">{AGENT_META[row.agent]?.label || row.agent}</div>
-                        {row.output_summary && <div className="text-xs text-slate-500 line-clamp-2">{toSafeText(row.output_summary)}</div>}
+                        <div className="text-xs font-medium text-fg-muted truncate">{AGENT_META[row.agent]?.label || row.agent}</div>
+                        {row.output_summary && <div className="text-xs text-fg-subtle line-clamp-2">{toSafeText(row.output_summary)}</div>}
                       </div>
                     </div>
                   );
@@ -5227,18 +5318,18 @@ export default function TransformerPage() {
             <PanelGroup
               key={activityCollapsed ? "collapsed" : "expanded"}
               direction="horizontal"
-              className="h-full rounded-xl border border-slate-200 bg-white shadow-sm overflow-hidden"
+              className="h-full rounded-xl border border-border bg-surface shadow-sm overflow-hidden"
             >
               <Panel defaultSize={18} minSize={13} maxSize={26}>
-                <div className="h-full border-r border-slate-200">{renderAgentRail()}</div>
+                <div className="h-full border-r border-border">{renderAgentRail()}</div>
               </Panel>
-              <PanelResizeHandle className="w-1 bg-slate-100 hover:bg-violet-300 transition-colors" />
+              <PanelResizeHandle className="w-1 bg-surface-2 hover:bg-violet-300 transition-colors" />
               <Panel minSize={30}>{renderCenterWorkspace()}</Panel>
               {!activityCollapsed && (
                 <>
-                  <PanelResizeHandle className="w-1 bg-slate-100 hover:bg-violet-300 transition-colors" />
+                  <PanelResizeHandle className="w-1 bg-surface-2 hover:bg-violet-300 transition-colors" />
                   <Panel defaultSize={24} minSize={16} maxSize={34}>
-                    <div className="h-full border-l border-slate-200">{renderActivityRail()}</div>
+                    <div className="h-full border-l border-border">{renderActivityRail()}</div>
                   </Panel>
                 </>
               )}
@@ -5262,9 +5353,9 @@ export default function TransformerPage() {
       <div className="space-y-4">
         {orphanBanner}
         <div className={`${CARD_CLS} overflow-hidden`}>
-          <div className="px-4 py-3 border-b border-slate-100 flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-border flex items-center gap-2">
             <Network size={14} className="text-violet-500" />
-            <span className="text-sm font-semibold text-slate-800">Pipeline</span>
+            <span className="text-sm font-semibold text-fg">Pipeline</span>
             <button
               onClick={() => setActivityCollapsed((v) => !v)}
               className={`ml-auto ${BTN_OUTLINE} h-8 px-3 text-xs`}
@@ -5288,7 +5379,7 @@ export default function TransformerPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-surface">
       <TransformerHeader
         title={name || "Code Transformer"}
         subtitle="KB-driven cross-stack transformation"
@@ -5330,29 +5421,29 @@ export default function TransformerPage() {
           {showAgentWorkspace ? renderRunningWorkspace() : renderInputFlow()}
           {/* iter-15.19 — Agent Pipeline config panel (click-through modal) */}
           {agentConfigAgent && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={closeAgentConfig}>
-              <div
-                className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
+            <div aria-hidden="true" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={closeAgentConfig}>
+              <div role="presentation"
+                className="bg-surface rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
                 onClick={(e) => e.stopPropagation()}
               >
-                <div className="px-5 py-3 border-b border-gray-100 flex items-center gap-2">
+                <div className="px-5 py-3 border-b border-border flex items-center gap-2">
                   <Settings2 size={16} className="text-violet-600" />
-                  <h3 className="text-sm font-semibold text-gray-800">
+                  <h3 className="text-sm font-semibold text-fg">
                     {agentConfigData?.label || agentConfigAgent} — Prompt &amp; Model
                   </h3>
                   {agentConfigData?.is_overridden && (
-                    <span className="text-[10px] uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                    <span className="text-micro uppercase tracking-wide px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
                       Overridden for this transformation
                     </span>
                   )}
-                  <button onClick={closeAgentConfig} className="ml-auto text-slate-400 hover:text-slate-600">
+                  <button onClick={closeAgentConfig} className="ml-auto text-fg-subtle hover:text-fg-muted">
                     <X size={18} />
                   </button>
                 </div>
 
                 <div className="px-5 py-4 overflow-y-auto flex-1 space-y-4">
                   {agentConfigLoading && (
-                    <div className="flex items-center gap-2 text-sm text-slate-500 py-8 justify-center">
+                    <div className="flex items-center gap-2 text-sm text-fg-subtle py-8 justify-center">
                       <Loader2 size={16} className="animate-spin" /> Loading agent config...
                     </div>
                   )}
@@ -5364,32 +5455,32 @@ export default function TransformerPage() {
                   {!agentConfigLoading && agentConfigData && (
                     <>
                       {agentConfigData.llm_backed === false && (
-                        <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                        <div className="text-micro text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
                           This agent is orchestration-only today — it does not yet call an LLM, so editing its
                           prompt/model here has no runtime effect. Saved for future-proofing.
                         </div>
                       )}
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-micro text-fg-subtle">
                         These changes apply <strong>only to this transformation</strong> ({transformId}) — the shared
-                        Prompt Library default (<code className="text-slate-600">{agentConfigData.prompt_key}</code>) is never modified.
+                        Prompt Library default (<code className="text-fg-muted">{agentConfigData.prompt_key}</code>) is never modified.
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-slate-700 mb-1 block">System Prompt</label>
+                        <label className="text-xs font-semibold text-fg-muted mb-1 block">System Prompt</label>
                         <textarea
                           value={agentConfigDraftPrompt}
                           onChange={(e) => setAgentConfigDraftPrompt(e.target.value)}
                           rows={12}
-                          className="w-full text-[11px] font-mono border border-slate-200 rounded-lg px-3 py-2 focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none resize-y"
+                          className="w-full text-micro font-mono border border-border rounded-lg px-3 py-2 focus:border-brand focus:ring-1 focus:ring-brand outline-none resize-y"
                         />
                       </div>
 
                       <div>
-                        <label className="text-xs font-semibold text-slate-700 mb-1 block">Model</label>
+                        <label className="text-xs font-semibold text-fg-muted mb-1 block">Model</label>
                         <select
                           value={agentConfigDraftModel}
                           onChange={(e) => setAgentConfigDraftModel(e.target.value)}
-                          className="text-[11px] border border-slate-200 rounded px-2 py-1.5 bg-white focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none w-full max-w-[320px]"
+                          className="text-micro border border-border rounded px-2 py-1.5 bg-surface focus:border-brand focus:ring-1 focus:ring-brand outline-none w-full max-w-[320px]"
                         >
                           <option value="">
                             {agentConfigData.run_default_model
@@ -5401,7 +5492,7 @@ export default function TransformerPage() {
                           ))}
                         </select>
                         {factoryEnabled && (
-                          <div className="text-[10px] text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-1 mt-1 flex items-center gap-1">
+                          <div className="text-micro text-violet-700 bg-violet-50 border border-violet-200 rounded px-2 py-1 mt-1 flex items-center gap-1">
                             <Bot size={11} /> Factory Droid is enabled for this project — showing Droid's model catalogue.
                             Console/Ollama model picks are ignored while Factory routing is active.
                           </div>
@@ -5411,18 +5502,18 @@ export default function TransformerPage() {
                   )}
                 </div>
 
-                <div className="px-5 py-3 border-t border-gray-100 flex items-center gap-2 flex-wrap">
+                <div className="px-5 py-3 border-t border-border flex items-center gap-2 flex-wrap">
                   <button
                     onClick={handleResetAgentConfig}
                     disabled={agentConfigSaving || agentConfigLoading || !agentConfigData?.is_overridden}
-                    className="px-3 py-2 text-xs font-medium text-slate-600 border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
+                    className="px-3 py-2 text-xs font-medium text-fg-muted border border-border rounded-lg hover:bg-surface-2 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1.5"
                   >
                     <RotateCcw size={13} /> Reset to default
                   </button>
                   <button
                     onClick={handleSaveAgentConfig}
                     disabled={agentConfigSaving || agentConfigLoading}
-                    className="px-3 py-2 text-xs font-semibold bg-[#2E2E38] text-white rounded-lg hover:bg-[#1f1f27] disabled:opacity-50 flex items-center gap-1.5"
+                    className="px-3 py-2 text-xs font-semibold bg-ink text-ink-fg rounded-lg hover:bg-ink disabled:opacity-50 flex items-center gap-1.5"
                   >
                     {agentConfigSaving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />}
                     Save
@@ -5431,7 +5522,7 @@ export default function TransformerPage() {
                     onClick={handleRerunPipeline}
                     disabled={rerunning || status === "running" || agentConfigLoading}
                     title={status === "running" ? "Pipeline is currently running" : "Rerun the whole pipeline with saved overrides"}
-                    className="px-3 py-2 text-xs font-semibold bg-[#FFE600] text-[#2E2E38] rounded-lg hover:bg-[#FFD500] disabled:opacity-50 flex items-center gap-1.5 ml-auto"
+                    className="px-3 py-2 text-xs font-semibold bg-brand text-fg rounded-lg hover:bg-brand-hover disabled:opacity-50 flex items-center gap-1.5 ml-auto"
                   >
                     {rerunning ? <Loader2 size={13} className="animate-spin" /> : <Play size={13} />}
                     Rerun Pipeline
@@ -5446,28 +5537,28 @@ export default function TransformerPage() {
               service → repository → DB vertical slice, business logic
               summary, external calls, and acceptance criteria. */}
           {selectedEnvelope && (
-            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setSelectedEnvelope(null)}>
-              <div
-                className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto"
+            <div aria-hidden="true" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setSelectedEnvelope(null)}>
+              <div role="presentation"
+                className="bg-surface rounded-xl shadow-2xl w-full max-w-2xl max-h-[85vh] overflow-y-auto"
                 onClick={(e) => e.stopPropagation()}
                 data-testid="envelope-detail-panel"
               >
-                <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3 sticky top-0 bg-white">
+                <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3 sticky top-0 bg-surface">
                   <div className="flex items-center gap-2 min-w-0">
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[9px] font-bold uppercase shrink-0 ${
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-micro font-bold uppercase shrink-0 ${
                       selectedEnvelope.endpoint_method === "GET" ? "bg-blue-100 text-blue-700" :
                       selectedEnvelope.endpoint_method === "POST" ? "bg-green-100 text-green-700" :
                       selectedEnvelope.endpoint_method === "PUT" ? "bg-amber-100 text-amber-700" :
                       selectedEnvelope.endpoint_method === "DELETE" ? "bg-red-100 text-red-700" :
-                      "bg-slate-100 text-slate-700"
+                      "bg-surface-2 text-fg-muted"
                     }`}>
                       {selectedEnvelope.endpoint_method || selectedEnvelope.layer || "INFRA"}
                     </span>
-                    <h3 className="text-sm font-mono font-semibold text-slate-800 truncate" title={selectedEnvelope.endpoint_path}>
+                    <h3 className="text-sm font-mono font-semibold text-fg truncate" title={selectedEnvelope.endpoint_path}>
                       {selectedEnvelope.endpoint_path || selectedEnvelope.controller_class || "Infrastructure component"}
                     </h3>
                   </div>
-                  <button onClick={() => setSelectedEnvelope(null)} className="text-slate-400 hover:text-slate-600 shrink-0">
+                  <button onClick={() => setSelectedEnvelope(null)} className="text-fg-subtle hover:text-fg-muted shrink-0">
                     <X size={18} />
                   </button>
                 </div>
@@ -5484,8 +5575,8 @@ export default function TransformerPage() {
                   )}
 
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Business logic</div>
-                    <p className="text-slate-700">{selectedEnvelope.business_logic_summary || "—"}</p>
+                    <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Business logic</div>
+                    <p className="text-fg-muted">{selectedEnvelope.business_logic_summary || "—"}</p>
                   </div>
 
                   {/* iter-15.30 — API Contract: request/response payload details.
@@ -5495,32 +5586,32 @@ export default function TransformerPage() {
                       details" gap. */}
                   {(selectedEnvelope.request || selectedEnvelope.response) && (
                     <div className="rounded-lg border border-indigo-100 bg-indigo-50/40 p-3">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-500 mb-2 flex items-center gap-1.5">
+                      <div className="text-micro font-semibold uppercase tracking-wide text-indigo-500 mb-2 flex items-center gap-1.5">
                         <FileJson size={12} /> API Contract
                       </div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Request payload</div>
-                          <div className="text-slate-800 font-mono text-xs">
+                          <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Request payload</div>
+                          <div className="text-fg font-mono text-xs">
                             {selectedEnvelope.request?.dto_class || "—"}
                           </div>
                           {selectedEnvelope.request?.framework && (
-                            <div className="text-slate-400 text-[10px] mt-0.5">framework: {selectedEnvelope.request.framework}</div>
+                            <div className="text-fg-subtle text-micro mt-0.5">framework: {selectedEnvelope.request.framework}</div>
                           )}
                           {selectedEnvelope.request?.note && (
-                            <div className="text-amber-600 text-[10px] mt-1">{selectedEnvelope.request.note}</div>
+                            <div className="text-amber-600 text-micro mt-1">{selectedEnvelope.request.note}</div>
                           )}
                         </div>
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Response payload</div>
-                          <div className="text-slate-800 font-mono text-xs">
+                          <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Response payload</div>
+                          <div className="text-fg font-mono text-xs">
                             {selectedEnvelope.response?.result_type || "—"}
                           </div>
                           {selectedEnvelope.response?.wrapper && (
-                            <div className="text-slate-400 text-[10px] mt-0.5">wrapped in: {selectedEnvelope.response.wrapper}</div>
+                            <div className="text-fg-subtle text-micro mt-0.5">wrapped in: {selectedEnvelope.response.wrapper}</div>
                           )}
                           {selectedEnvelope.response?.note && (
-                            <div className="text-amber-600 text-[10px] mt-1">{selectedEnvelope.response.note}</div>
+                            <div className="text-amber-600 text-micro mt-1">{selectedEnvelope.response.note}</div>
                           )}
                         </div>
                       </div>
@@ -5528,35 +5619,35 @@ export default function TransformerPage() {
                   )}
 
                   {(selectedEnvelope.service_layer?.service_impl || selectedEnvelope.data_layer?.repository_class || (selectedEnvelope.data_layer?.table_trace || []).length > 0) && (
-                    <div className="rounded-lg border border-slate-200 p-3">
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-2 flex items-center gap-1.5">
+                    <div className="rounded-lg border border-border p-3">
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-2 flex items-center gap-1.5">
                         <Network size={12} /> Full API → DB trace
                       </div>
                       <div className="grid grid-cols-2 gap-4 mb-2">
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Service layer</div>
-                          <div className="text-slate-700 font-mono text-xs">{selectedEnvelope.service_layer?.service_impl || "-"}</div>
+                          <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Service layer</div>
+                          <div className="text-fg-muted font-mono text-xs">{selectedEnvelope.service_layer?.service_impl || "-"}</div>
                           {selectedEnvelope.service_layer?.use_case_interface && (
-                            <div className="text-slate-400 text-[10px] font-mono truncate">implements {selectedEnvelope.service_layer.use_case_interface}</div>
+                            <div className="text-fg-subtle text-micro font-mono truncate">implements {selectedEnvelope.service_layer.use_case_interface}</div>
                           )}
                         </div>
                         <div>
-                          <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Data layer</div>
-                          <div className="text-slate-700 font-mono text-xs">{selectedEnvelope.data_layer?.repository_class || "-"}</div>
-                          <div className="text-slate-400 text-[10px] font-mono truncate">{selectedEnvelope.data_layer?.repository_file || ""}</div>
+                          <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Data layer</div>
+                          <div className="text-fg-muted font-mono text-xs">{selectedEnvelope.data_layer?.repository_class || "-"}</div>
+                          <div className="text-fg-subtle text-micro font-mono truncate">{selectedEnvelope.data_layer?.repository_file || ""}</div>
                         </div>
                       </div>
                       {(selectedEnvelope.data_layer?.table_trace || []).length > 0 && (
-                        <div className="space-y-1.5 mt-2 pt-2 border-t border-slate-100">
+                        <div className="space-y-1.5 mt-2 pt-2 border-t border-border">
                           {selectedEnvelope.data_layer.table_trace.map((hop, i) => (
                             <div key={i} className="flex items-start gap-2 text-xs">
-                              <span className="px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase text-[9px] tracking-wide flex-shrink-0">
+                              <span className="px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted font-semibold uppercase text-micro tracking-wide flex-shrink-0">
                                 {hop.layer || `hop ${i + 1}`}
                               </span>
-                              <span className="font-mono text-slate-600 truncate">{hop.class || ""}</span>
+                              <span className="font-mono text-fg-muted truncate">{hop.class || ""}</span>
                               <span className="flex flex-wrap gap-1 ml-auto">
                                 {(hop.tables || []).map((t, ti) => (
-                                  <span key={ti} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[9px] border border-emerald-200">{t}</span>
+                                  <span key={ti} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-micro border border-emerald-200">{t}</span>
                                 ))}
                               </span>
                             </div>
@@ -5568,43 +5659,43 @@ export default function TransformerPage() {
 
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Controller</div>
-                      <div className="text-slate-700 font-mono text-xs">{selectedEnvelope.controller_class || "-"}</div>
-                      <div className="text-slate-400 text-[10px] font-mono truncate">{selectedEnvelope.controller_file || ""}</div>
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Controller</div>
+                      <div className="text-fg-muted font-mono text-xs">{selectedEnvelope.controller_class || "-"}</div>
+                      <div className="text-fg-subtle text-micro font-mono truncate">{selectedEnvelope.controller_file || ""}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Service</div>
-                      <div className="text-slate-700 font-mono text-xs">{selectedEnvelope.service_class || "-"}</div>
-                      <div className="text-slate-400 text-[10px] font-mono truncate">{selectedEnvelope.service_file || selectedEnvelope.service_method || ""}</div>
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Service</div>
+                      <div className="text-fg-muted font-mono text-xs">{selectedEnvelope.service_class || "-"}</div>
+                      <div className="text-fg-subtle text-micro font-mono truncate">{selectedEnvelope.service_file || selectedEnvelope.service_method || ""}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Repository</div>
-                      <div className="text-slate-700 font-mono text-xs">{selectedEnvelope.repository_class || "-"}</div>
-                      <div className="text-slate-400 text-[10px] font-mono truncate">{selectedEnvelope.repository_file || ""}</div>
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Repository</div>
+                      <div className="text-fg-muted font-mono text-xs">{selectedEnvelope.repository_class || "-"}</div>
+                      <div className="text-fg-subtle text-micro font-mono truncate">{selectedEnvelope.repository_file || ""}</div>
                     </div>
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Layer</div>
-                      <div className="text-slate-700 text-xs">{selectedEnvelope.layer || "-"}</div>
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Layer</div>
+                      <div className="text-fg-muted text-xs">{selectedEnvelope.layer || "-"}</div>
                     </div>
                   </div>
 
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">DB tables</div>
+                    <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">DB tables</div>
                     {(selectedEnvelope.db_tables || []).length > 0 ? (
                       <div className="flex flex-wrap gap-1">
                         {selectedEnvelope.db_tables.map((t, i) => (
-                          <span key={i} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-[10px] border border-emerald-200">{t}</span>
+                          <span key={i} className="px-1.5 py-0.5 bg-emerald-50 text-emerald-700 rounded text-micro border border-emerald-200">{t}</span>
                         ))}
                       </div>
-                    ) : <span className="text-slate-400 text-xs">None detected</span>}
+                    ) : <span className="text-fg-subtle text-xs">None detected</span>}
                   </div>
 
                   {(selectedEnvelope.external_calls || []).length > 0 && (
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">External calls</div>
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">External calls</div>
                       <div className="space-y-1">
                         {selectedEnvelope.external_calls.map((c, i) => (
-                          <div key={i} className="text-xs font-mono text-slate-600">
+                          <div key={i} className="text-xs font-mono text-fg-muted">
                             {typeof c === "string" ? c : `${c.type || "rest"}: ${c.target || ""}`}
                           </div>
                         ))}
@@ -5613,37 +5704,37 @@ export default function TransformerPage() {
                   )}
 
                   <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Files affected</div>
+                    <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Files affected</div>
                     {(selectedEnvelope.files_affected || []).length > 0 ? (
                       <div className="space-y-0.5">
                         {selectedEnvelope.files_affected.map((f, i) => (
-                          <div key={i} className="text-xs font-mono text-slate-600 truncate">{f}</div>
+                          <div key={i} className="text-xs font-mono text-fg-muted truncate">{f}</div>
                         ))}
                       </div>
-                    ) : <span className="text-slate-400 text-xs">-</span>}
+                    ) : <span className="text-fg-subtle text-xs">-</span>}
                   </div>
 
                   {(selectedEnvelope.acceptance_criteria || []).length > 0 && (
                     <div>
-                      <div className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 mb-1">Acceptance criteria</div>
-                      <ul className="list-disc list-inside space-y-0.5 text-xs text-slate-600">
+                      <div className="text-micro font-semibold uppercase tracking-wide text-fg-subtle mb-1">Acceptance criteria</div>
+                      <ul className="list-disc list-inside space-y-0.5 text-xs text-fg-muted">
                         {selectedEnvelope.acceptance_criteria.map((c, i) => <li key={i}>{c}</li>)}
                       </ul>
                     </div>
                   )}
 
-                  <div className="flex items-center gap-3 pt-2 border-t border-gray-100">
-                    <span className={`text-[10px] font-semibold px-2 py-1 rounded ${
+                  <div className="flex items-center gap-3 pt-2 border-t border-border">
+                    <span className={`text-micro font-semibold px-2 py-1 rounded ${
                       selectedEnvelope.action === "TRANSFORM" ? "bg-blue-50 text-blue-700" :
                       selectedEnvelope.action === "REWRITE" ? "bg-amber-50 text-amber-700" :
                       selectedEnvelope.action === "DELETE" ? "bg-red-50 text-red-700" :
                       selectedEnvelope.action === "NEW" ? "bg-green-50 text-green-700" :
                       selectedEnvelope.action === "INTEGRATE" ? "bg-sky-50 text-sky-700" :
-                      "bg-slate-50 text-slate-700"
+                      "bg-surface-2 text-fg-muted"
                     }`}>
                       {selectedEnvelope.action}
                     </span>
-                    <span className={`text-[10px] font-semibold px-2 py-1 rounded ${
+                    <span className={`text-micro font-semibold px-2 py-1 rounded ${
                       selectedEnvelope.risk_level === "critical" ? "bg-red-100 text-red-700" :
                       selectedEnvelope.risk_level === "high" ? "bg-amber-100 text-amber-700" :
                       selectedEnvelope.risk_level === "medium" ? "bg-yellow-100 text-yellow-700" :
@@ -5662,14 +5753,14 @@ export default function TransformerPage() {
 
       {/* GitHub push modal */}
       {showGitHub && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={() => !pushing && setShowGitHub(false)}>
-          <div
-            className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-md p-5"
+        <div aria-hidden="true" className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" onClick={() => !pushing && setShowGitHub(false)}>
+          <div role="presentation"
+            className="bg-surface rounded-2xl border border-border shadow-xl w-full max-w-md p-5"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-2 mb-4">
               <GitBranch size={18} className="text-violet-600" />
-              <h3 className="text-base font-semibold text-slate-800">Push to GitHub</h3>
+              <h3 className="text-base font-semibold text-fg">Push to GitHub</h3>
             </div>
             <div className="space-y-3">
               {[
@@ -5679,13 +5770,13 @@ export default function TransformerPage() {
                 { key: "path_prefix", label: "Path prefix (optional)", ph: "generated/" },
               ].map(({ key, label, ph }) => (
                 <div key={key}>
-                  <label className="block text-xs font-medium text-slate-600 mb-1">{label}</label>
+                  <label className="block text-xs font-medium text-fg-muted mb-1">{label}</label>
                   <input
                     type="text"
                     value={ghForm[key]}
                     onChange={(e) => setGhForm((prev) => ({ ...prev, [key]: e.target.value }))}
                     placeholder={ph}
-                    className={`w-full text-sm border border-slate-200 rounded-lg px-3 py-1.5 outline-none ${FOCUS_RING}`}
+                    className={`w-full text-sm border border-border rounded-lg px-3 py-1.5 outline-none ${FOCUS_RING}`}
                   />
                 </div>
               ))}
@@ -5694,7 +5785,7 @@ export default function TransformerPage() {
               <button
                 onClick={() => setShowGitHub(false)}
                 disabled={pushing}
-                className={`px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg ${FOCUS_RING}`}
+                className={`px-3 py-1.5 text-sm text-fg-muted hover:bg-surface-2 rounded-lg ${FOCUS_RING}`}
               >
                 Cancel
               </button>
@@ -5713,26 +5804,26 @@ export default function TransformerPage() {
       {/* iter-15.14 — History side panel */}
       {showHistory && (
         <>
-          <div className="fixed inset-0 z-[80] bg-black/30" onClick={() => setShowHistory(false)} />
-          <div className="fixed top-0 right-0 z-[81] h-full w-[420px] bg-white border-l border-slate-200 shadow-2xl flex flex-col">
-            <div className="h-11 px-4 flex items-center justify-between border-b border-slate-200 flex-shrink-0">
+          <div aria-hidden="true" className="fixed inset-0 z-[80] bg-ink/30" onClick={() => setShowHistory(false)} />
+          <div className="fixed top-0 right-0 z-[81] h-full w-[420px] bg-surface border-l border-border shadow-2xl flex flex-col">
+            <div className="h-11 px-4 flex items-center justify-between border-b border-border flex-shrink-0">
               <div className="flex items-center gap-2">
-                <History size={14} className="text-slate-600" />
-                <h3 className="text-sm font-semibold text-slate-800">Transformation History</h3>
-                <span className="text-[10px] text-slate-400">{historyItems.length}</span>
+                <History size={14} className="text-fg-muted" />
+                <h3 className="text-sm font-semibold text-fg">Transformation History</h3>
+                <span className="text-micro text-fg-subtle">{historyItems.length}</span>
               </div>
-              <button onClick={() => setShowHistory(false)} className="w-7 h-7 rounded hover:bg-slate-100 flex items-center justify-center text-slate-500">
+              <button onClick={() => setShowHistory(false)} className="w-7 h-7 rounded hover:bg-surface-2 flex items-center justify-center text-fg-subtle">
                 <X size={14} />
               </button>
             </div>
             <div className="flex-1 overflow-y-auto min-h-0">
               {historyLoading && (
-                <div className="p-6 text-center text-[12px] text-slate-500 flex items-center justify-center gap-2">
+                <div className="p-6 text-center text-[12px] text-fg-subtle flex items-center justify-center gap-2">
                   <Loader2 size={13} className="animate-spin" /> Loading history…
                 </div>
               )}
               {!historyLoading && historyItems.length === 0 && (
-                <div className="p-6 text-center text-[12px] text-slate-500">No transformations yet.</div>
+                <div className="p-6 text-center text-[12px] text-fg-subtle">No transformations yet.</div>
               )}
               {!historyLoading && historyItems.map((h) => {
                 const isCurrent = String(h.id || h._id) === String(transformId);
@@ -5741,32 +5832,32 @@ export default function TransformerPage() {
                   <button
                     key={hid}
                     onClick={() => loadTransformationFromHistory(hid)}
-                    className={`w-full text-left px-4 py-3 border-b border-slate-100 hover:bg-slate-50 ${
+                    className={`w-full text-left px-4 py-3 border-b border-border hover:bg-surface-2 ${
                       isCurrent ? "bg-violet-50" : ""
                     }`}
                     data-testid={`transformer-history-item-${hid}`}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <span className="text-[12px] font-semibold text-slate-800 truncate flex-1">
+                      <span className="text-[12px] font-semibold text-fg truncate flex-1">
                         {h.name || "(untitled)"}
                       </span>
-                      <span className={`text-[9px] uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${
+                      <span className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded font-semibold ${
                         h.status === "completed" ? "bg-emerald-100 text-emerald-700" :
                         h.status === "failed" ? "bg-red-100 text-red-700" :
-                        h.status === "stopped" ? "bg-slate-200 text-slate-600" :
+                        h.status === "stopped" ? "bg-surface-3 text-fg-muted" :
                         h.status === "running" ? "bg-violet-100 text-violet-700" :
-                        "bg-slate-100 text-slate-600"
+                        "bg-surface-2 text-fg-muted"
                       }`}>
                         {h.status || "pending"}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-500 mt-1 flex items-center gap-2">
+                    <div className="text-micro text-fg-subtle mt-1 flex items-center gap-2">
                       <span>{h.file_count || 0} files</span>
                       <span>·</span>
                       <span className="truncate">{h.created_at ? new Date(h.created_at).toLocaleString() : ""}</span>
                     </div>
                     {isCurrent && (
-                      <span className="mt-1 inline-block text-[9px] uppercase tracking-wider text-violet-600 font-semibold">Current</span>
+                      <span className="mt-1 inline-block text-micro uppercase tracking-wider text-violet-600 font-semibold">Current</span>
                     )}
                   </button>
                 );
@@ -5778,20 +5869,20 @@ export default function TransformerPage() {
 
       {/* iter-15.14 — Remove confirm */}
       {showRemoveConfirm && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/40" onClick={() => setShowRemoveConfirm(false)}>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+        <div aria-hidden="true" className="fixed inset-0 z-[85] flex items-center justify-center bg-ink/40" onClick={() => setShowRemoveConfirm(false)}>
+          <div role="presentation" className="bg-surface rounded-2xl border border-border shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-2">
               <Trash2 size={16} className="text-red-600" />
-              <h3 className="text-base font-semibold text-slate-800">Remove transformation?</h3>
+              <h3 className="text-base font-semibold text-fg">Remove transformation?</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-fg-muted mb-4">
               This permanently deletes the transformation record, all source files, and generated code.
               Matches Gap Analyzer's hard-delete behavior — cannot be undone.
             </p>
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowRemoveConfirm(false)}
-                className={`px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg ${FOCUS_RING}`}
+                className={`px-3 py-1.5 text-sm text-fg-muted hover:bg-surface-2 rounded-lg ${FOCUS_RING}`}
               >
                 Cancel
               </button>
@@ -5809,13 +5900,13 @@ export default function TransformerPage() {
 
       {/* iter-15.14 — Stop confirm */}
       {showStopConfirm && (
-        <div className="fixed inset-0 z-[85] flex items-center justify-center bg-black/40" onClick={() => setShowStopConfirm(false)}>
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
+        <div aria-hidden="true" className="fixed inset-0 z-[85] flex items-center justify-center bg-ink/40" onClick={() => setShowStopConfirm(false)}>
+          <div role="presentation" className="bg-surface rounded-2xl border border-border shadow-xl w-full max-w-sm p-5" onClick={(e) => e.stopPropagation()}>
             <div className="flex items-center gap-2 mb-2">
               <Square size={16} className="text-red-600" />
-              <h3 className="text-base font-semibold text-slate-800">Stop transformation?</h3>
+              <h3 className="text-base font-semibold text-fg">Stop transformation?</h3>
             </div>
-            <p className="text-sm text-slate-600 mb-4">
+            <p className="text-sm text-fg-muted mb-4">
               The worker finishes the current file, then halts. Files transformed so far
               stay available under the Coder workspace. You can then remove the
               transformation or start a new one.
@@ -5823,7 +5914,7 @@ export default function TransformerPage() {
             <div className="flex items-center justify-end gap-2">
               <button
                 onClick={() => setShowStopConfirm(false)}
-                className={`px-3 py-1.5 text-sm text-slate-600 hover:bg-slate-100 rounded-lg ${FOCUS_RING}`}
+                className={`px-3 py-1.5 text-sm text-fg-muted hover:bg-surface-2 rounded-lg ${FOCUS_RING}`}
               >
                 Cancel
               </button>

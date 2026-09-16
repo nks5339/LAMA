@@ -129,7 +129,7 @@ export default function CustomStackPicker({ open, onOpenChange, projectId, onApp
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="custom-stack-picker-dialog" className="max-w-2xl p-0 gap-0 overflow-hidden">
-        <DialogHeader className="px-5 py-3 border-b border-[#E6E6E6]">
+        <DialogHeader className="px-5 py-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">
             <Layers className="w-4 h-4" />
             Build your own target stack
@@ -137,7 +137,7 @@ export default function CustomStackPicker({ open, onOpenChange, projectId, onApp
         </DialogHeader>
 
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-          <p className="text-[12px] text-slate-600 leading-snug">
+          <p className="text-[12px] text-fg-muted leading-snug">
             Pick the modern stack layer-by-layer. Your selection is validated
             against LAMA's hybrid-stack guardrails (e.g.{" "}
             <span className="font-mono">PHP FastAPI</span> will be
@@ -195,23 +195,23 @@ export default function CustomStackPicker({ open, onOpenChange, projectId, onApp
             ))}
           </PickerRow>
 
-          <div className="border-t border-[#E6E6E6] pt-4">
+          <div className="border-t border-border pt-4">
             <div className="mos-label flex items-center gap-1">
               <Sparkles className="w-3 h-3" /> Composed target stack
             </div>
             <div
               data-testid="custom-stack-preview"
-              className="mt-1 px-3 py-2 bg-[#FFFCE6] border border-[#FFE600] rounded-sm font-mono text-[13px] text-[#2E2E38]"
+              className="mt-1 px-3 py-2 bg-brand-tint border border-brand rounded-sm font-mono text-[13px] text-fg"
             >
               {label}
             </div>
           </div>
         </div>
 
-        <div className="border-t border-[#E6E6E6] px-5 py-3 flex items-center justify-end gap-2 bg-slate-50">
+        <div className="border-t border-border px-5 py-3 flex items-center justify-end gap-2 bg-surface-2">
           <button
             onClick={() => onOpenChange(false)}
-            className="px-3 py-1.5 text-[12px] text-slate-600 hover:text-slate-900"
+            className="px-3 py-1.5 text-[12px] text-fg-muted hover:text-fg"
           >
             Cancel
           </button>
@@ -219,7 +219,7 @@ export default function CustomStackPicker({ open, onOpenChange, projectId, onApp
             data-testid="custom-stack-apply"
             onClick={apply}
             disabled={applying || !label}
-            className="px-4 py-1.5 bg-[#2E2E38] text-white text-[12px] font-semibold rounded-sm hover:bg-black disabled:opacity-40 flex items-center gap-1.5"
+            className="px-4 py-1.5 bg-ink text-ink-fg text-[12px] font-semibold rounded-sm hover:bg-ink disabled:opacity-40 flex items-center gap-1.5"
           >
             {applying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Layers className="w-3.5 h-3.5" />}
             Apply custom stack
@@ -245,10 +245,10 @@ function Chip({ active, onClick, testId, children }) {
       type="button"
       data-testid={testId}
       onClick={onClick}
-      className={`px-2.5 py-1 rounded-sm border text-[11px] ${
+      className={`px-2.5 py-1 rounded-sm border text-micro ${
         active
-          ? "border-[#2E2E38] bg-[#2E2E38] text-white font-semibold"
-          : "border-[#E6E6E6] bg-white hover:bg-slate-50 text-slate-700"
+          ? "border-fg bg-ink text-ink-fg font-semibold"
+          : "border-border bg-surface hover:bg-surface-2 text-fg-muted"
       }`}
     >
       {children}

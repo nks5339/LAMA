@@ -64,7 +64,7 @@ const CATEGORY_COLOR = {
   Payments: "bg-amber-100 text-amber-700 border-amber-200",
   Language: "bg-pink-100 text-pink-700 border-pink-200",
   Health: "bg-rose-100 text-rose-700 border-rose-200",
-  Observability: "bg-slate-100 text-slate-700 border-slate-200",
+  Observability: "bg-surface-2 text-fg-muted border-border",
 };
 
 // Four top-level sections on the Integrations page, driven by `item.family`
@@ -259,7 +259,7 @@ export default function IntegrationsPage() {
     const isExpanded = !!expanded[item.id];
     const cat =
       CATEGORY_COLOR[item.category] ||
-      "bg-slate-100 text-slate-700 border-slate-200";
+      "bg-surface-2 text-fg-muted border-border";
     // iter-13.67 — Config-completeness signal.
     // An integration is "fully configured" when every declared env var has
     // a non-empty effective value (either a user-supplied override or a
@@ -276,12 +276,12 @@ export default function IntegrationsPage() {
       <div
         key={item.id}
         data-testid={`integration-card-${item.id}`}
-        className={`border rounded-sm bg-white p-4 ${
+        className={`border rounded-sm bg-surface p-4 ${
           enabledReady
             ? "border-emerald-500 ring-1 ring-emerald-500"
             : item.enabled
-            ? "border-[#FFE600] ring-1 ring-[#FFE600]"
-            : "border-slate-200"
+            ? "border-brand ring-1 ring-brand"
+            : "border-border"
         }`}
       >
         <div className="flex items-start gap-3">
@@ -290,32 +290,32 @@ export default function IntegrationsPage() {
               enabledReady
                 ? "bg-emerald-500 text-white"
                 : item.enabled
-                ? "bg-[#FFE600] text-[#2E2E38]"
-                : "bg-slate-100 text-slate-500"
+                ? "bg-brand text-fg"
+                : "bg-surface-2 text-fg-subtle"
             }`}
           >
             <Icon className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h3 className="font-display font-bold text-[15px] text-[#2E2E38] truncate">
+              <h3 className="font-display font-bold text-[15px] text-fg truncate">
                 {item.label}
               </h3>
-              <span className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${cat}`}>
+              <span className={`text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm border ${cat}`}>
                 {item.category}
               </span>
               {item.last_injected_at && (
-                <span className="text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
+                <span className="text-micro uppercase tracking-wider px-1.5 py-0.5 rounded-sm border border-emerald-200 bg-emerald-50 text-emerald-700">
                   Injected
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-600 mt-1 leading-snug">{item.description}</p>
-            <div className="text-[11px] text-slate-500 mt-2">
+            <p className="text-xs text-fg-muted mt-1 leading-snug">{item.description}</p>
+            <div className="text-micro text-fg-subtle mt-2">
               <strong>Providers:</strong> {(item.providers || []).join(", ") || "—"}
             </div>
             {(item.endpoints || []).length > 0 && (
-              <div className="text-[11px] text-slate-500 mt-0.5">
+              <div className="text-micro text-fg-subtle mt-0.5">
                 <strong>Endpoints:</strong>{" "}
                 {item.endpoints.map((e, i) => (
                   <span key={i} className="font-mono">
@@ -333,7 +333,7 @@ export default function IntegrationsPage() {
             onClick={() => toggle(item)}
             disabled={busyId === item.id}
             className={`relative inline-flex h-6 w-11 items-center rounded-full transition shrink-0 ${
-              enabledReady ? "bg-emerald-500" : item.enabled ? "bg-[#FFE600]" : "bg-slate-300"
+              enabledReady ? "bg-emerald-500" : item.enabled ? "bg-brand" : "bg-surface-3"
             } ${busyId === item.id ? "opacity-50" : ""}`}
             title={
               enabledReady
@@ -344,7 +344,7 @@ export default function IntegrationsPage() {
             }
           >
             <span
-              className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition ${
+              className={`inline-block h-5 w-5 transform rounded-full bg-surface shadow transition ${
                 item.enabled ? "translate-x-5" : "translate-x-0.5"
               }`}
             />
@@ -354,7 +354,7 @@ export default function IntegrationsPage() {
         <button
           type="button"
           onClick={() => setExpanded((s) => ({ ...s, [item.id]: !s[item.id] }))}
-          className="mt-3 text-xs text-slate-600 hover:text-[#2E2E38] flex items-center gap-1"
+          className="mt-3 text-xs text-fg-muted hover:text-fg flex items-center gap-1"
           data-testid={`integration-expand-${item.id}`}
         >
           {isExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronRight className="w-3 h-3" />}
@@ -362,8 +362,8 @@ export default function IntegrationsPage() {
         </button>
 
         {isExpanded && (
-          <div className="mt-3 p-3 rounded-sm bg-slate-50 border border-slate-200">
-            <p className="text-[11px] text-slate-500 mb-2">
+          <div className="mt-3 p-3 rounded-sm bg-surface-2 border border-border">
+            <p className="text-micro text-fg-subtle mb-2">
               These are written into <code>.env.integrations.example</code> on inject.
               Override defaults below (the user can also edit them at deploy time).
             </p>
@@ -372,12 +372,12 @@ export default function IntegrationsPage() {
                 const cur = overrides[item.id]?.[ev.name] ?? ev.default ?? "";
                 return (
                   <div key={ev.name} className="grid grid-cols-12 gap-2 items-start">
-                    <label className="col-span-4 text-[11px] font-mono text-slate-700 break-all pt-1.5">
+                    <label className="col-span-4 text-micro font-mono text-fg-muted break-all pt-1.5">
                       {ev.name}
                     </label>
                     <input
                       type="text"
-                      className="col-span-5 text-xs border border-slate-300 rounded-sm px-2 py-1 font-mono bg-white"
+                      className="col-span-5 text-xs border border-border-strong rounded-sm px-2 py-1 font-mono bg-surface"
                       placeholder={ev.default || "(unset)"}
                       value={cur}
                       onChange={(e) =>
@@ -390,7 +390,7 @@ export default function IntegrationsPage() {
                         }))
                       }
                     />
-                    <div className="col-span-3 text-[11px] text-slate-500 pt-1.5">{ev.desc}</div>
+                    <div className="col-span-3 text-micro text-fg-subtle pt-1.5">{ev.desc}</div>
                   </div>
                 );
               })}
@@ -400,7 +400,7 @@ export default function IntegrationsPage() {
                 type="button"
                 onClick={() => saveOverrides(item)}
                 disabled={busyId === item.id}
-                className="text-xs px-3 py-1.5 rounded-sm bg-[#2E2E38] text-white hover:bg-black disabled:opacity-50"
+                className="text-xs px-3 py-1.5 rounded-sm bg-ink text-ink-fg hover:bg-ink disabled:opacity-50"
                 data-testid={`integration-save-${item.id}`}
               >
                 Save defaults
@@ -415,15 +415,15 @@ export default function IntegrationsPage() {
   if (!projectId) {
     return (
       <div className="flex-1 flex flex-col min-w-0 min-h-0">
-        <header className="bg-white border-b border-[#E6E6E6] px-6 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500">Stage 4 · Add-on</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center gap-2">
-            <Plug className="w-4 h-4 text-[#FFE600]" />
+        <header className="bg-surface border-b border-border px-6 py-3">
+          <div className="text-micro uppercase tracking-widest text-fg-subtle">Stage 4 · Add-on</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2">
+            <Plug className="w-4 h-4 text-brand" />
             Integration & Utility Services
           </h1>
         </header>
-        <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-[#F6F6FA]">
-          <div className="text-slate-500 text-sm">Select an active project to manage integrations.</div>
+        <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-bg">
+          <div className="text-fg-subtle text-sm">Select an active project to manage integrations.</div>
         </div>
       </div>
     );
@@ -431,22 +431,22 @@ export default function IntegrationsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0" data-testid="integrations-page">
-      <header className="bg-white border-b border-[#E6E6E6] px-6 py-3 flex items-center justify-between gap-4">
+      <header className="bg-surface border-b border-border px-6 py-3 flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500">Stage 4 · Add-on</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center gap-2">
-            <Plug className="w-4 h-4 text-[#FFE600]" />
+          <div className="text-micro uppercase tracking-widest text-fg-subtle">Stage 4 · Add-on</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2">
+            <Plug className="w-4 h-4 text-brand" />
             Integration & Utility Services
           </h1>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          <div className="text-xs text-slate-500 text-right hidden md:block">
+          <div className="text-xs text-fg-subtle text-right hidden md:block">
             <div>
               {enabledCount} of {data?.items?.length ?? 0} enabled
             </div>
             <div>
               Target lang:{" "}
-              <span className="font-mono text-slate-700">{data?.resolved_language || "—"}</span>
+              <span className="font-mono text-fg-muted">{data?.resolved_language || "—"}</span>
             </div>
           </div>
           <button
@@ -454,27 +454,27 @@ export default function IntegrationsPage() {
             data-testid="inject-integrations-btn"
             onClick={inject}
             disabled={injecting || enabledCount === 0}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-[#FFE600] text-[#2E2E38] font-bold text-sm border border-[#2E2E38] hover:bg-[#FFF38A] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-sm bg-brand text-fg font-bold text-sm border border-fg hover:bg-brand-tint disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {injecting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plug className="w-4 h-4" />}
             Inject into codebase
           </button>
           <Link
             to="/code-gen"
-            className="text-xs text-slate-600 hover:text-[#2E2E38] underline underline-offset-2"
+            className="text-xs text-fg-muted hover:text-fg underline underline-offset-2"
           >
             View in Code Gen →
           </Link>
         </div>
       </header>
 
-      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-[#F6F6FA]">
+      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-bg">
         <div className="max-w-6xl mx-auto">
-          <p className="text-sm text-slate-600 mb-4 max-w-3xl">
+          <p className="text-sm text-fg-muted mb-4 max-w-3xl">
             Enable any of the Indian govt services below and click{" "}
             <strong>Inject into codebase</strong>. A mock-first, environment-configurable
             client + FastAPI router lands directly in your generated service tree — flip{" "}
-            <code className="text-xs bg-slate-200 px-1 py-0.5 rounded">*_MODE=live</code>{" "}
+            <code className="text-xs bg-surface-3 px-1 py-0.5 rounded">*_MODE=live</code>{" "}
             and add credentials to switch from mocks to real provider calls. No code changes.
           </p>
 
@@ -500,11 +500,11 @@ export default function IntegrationsPage() {
           )}
 
           {loading && !data ? (
-            <div className="text-slate-500 text-sm flex items-center gap-2">
+            <div className="text-fg-subtle text-sm flex items-center gap-2">
               <Loader2 className="w-4 h-4 animate-spin" /> Loading catalog…
             </div>
           ) : (data?.items || []).length === 0 ? (
-            <div className="p-6 text-sm text-slate-500 text-center bg-white border border-slate-200 rounded-sm">
+            <div className="p-6 text-sm text-fg-subtle text-center bg-surface border border-border rounded-sm">
               No integrations available. Backend may not have registered the /api/integrations router yet — restart the backend.
             </div>
           ) : (
@@ -518,7 +518,7 @@ export default function IntegrationsPage() {
                   <section
                     key={section.id}
                     data-testid={`integrations-section-${section.id}`}
-                    className="border border-slate-200 rounded-sm bg-white overflow-hidden"
+                    className="border border-border rounded-sm bg-surface overflow-hidden"
                   >
                     <button
                       type="button"
@@ -527,22 +527,22 @@ export default function IntegrationsPage() {
                         setSectionsOpen((s) => ({ ...s, [section.id]: !s[section.id] }))
                       }
                       aria-expanded={open}
-                      className="w-full flex items-center gap-3 px-4 py-3 border-b border-slate-200 bg-slate-50 hover:bg-slate-100 transition"
+                      className="w-full flex items-center gap-3 px-4 py-3 border-b border-border bg-surface-2 hover:bg-surface-2 transition"
                     >
                       {open ? (
-                        <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                        <ChevronDown className="w-4 h-4 text-fg-subtle shrink-0" />
                       ) : (
-                        <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />
+                        <ChevronRight className="w-4 h-4 text-fg-subtle shrink-0" />
                       )}
                       <div className="text-left min-w-0 flex-1">
-                        <h2 className="font-display font-bold text-sm text-[#2E2E38] tracking-tight">
+                        <h2 className="font-display font-bold text-sm text-fg tracking-tight">
                           {section.title}
                         </h2>
-                        <p className="text-[11px] text-slate-500 truncate">
+                        <p className="text-micro text-fg-subtle truncate">
                           {section.subtitle}
                         </p>
                       </div>
-                      <span className="text-[11px] uppercase tracking-wider px-2 py-0.5 rounded-sm border border-slate-200 bg-white text-slate-600 shrink-0">
+                      <span className="text-micro uppercase tracking-wider px-2 py-0.5 rounded-sm border border-border bg-surface text-fg-muted shrink-0">
                         {sectionEnabled} / {items.length} enabled
                       </span>
                     </button>

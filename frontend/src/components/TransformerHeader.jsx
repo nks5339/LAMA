@@ -30,17 +30,17 @@ export default function TransformerHeader({
   kebabContent = null,
 }) {
   return (
-    <header className="h-16 px-6 flex items-center justify-between border-b border-slate-200 bg-white flex-shrink-0">
+    <header className="h-16 px-6 flex items-center justify-between border-b border-border bg-surface flex-shrink-0">
       {/* Left: icon + title */}
       <div className="flex items-center gap-3 min-w-0">
         <div className="w-8 h-8 rounded-lg bg-violet-600 flex items-center justify-center flex-shrink-0">
           <Wand2 size={16} className="text-white" />
         </div>
         <div className="min-w-0">
-          <h1 className="text-base font-semibold text-slate-800 truncate leading-tight">
+          <h1 className="text-base font-semibold text-fg truncate leading-tight">
             {title || "Code Transformer"}
           </h1>
-          <p className="text-xs text-slate-500 truncate leading-tight">{subtitle}</p>
+          <p className="text-xs text-fg-subtle truncate leading-tight">{subtitle}</p>
         </div>
       </div>
 
@@ -50,10 +50,10 @@ export default function TransformerHeader({
           <div className="hidden md:flex items-center gap-4">
             {metrics.map((m) => (
               <div key={m.label} className="flex flex-col items-end" title={m.title || undefined}>
-                <span className="text-[11px] uppercase tracking-wide text-slate-500 leading-none">
+                <span className="text-micro uppercase tracking-wide text-fg-subtle leading-none">
                   {m.label}
                 </span>
-                <span className="text-sm font-semibold text-slate-800 tabular-nums leading-tight mt-0.5">
+                <span className="text-sm font-semibold text-fg tabular-nums leading-tight mt-0.5">
                   {m.value}
                 </span>
               </div>
@@ -68,7 +68,7 @@ export default function TransformerHeader({
         <div className="relative">
           <button
             onClick={onKebabToggle}
-            className="w-9 h-9 rounded-lg hover:bg-slate-100 flex items-center justify-center text-slate-500 hover:text-slate-800 transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
+            className="w-9 h-9 rounded-lg hover:bg-surface-2 flex items-center justify-center text-fg-subtle hover:text-fg transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-500"
             data-testid="transformer-kebab-btn"
             title="More actions"
             aria-label="More actions"
@@ -79,10 +79,10 @@ export default function TransformerHeader({
           </button>
           {kebabOpen && (
             <>
-              <div className="fixed inset-0 z-[60]" onClick={onKebabToggle} />
+              <div aria-hidden="true" className="fixed inset-0 z-[60]" onClick={onKebabToggle} />
               <div
                 role="menu"
-                className="absolute right-0 top-11 z-[61] w-56 bg-white border border-slate-200 rounded-xl shadow-xl py-1"
+                className="absolute right-0 top-11 z-[61] w-56 bg-surface border border-border rounded-xl shadow-xl py-1"
               >
                 {kebabContent}
               </div>

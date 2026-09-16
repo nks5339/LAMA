@@ -60,16 +60,16 @@ const TreeNode = ({ node, depth = 0, defaultOpen = false }) => {
         <button
           type="button"
           onClick={() => setOpen(v => !v)}
-          className="flex items-center gap-1 w-full text-left px-1 py-0.5 hover:bg-slate-100 rounded"
+          className="flex items-center gap-1 w-full text-left px-1 py-0.5 hover:bg-surface-2 rounded"
           style={{ paddingLeft: `${depth * 12 + 4}px` }}
         >
           {hasKids ? (
-            open ? <ChevronDown size={11} className="text-slate-400 flex-shrink-0" />
-                 : <ChevronRight size={11} className="text-slate-400 flex-shrink-0" />
+            open ? <ChevronDown size={11} className="text-fg-subtle flex-shrink-0" />
+                 : <ChevronRight size={11} className="text-fg-subtle flex-shrink-0" />
           ) : <span className="w-[11px] flex-shrink-0" />}
           <Folder size={11} className="text-amber-500 flex-shrink-0" />
-          <span className="text-[11px] font-medium text-slate-700 truncate">{node.name}/</span>
-          <span className="text-[9px] text-slate-400 ml-auto tabular-nums">
+          <span className="text-micro font-medium text-fg-muted truncate">{node.name}/</span>
+          <span className="text-micro text-fg-subtle ml-auto tabular-nums">
             {childDirs.length + files.length}
           </span>
         </button>
@@ -82,14 +82,14 @@ const TreeNode = ({ node, depth = 0, defaultOpen = false }) => {
           {files.map(f => (
             <div
               key={f.name}
-              className="flex items-center gap-1 px-1 py-0.5 text-[11px] text-slate-600"
+              className="flex items-center gap-1 px-1 py-0.5 text-micro text-fg-muted"
               style={{ paddingLeft: `${(depth + (node.name ? 1 : 0)) * 12 + 4}px` }}
             >
               <span className="w-[11px] flex-shrink-0" />
-              <FileText size={11} className="text-slate-400 flex-shrink-0" />
+              <FileText size={11} className="text-fg-subtle flex-shrink-0" />
               <span className="truncate">{f.name}</span>
               {f.size != null && (
-                <span className="ml-auto text-[9px] text-slate-400 tabular-nums flex-shrink-0">
+                <span className="ml-auto text-micro text-fg-subtle tabular-nums flex-shrink-0">
                   {fmtBytes(f.size)}
                 </span>
               )}
@@ -118,8 +118,8 @@ export default function ZipFileRow({
   const accent = {
     violet:  { bg: "bg-violet-50",  border: "border-violet-200",  fg: "text-violet-700", icon: "text-violet-500" },
     purple:  { bg: "bg-purple-50",  border: "border-purple-200",  fg: "text-purple-700", icon: "text-purple-500" },
-    slate:   { bg: "bg-slate-50",   border: "border-slate-200",   fg: "text-slate-700",  icon: "text-slate-500"  },
-  }[accentColor] || { bg: "bg-slate-50", border: "border-slate-200", fg: "text-slate-700", icon: "text-slate-500" };
+    slate:   { bg: "bg-surface-2",   border: "border-border",   fg: "text-fg-muted",  icon: "text-fg-subtle"  },
+  }[accentColor] || { bg: "bg-surface-2", border: "border-border", fg: "text-fg-muted", icon: "text-fg-subtle" };
 
   const loadEntries = async () => {
     if (entries || loading) return;
@@ -154,13 +154,13 @@ export default function ZipFileRow({
   const fileCount = entries ? entries.filter(e => !e.isDir).length : 0;
 
   return (
-    <div className="border border-slate-200 rounded-md overflow-hidden bg-white">
-      <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-slate-50 text-xs">
+    <div className="border border-border rounded-md overflow-hidden bg-surface">
+      <div className="flex items-center gap-2 px-2 py-1.5 hover:bg-surface-2 text-xs">
         {zip ? (
           <button
             type="button"
             onClick={toggle}
-            className="text-slate-400 hover:text-slate-700 flex-shrink-0"
+            className="text-fg-subtle hover:text-fg-muted flex-shrink-0"
             title={expanded ? "Collapse archive" : "Preview archive contents"}
           >
             {expanded ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
@@ -171,14 +171,14 @@ export default function ZipFileRow({
         {RowIcon ? <RowIcon size={12} className={`${accent.icon} flex-shrink-0`} />
                  : zip ? <Archive size={12} className={`${accent.icon} flex-shrink-0`} />
                  : <FileText size={12} className={`${accent.icon} flex-shrink-0`} />}
-        <span className="truncate flex-1 text-slate-700 font-medium" title={file.name}>{file.name}</span>
+        <span className="truncate flex-1 text-fg-muted font-medium" title={file.name}>{file.name}</span>
         {zip && entries && (
-          <span className={`text-[9px] px-1.5 py-0.5 rounded ${accent.bg} ${accent.fg} font-semibold tabular-nums`}>
+          <span className={`text-micro px-1.5 py-0.5 rounded ${accent.bg} ${accent.fg} font-semibold tabular-nums`}>
             {fileCount} entr{fileCount === 1 ? "y" : "ies"}
           </span>
         )}
         {showSize && (
-          <span className="text-[10px] text-slate-400 tabular-nums flex-shrink-0">
+          <span className="text-micro text-fg-subtle tabular-nums flex-shrink-0">
             {fmtBytes(file.size)}
           </span>
         )}
@@ -187,20 +187,20 @@ export default function ZipFileRow({
           onClick={onRemove}
           title="Remove file"
           data-testid={testId}
-          className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-0.5 flex-shrink-0"
+          className="text-fg-subtle hover:text-red-600 hover:bg-red-50 rounded p-0.5 flex-shrink-0"
         >
           <X size={12} />
         </button>
       </div>
       {expanded && zip && (
-        <div className="border-t border-slate-100 bg-slate-50/50 px-1 py-1 max-h-[220px] overflow-y-auto">
+        <div className="border-t border-border bg-surface-2/50 px-1 py-1 max-h-[220px] overflow-y-auto">
           {loading && (
-            <div className="flex items-center gap-2 text-[11px] text-slate-500 px-2 py-1">
+            <div className="flex items-center gap-2 text-micro text-fg-subtle px-2 py-1">
               <RefreshCw size={11} className="animate-spin" /> Reading archive…
             </div>
           )}
           {error && (
-            <div className="text-[11px] text-red-600 px-2 py-1">Failed to read: {error}</div>
+            <div className="text-micro text-red-600 px-2 py-1">Failed to read: {error}</div>
           )}
           {!loading && !error && tree && (
             <TreeNode node={tree} depth={0} defaultOpen />

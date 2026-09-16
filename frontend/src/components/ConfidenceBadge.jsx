@@ -35,7 +35,7 @@ const BAND_STYLE = {
   good:      { bg: "bg-sky-50",     border: "border-sky-300",     text: "text-sky-800",     Icon: Shield,      dot: "bg-sky-500",     bar: "bg-sky-500"     },
   moderate:  { bg: "bg-amber-50",   border: "border-amber-300",   text: "text-amber-800",   Icon: ShieldAlert, dot: "bg-amber-500",   bar: "bg-amber-500"   },
   poor:      { bg: "bg-rose-50",    border: "border-rose-300",    text: "text-rose-800",    Icon: ShieldAlert, dot: "bg-rose-500",    bar: "bg-rose-500"    },
-  unknown:   { bg: "bg-[#F6F6FA]",  border: "border-[#E6E6E6]",   text: "text-[#747480]",   Icon: ShieldQuestion, dot: "bg-[#B0B0B8]", bar: "bg-[#B0B0B8]" },
+  unknown:   { bg: "bg-bg",  border: "border-border",   text: "text-fg-muted",   Icon: ShieldQuestion, dot: "bg-fg-subtle", bar: "bg-fg-subtle" },
 };
 
 function bandOf(score) {
@@ -89,6 +89,7 @@ export default function ConfidenceBadge({ projectId, stage, compact = false, onS
   const beginPoll = useCallback((jid) => {
     stopPolling();
     pollRef.current = setInterval(async () => {
+      if (document.hidden) return;
       try {
         const j = await getConfidenceJob(projectId, jid);
         setJob(j);
@@ -224,12 +225,12 @@ export default function ConfidenceBadge({ projectId, stage, compact = false, onS
             ? `${stage} confidence ${score?.toFixed?.(1)}% - click to expand, right-click to recompute`
             : `Compute ${stage} confidence`}
           data-testid={`stage-confidence-pill-${stage}`}
-          className={`inline-flex items-center gap-1.5 rounded-sm border px-2 py-1 text-[11px] font-semibold ${style.bg} ${style.border} ${style.text} hover:opacity-90 whitespace-nowrap`}
+          className={`inline-flex items-center gap-1.5 rounded-sm border px-2 py-1 text-micro font-semibold ${style.bg} ${style.border} ${style.text} hover:opacity-90 whitespace-nowrap`}
         >
           {computing
             ? <Loader2 className="w-3 h-3 animate-spin" />
             : <Icon className="w-3.5 h-3.5" />}
-          <span className="uppercase tracking-wider text-[9px] font-bold opacity-80">Confidence</span>
+          <span className="uppercase tracking-wider text-micro font-bold opacity-80">Confidence</span>
           <span className="font-bold tabular-nums">
             {computing
               ? `${job?.pct ?? 0}%`
@@ -253,7 +254,7 @@ export default function ConfidenceBadge({ projectId, stage, compact = false, onS
 
   return (
     <div ref={anchorRef} className="relative inline-flex flex-col items-stretch" data-testid={`stage-confidence-${stage}`}>
-      <div className={`inline-flex items-center gap-2 rounded-sm border px-2 py-1 text-[11px] ${style.bg} ${style.border} ${style.text}`}>
+      <div className={`inline-flex items-center gap-2 rounded-sm border px-2 py-1 text-micro ${style.bg} ${style.border} ${style.text}`}>
         {computing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Icon className="w-3.5 h-3.5" />}
         <button
           type="button"
@@ -263,12 +264,12 @@ export default function ConfidenceBadge({ projectId, stage, compact = false, onS
         >
           Confidence {computing ? `${job?.pct ?? 0}%` : (present ? `${score.toFixed(1)}%` : "-")}
         </button>
-        <span className="capitalize text-[10px] opacity-80">{band}</span>
+        <span className="capitalize text-micro opacity-80">{band}</span>
         <button
           type="button"
           onClick={() => startRecompute()}
           disabled={loading}
-          className="ml-1 inline-flex items-center gap-1 rounded-sm border border-current/30 px-1.5 py-0.5 text-[10px] hover:bg-white/40 disabled:opacity-50"
+          className="ml-1 inline-flex items-center gap-1 rounded-sm border border-current/30 px-1.5 py-0.5 text-micro hover:bg-surface/40 disabled:opacity-50"
           data-testid={`stage-confidence-recompute-${stage}`}
           title={computing
             ? "A confidence run is in progress — click to stop it and start a fresh recompute."
@@ -343,15 +344,15 @@ function PopoverPanel({
         onClick={onClose}
         className="fixed inset-0 z-[1000] cursor-default"
       />
-      <div
-        className="fixed z-[1001] max-h-[440px] overflow-x-hidden overflow-y-auto rounded-sm border border-[#E6E6E6] bg-white shadow-xl text-[11px]"
+      <div role="presentation"
+        className="fixed z-[1001] max-h-[440px] overflow-x-hidden overflow-y-auto rounded-sm border border-border bg-surface shadow-xl text-micro"
         style={{ top: pos.top, left: pos.left, width: PANEL_WIDTH }}
         data-testid={`stage-confidence-detail-${stage}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className={`px-3 py-2 border-b border-[#E6E6E6] flex items-center justify-between gap-2 ${style.bg}`}>
+        <div className={`px-3 py-2 border-b border-border flex items-center justify-between gap-2 ${style.bg}`}>
           <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
-            <span className={`uppercase tracking-wider text-[9px] font-bold ${style.text} truncate`}>
+            <span className={`uppercase tracking-wider text-micro font-bold ${style.text} truncate`}>
               {stage} - Confidence
             </span>
             {present && !running && (() => {
@@ -363,7 +364,7 @@ function PopoverPanel({
               return (
                 <>
                   <span
-                    className={`text-[11px] font-bold tabular-nums ${style.text} shrink-0`}
+                    className={`text-micro font-bold tabular-nums ${style.text} shrink-0`}
                     title={regressed
                       ? `Best ever: ${best.toFixed(1)}% · this run: ${latest.toFixed(1)}%`
                       : `Score: ${best.toFixed(1)}%`}
@@ -373,7 +374,7 @@ function PopoverPanel({
                   </span>
                   {regressed && (
                     <span
-                      className="text-[9px] text-amber-700 font-semibold shrink-0"
+                      className="text-micro text-amber-700 font-semibold shrink-0"
                       data-testid={`stage-confidence-latest-${stage}`}
                       title="Latest recompute scored lower than the best on record. The pill retains the best; drill down for the drift."
                     >
@@ -395,7 +396,7 @@ function PopoverPanel({
             <button
               type="button"
               onClick={() => onRecompute()}
-              className="inline-flex items-center gap-1 rounded-sm border border-[#2E2E38]/20 bg-white px-1.5 py-0.5 text-[10px] text-[#2E2E38] hover:bg-[#F6F6FA]"
+              className="inline-flex items-center gap-1 rounded-sm border border-fg/20 bg-surface px-1.5 py-0.5 text-micro text-fg hover:bg-bg"
               data-testid={`stage-confidence-recompute-action-${stage}`}
               title={running
                 ? "A confidence run is in progress — click to stop it and start a fresh recompute."
@@ -408,31 +409,31 @@ function PopoverPanel({
         </div>
 
         {job && (
-          <div className="px-3 py-2 border-b border-[#E6E6E6] bg-[#FFFCE6]">
+          <div className="px-3 py-2 border-b border-border bg-brand-tint">
             <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="flex items-center gap-1.5 text-[#2E2E38] font-semibold min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 text-fg font-semibold min-w-0 flex-1">
                 {isPaused
                   ? <Pause className="w-3 h-3 text-amber-600 shrink-0" />
                   : isStopping
                     ? <Square className="w-3 h-3 text-rose-600 shrink-0" />
-                    : <Loader2 className="w-3 h-3 animate-spin text-[#2E2E38] shrink-0" />}
+                    : <Loader2 className="w-3 h-3 animate-spin text-fg shrink-0" />}
                 <span className="truncate" title={job.step}>{job.step || "Working..."}</span>
               </div>
-              <span className="tabular-nums font-bold text-[#2E2E38] shrink-0">{job.pct ?? 0}%</span>
+              <span className="tabular-nums font-bold text-fg shrink-0">{job.pct ?? 0}%</span>
             </div>
-            <div className="h-1.5 w-full rounded-full bg-[#E6E6E6] overflow-hidden">
+            <div className="h-1.5 w-full rounded-full bg-border overflow-hidden">
               <div
                 className={`h-full transition-[width] duration-300 ${style.bar}`}
                 style={{ width: `${Math.max(0, Math.min(100, job.pct ?? 0))}%` }}
               />
             </div>
-            <div className="mt-1 flex items-center justify-between text-[10px] text-[#747480]">
+            <div className="mt-1 flex items-center justify-between text-micro text-fg-muted">
               <span>
                 Section {job.section_done ?? 0} / {job.section_total ?? 0}
                 {job.current_section ? ` - ${job.current_section}` : ""}
               </span>
               {job.running_score != null && (
-                <span className="font-semibold text-[#2E2E38] tabular-nums">
+                <span className="font-semibold text-fg tabular-nums">
                   running: {Number(job.running_score).toFixed(1)}%
                 </span>
               )}
@@ -442,7 +443,7 @@ function PopoverPanel({
                 className="mt-2 rounded-sm border border-emerald-200 bg-emerald-50/60 p-1.5"
                 data-testid={`stage-confidence-trajectory-${stage}`}
               >
-                <div className="mb-1 flex items-center justify-between text-[9px] uppercase tracking-wider font-bold text-emerald-800">
+                <div className="mb-1 flex items-center justify-between text-micro uppercase tracking-wider font-bold text-emerald-800">
                   <span>Auto-improve trajectory</span>
                   {typeof job.tokens_used === 'number' && (
                     <span
@@ -457,11 +458,11 @@ function PopoverPanel({
                 </div>
                 <div className="flex flex-col gap-0.5">
                   {job.iterations.map((it) => (
-                    <div key={it.iteration} className="flex items-center justify-between text-[10px]">
-                      <span className="text-[#2E2E38] font-semibold">
+                    <div key={it.iteration} className="flex items-center justify-between text-micro">
+                      <span className="text-fg font-semibold">
                         Iter {it.iteration}
                         {it.scoring_mode === 'lean-delta' && (
-                          <span className="ml-1 text-[#747480] font-normal">(δ)</span>
+                          <span className="ml-1 text-fg-muted font-normal">(δ)</span>
                         )}
                         {it.scoring_mode === 'final-seal' && (
                           <span className="ml-1 text-emerald-700 font-normal">(seal)</span>
@@ -475,7 +476,7 @@ function PopoverPanel({
                           </span>
                         )}
                       </span>
-                      <span className="text-[#747480]">
+                      <span className="text-fg-muted">
                         {it.below_count ?? 0} below · regen {(it.regenerated || []).length}
                       </span>
                     </div>
@@ -492,7 +493,7 @@ function PopoverPanel({
                   data-testid={`stage-confidence-resume-${stage}`}
                   title="Resume"
                   aria-label="Resume"
-                  className="inline-flex items-center justify-center rounded-sm border border-[#E6E6E6] bg-white w-7 h-7 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
+                  className="inline-flex items-center justify-center rounded-sm border border-border bg-surface w-7 h-7 text-emerald-700 hover:bg-emerald-50 disabled:opacity-50"
                 >
                   <Play className="w-3.5 h-3.5" />
                 </button>
@@ -504,7 +505,7 @@ function PopoverPanel({
                   data-testid={`stage-confidence-pause-${stage}`}
                   title="Pause"
                   aria-label="Pause"
-                  className="inline-flex items-center justify-center rounded-sm border border-[#E6E6E6] bg-white w-7 h-7 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
+                  className="inline-flex items-center justify-center rounded-sm border border-border bg-surface w-7 h-7 text-amber-700 hover:bg-amber-50 disabled:opacity-50"
                 >
                   <Pause className="w-3.5 h-3.5" />
                 </button>
@@ -516,11 +517,11 @@ function PopoverPanel({
                 data-testid={`stage-confidence-stop-${stage}`}
                 title="Stop"
                 aria-label="Stop"
-                className="inline-flex items-center justify-center rounded-sm border border-rose-300 bg-white w-7 h-7 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
+                className="inline-flex items-center justify-center rounded-sm border border-rose-300 bg-surface w-7 h-7 text-rose-700 hover:bg-rose-50 disabled:opacity-50"
               >
                 <Square className="w-3.5 h-3.5" />
               </button>
-              <span className="ml-2 text-[10px] text-[#747480] italic truncate flex-1">
+              <span className="ml-2 text-micro text-fg-muted italic truncate flex-1">
                 {isStopping ? "Finishing current section…" : (isPaused ? "Paused" : "Working…")}
               </span>
             </div>
@@ -529,19 +530,19 @@ function PopoverPanel({
 
         {present ? (
           <div className="px-3 py-2">
-            <div className="mb-1 text-[10px] text-[#747480] truncate" title={`${(doc.models_used || []).join(", ")}${doc.generated_at ? ` - ${new Date(doc.generated_at).toLocaleString()}` : ""}`}>
+            <div className="mb-1 text-micro text-fg-muted truncate" title={`${(doc.models_used || []).join(", ")}${doc.generated_at ? ` - ${new Date(doc.generated_at).toLocaleString()}` : ""}`}>
               Models: {(doc.models_used || []).join(", ") || "(default)"}
               {doc.generated_at && <> - {new Date(doc.generated_at).toLocaleString()}</>}
               {doc.partial && <span className="ml-1 text-amber-700 font-semibold">- partial</span>}
             </div>
-            <table className="w-full text-[11px] table-fixed">
+            <table className="w-full text-micro table-fixed">
               <colgroup>
                 <col style={{ width: "44%" }} />
                 <col style={{ width: "16%" }} />
                 <col style={{ width: "40%" }} />
               </colgroup>
               <thead>
-                <tr className="text-left text-[10px] text-[#747480]">
+                <tr className="text-left text-micro text-fg-muted">
                   <th className="py-0.5 pr-2 font-medium">Section</th>
                   <th className="py-0.5 pr-2 font-medium text-right">Score</th>
                   <th className="py-0.5 font-medium">Top gap</th>
@@ -554,14 +555,14 @@ function PopoverPanel({
                     ? "Artifact not generated yet"
                     : (s.gaps?.[0]) || s.rationale || "-";
                   return (
-                    <tr key={s.key} className="border-t border-[#F0F0F2] align-top">
+                    <tr key={s.key} className="border-t border-surface-2 align-top">
                       <td className="py-1 pr-2 font-medium truncate" title={s.label || s.key}>
                         {s.label || s.key}
                       </td>
                       <td className={`py-1 pr-2 font-semibold ${b.text} tabular-nums text-right whitespace-nowrap`}>
                         {typeof s.score === "number" ? `${s.score.toFixed(1)}%` : "-"}
                       </td>
-                      <td className="py-1 text-[#2E2E38] truncate" title={topGap}>
+                      <td className="py-1 text-fg truncate" title={topGap}>
                         {topGap}
                       </td>
                     </tr>
@@ -570,17 +571,17 @@ function PopoverPanel({
               </tbody>
             </table>
             {doc.sections_below_95 === 0 && doc.missing_artifacts === 0 ? (
-              <div className="mt-2 text-[10px] text-emerald-700">
+              <div className="mt-2 text-micro text-emerald-700">
                 All sections &gt;= 95% - recommended to freeze.
               </div>
             ) : (
-              <div className="mt-2 text-[10px] text-amber-700">
+              <div className="mt-2 text-micro text-amber-700">
                 Regenerate sections below 95% (or fill missing artifacts) for best fidelity.
               </div>
             )}
           </div>
         ) : !job ? (
-          <div className="px-3 py-4 text-[#747480] text-center">
+          <div className="px-3 py-4 text-fg-muted text-center">
             No confidence report yet. Click "Compute now" to run the multi-model evaluator.
           </div>
         ) : null}

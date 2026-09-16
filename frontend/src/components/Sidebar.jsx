@@ -1,11 +1,18 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Lock, CheckCircle2, Library, BookOpen, Database, Boxes, Code2, Activity, Settings as SettingsIcon, ChevronLeft, ChevronRight, Terminal, Network, MoreHorizontal, Plug, SkipForward, LogOut, ShieldCheck, Building2, X as CloseIcon, Info, FolderOpen, FileSearch, ArrowRightLeft } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
 import { useAuth } from "@/state/AuthContext";
 import { getPipelineStatus, factoryReset, getProjectSettings, updateProjectSettings, cancelSRSGeneration, skipStage, unskipStage, getJourneySettings, updateJourneySettings } from "@/lib/api";
 import HelpIcon from "@/components/HelpIcon";
-import SettingsMenu, { useAutoSaveTracker } from "@/components/SettingsMenu";
+// SettingsMenu is 1,378 lines and imports recharts for its usage charts.
+// The Sidebar is on the eager critical path, so a static import kept
+// recharts in main.js for a dialog that is closed almost all the time.
+const SettingsMenu = lazy(() => import("@/components/SettingsMenu"));
+import { useAutoSaveTracker } from "@/hooks/useAutoSaveTracker";
+// Warm a route's lazy chunk on hover/focus, so by the time the click
+// lands the chunk is usually already parsed.
+import { prefetchRoute } from "@/lib/routes";
 import ProjectSwitcher from "@/components/ProjectSwitcher";
 import { useIsMobile } from "@/hooks/useBreakpoint";
 import { toast } from "sonner";
@@ -211,7 +218,8 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
       } catch (_) { /* ignore */ }
     };
     load();
-    const t = setInterval(load, 15000);
+    // Skip the poll entirely while the tab is hidden.
+    const t = setInterval(() => { if (!document.hidden) load(); }, 15000);
     return () => { cancelled = true; clearInterval(t); };
   }, [active?.id]);
 
@@ -384,13 +392,13 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
     return (
       <aside
         data-testid="sidebar-collapsed"
-        className="w-12 shrink-0 h-full min-h-0 flex flex-col bg-white border-r border-[#E6E6E6]"
+        className="w-12 shrink-0 h-full min-h-0 flex flex-col bg-surface border-r border-border"
       >
         <button
           type="button"
           onClick={toggle}
           data-testid="expand-sidebar"
-          className="w-9 h-9 m-1.5 bg-[#FFE600] text-[#2E2E38] flex items-center justify-center rounded-sm font-display font-bold text-base"
+          className="w-9 h-9 m-1.5 bg-brand text-fg flex items-center justify-center rounded-sm font-display font-bold text-base"
           aria-label="Expand sidebar"
         >
           L
@@ -401,7 +409,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             type="button"
             onClick={toggle}
             title={`Project: ${active.name} — click to expand`}
-            className="w-9 h-9 flex items-center justify-center rounded-sm border border-[#FFE600] bg-[#FFFCE6] text-[#2E2E38] hover:bg-[#FFE600] transition-colors"
+            className="w-9 h-9 flex items-center justify-center rounded-sm border border-brand bg-brand-tint text-fg hover:bg-brand transition-colors"
           >
             <FolderOpen className="w-4 h-4" />
           </button>
@@ -428,17 +436,22 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                   }
                   navigate(s.path);
                 }}
+                onMouseEnter={() => !isLocked && prefetchRoute(s.path)}
+                onFocus={() => !isLocked && prefetchRoute(s.path)}
+                aria-label={isSkipped ? `${s.label} (skipped)` : s.label}
+                aria-current={isCurrent ? "page" : undefined}
+                aria-disabled={isLocked || undefined}
                 title={isSkipped ? `${s.label} (skipped)` : s.label}
                 className={`w-9 h-9 flex items-center justify-center rounded-sm border ${
                   isLocked
-                    ? "border-[#E6E6E6] bg-[#F6F6FA] text-[#747480] cursor-not-allowed"
+                    ? "border-border bg-bg text-fg-muted cursor-not-allowed"
                     : isCurrent
-                    ? "border-[#2E2E38] bg-[#2E2E38] text-white"
+                    ? "border-fg bg-ink text-ink-fg"
                     : isFrozen
-                    ? "border-[#FFE600] bg-[#FFFCE6] text-[#2E2E38]"
+                    ? "border-brand bg-brand-tint text-fg"
                     : isSkipped
-                    ? "border-slate-300 bg-slate-100 text-slate-500"
-                    : "border-[#E6E6E6] hover:bg-[#F6F6FA] text-[#2E2E38]"
+                    ? "border-border-strong bg-surface-2 text-fg-subtle"
+                    : "border-border hover:bg-surface-2 text-fg"
                 }`}
               >
                 {isFrozen
@@ -452,21 +465,21 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             );
           })}
         </div>
-        <div className="mt-auto flex flex-col items-center gap-1 pb-2 border-t border-[#E6E6E6] pt-2">
-          <button type="button" onClick={() => navigate("/console")} title="Console" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA]">
-            <Terminal className="w-4 h-4 text-[#747480]" />
+        <div className="mt-auto flex flex-col items-center gap-1 pb-2 border-t border-border pt-2">
+          <button type="button" onClick={() => navigate("/console")} onMouseEnter={() => prefetchRoute("/console")} onFocus={() => prefetchRoute("/console")} aria-label="Console" title="Console" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-surface-2">
+            <Terminal className="w-4 h-4 text-fg-muted" />
           </button>
-          <button type="button" onClick={() => navigate("/prompts")} title="Prompt Library" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA]">
-            <Library className="w-4 h-4 text-[#747480]" />
+          <button type="button" onClick={() => navigate("/prompts")} onMouseEnter={() => prefetchRoute("/prompts")} onFocus={() => prefetchRoute("/prompts")} aria-label="Prompt Library" title="Prompt Library" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-surface-2">
+            <Library className="w-4 h-4 text-fg-muted" />
           </button>
-          <button type="button" onClick={() => navigate("/settings")} title="Settings & GitHub" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA]">
-            <SettingsIcon className="w-4 h-4 text-[#747480]" />
+          <button type="button" onClick={() => navigate("/settings")} onMouseEnter={() => prefetchRoute("/settings")} onFocus={() => prefetchRoute("/settings")} aria-label="Settings & GitHub" title="Settings & GitHub" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-surface-2">
+            <SettingsIcon className="w-4 h-4 text-fg-muted" />
           </button>
-          <button type="button" onClick={() => navigate("/audit")} title="Audit Log" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA]">
-            <Activity className="w-4 h-4 text-[#747480]" />
+          <button type="button" onClick={() => navigate("/audit")} onMouseEnter={() => prefetchRoute("/audit")} onFocus={() => prefetchRoute("/audit")} aria-label="Audit Log" title="Audit Log" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-surface-2">
+            <Activity className="w-4 h-4 text-fg-muted" />
           </button>
-          <button type="button" onClick={toggle} title="Expand sidebar" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA] mt-1" data-testid="expand-sidebar-bottom">
-            <ChevronRight className="w-4 h-4 text-[#2E2E38]" />
+          <button type="button" onClick={toggle} title="Expand sidebar" className="w-9 h-9 flex items-center justify-center rounded-sm hover:bg-surface-2 mt-1" data-testid="expand-sidebar-bottom">
+            <ChevronRight className="w-4 h-4 text-fg" />
           </button>
         </div>
       </aside>
@@ -483,17 +496,17 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
           data-testid="sidebar-backdrop"
           aria-hidden="true"
           onClick={onMobileClose}
-          className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm lg:hidden"
+          className="fixed inset-0 z-40 bg-ink/40 backdrop-blur-sm lg:hidden"
         />
       )}
       <aside
         data-testid="sidebar"
         className={
           isMobile
-            ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] flex flex-col bg-white border-r border-[#E6E6E6] shadow-2xl transform transition-transform duration-200 ease-out lg:hidden ${
+            ? `fixed inset-y-0 left-0 z-50 w-[280px] max-w-[85vw] flex flex-col bg-surface border-r border-border shadow-2xl transform transition-transform duration-200 ease-out lg:hidden ${
                 mobileOpen ? "translate-x-0" : "-translate-x-full"
               }`
-            : "w-[260px] shrink-0 h-full min-h-0 flex flex-col bg-white border-r border-[#E6E6E6]"
+            : "w-[260px] shrink-0 h-full min-h-0 flex flex-col bg-surface border-r border-border"
         }
         aria-hidden={isMobile && !mobileOpen}
       >
@@ -504,28 +517,28 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             onClick={onMobileClose}
             data-testid="sidebar-drawer-close"
             aria-label="Close menu"
-            className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-sm hover:bg-[#F6F6FA]"
+            className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center rounded-sm hover:bg-surface-2"
           >
-            <CloseIcon className="w-4 h-4 text-[#2E2E38]" />
+            <CloseIcon className="w-4 h-4 text-fg" />
           </button>
         )}
       {/* Brand + Project (static, single-tenant) */}
-      <div className="px-5 py-5 border-b border-[#E6E6E6]">
+      <div className="px-5 py-5 border-b border-border">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-2">
-            <div className="w-9 h-9 bg-[#FFE600] text-[#2E2E38] flex items-center justify-center rounded-sm font-display font-bold text-base">
+            <div className="w-9 h-9 bg-brand text-fg flex items-center justify-center rounded-sm font-display font-bold text-base">
               L
             </div>
             <div>
-              <div className="font-display font-bold text-xl leading-none tracking-tight text-[#2E2E38]" data-testid="brand-name">LAMA</div>
-              <div className="text-[10px] uppercase tracking-widest text-[#747480] mt-1 leading-tight">Legacy Application<br/>Modernisation AI Studio</div>
+              <div className="font-display font-bold text-xl leading-none tracking-tight text-fg" data-testid="brand-name">LAMA</div>
+              <div className="text-micro uppercase tracking-widest text-fg-muted mt-1 leading-tight">Legacy Application<br/>Modernisation AI Studio</div>
             </div>
           </div>
           <button
             type="button"
             onClick={toggle}
             data-testid="collapse-sidebar"
-            className="text-[#747480] hover:text-[#2E2E38] p-1 -mr-1"
+            className="text-fg-muted hover:text-fg p-1 -mr-1"
             aria-label="Collapse sidebar"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -555,21 +568,27 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 const v = JSON.parse(raw);
                 if (Array.isArray(v)) return v;
               }
-            } catch (_e) {}
+            } catch (_e) {
+            // localStorage/CustomEvent may be unavailable (private mode,
+            // blocked site data). The feature degrades; it never fails.
+            }
             // Pipeline open by default — it's the primary nav. Tools also
             // open so Console/Integrations/Prompts are one click away.
             return ["pipeline", "tools"];
           })()}
           onValueChange={(v) => {
-            try { localStorage.setItem("lama:sidebar:bottomNav", JSON.stringify(v)); } catch (_e) {}
+            try { localStorage.setItem("lama:sidebar:bottomNav", JSON.stringify(v)); } catch (_e) {
+            // localStorage/CustomEvent may be unavailable (private mode,
+            // blocked site data). The feature degrades; it never fails.
+            }
           }}
           className="w-full"
         >
           {/* ── Pipeline (the 5 migration stages) ──────────────── */}
-          <AccordionItem value="pipeline" className="border-b border-[#E6E6E6]">
+          <AccordionItem value="pipeline" className="border-b border-border">
             <AccordionTrigger
               data-testid="sidebar-acc-pipeline"
-              className="px-2 py-2 text-[11px] font-bold uppercase tracking-wider text-[#747480] hover:no-underline hover:bg-[#F6F6FA] rounded-sm"
+              className="px-2 py-2 text-micro font-bold uppercase tracking-wider text-fg-muted hover:no-underline hover:bg-surface-2 rounded-sm"
             >
               <span className="flex items-center gap-2">
                 <BookOpen className="w-3.5 h-3.5" /> Pipeline
@@ -602,20 +621,24 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                       key={s.key}
                       className={`rounded-lg overflow-hidden transition-all ${
                         isLocked
-                          ? "bg-slate-50 opacity-60"
+                          ? "bg-surface-2 opacity-60"
                           : isCurrent
-                          ? "bg-[#FFE600] shadow-md ring-2 ring-[#2E2E38]/10"
+                          ? "bg-brand shadow-md ring-2 ring-fg/10"
                           : isFrozen
-                          ? "bg-white border border-slate-200 shadow-sm"
+                          ? "bg-surface border border-border shadow-sm"
                           : isSkipped
                           ? "bg-orange-50/80 border border-orange-200/60"
-                          : "bg-white border border-slate-200 hover:shadow-md hover:border-slate-300"
+                          : "bg-surface border border-border hover:shadow-md hover:border-border-strong"
                       }`}
                     >
                       {/* Stage row */}
                       <button
                         type="button"
                         data-testid={`stage-${s.key}`}
+                        onMouseEnter={() => !isLocked && prefetchRoute(s.path)}
+                        onFocus={() => !isLocked && prefetchRoute(s.path)}
+                        aria-current={isCurrent ? "page" : undefined}
+                        aria-disabled={isLocked || undefined}
                         onClick={() => {
                           if (isLocked) {
                             toast.message("Locked", { description: `Complete previous stage first.` });
@@ -625,24 +648,24 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                         }}
                         className={`w-full text-left flex items-center gap-2 px-3 py-2.5 ${
                           isLocked
-                            ? "text-slate-400 cursor-not-allowed"
+                            ? "text-fg-subtle cursor-not-allowed"
                             : isCurrent
-                            ? "text-[#2E2E38]"
+                            ? "text-fg"
                             : isFrozen
-                            ? "text-[#2E2E38]"
+                            ? "text-fg"
                             : isSkipped
-                            ? "text-orange-700"
-                            : "text-slate-700"
+                            ? "text-warn"
+                            : "text-fg-muted"
                         }`}
                       >
                         <div className="shrink-0">
                           {isFrozen
-                            ? <CheckCircle2 className={`w-4 h-4 ${isCurrent ? "text-[#2E2E38]" : "text-[#2E2E38]"}`} />
+                            ? <CheckCircle2 className={`w-4 h-4 ${isCurrent ? "text-fg" : "text-fg"}`} />
                             : isSkipped
-                            ? <SkipForward className={`w-4 h-4 ${isCurrent ? "text-[#2E2E38]" : "text-orange-500"}`} />
+                            ? <SkipForward className={`w-4 h-4 ${isCurrent ? "text-fg" : "text-orange-500"}`} />
                             : isLocked
                             ? <Lock className="w-4 h-4" />
-                            : <Icon className={`w-4 h-4 ${isCurrent ? "text-[#2E2E38]" : ""}`} />}
+                            : <Icon className={`w-4 h-4 ${isCurrent ? "text-fg" : ""}`} />}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="text-[12px] font-semibold truncate">{s.label}</div>
@@ -653,37 +676,37 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                       {!isLocked && (
                         <div className={`flex items-center gap-1 px-3 py-1.5 ${
                           isCurrent 
-                            ? "bg-[#2E2E38]"
+                            ? "bg-ink"
                             : isFrozen 
-                            ? "bg-slate-50 border-t border-slate-100"
+                            ? "bg-surface-2 border-t border-border"
                             : isSkipped
                             ? "bg-orange-50/50 border-t border-orange-100"
-                            : "bg-slate-50/80 border-t border-slate-100"
+                            : "bg-surface-2/80 border-t border-border"
                         }`}>
                           {/* Status badge */}
                           {isFrozen ? (
                             <span 
                               data-testid={`stage-${s.key}-badge-frozen`}
-                              className={`flex-1 text-[10px] font-semibold flex items-center gap-1 ${isCurrent ? "text-white" : "text-emerald-600"}`}
+                              className={`flex-1 text-micro font-semibold flex items-center gap-1 ${isCurrent ? "text-white" : "text-emerald-600"}`}
                             >
                               <CheckCircle2 className="w-3 h-3" /> Frozen v{ctx?.version ?? "1"}
                             </span>
                           ) : isSkipped ? (
                             <span 
                               data-testid={`stage-${s.key}-badge-skipped`}
-                              className={`flex-1 text-[10px] font-semibold flex items-center gap-1 ${isCurrent ? "text-white" : "text-orange-500"}`}
+                              className={`flex-1 text-micro font-semibold flex items-center gap-1 ${isCurrent ? "text-white" : "text-orange-500"}`}
                             >
                               <SkipForward className="w-3 h-3" /> Skipped
                             </span>
                           ) : isAvailable ? (
                             <span 
                               data-testid={`stage-${s.key}-badge-ready`}
-                              className={`flex-1 text-[10px] font-medium ${isCurrent ? "text-white/90" : "text-slate-500"}`}
+                              className={`flex-1 text-micro font-medium ${isCurrent ? "text-white/90" : "text-fg-subtle"}`}
                             >
                               Ready to work
                             </span>
                           ) : (
-                            <span className={`flex-1 text-[10px] font-medium ${isCurrent ? "text-white/70" : "text-slate-400"}`}>
+                            <span className={`flex-1 text-micro font-medium ${isCurrent ? "text-white/70" : "text-fg-subtle"}`}>
                               In progress
                             </span>
                           )}
@@ -695,7 +718,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                               data-testid={`stage-${s.key}-skip`}
                               onClick={(e) => { e.stopPropagation(); handleSkip(s.key, s.label, isFrozen); }}
                               title={isFrozen ? "Skip (overwrites frozen)" : "Skip this stage"}
-                              className={`px-2 py-0.5 rounded text-[9px] font-semibold transition-colors ${
+                              className={`px-2 py-0.5 rounded text-micro font-semibold transition-colors ${
                                 isCurrent 
                                   ? "bg-rose-500 text-white hover:bg-rose-600" 
                                   : "text-rose-500 bg-rose-50 hover:bg-rose-100"
@@ -710,10 +733,10 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                               data-testid={`stage-${s.key}-unskip`}
                               onClick={(e) => { e.stopPropagation(); handleUnskip(s.key, s.label); }}
                               title="Restore this stage"
-                              className={`px-2 py-0.5 rounded text-[9px] font-semibold transition-colors ${
+                              className={`px-2 py-0.5 rounded text-micro font-semibold transition-colors ${
                                 isCurrent
-                                  ? "bg-white text-[#2E2E38] hover:bg-slate-100"
-                                  : "text-slate-500 bg-slate-100 hover:bg-slate-200"
+                                  ? "bg-surface text-fg hover:bg-surface-2"
+                                  : "text-fg-subtle bg-surface-2 hover:bg-surface-3"
                               }`}
                             >
                               Restore
@@ -729,10 +752,10 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
           </AccordionItem>
 
           {/* ── Tools (Console / Integrations / Prompts) ───────── */}
-          <AccordionItem value="tools" className="border-b border-[#E6E6E6]">
+          <AccordionItem value="tools" className="border-b border-border">
             <AccordionTrigger
               data-testid="sidebar-acc-tools"
-              className="px-2 py-2 text-[11px] font-bold uppercase tracking-wider text-[#747480] hover:no-underline hover:bg-[#F6F6FA] rounded-sm"
+              className="px-2 py-2 text-micro font-bold uppercase tracking-wider text-fg-muted hover:no-underline hover:bg-surface-2 rounded-sm"
             >
               <span className="flex items-center gap-2">
                 <Terminal className="w-3.5 h-3.5" /> Tools
@@ -743,7 +766,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-console"
                 onClick={() => navigate("/console")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/console" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/console" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <Terminal className="w-4 h-4" />
@@ -754,7 +777,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-integrations"
                 onClick={() => navigate("/integrations")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/integrations" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/integrations" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <Plug className="w-4 h-4" />
@@ -768,7 +791,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-prompts"
                 onClick={() => navigate("/prompts")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/prompts" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/prompts" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <Library className="w-4 h-4" />
@@ -780,10 +803,10 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
 
           {/* ── Project (Graph KB toggle) ──────────────────────── */}
           {active?.id && (
-            <AccordionItem value="project" className="border-b border-[#E6E6E6]">
+            <AccordionItem value="project" className="border-b border-border">
               <AccordionTrigger
                 data-testid="sidebar-acc-project"
-                className="px-2 py-2 text-[11px] font-bold uppercase tracking-wider text-[#747480] hover:no-underline hover:bg-[#F6F6FA] rounded-sm"
+                className="px-2 py-2 text-micro font-bold uppercase tracking-wider text-fg-muted hover:no-underline hover:bg-surface-2 rounded-sm"
               >
                 <span className="flex items-center gap-2">
                   <Network className="w-3.5 h-3.5" /> Project
@@ -793,7 +816,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 {/* iter-13.31 — Graph KB toggle (per-project). */}
                 <div
                   data-testid="graph-kb-toggle-row"
-                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm text-[13px] text-slate-600 hover:bg-slate-50"
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm text-[13px] text-fg-muted hover:bg-surface-2"
                   title={
                     graphSettings?.use_graph_kb === null || graphSettings?.use_graph_kb === undefined
                       ? `Using env default (LAMA_USE_GRAPH_KB) — currently ${graphSettings?.use_graph_kb_env_default ? "ON" : "OFF"}. Click to override.`
@@ -814,11 +837,11 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                     onClick={toggleGraphKb}
                     disabled={graphBusy || !graphSettings}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
-                      graphSettings?.use_graph_kb_effective ? "bg-[#7C3AED]" : "bg-slate-300"
+                      graphSettings?.use_graph_kb_effective ? "bg-info" : "bg-surface-3"
                     } ${graphBusy ? "opacity-50" : ""}`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-surface transition ${
                         graphSettings?.use_graph_kb_effective ? "translate-x-4" : "translate-x-0.5"
                       }`}
                     />
@@ -827,7 +850,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 {/* iter-14.25 — Journey KB toggle (per-project). */}
                 <div
                   data-testid="journey-kb-toggle-row"
-                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm text-[13px] text-slate-600 hover:bg-slate-50"
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-sm text-[13px] text-fg-muted hover:bg-surface-2"
                   title={
                     journeySettings?.override
                       ? `Project override: ${journeySettings?.enabled ? "ON" : "OFF"}. Click to flip.`
@@ -848,11 +871,11 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                     onClick={toggleJourneyKb}
                     disabled={journeyBusy || !journeySettings}
                     className={`relative inline-flex h-5 w-9 items-center rounded-full transition ${
-                      journeySettings?.enabled ? "bg-[#7C3AED]" : "bg-slate-300"
+                      journeySettings?.enabled ? "bg-info" : "bg-surface-3"
                     } ${journeyBusy ? "opacity-50" : ""}`}
                   >
                     <span
-                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${
+                      className={`inline-block h-4 w-4 transform rounded-full bg-surface transition ${
                         journeySettings?.enabled ? "translate-x-4" : "translate-x-0.5"
                       }`}
                     />
@@ -866,7 +889,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
           <AccordionItem value="admin" className="border-b-0">
             <AccordionTrigger
               data-testid="sidebar-acc-admin"
-              className="px-2 py-2 text-[11px] font-bold uppercase tracking-wider text-[#747480] hover:no-underline hover:bg-[#F6F6FA] rounded-sm"
+              className="px-2 py-2 text-micro font-bold uppercase tracking-wider text-fg-muted hover:no-underline hover:bg-surface-2 rounded-sm"
             >
               <span className="flex items-center gap-2">
                 <SettingsIcon className="w-3.5 h-3.5" /> Admin
@@ -883,11 +906,11 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                   onClick={() => navigate("/admin")}
                   className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
                     location.pathname === "/admin"
-                      ? "bg-[#FFFCE6] text-[#2E2E38] font-semibold border border-[#FFE600]"
-                      : "text-slate-700 font-semibold hover:bg-[#FFFCE6] border border-transparent"
+                      ? "bg-brand-tint text-fg font-semibold border border-brand"
+                      : "text-fg-muted font-semibold hover:bg-brand-tint border border-transparent"
                   }`}
                 >
-                  <ShieldCheck className="w-4 h-4 text-[#2E2E38]" />
+                  <ShieldCheck className="w-4 h-4 text-fg" />
                   Admin Dashboard
                 </button>
               )}
@@ -895,7 +918,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-settings"
                 onClick={() => navigate("/settings")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/settings" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/settings" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <SettingsIcon className="w-4 h-4" />
@@ -906,7 +929,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-audit"
                 onClick={() => navigate("/audit")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/audit" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/audit" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <Activity className="w-4 h-4" />
@@ -916,7 +939,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-about"
                 onClick={() => navigate("/about")}
                 className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/about" ? "bg-[#F6F6FA] text-[#2E2E38] font-semibold" : "text-slate-600 hover:bg-slate-50"
+                  location.pathname === "/about" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
                 }`}
               >
                 <Info className="w-4 h-4" />
@@ -929,11 +952,11 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 data-testid="nav-settings-menu"
                 onClick={() => setMenuOpen(true)}
                 title="History, Auto-save, Refresh App, Statistics"
-                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] font-semibold text-[#2E2E38] bg-[#FFFCE6] border border-[#FFE600] hover:bg-[#FFE600] mt-1"
+                className="w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] font-semibold text-fg bg-brand-tint border border-brand hover:bg-brand mt-1"
               >
                 <MoreHorizontal className="w-4 h-4" />
                 Settings
-                <span className="ml-auto text-[10px] uppercase tracking-wider text-slate-500">More</span>
+                <span className="ml-auto text-micro uppercase tracking-wider text-fg-subtle">More</span>
               </button>
             </AccordionContent>
           </AccordionItem>
@@ -946,19 +969,19 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
           single compact row (was overlapping the accordion when admins
           logged in). */}
       {user && (
-        <div className="px-4 py-2 border-t border-[#E6E6E6] bg-[#F6F6FA] shrink-0" data-testid="auth-footer">
+        <div className="px-4 py-2 border-t border-border bg-bg shrink-0" data-testid="auth-footer">
           <div className="flex items-center gap-2">
-            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-[11px] font-bold ${user.role === "super_admin" ? "bg-[#FFE600] text-[#2E2E38]" : "bg-[#2E2E38] text-white"}`}>
+            <div className={`w-7 h-7 rounded-full flex items-center justify-center text-micro font-bold ${user.role === "super_admin" ? "bg-brand text-fg" : "bg-ink text-ink-fg"}`}>
               {(user.full_name || user.username || "?").slice(0, 1).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-bold text-[#2E2E38] truncate" data-testid="auth-username">
+              <div className="text-[12px] font-bold text-fg truncate" data-testid="auth-username">
                 {user.full_name || user.username}
               </div>
-              <div className="text-[10px] text-[#747480] truncate flex items-center gap-1">
+              <div className="text-micro text-fg-muted truncate flex items-center gap-1">
                 <Building2 className="w-2.5 h-2.5" />
                 {user.role === "super_admin" ? "All tenants" : (tenant?.name || user.tenant_id || "—")}
-                <span className="ml-1 px-1 py-0.5 rounded-sm bg-white border border-[#E6E6E6] uppercase tracking-wider text-[8px]">
+                <span className="ml-1 px-1 py-0.5 rounded-sm bg-surface border border-border uppercase tracking-wider text-micro">
                   {user.role === "super_admin" ? "Admin" : user.role === "tenant_admin" ? "T-Admin" : "User"}
                 </span>
               </div>
@@ -968,7 +991,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
               data-testid="auth-logout"
               onClick={logout}
               title="Sign out"
-              className="p-1.5 rounded-sm text-rose-500 hover:bg-white"
+              className="p-1.5 rounded-sm text-rose-500 hover:bg-surface"
             >
               <LogOut className="w-3.5 h-3.5" />
             </button>
@@ -976,12 +999,16 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
         </div>
       )}
 
-      <SettingsMenu
-        open={menuOpen}
-        onOpenChange={setMenuOpen}
-        onRefreshApp={refreshApp}
-        refreshBusy={refreshBusy}
-      />
+      {menuOpen && (
+        <Suspense fallback={null}>
+          <SettingsMenu
+            open={menuOpen}
+            onOpenChange={setMenuOpen}
+            onRefreshApp={refreshApp}
+            refreshBusy={refreshBusy}
+          />
+        </Suspense>
+      )}
     </aside>
     </>
   );

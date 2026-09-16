@@ -10,7 +10,7 @@ PORT="${1:-8000}"
 if ! nc -z 127.0.0.1 27017 >/dev/null 2>&1; then
   echo "WARNING: MongoDB is not reachable on 27017."
   echo "         The app will start but every data route will fail."
-  echo "         Start it with: brew services start mongodb-community"
+  echo "         Start it with: brew services start mongodb-community@8.0"
   echo
 fi
 

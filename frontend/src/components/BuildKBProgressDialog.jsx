@@ -103,12 +103,12 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-ink/40"
       role="dialog"
       aria-modal="true"
       data-testid="build-kb-progress-dialog"
     >
-      <div className="bg-white rounded-lg shadow-2xl w-[520px] max-w-[92vw] p-5 border border-[#E6E6E6]">
+      <div className="bg-surface rounded-lg shadow-2xl w-[520px] max-w-[92vw] p-5 border border-border">
         <div className="flex items-start justify-between mb-3">
           <div className="flex items-center gap-2">
             {phase === "done" ? (
@@ -116,9 +116,9 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
             ) : phase === "error" ? (
               <AlertCircle className="w-5 h-5 text-red-600" />
             ) : (
-              <Loader2 className="w-5 h-5 text-[#2E2E38] animate-spin" />
+              <Loader2 className="w-5 h-5 text-fg animate-spin" />
             )}
-            <h2 className="font-display text-base font-bold text-[#2E2E38]">
+            <h2 className="font-display text-base font-bold text-fg">
               Building Knowledge Base
             </h2>
           </div>
@@ -126,7 +126,7 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
             <button
               type="button"
               onClick={() => onClose?.(phase === "done")}
-              className="text-[#747480] hover:text-[#2E2E38]"
+              className="text-fg-muted hover:text-fg"
               data-testid="build-kb-close"
             >
               <X className="w-4 h-4" />
@@ -135,7 +135,7 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
         </div>
 
         {/* Phase badge + elapsed */}
-        <div className="flex items-center justify-between text-[11px] mb-2">
+        <div className="flex items-center justify-between text-micro mb-2">
           <span
             className={
               "px-2 py-0.5 rounded-full font-medium uppercase tracking-wider " +
@@ -149,28 +149,28 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
           >
             {label}
           </span>
-          <span className="text-[#747480]">
+          <span className="text-fg-muted">
             {elapsedSec}s
           </span>
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-2 bg-[#F2F2F2] rounded-full overflow-hidden mb-3">
+        <div className="w-full h-2 bg-surface-2 rounded-full overflow-hidden mb-3">
           <div
             className={
               "h-full transition-all " +
-              (phase === "error" ? "bg-red-500" : phase === "done" ? "bg-green-500" : "bg-[#FFE600]")
+              (phase === "error" ? "bg-red-500" : phase === "done" ? "bg-green-500" : "bg-brand")
             }
             style={{ width: `${pct}%` }}
           />
         </div>
 
         {/* Per-phase details */}
-        <div className="space-y-2 text-[12px] text-[#2E2E38]">
+        <div className="space-y-2 text-[12px] text-fg">
           {phase === "extracting" && (
             <>
               <div className="flex items-center justify-between">
-                <span className="text-[#747480]">Files extracted</span>
+                <span className="text-fg-muted">Files extracted</span>
                 <span className="font-mono">
                   {extracted}
                   {totalExtractable ? ` / ${totalExtractable}` : ""}
@@ -178,7 +178,7 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
               </div>
               {currentFile && (
                 <div
-                  className="flex items-center gap-1.5 text-[11px] text-[#747480] font-mono truncate"
+                  className="flex items-center gap-1.5 text-micro text-fg-muted font-mono truncate"
                   title={currentFile}
                   data-testid="build-kb-current-file"
                 >
@@ -191,14 +191,14 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
 
           {phase === "qdrant_indexing" && (
             <div className="flex items-center justify-between">
-              <span className="text-[#747480]">Chunks indexed</span>
+              <span className="text-fg-muted">Chunks indexed</span>
               <span className="font-mono">{chunksIndexed}</span>
             </div>
           )}
 
           {(phase === "graph_build" || phase === "graphify" || phase === "done") && (graphNodes || graphEdges) ? (
             <div className="flex items-center justify-between">
-              <span className="text-[#747480]">Graph</span>
+              <span className="text-fg-muted">Graph</span>
               <span className="font-mono">
                 {graphNodes} nodes · {graphEdges} edges
               </span>
@@ -206,30 +206,30 @@ export default function BuildKBProgressDialog({ open, projectId, onClose }) {
           ) : null}
 
           {phase === "done" && (
-            <div className="text-[11px] text-green-700">
+            <div className="text-micro text-green-700">
               Knowledge base ready. Closing…
             </div>
           )}
 
           {phase === "error" && (
-            <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 rounded p-2 break-words">
+            <div className="text-micro text-red-700 bg-red-50 border border-red-200 rounded p-2 break-words">
               {state?.error || "Unknown error. Check backend logs."}
             </div>
           )}
         </div>
 
         {/* Phase pipeline (compact) */}
-        <div className="mt-4 flex items-center gap-1 text-[9px] text-[#747480] uppercase tracking-wider overflow-x-auto">
+        <div className="mt-4 flex items-center gap-1 text-micro text-fg-muted uppercase tracking-wider overflow-x-auto">
           {PHASE_ORDER.filter((p) => p !== "done").map((p, i) => (
             <React.Fragment key={p}>
               <span
                 className={
                   "px-1.5 py-0.5 rounded whitespace-nowrap " +
                   (i < idx
-                    ? "bg-[#2E2E38] text-white"
+                    ? "bg-ink text-ink-fg"
                     : i === idx
-                    ? "bg-[#FFE600] text-[#2E2E38]"
-                    : "bg-[#F2F2F2] text-[#747480]")
+                    ? "bg-brand text-fg"
+                    : "bg-surface-2 text-fg-muted")
                 }
               >
                 {PHASE_LABEL[p] || p}

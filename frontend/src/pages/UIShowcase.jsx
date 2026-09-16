@@ -155,20 +155,20 @@ export default function UIShowcase() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col bg-[#F6F6FA] overflow-hidden">
+    <div className="flex-1 flex flex-col bg-bg overflow-hidden">
       {/* Page Header */}
-      <div className="px-6 py-4 bg-white border-b border-[#E6E6E6]">
+      <div className="px-6 py-4 bg-surface border-b border-border">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-[#2E2E38] font-display">
+            <h1 className="text-2xl font-bold text-fg font-display">
               Professional UI Components
             </h1>
-            <p className="text-sm text-[#6B7280] mt-1">
+            <p className="text-sm text-fg-muted mt-1">
               IDE-like interface components for LAMA
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-mono px-2 py-1 bg-[#FFFCE6] text-[#2E2E38] rounded border border-[#FFE600]">
+            <span className="text-xs font-mono px-2 py-1 bg-brand-tint text-fg rounded border border-brand">
               v14.0
             </span>
           </div>
@@ -178,18 +178,18 @@ export default function UIShowcase() {
       {/* Tabs */}
       <div className="flex-1 flex flex-col overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
-          <div className="px-6 pt-3 bg-white border-b border-[#E6E6E6]">
+          <div className="px-6 pt-3 bg-surface border-b border-border">
             <TabsList className="bg-transparent border-0 h-auto p-0 gap-6">
               <TabsTrigger 
                 value="components" 
-                className="bg-transparent border-b-2 border-transparent data-[state=active]:border-[#FFE600] rounded-none px-0 pb-2"
+                className="bg-transparent border-b-2 border-transparent data-[state=active]:border-brand rounded-none px-0 pb-2"
               >
                 <Layout className="w-4 h-4 mr-2" />
                 Components
               </TabsTrigger>
               <TabsTrigger 
                 value="layout" 
-                className="bg-transparent border-b-2 border-transparent data-[state=active]:border-[#FFE600] rounded-none px-0 pb-2"
+                className="bg-transparent border-b-2 border-transparent data-[state=active]:border-brand rounded-none px-0 pb-2"
               >
                 <Boxes className="w-4 h-4 mr-2" />
                 Layout Patterns
@@ -204,21 +204,21 @@ export default function UIShowcase() {
                 <div className="max-w-6xl space-y-6">
                   {/* Toolbar Demo */}
                   <section className="pro-card overflow-hidden">
-                    <div className="px-4 py-3 bg-[#F9FAFB] border-b border-[#E6E6E6]">
-                      <h3 className="text-sm font-semibold text-[#2E2E38]">Toolbar Component</h3>
-                      <p className="text-xs text-[#6B7280] mt-0.5">Professional action bar with grouped buttons</p>
+                    <div className="px-4 py-3 bg-surface-2 border-b border-border">
+                      <h3 className="text-sm font-semibold text-fg">Toolbar Component</h3>
+                      <p className="text-xs text-fg-muted mt-0.5">Professional action bar with grouped buttons</p>
                     </div>
                     <Toolbar actions={toolbarActions} secondaryActions={secondaryActions} />
                   </section>
 
                   {/* DataTable Demo */}
                   <section className="pro-card overflow-hidden">
-                    <div className="px-4 py-3 bg-[#F9FAFB] border-b border-[#E6E6E6]">
-                      <h3 className="text-sm font-semibold text-[#2E2E38] flex items-center gap-2">
+                    <div className="px-4 py-3 bg-surface-2 border-b border-border">
+                      <h3 className="text-sm font-semibold text-fg flex items-center gap-2">
                         <Table className="w-4 h-4" />
                         DataTable Component
                       </h3>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
+                      <p className="text-xs text-fg-muted mt-0.5">
                         Sortable, searchable table with selection
                       </p>
                     </div>
@@ -240,12 +240,12 @@ export default function UIShowcase() {
 
                   {/* TreeView Demo */}
                   <section className="pro-card overflow-hidden">
-                    <div className="px-4 py-3 bg-[#F9FAFB] border-b border-[#E6E6E6]">
-                      <h3 className="text-sm font-semibold text-[#2E2E38] flex items-center gap-2">
+                    <div className="px-4 py-3 bg-surface-2 border-b border-border">
+                      <h3 className="text-sm font-semibold text-fg flex items-center gap-2">
                         <FolderTree className="w-4 h-4" />
                         TreeView Component
                       </h3>
-                      <p className="text-xs text-[#6B7280] mt-0.5">
+                      <p className="text-xs text-fg-muted mt-0.5">
                         File explorer style navigation tree
                       </p>
                     </div>
@@ -275,11 +275,11 @@ export default function UIShowcase() {
           <TabsContent value="layout" className="flex-1 overflow-auto mos-scroll p-6 mt-0">
             <div className="max-w-4xl mx-auto space-y-6">
               <div className="pro-card p-6">
-                <h3 className="text-lg font-semibold text-[#2E2E38] mb-4">Professional Layout Patterns</h3>
+                <h3 className="text-lg font-semibold text-fg mb-4">Professional Layout Patterns</h3>
                 
-                <div className="space-y-4 text-sm text-[#4B5563]">
+                <div className="space-y-4 text-sm text-fg-muted">
                   <div>
-                    <h4 className="font-semibold text-[#2E2E38] mb-2">IDE-Style Layout</h4>
+                    <h4 className="font-semibold text-fg mb-2">IDE-Style Layout</h4>
                     <ul className="list-disc list-inside space-y-1 ml-2">
                       <li>Top Toolbar: Breadcrumbs, search (⌘K), user profile</li>
                       <li>Left Sidebar: Hierarchical navigation with icons</li>
@@ -290,7 +290,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-[#2E2E38] mb-2">Design System</h4>
+                    <h4 className="font-semibold text-fg mb-2">Design System</h4>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <p className="font-medium mb-1">Typography:</p>
@@ -312,18 +312,18 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <h4 className="font-semibold text-[#2E2E38] mb-2">Color Palette</h4>
+                    <h4 className="font-semibold text-fg mb-2">Color Palette</h4>
                     <div className="flex gap-2 flex-wrap">
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-[#FFE600] border border-[#E6E6E6] rounded" />
+                        <div className="w-8 h-8 bg-brand border border-border rounded" />
                         <span className="text-xs">Primary Yellow</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-[#2E2E38] border border-[#E6E6E6] rounded" />
+                        <div className="w-8 h-8 bg-ink border border-border rounded" />
                         <span className="text-xs">Dark Text</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 bg-[#F6F6FA] border border-[#E6E6E6] rounded" />
+                        <div className="w-8 h-8 bg-bg border border-border rounded" />
                         <span className="text-xs">Background</span>
                       </div>
                     </div>

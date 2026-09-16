@@ -13,6 +13,7 @@ import {
 } from "@/lib/api";
 import { useProjects } from "@/state/ProjectContext";
 import { labelForAgentKey, colorForAgentKey, isAgentDrivenProjectType, projectTypeMeta } from "@/lib/agentLabels";
+import { usePolling } from "@/hooks/usePolling";
 
 // iter-13.31 — Global always-on status bar.
 //
@@ -292,19 +293,19 @@ export default function MiniConsole() {
     }
   };
 
+  // Initial fetch on mount / project change. The three recurring polls it
+  // used to own are now usePolling calls below, which pause while the tab
+  // is hidden — this component sits in the shell on every route, so its
+  // timers previously ran forever in every backgrounded LAMA tab.
   useEffect(() => {
     refresh();
     refreshFactoryStatus();
     refreshFactoryHealth();
-    const t = setInterval(refresh, 10000);
-    const t2 = setInterval(refreshFactoryStatus, 15000);
-    const t3 = setInterval(refreshFactoryHealth, 30000);
-    return () => {
-      clearInterval(t);
-      clearInterval(t2);
-      clearInterval(t3);
-    };
-  }, [projectId]); // eslint-disable-line
+  }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  usePolling(refresh, 10000);
+  usePolling(refreshFactoryStatus, 15000);
+  usePolling(refreshFactoryHealth, 30000);
 
   // iter-14.59 — auto-open state moved below to sit next to the
   // `current` derivation it depends on (see line ~485).
@@ -458,7 +459,7 @@ export default function MiniConsole() {
     };
     // Fire immediately so the pane never shows an empty state briefly.
     tick();
-    const iv = setInterval(tick, 1500);
+    const iv = setInterval(() => { if (!document.hidden) tick(); }, 1500);
     return () => { cancelled = true; clearInterval(iv); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, logsOpen, logLevel, logFilter]);
@@ -592,7 +593,7 @@ export default function MiniConsole() {
 
   const statusDot =
     current.status === "error"   ? "bg-red-500"
-    : current.status === "idle"  ? "bg-gray-400"
+    : current.status === "idle"  ? "bg-fg-subtle"
     : current.status === "timeout" ? "bg-orange-400"
     : "bg-emerald-500";
 
@@ -600,20 +601,20 @@ export default function MiniConsole() {
     // iter-13.35 — collapsed pill shows factory.ai status when enabled.
     const factoryPill = factoryConnected ? (
       factoryHealth === "up" ? (
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500 text-white text-[9px] font-bold">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />FACTORY UP
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500 text-white text-micro font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-surface" />FACTORY UP
         </span>
       ) : factoryHealth === "down" ? (
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-[9px] font-bold animate-pulse">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />FACTORY DOWN
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-red-500 text-white text-micro font-bold animate-pulse">
+          <span className="w-1.5 h-1.5 rounded-full bg-surface" />FACTORY DOWN
         </span>
       ) : factoryHealth === "misconfigured" ? (
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500 text-white text-[9px] font-bold">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />FACTORY · SETUP
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-orange-500 text-white text-micro font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-surface" />FACTORY · SETUP
         </span>
       ) : (
-        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-[9px] font-bold">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />FACTORY …
+        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500 text-white text-micro font-bold">
+          <span className="w-1.5 h-1.5 rounded-full bg-surface" />FACTORY …
         </span>
       )
     ) : null;
@@ -626,7 +627,7 @@ export default function MiniConsole() {
             ? `Factory.ai (${factoryHealth})${factoryComputer ? ` · ${factoryComputer}` : ""}${factoryHealthErr ? ` · ${factoryHealthErr}` : ""}`
             : `Model: ${current.model || "—"} · ${fmt(totalTokens)} tokens · $${totalCost.toFixed(4)}`
         }
-        className="fixed bottom-0 right-0 z-40 h-8 px-3 bg-[#2E2E38] text-white text-[11px] flex items-center gap-3 rounded-tl-md hover:bg-[#FFE600] hover:text-[#2E2E38] shadow-lg border-t border-l border-[#FFE600]/30"
+        className="fixed bottom-0 right-0 z-40 h-8 px-3 bg-ink text-ink-fg text-micro flex items-center gap-3 rounded-tl-md hover:bg-brand hover:text-fg shadow-lg border-t border-l border-brand/30"
       >
         <span className={`w-2 h-2 rounded-full ${statusDot}`} />
         <Cpu className="w-3 h-3" />
@@ -644,7 +645,7 @@ export default function MiniConsole() {
         {factoryPill}
         <span className="opacity-60">·</span>
         <Coins className="w-3 h-3" />
-        <span className="font-mono text-[#FFE600] group-hover:text-[#2E2E38]" data-testid="mini-console-total-tokens">
+        <span className="font-mono text-brand group-hover:text-fg" data-testid="mini-console-total-tokens">
           {fmt(totalTokens)}
         </span>
         <span className="opacity-60">tokens</span>
@@ -656,11 +657,11 @@ export default function MiniConsole() {
   return (
     <div
       data-testid="mini-console-expanded"
-      className="fixed bottom-0 right-0 z-40 w-[420px] max-w-[100vw] sm:max-w-[95vw] bg-white border-t border-l border-[#E6E6E6] rounded-tl-md shadow-2xl"
+      className="fixed bottom-0 right-0 z-40 w-[420px] max-w-[100vw] sm:max-w-[95vw] bg-surface border-t border-l border-border rounded-tl-md shadow-2xl"
     >
-      <div className="bg-[#2E2E38] text-white px-3 py-1.5 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-[11px] font-bold">
-          <Terminal className="w-3 h-3 text-[#FFE600]" />
+      <div className="bg-ink text-ink-fg px-3 py-1.5 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-micro font-bold">
+          <Terminal className="w-3 h-3 text-brand" />
           <span>{stage || "Console"} · Live Telemetry</span>
         </div>
         <div className="flex items-center gap-2">
@@ -680,10 +681,10 @@ export default function MiniConsole() {
                   : "Reconnect Factory droid — resume routing LLM calls through Factory."
               }
               className={
-                "flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-[10px] font-bold border transition-colors disabled:opacity-50 "
+                "flex items-center gap-1 px-1.5 py-0.5 rounded-sm text-micro font-bold border transition-colors disabled:opacity-50 "
                 + (factoryConnected
                   ? "bg-emerald-500/20 border-emerald-400/60 text-emerald-100 hover:bg-emerald-500/40"
-                  : "bg-slate-500/20 border-slate-400/60 text-slate-100 hover:bg-slate-500/40")
+                  : "bg-fg-subtle/20 border-border-strong/60 text-fg-onDark hover:bg-fg-subtle/40")
               }
             >
               {factoryConnected
@@ -697,7 +698,7 @@ export default function MiniConsole() {
           <button
             onClick={refresh}
             title="Refresh now"
-            className="hover:text-[#FFE600] disabled:opacity-50"
+            className="hover:text-brand disabled:opacity-50"
             disabled={refreshing}
             data-testid="mini-console-refresh"
           >
@@ -706,7 +707,7 @@ export default function MiniConsole() {
           <button
             onClick={toggle}
             data-testid="mini-console-toggle"
-            className="hover:text-[#FFE600]"
+            className="hover:text-brand"
           >
             <ChevronDown className="w-3 h-3" />
           </button>
@@ -719,8 +720,8 @@ export default function MiniConsole() {
         //     through Factory regardless of fabric providers.
         //   - Otherwise the last call's `current.provider` shows the
         //     fabric provider in use.
-        let bg = "bg-gray-100 border-gray-300 text-gray-700";
-        let dot = "bg-gray-400";
+        let bg = "bg-surface-2 border-border-strong text-fg-muted";
+        let dot = "bg-fg-subtle";
         let label = "";
         if (factoryConnected) {
           if (factoryHealth === "up") {
@@ -745,14 +746,14 @@ export default function MiniConsole() {
             label = `factory.ai · checking… · ${factoryComputer || "computer"}`;
           }
         } else {
-          bg = "bg-slate-100 border-slate-300 text-slate-700";
-          dot = "bg-slate-400";
+          bg = "bg-surface-2 border-border-strong text-fg-muted";
+          dot = "bg-fg-subtle";
           label = `Fabric · routing → ${current.provider || "—"}${current.model ? ` · ${shortModel(current.model)}` : ""}`;
         }
         return (
           <div
             data-testid="mini-console-routing-banner"
-            className={`px-3 py-1.5 border-b text-[10px] font-semibold flex items-center gap-2 ${bg}`}
+            className={`px-3 py-1.5 border-b text-micro font-semibold flex items-center gap-2 ${bg}`}
             title={factoryConnected && factoryHealthAt ? `last ping ${ageLabel(factoryHealthAt)}` : ""}
           >
             <span className={`w-2 h-2 rounded-full ${dot}`} />
@@ -771,9 +772,9 @@ export default function MiniConsole() {
         );
       })()}
 
-      <div className="p-3 border-b border-[#E6E6E6]">
+      <div className="p-3 border-b border-border">
         <div className="flex items-center justify-between mb-1">
-          <div className="text-[9px] uppercase text-[#747480] font-bold flex items-center gap-1">
+          <div className="text-micro uppercase text-fg-muted font-bold flex items-center gap-1">
             <Activity className="w-3 h-3" /> Currently using
           </div>
           <span className={`w-2 h-2 rounded-full ${statusDot}`} title={current.status || "—"} />
@@ -793,7 +794,7 @@ export default function MiniConsole() {
           return (
             <>
               <div
-                className="font-mono text-[12px] text-[#2E2E38] font-bold leading-tight"
+                className="font-mono text-[12px] text-fg font-bold leading-tight"
                 data-testid="mini-console-current-model-expanded"
                 title={factoryActive
                   ? "Factory.ai auto-routes each call; the actual model is chosen by Factory and not reported to LAMA."
@@ -801,7 +802,7 @@ export default function MiniConsole() {
               >
                 {factoryActive ? "factory/auto" : shortModel(displayModel)}
                 {factoryActive && (
-                  <span className={`ml-2 text-[9px] px-1.5 py-0.5 rounded font-normal ${
+                  <span className={`ml-2 text-micro px-1.5 py-0.5 rounded font-normal ${
                     factoryHealth === "up" ? "bg-emerald-100 text-emerald-700"
                     : factoryHealth === "down" ? "bg-red-100 text-red-700"
                     : factoryHealth === "misconfigured" ? "bg-orange-100 text-orange-800"
@@ -813,7 +814,7 @@ export default function MiniConsole() {
                   </span>
                 )}
               </div>
-              <div className="text-[10px] text-[#747480] flex items-center gap-2 mt-0.5">
+              <div className="text-micro text-fg-muted flex items-center gap-2 mt-0.5">
                 <span className="truncate">{displayProvider}</span>
                 {current.agent_key && (
                   <>
@@ -827,7 +828,7 @@ export default function MiniConsole() {
               {factoryActive && current.model && !/^factory/i.test(current.model || "") && (
                 // Honesty: last-logged call was NOT through Factory. Show
                 // it as historical so the user isn't confused by stale data.
-                <div className="text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 font-mono">
+                <div className="text-micro text-amber-700 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5 mt-1 font-mono">
                   last log entry was <b>{shortModel(current.model)}</b> ({ageLabel(current.at)}) — before Factory was the active route
                 </div>
               )}
@@ -835,42 +836,42 @@ export default function MiniConsole() {
           );
         })()}
         {current.tokens > 0 && (
-          <div className="text-[10px] text-[#747480] mt-0.5 font-mono">
+          <div className="text-micro text-fg-muted mt-0.5 font-mono">
             last call: {fmt(current.tokens)} tokens · ${(current.cost_usd || 0).toFixed(4)} · {current.duration_ms || 0}ms
           </div>
         )}
       </div>
 
-      <div className="p-3 grid grid-cols-2 gap-3 text-[11px]">
+      <div className="p-3 grid grid-cols-2 gap-3 text-micro">
         <div>
-          <div className="text-[9px] uppercase text-[#747480] font-bold">
+          <div className="text-micro uppercase text-fg-muted font-bold">
             {stage ? `${stage} · 7d` : "This stage · 7d"}
           </div>
-          <div className="font-mono text-[#2E2E38] text-base font-bold" data-testid="mini-console-stage-tokens">
+          <div className="font-mono text-fg text-base font-bold" data-testid="mini-console-stage-tokens">
             {fmt(stageTokens)}
-            <span className="text-[10px] text-[#747480] font-normal"> tokens</span>
+            <span className="text-micro text-fg-muted font-normal"> tokens</span>
           </div>
-          <div className="font-mono text-[10px] text-[#747480]">
+          <div className="font-mono text-micro text-fg-muted">
             ${stageCost.toFixed(4)}
           </div>
         </div>
         <div>
-          <div className="text-[9px] uppercase text-[#747480] font-bold">
+          <div className="text-micro uppercase text-fg-muted font-bold">
             All stages · 7d
           </div>
-          <div className="font-mono text-[#2E2E38] text-base font-bold" data-testid="mini-console-total-tokens-expanded">
+          <div className="font-mono text-fg text-base font-bold" data-testid="mini-console-total-tokens-expanded">
             {fmt(totalTokens)}
-            <span className="text-[10px] text-[#747480] font-normal"> tokens</span>
+            <span className="text-micro text-fg-muted font-normal"> tokens</span>
           </div>
-          <div className="font-mono text-[10px] text-[#747480]">
+          <div className="font-mono text-micro text-fg-muted">
             ${totalCost.toFixed(4)} · {summary?.total_runs || 0} runs
           </div>
         </div>
       </div>
 
       {summary?.by_model?.length > 0 && (
-        <div className="px-3 pb-2 text-[10px]">
-          <div className="text-[9px] uppercase text-[#747480] font-bold mb-1">
+        <div className="px-3 pb-2 text-micro">
+          <div className="text-micro uppercase text-fg-muted font-bold mb-1">
             Tokens by model
           </div>
           <div className="space-y-0.5 max-h-[80px] overflow-auto">
@@ -882,8 +883,8 @@ export default function MiniConsole() {
                   key={m.model}
                   className="flex items-center justify-between font-mono"
                 >
-                  <span className="text-[#2E2E38] truncate">{shortModel(m.model)}</span>
-                  <span className="text-[#747480]">{fmt(m.tokens)}t</span>
+                  <span className="text-fg truncate">{shortModel(m.model)}</span>
+                  <span className="text-fg-muted">{fmt(m.tokens)}t</span>
                 </div>
               ))}
           </div>
@@ -896,15 +897,15 @@ export default function MiniConsole() {
           old to_list(5000) cap was silently dropping). */}
       {projectId && projectRow && (
         <div
-          className="px-3 pb-2 text-[10px] border-t border-[#F0F0F5] pt-2"
+          className="px-3 pb-2 text-micro border-t border-surface-2 pt-2"
           data-testid="mini-console-project-utilization"
         >
           <div className="flex items-center justify-between mb-1">
-            <div className="text-[9px] uppercase text-[#747480] font-bold flex items-center gap-1">
+            <div className="text-micro uppercase text-fg-muted font-bold flex items-center gap-1">
               <Activity className="w-3 h-3" /> Project · 7d
             </div>
             <span
-              className="font-mono text-[9px] text-[#747480] truncate max-w-[180px]"
+              className="font-mono text-micro text-fg-muted truncate max-w-[180px]"
               title={projectId}
             >
               {projectName}
@@ -912,21 +913,21 @@ export default function MiniConsole() {
           </div>
           <div className="flex items-baseline justify-between mb-1.5">
             <span
-              className="font-mono text-[#2E2E38] text-sm font-bold"
+              className="font-mono text-fg text-sm font-bold"
               data-testid="mini-console-project-tokens"
             >
               {fmt(projectTokens)}
-              <span className="text-[10px] text-[#747480] font-normal"> tokens</span>
+              <span className="text-micro text-fg-muted font-normal"> tokens</span>
             </span>
-            <span className="font-mono text-[10px] text-[#747480]">
+            <span className="font-mono text-micro text-fg-muted">
               ${projectCost.toFixed(4)} · {fmt(projectRuns)} runs
             </span>
           </div>
-          <div className="text-[8px] uppercase tracking-wide text-[#9CA3AF] font-bold mb-0.5">
+          <div className="text-micro uppercase tracking-wide text-fg-subtle font-bold mb-0.5">
             {agentDriven ? "Tokens by agent" : "Tokens by stage"}
           </div>
           {projectStageRows.length === 0 && (
-            <div className="text-[10px] text-[#9CA3AF] italic py-1">No activity yet in the last 7 days.</div>
+            <div className="text-micro text-fg-subtle italic py-1">No activity yet in the last 7 days.</div>
           )}
           <div className="space-y-0.5">
             {projectStageRows.map((r) => {
@@ -940,23 +941,23 @@ export default function MiniConsole() {
                 >
                   <span
                     className={
-                      "w-[68px] truncate text-[10px] " +
-                      (isActive ? "text-[#2E2E38] font-bold" : "text-[#747480]")
+                      "w-[68px] truncate text-micro " +
+                      (isActive ? "text-fg font-bold" : "text-fg-muted")
                     }
                     title={r.stage}
                   >
                     {r.stage}
                   </span>
-                  <div className="flex-1 h-1.5 rounded bg-[#F0F0F5] overflow-hidden">
+                  <div className="flex-1 h-1.5 rounded bg-surface-2 overflow-hidden">
                     <div
                       className={
                         "h-full transition-all " +
-                        (agentDriven ? "" : (isActive ? "bg-[#FFE600]" : "bg-[#B3B3BC]"))
+                        (agentDriven ? "" : (isActive ? "bg-brand" : "bg-fg-subtle"))
                       }
                       style={{ width: `${pct}%`, backgroundColor: agentDriven ? (r.color || "#B3B3BC") : undefined }}
                     />
                   </div>
-                  <span className="w-14 text-right text-[10px] text-[#747480]">
+                  <span className="w-14 text-right text-micro text-fg-muted">
                     {fmt(r.tokens)}
                   </span>
                 </div>
@@ -970,23 +971,23 @@ export default function MiniConsole() {
           Header row is always visible (a "Logs" button toggles the body)
           so the operator knows the feed exists and can open it during
           long-running work (Confidence, SRS regen, HF cold-start). */}
-      <div className="border-t border-[#E6E6E6]">
+      <div className="border-t border-border">
         <button
           onClick={toggleLogsPane}
           data-testid="mini-console-logs-toggle"
-          className="w-full px-3 py-1.5 flex items-center justify-between text-[10px] font-bold uppercase text-[#747480] hover:bg-[#F7F7F7]"
+          className="w-full px-3 py-1.5 flex items-center justify-between text-micro font-bold uppercase text-fg-muted hover:bg-surface-2"
           title={logsOpen ? "Hide backend logs" : "Show live backend logs"}
         >
           <span className="flex items-center gap-1">
             <ScrollText className="w-3 h-3" />
             Backend logs
             {logsOpen && logs.length > 0 && (
-              <span className="ml-1 font-mono text-[9px] text-[#747480]">
+              <span className="ml-1 font-mono text-micro text-fg-muted">
                 · {logs.length} lines
               </span>
             )}
             {logsDropped > 0 && (
-              <span className="ml-1 font-mono text-[9px] text-orange-600">
+              <span className="ml-1 font-mono text-micro text-orange-600">
                 · {logsDropped} dropped
               </span>
             )}
@@ -1000,7 +1001,7 @@ export default function MiniConsole() {
               <select
                 value={logLevel}
                 onChange={(e) => setLogLevel(e.target.value)}
-                className="text-[10px] border border-[#E6E6E6] rounded px-1 py-0.5 bg-white focus:outline-none focus:ring-1 focus:ring-[#FFE600]"
+                className="text-micro border border-border rounded px-1 py-0.5 bg-surface focus:outline-none focus:ring-1 focus:ring-brand"
                 data-testid="mini-console-logs-level"
                 title="Minimum log level"
               >
@@ -1014,13 +1015,13 @@ export default function MiniConsole() {
                 value={logFilter}
                 onChange={(e) => setLogFilter(e.target.value)}
                 placeholder="filter (e.g. confidence, factory, 401)"
-                className="flex-1 text-[10px] border border-[#E6E6E6] rounded px-1.5 py-0.5 font-mono focus:outline-none focus:ring-1 focus:ring-[#FFE600]"
+                className="flex-1 text-micro border border-border rounded px-1.5 py-0.5 font-mono focus:outline-none focus:ring-1 focus:ring-brand"
                 data-testid="mini-console-logs-filter"
               />
               <button
                 onClick={() => setLogsFollow((v) => !v)}
                 title={logsFollow ? "Pause auto-scroll" : "Follow (auto-scroll to bottom)"}
-                className={"p-0.5 rounded " + (logsFollow ? "text-emerald-600 hover:bg-emerald-50" : "text-[#747480] hover:bg-[#F7F7F7]")}
+                className={"p-0.5 rounded " + (logsFollow ? "text-emerald-600 hover:bg-emerald-50" : "text-fg-muted hover:bg-surface-2")}
                 data-testid="mini-console-logs-follow"
               >
                 {logsFollow ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
@@ -1038,8 +1039,8 @@ export default function MiniConsole() {
                   (logsCopied
                     ? "text-emerald-600 hover:bg-emerald-50"
                     : logs.length
-                    ? "text-[#747480] hover:bg-[#F7F7F7]"
-                    : "text-[#C4C4CD] cursor-not-allowed")
+                    ? "text-fg-muted hover:bg-surface-2"
+                    : "text-fg-subtle cursor-not-allowed")
                 }
                 data-testid="mini-console-logs-copy"
               >
@@ -1052,7 +1053,7 @@ export default function MiniConsole() {
               <button
                 onClick={() => setLogsMax(true)}
                 title="Maximize log viewer (fullscreen)"
-                className="p-0.5 rounded text-[#747480] hover:bg-[#F7F7F7]"
+                className="p-0.5 rounded text-fg-muted hover:bg-surface-2"
                 data-testid="mini-console-logs-maximize"
               >
                 <Maximize2 className="w-3 h-3" />
@@ -1060,7 +1061,7 @@ export default function MiniConsole() {
               <button
                 onClick={clearLogs}
                 title="Clear visible logs (server buffer keeps history)"
-                className="p-0.5 rounded text-[#747480] hover:bg-[#F7F7F7]"
+                className="p-0.5 rounded text-fg-muted hover:bg-surface-2"
                 data-testid="mini-console-logs-clear"
               >
                 <Trash2 className="w-3 h-3" />
@@ -1068,28 +1069,28 @@ export default function MiniConsole() {
             </div>
             <div
               ref={logsBoxRef}
-              className="h-40 overflow-y-auto bg-[#0f1115] text-[#E6E6E6] rounded-sm p-2 font-mono text-[10px] leading-tight border border-[#2E2E38]"
+              className="h-40 overflow-y-auto bg-ink text-border rounded-sm p-2 font-mono text-micro leading-tight border border-fg"
             >
               {logs.length === 0 ? (
-                <div className="text-[#747480] italic">
+                <div className="text-fg-muted italic">
                   waiting for log records…
                 </div>
               ) : (
                 logs.map((r) => {
-                  let cls = "text-[#B0B0B0]";
+                  let cls = "text-fg-subtle";
                   if (r.level === "ERROR" || r.level === "CRITICAL") cls = "text-red-400";
                   else if (r.level === "WARNING") cls = "text-amber-300";
-                  else if (r.level === "DEBUG") cls = "text-[#747480]";
-                  else cls = "text-[#DDDDDD]";
+                  else if (r.level === "DEBUG") cls = "text-fg-muted";
+                  else cls = "text-fg-subtle";
                   const ts = new Date((r.ts || 0) * 1000).toLocaleTimeString();
                   return (
                     <div key={r.seq} className="whitespace-pre-wrap break-words">
-                      <span className="text-[#747480]">{ts}</span>{" "}
+                      <span className="text-fg-muted">{ts}</span>{" "}
                       <span className={"font-bold " + cls}>{r.level.padEnd(5).slice(0, 5)}</span>{" "}
-                      <span className="text-[#8AB4F8]">{r.name}</span>{" "}
+                      <span className="text-info">{r.name}</span>{" "}
                       <span className={cls}>{r.msg}</span>
                       {r.repeat > 1 && (
-                        <span className="ml-1 text-[9px] text-amber-300 font-bold">
+                        <span className="ml-1 text-micro text-amber-300 font-bold">
                           ×{r.repeat}
                         </span>
                       )}
@@ -1102,10 +1103,10 @@ export default function MiniConsole() {
         )}
       </div>
 
-      <div className="border-t border-[#E6E6E6] px-3 py-1.5 flex items-center justify-between text-[10px]">
+      <div className="border-t border-border px-3 py-1.5 flex items-center justify-between text-micro">
         <Link
           to="/console?tab=agents"
-          className="text-[#2E2E38] hover:text-[#FFE600] underline"
+          className="text-fg hover:text-brand underline"
           data-testid="mini-console-open-agents"
         >
           Open agents →
@@ -1113,14 +1114,14 @@ export default function MiniConsole() {
         {factoryConnected ? (
           <Link
             to="/console?tab=factory"
-            className="text-[#2E2E38] hover:text-[#FFE600] underline"
+            className="text-fg hover:text-brand underline"
           >
             Factory →
           </Link>
         ) : (
           <Link
             to="/console?tab=models"
-            className="text-[#2E2E38] hover:text-[#FFE600] underline"
+            className="text-fg hover:text-brand underline"
           >
             Models →
           </Link>
@@ -1128,21 +1129,21 @@ export default function MiniConsole() {
       </div>
 
       {logsMax && (
-        <div
+        <div aria-hidden="true"
           data-testid="mini-console-logs-max-overlay"
-          className="fixed inset-0 z-[100] bg-black/70 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-ink/70 flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setLogsMax(false); }}
         >
-          <div className="w-full h-full max-w-[1400px] max-h-[92vh] bg-[#0f1115] border border-[#2E2E38] rounded-md shadow-2xl flex flex-col">
-            <div className="bg-[#2E2E38] text-white px-4 py-2 flex items-center justify-between rounded-t-md">
+          <div className="w-full h-full max-w-[1400px] max-h-[92vh] bg-ink border border-fg rounded-md shadow-2xl flex flex-col">
+            <div className="bg-ink text-ink-fg px-4 py-2 flex items-center justify-between rounded-t-md">
               <div className="flex items-center gap-2 text-[13px] font-bold">
-                <ScrollText className="w-4 h-4 text-[#FFE600]" />
+                <ScrollText className="w-4 h-4 text-brand" />
                 Backend logs
-                <span className="ml-2 font-mono text-[11px] text-[#B0B0B0]">
+                <span className="ml-2 font-mono text-micro text-fg-subtle">
                   · {logs.length} lines
                 </span>
                 {logsDropped > 0 && (
-                  <span className="font-mono text-[11px] text-orange-400">
+                  <span className="font-mono text-micro text-orange-400">
                     · {logsDropped} dropped
                   </span>
                 )}
@@ -1151,7 +1152,7 @@ export default function MiniConsole() {
                 <select
                   value={logLevel}
                   onChange={(e) => setLogLevel(e.target.value)}
-                  className="text-[11px] border border-[#4a4a55] rounded px-1.5 py-0.5 bg-[#1a1c22] text-white focus:outline-none focus:ring-1 focus:ring-[#FFE600]"
+                  className="text-micro border border-border-strong rounded px-1.5 py-0.5 bg-ink-hover text-white focus:outline-none focus:ring-1 focus:ring-brand"
                   title="Minimum log level"
                 >
                   <option value="">ALL</option>
@@ -1164,12 +1165,12 @@ export default function MiniConsole() {
                   value={logFilter}
                   onChange={(e) => setLogFilter(e.target.value)}
                   placeholder="filter (e.g. confidence, factory, 401)"
-                  className="w-64 text-[11px] border border-[#4a4a55] rounded px-2 py-0.5 bg-[#1a1c22] text-white font-mono focus:outline-none focus:ring-1 focus:ring-[#FFE600]"
+                  className="w-64 text-micro border border-border-strong rounded px-2 py-0.5 bg-ink-hover text-white font-mono focus:outline-none focus:ring-1 focus:ring-brand"
                 />
                 <button
                   onClick={() => setLogsFollow((v) => !v)}
                   title={logsFollow ? "Pause auto-scroll" : "Follow (auto-scroll to bottom)"}
-                  className={"p-1 rounded " + (logsFollow ? "text-emerald-400 hover:bg-[#1a1c22]" : "text-[#B0B0B0] hover:bg-[#1a1c22]")}
+                  className={"p-1 rounded " + (logsFollow ? "text-emerald-400 hover:bg-ink-hover" : "text-fg-onDarkMuted hover:text-fg-onDark hover:bg-ink-hover")}
                 >
                   {logsFollow ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
                 </button>
@@ -1177,21 +1178,21 @@ export default function MiniConsole() {
                   onClick={copyLogs}
                   disabled={!logs.length}
                   title={logs.length ? `Copy ${logs.length} log line(s)` : "No logs to copy"}
-                  className={"p-1 rounded " + (logsCopied ? "text-emerald-400" : logs.length ? "text-[#B0B0B0] hover:bg-[#1a1c22]" : "text-[#555] cursor-not-allowed")}
+                  className={"p-1 rounded " + (logsCopied ? "text-emerald-400" : logs.length ? "text-fg-onDarkMuted hover:text-fg-onDark hover:bg-ink-hover" : "text-fg-onDarkSubtle cursor-not-allowed")}
                 >
                   {logsCopied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
                 <button
                   onClick={clearLogs}
                   title="Clear visible logs"
-                  className="p-1 rounded text-[#B0B0B0] hover:bg-[#1a1c22]"
+                  className="p-1 rounded text-fg-onDarkMuted hover:text-fg-onDark hover:bg-ink-hover"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
                 <button
                   onClick={() => setLogsMax(false)}
                   title="Close (Esc)"
-                  className="p-1 rounded text-[#B0B0B0] hover:bg-[#1a1c22]"
+                  className="p-1 rounded text-fg-onDarkMuted hover:text-fg-onDark hover:bg-ink-hover"
                   data-testid="mini-console-logs-max-close"
                 >
                   <X className="w-4 h-4" />
@@ -1200,26 +1201,26 @@ export default function MiniConsole() {
             </div>
             <div
               ref={logsBoxMaxRef}
-              className="flex-1 overflow-y-auto bg-[#0f1115] text-[#E6E6E6] p-4 font-mono text-[12px] leading-relaxed"
+              className="flex-1 overflow-y-auto bg-ink text-border p-4 font-mono text-[12px] leading-relaxed"
             >
               {logs.length === 0 ? (
-                <div className="text-[#747480] italic">waiting for log records…</div>
+                <div className="text-fg-muted italic">waiting for log records…</div>
               ) : (
                 logs.map((r) => {
-                  let cls = "text-[#B0B0B0]";
+                  let cls = "text-fg-subtle";
                   if (r.level === "ERROR" || r.level === "CRITICAL") cls = "text-red-400";
                   else if (r.level === "WARNING") cls = "text-amber-300";
-                  else if (r.level === "DEBUG") cls = "text-[#747480]";
-                  else cls = "text-[#DDDDDD]";
+                  else if (r.level === "DEBUG") cls = "text-fg-muted";
+                  else cls = "text-fg-subtle";
                   const ts = new Date((r.ts || 0) * 1000).toLocaleTimeString();
                   return (
                     <div key={r.seq} className="whitespace-pre-wrap break-words">
-                      <span className="text-[#747480]">{ts}</span>{" "}
+                      <span className="text-fg-muted">{ts}</span>{" "}
                       <span className={"font-bold " + cls}>{r.level.padEnd(5).slice(0, 5)}</span>{" "}
-                      <span className="text-[#8AB4F8]">{r.name}</span>{" "}
+                      <span className="text-info">{r.name}</span>{" "}
                       <span className={cls}>{r.msg}</span>
                       {r.repeat > 1 && (
-                        <span className="ml-1 text-[10px] text-amber-300 font-bold">×{r.repeat}</span>
+                        <span className="ml-1 text-micro text-amber-300 font-bold">×{r.repeat}</span>
                       )}
                     </div>
                   );

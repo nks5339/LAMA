@@ -108,7 +108,7 @@ function CircularGauge({ score, size = 128, stroke = 10 }) {
       <svg width={size} height={size} className="-rotate-90">
         <circle
           cx={size / 2} cy={size / 2} r={r}
-          className="stroke-[#F1F1F4]"
+          className="stroke-surface-2"
           strokeWidth={stroke}
           fill="none"
         />
@@ -127,7 +127,7 @@ function CircularGauge({ score, size = 128, stroke = 10 }) {
           {pct.toFixed(1)}
           <span className="text-sm">%</span>
         </div>
-        <div className={`text-[9px] uppercase tracking-wider ${c.text} font-semibold mt-0.5`}>
+        <div className={`text-micro uppercase tracking-wider ${c.text} font-semibold mt-0.5`}>
           {c.label}
         </div>
       </div>
@@ -142,7 +142,7 @@ function ScoreBar({ score, height = "h-1.5" }) {
   const c = COLOR(score);
   const pct = Math.max(0, Math.min(100, Number(score) || 0));
   return (
-    <div className={`${height} bg-[#F1F1F4] rounded-full overflow-hidden`}>
+    <div className={`${height} bg-surface-2 rounded-full overflow-hidden`}>
       <div
         className={`h-full ${c.bar} transition-all duration-500`}
         style={{ width: `${pct}%` }}
@@ -156,14 +156,14 @@ function ScoreBar({ score, height = "h-1.5" }) {
 // ─────────────────────────────────────────────────────────────────────
 function StatPill({ label, value, tone = "neutral" }) {
   const toneCls = {
-    neutral:  "bg-[#F6F6FA] text-[#2E2E38]",
+    neutral:  "bg-bg text-fg",
     good:     "bg-emerald-50 text-emerald-800 border-emerald-100",
     warn:     "bg-amber-50 text-amber-800 border-amber-100",
     risk:     "bg-rose-50 text-rose-800 border-rose-100",
   }[tone];
   return (
-    <div className={`px-3 py-2 rounded-md border border-[#E6E6E6] ${toneCls}`}>
-      <div className="text-[9px] uppercase tracking-wider opacity-70 font-semibold">{label}</div>
+    <div className={`px-3 py-2 rounded-md border border-border ${toneCls}`}>
+      <div className="text-micro uppercase tracking-wider opacity-70 font-semibold">{label}</div>
       <div className="text-base font-display font-bold leading-tight mt-0.5">{value}</div>
     </div>
   );
@@ -185,17 +185,17 @@ function StageCard({ stage, agg, active, onClick }) {
       className={
         "text-left px-3 py-2.5 rounded-md border transition-all group " +
         (active
-          ? "border-[#2E2E38] bg-white shadow-sm"
-          : "border-[#E6E6E6] bg-white hover:border-[#B3B3BC] hover:shadow-sm")
+          ? "border-fg bg-surface shadow-sm"
+          : "border-border bg-surface hover:border-border-strong hover:shadow-sm")
       }
     >
       <div className="flex items-center gap-2 mb-1.5">
-        <div className={`p-1.5 rounded ${has ? c.bg : "bg-[#F6F6FA]"}`}>
-          <Icon className={`w-3.5 h-3.5 ${has ? c.text : "text-[#B3B3BC]"}`} />
+        <div className={`p-1.5 rounded ${has ? c.bg : "bg-bg"}`}>
+          <Icon className={`w-3.5 h-3.5 ${has ? c.text : "text-fg-subtle"}`} />
         </div>
         <div className="flex-1 min-w-0">
-          <div className="text-[11px] font-semibold text-[#2E2E38] truncate">{meta.label}</div>
-          <div className="text-[9px] text-[#747480]">
+          <div className="text-micro font-semibold text-fg truncate">{meta.label}</div>
+          <div className="text-micro text-fg-muted">
             {has ? `${agg.count} section${agg.count === 1 ? "" : "s"}` : "no data"}
           </div>
         </div>
@@ -204,10 +204,10 @@ function StageCard({ stage, agg, active, onClick }) {
         <>
           <div className="flex items-baseline justify-between mb-1">
             <span className={`text-base font-display font-bold ${c.textStrong}`}>
-              {agg.avg.toFixed(1)}<span className="text-[10px]">%</span>
+              {agg.avg.toFixed(1)}<span className="text-micro">%</span>
             </span>
             {agg.below > 0 && (
-              <span className="text-[9px] font-mono text-rose-700 font-bold">
+              <span className="text-micro font-mono text-rose-700 font-bold">
                 {agg.below} &lt; 95
               </span>
             )}
@@ -215,7 +215,7 @@ function StageCard({ stage, agg, active, onClick }) {
           <ScoreBar score={agg.avg} height="h-1" />
         </>
       ) : (
-        <div className="text-[10px] text-[#B3B3BC] italic">Not scored yet</div>
+        <div className="text-micro text-fg-subtle italic">Not scored yet</div>
       )}
     </button>
   );
@@ -234,7 +234,7 @@ function SectionRow({ row, index, onJump }) {
   return (
     <div
       data-testid={`acc-row-${row.key}`}
-      className="border border-[#E6E6E6] rounded-md bg-white overflow-hidden transition-shadow hover:shadow-sm"
+      className="border border-border rounded-md bg-surface overflow-hidden transition-shadow hover:shadow-sm"
     >
       <div className="flex">
         {/* Colored side strip — instant visual bucket cue */}
@@ -242,9 +242,9 @@ function SectionRow({ row, index, onJump }) {
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left hover:bg-[#FAFAFC]"
+          className="flex-1 flex items-center gap-3 px-3 py-2.5 text-left hover:bg-surface-2"
         >
-          <span className="w-5 text-center text-[10px] font-mono text-[#B3B3BC] font-semibold shrink-0">
+          <span className="w-5 text-center text-micro font-mono text-fg-subtle font-semibold shrink-0">
             {String(index + 1).padStart(2, "0")}
           </span>
           <div className={`p-1.5 rounded ${c.bg} shrink-0`}>
@@ -252,37 +252,39 @@ function SectionRow({ row, index, onJump }) {
           </div>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-[12px] font-semibold text-[#2E2E38] truncate">
+              <span className="text-[12px] font-semibold text-fg truncate">
                 {row.label}
               </span>
-              <span className={`text-[9px] uppercase tracking-wider border ${c.chip} px-1.5 py-[1px] rounded-sm font-semibold`}>
+              <span className={`text-micro uppercase tracking-wider border ${c.chip} px-1.5 py-[1px] rounded-sm font-semibold`}>
                 {row.stage}
               </span>
               {isMissing && (
-                <span className="text-[9px] uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200 px-1.5 py-[1px] rounded-sm font-semibold flex items-center gap-1">
+                <span className="text-micro uppercase tracking-wider bg-rose-100 text-rose-800 border border-rose-200 px-1.5 py-[1px] rounded-sm font-semibold flex items-center gap-1">
                   <XCircle className="w-2.5 h-2.5" /> Not generated
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2 mt-1.5">
               <div className="flex-1 min-w-0"><ScoreBar score={row.score} /></div>
-              <span className={`text-[11px] font-mono font-bold ${c.textStrong} w-14 text-right tabular-nums`}>
+              <span className={`text-micro font-mono font-bold ${c.textStrong} w-14 text-right tabular-nums`}>
                 {Number(row.score || 0).toFixed(1)}%
               </span>
             </div>
           </div>
           {needsAction && (
-            <span
-              role="button"
+            <button
+              type="button"
               data-testid={`acc-jump-${row.key}`}
               onClick={(e) => { e.stopPropagation(); onJump(row); }}
-              className="text-[10px] px-2.5 py-1.5 bg-[#2E2E38] text-white font-bold rounded-md hover:bg-[#1F1F26] flex items-center gap-1 shrink-0 transition-colors"
+              className="text-micro px-2.5 py-1.5 bg-ink text-ink-fg font-bold rounded-md hover:bg-ink-hover flex items-center gap-1 shrink-0 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+              aria-label={`Regenerate ${row.label || row.key} — opens the ${row.stage} stage`}
               title={`Open ${row.stage} stage to regenerate this section`}
             >
-              <Wand2 className="w-3 h-3" /> Regenerate <ArrowRight className="w-3 h-3" />
-            </span>
+              <Wand2 className="w-3 h-3" aria-hidden /> Regenerate{" "}
+              <ArrowRight className="w-3 h-3" aria-hidden />
+            </button>
           )}
-          <div className="shrink-0 text-[#B3B3BC] hover:text-[#2E2E38]">
+          <div className="shrink-0 text-fg-subtle hover:text-fg">
             {open
               ? <ChevronDown className="w-4 h-4" />
               : <ChevronRightIcon className="w-4 h-4" />}
@@ -290,27 +292,27 @@ function SectionRow({ row, index, onJump }) {
         </button>
       </div>
       {open && (
-        <div className="border-t border-[#E6E6E6] bg-[#FAFAFC] px-4 py-3 space-y-3" data-testid={`acc-row-detail-${row.key}`}>
+        <div className="border-t border-border bg-surface-2 px-4 py-3 space-y-3" data-testid={`acc-row-detail-${row.key}`}>
           {row.rationale && (
             <div>
-              <div className="text-[9px] uppercase tracking-wider text-[#747480] font-semibold mb-1 flex items-center gap-1">
+              <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1 flex items-center gap-1">
                 <Gauge className="w-3 h-3" /> Rationale
               </div>
-              <div className="text-[11px] text-[#2E2E38] leading-relaxed bg-white border border-[#E6E6E6] rounded p-2">
+              <div className="text-micro text-fg leading-relaxed bg-surface border border-border rounded p-2">
                 {row.rationale}
               </div>
             </div>
           )}
           {(row.gaps || []).length > 0 && (
             <div>
-              <div className="text-[9px] uppercase tracking-wider text-[#747480] font-semibold mb-1 flex items-center gap-1">
+              <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1 flex items-center gap-1">
                 <AlertTriangle className="w-3 h-3 text-amber-600" /> Open gaps ({row.gaps.length})
               </div>
-              <ul className="text-[11px] text-[#2E2E38] space-y-1">
+              <ul className="text-micro text-fg space-y-1">
                 {row.gaps.map((g, i) => (
                   <li
                     key={i}
-                    className="flex items-start gap-2 bg-white border border-amber-100 rounded p-2"
+                    className="flex items-start gap-2 bg-surface border border-amber-100 rounded p-2"
                   >
                     <AlertTriangle className="w-3 h-3 text-amber-600 shrink-0 mt-[3px]" />
                     <span className="leading-relaxed">{g}</span>
@@ -321,14 +323,14 @@ function SectionRow({ row, index, onJump }) {
           )}
           {(row.evidence || []).length > 0 && (
             <div>
-              <div className="text-[9px] uppercase tracking-wider text-[#747480] font-semibold mb-1 flex items-center gap-1">
+              <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1 flex items-center gap-1">
                 <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Evidence cited ({row.evidence.length})
               </div>
               <div className="flex flex-wrap gap-1">
                 {row.evidence.map((e, i) => (
                   <span
                     key={i}
-                    className="text-[10px] font-mono bg-white border border-[#E6E6E6] px-2 py-0.5 rounded"
+                    className="text-micro font-mono bg-surface border border-border px-2 py-0.5 rounded"
                   >
                     {e}
                   </span>
@@ -338,10 +340,10 @@ function SectionRow({ row, index, onJump }) {
           )}
           {(row.votes || []).length > 0 && (
             <div>
-              <div className="text-[9px] uppercase tracking-wider text-[#747480] font-semibold mb-1 flex items-center gap-1">
+              <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1 flex items-center gap-1">
                 <Cpu className="w-3 h-3" /> Model votes
                 {row.model_agreement_spread != null && (
-                  <span className="normal-case font-normal text-[#9CA3AF] ml-1">
+                  <span className="normal-case font-normal text-fg-subtle ml-1">
                     · agreement spread {row.model_agreement_spread.toFixed?.(1)}
                   </span>
                 )}
@@ -352,9 +354,9 @@ function SectionRow({ row, index, onJump }) {
                   return (
                     <div
                       key={i}
-                      className="text-[10px] bg-white border border-[#E6E6E6] rounded px-2 py-1 flex items-center justify-between"
+                      className="text-micro bg-surface border border-border rounded px-2 py-1 flex items-center justify-between"
                     >
-                      <span className="font-mono text-[#2E2E38] truncate">{v.model}</span>
+                      <span className="font-mono text-fg truncate">{v.model}</span>
                       <span className={`font-mono font-bold ${vc.text} ml-2`}>
                         {Number(v.score).toFixed(0)}
                       </span>
@@ -493,14 +495,14 @@ export default function AccuracyReport({ projectId }) {
 
       {/* ─────────────── Empty state ─────────────── */}
       {!report && !loading && (
-        <div className="bg-gradient-to-br from-white via-white to-[#FFFCE0] border border-[#E6E6E6] rounded-lg p-8 text-center">
-          <div className="inline-flex p-3 rounded-full bg-[#FFE600]/20 mb-3">
-            <Gauge className="w-8 h-8 text-[#2E2E38]" />
+        <div className="bg-gradient-to-br from-white via-white to-brand-tint border border-border rounded-lg p-8 text-center">
+          <div className="inline-flex p-3 rounded-full bg-brand/20 mb-3">
+            <Gauge className="w-8 h-8 text-fg" />
           </div>
-          <div className="text-sm font-display font-bold text-[#2E2E38] mb-1">
+          <div className="text-sm font-display font-bold text-fg mb-1">
             KB vs Generated · Accuracy &amp; Confidence
           </div>
-          <div className="text-[11px] text-[#747480] max-w-md mx-auto mb-4 leading-relaxed">
+          <div className="text-micro text-fg-muted max-w-md mx-auto mb-4 leading-relaxed">
             Score every stage's latest artifacts against the Knowledge Base with a
             multi-model jury. Sections below 95% expose a one-click regenerate
             deep-link so you can close the gap immediately.
@@ -508,7 +510,7 @@ export default function AccuracyReport({ projectId }) {
           <Button
             onClick={onRun}
             data-testid="btn-run-accuracy-report"
-            className="h-9 bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-bold"
+            className="h-9 bg-brand text-fg hover:bg-brand-hover font-bold"
           >
             <Wand2 className="w-3.5 h-3.5 mr-1.5" />
             Run accuracy report
@@ -519,29 +521,29 @@ export default function AccuracyReport({ projectId }) {
       {/* ─────────────── Progress while running ─────────────── */}
       {loading && (
         <div
-          className="bg-white border border-[#E6E6E6] rounded-lg p-4"
+          className="bg-surface border border-border rounded-lg p-4"
           data-testid="acc-progress"
         >
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-full bg-[#FFE600]/20">
-              <Loader2 className="w-5 h-5 text-[#2E2E38] animate-spin" />
+            <div className="p-2 rounded-full bg-brand/20">
+              <Loader2 className="w-5 h-5 text-fg animate-spin" />
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-[12px] font-semibold text-[#2E2E38] truncate">
+              <div className="text-[12px] font-semibold text-fg truncate">
                 {job?.step || "Working…"}
               </div>
-              <div className="text-[10px] text-[#747480]">
+              <div className="text-micro text-fg-muted">
                 Scoring every stage against the Knowledge Base. This typically
                 takes 30–90 seconds.
               </div>
             </div>
-            <div className="text-2xl font-display font-bold text-[#2E2E38] tabular-nums shrink-0">
+            <div className="text-2xl font-display font-bold text-fg tabular-nums shrink-0">
               {job?.pct || 0}<span className="text-sm">%</span>
             </div>
           </div>
-          <div className="h-1.5 bg-[#F6F6FA] rounded-full overflow-hidden mt-3">
+          <div className="h-1.5 bg-bg rounded-full overflow-hidden mt-3">
             <div
-              className="h-full bg-gradient-to-r from-[#FFE600] to-[#FFD500] transition-all duration-500"
+              className="h-full bg-gradient-to-r from-brand to-brand-hover transition-all duration-500"
               style={{ width: `${job?.pct || 0}%` }}
             />
           </div>
@@ -553,7 +555,7 @@ export default function AccuracyReport({ projectId }) {
         <>
           {/* Hero — big gauge + KPI grid */}
           <div
-            className={`border ${c.border} rounded-lg overflow-hidden bg-white`}
+            className={`border ${c.border} rounded-lg overflow-hidden bg-surface`}
             data-testid="acc-hero"
           >
             <div className={`${c.bg} px-4 py-3 border-b ${c.border} flex items-center justify-between`}>
@@ -567,7 +569,7 @@ export default function AccuracyReport({ projectId }) {
                 onClick={onRun}
                 disabled={loading}
                 data-testid="btn-run-accuracy-report"
-                className="h-7 text-[11px] bg-white text-[#2E2E38] hover:bg-[#F6F6FA] border border-[#E6E6E6]"
+                className="h-7 text-micro bg-surface text-fg hover:bg-bg border border-border"
                 variant="ghost"
               >
                 {loading
@@ -588,7 +590,7 @@ export default function AccuracyReport({ projectId }) {
 
               {/* KPI grid */}
               <div className="flex-1 min-w-0 w-full">
-                <div className="text-[10px] uppercase tracking-wider text-[#747480] font-semibold mb-2 flex items-center gap-1">
+                <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-2 flex items-center gap-1">
                   <BarChart3 className="w-3 h-3" /> Coverage breakdown
                 </div>
                 <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
@@ -602,7 +604,7 @@ export default function AccuracyReport({ projectId }) {
                 </div>
 
                 {/* Verdict + provenance */}
-                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px]">
+                <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-micro">
                   {overall >= 95 ? (
                     <span className="flex items-center gap-1 text-emerald-700 font-bold">
                       <CheckCircle2 className="w-3.5 h-3.5" /> Ready to freeze with minimal review
@@ -612,21 +614,21 @@ export default function AccuracyReport({ projectId }) {
                       <AlertTriangle className="w-3.5 h-3.5" /> {below.length} section{below.length === 1 ? "" : "s"} need attention
                     </span>
                   )}
-                  <span className="text-[#747480] flex items-center gap-1">
+                  <span className="text-fg-muted flex items-center gap-1">
                     <Cpu className="w-3 h-3" />
                     {(report.models_used || []).length > 0
                       ? `${(report.models_used || []).length} model${(report.models_used || []).length === 1 ? "" : "s"}`
                       : "default jury"}
                     {(report.models_used || []).length > 0 && (
                       <span
-                        className="font-mono text-[10px] text-[#B3B3BC] truncate max-w-[220px]"
+                        className="font-mono text-micro text-fg-subtle truncate max-w-[220px]"
                         title={(report.models_used || []).join(", ")}
                       >
                         ({(report.models_used || []).join(", ")})
                       </span>
                     )}
                   </span>
-                  <span className="text-[#747480] flex items-center gap-1">
+                  <span className="text-fg-muted flex items-center gap-1">
                     <Clock className="w-3 h-3" />
                     {new Date(report.generated_at).toLocaleString()}
                   </span>
@@ -637,7 +639,7 @@ export default function AccuracyReport({ projectId }) {
 
           {/* ─────────────── Stage summary strip ─────────────── */}
           <div>
-            <div className="text-[10px] uppercase tracking-wider text-[#747480] font-semibold mb-1.5 flex items-center gap-1 px-1">
+            <div className="text-micro uppercase tracking-wider text-fg-muted font-semibold mb-1.5 flex items-center gap-1 px-1">
               <TrendingUp className="w-3 h-3" /> Stage health · click to filter
             </div>
             <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
@@ -654,20 +656,20 @@ export default function AccuracyReport({ projectId }) {
           </div>
 
           {/* ─────────────── Filter bar ─────────────── */}
-          <div className="bg-white border border-[#E6E6E6] rounded-md px-3 py-2 flex flex-wrap items-center gap-2">
+          <div className="bg-surface border border-border rounded-md px-3 py-2 flex flex-wrap items-center gap-2">
             <div className="relative flex-1 min-w-[180px]">
-              <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-[#B3B3BC]" />
+              <Search className="w-3.5 h-3.5 absolute left-2 top-1/2 -translate-y-1/2 text-fg-subtle" />
               <input
                 type="text"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search sections (label, key, stage)…"
                 data-testid="acc-search"
-                className="w-full text-[11px] pl-7 pr-2 py-1.5 border border-[#E6E6E6] rounded focus:outline-none focus:border-[#2E2E38] focus:ring-1 focus:ring-[#FFE600]"
+                className="w-full text-micro pl-7 pr-2 py-1.5 border border-border rounded focus:outline-none focus:border-fg focus:ring-1 focus:ring-brand"
               />
             </div>
             <div className="flex items-center gap-1" data-testid="acc-tier-filter">
-              <Filter className="w-3 h-3 text-[#747480]" />
+              <Filter className="w-3 h-3 text-fg-muted" />
               {[
                 { k: "all",       label: "All",              n: kpi.total },
                 { k: "attention", label: "Needs attention",  n: kpi.good + kpi.warn + kpi.risk },
@@ -680,16 +682,16 @@ export default function AccuracyReport({ projectId }) {
                   onClick={() => setTier(f.k)}
                   data-testid={`acc-tier-${f.k}`}
                   className={
-                    "text-[10px] px-2 py-1 rounded border transition-colors flex items-center gap-1 " +
+                    "text-micro px-2 py-1 rounded border transition-colors flex items-center gap-1 " +
                     (tier === f.k
-                      ? "bg-[#2E2E38] text-white border-[#2E2E38]"
-                      : "bg-white text-[#2E2E38] border-[#E6E6E6] hover:bg-[#F6F6FA]")
+                      ? "bg-ink text-ink-fg border-fg"
+                      : "bg-surface text-fg border-border hover:bg-bg")
                   }
                 >
                   {f.label}
                   <span className={
-                    "font-mono text-[9px] px-1 rounded " +
-                    (tier === f.k ? "bg-white/20" : "bg-[#F6F6FA] text-[#747480]")
+                    "font-mono text-micro px-1 rounded " +
+                    (tier === f.k ? "bg-surface/20" : "bg-bg text-fg-muted")
                   }>
                     {f.n}
                   </span>
@@ -697,12 +699,12 @@ export default function AccuracyReport({ projectId }) {
               ))}
             </div>
             <div className="flex items-center gap-1 ml-auto">
-              <span className="text-[9px] text-[#747480] uppercase">Sort</span>
+              <span className="text-micro text-fg-muted uppercase">Sort</span>
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value)}
                 data-testid="acc-sort"
-                className="text-[10px] border border-[#E6E6E6] rounded px-1.5 py-1 bg-white focus:outline-none focus:border-[#2E2E38]"
+                className="text-micro border border-border rounded px-1.5 py-1 bg-surface focus:outline-none focus:border-fg"
               >
                 <option value="score-asc">Score ↑ (worst first)</option>
                 <option value="score-desc">Score ↓ (best first)</option>
@@ -713,28 +715,28 @@ export default function AccuracyReport({ projectId }) {
 
           {/* Applied-filter chip strip */}
           {(stageFilter || tier !== "all" || query) && (
-            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-[#747480] px-1">
+            <div className="flex flex-wrap items-center gap-1.5 text-micro text-fg-muted px-1">
               <span>Filters:</span>
               {stageFilter && (
-                <span className="bg-[#F6F6FA] border border-[#E6E6E6] px-1.5 py-0.5 rounded flex items-center gap-1">
-                  stage = <b className="text-[#2E2E38]">{stageFilter}</b>
-                  <button onClick={() => setStageFilter("")} className="text-[#B3B3BC] hover:text-rose-600">×</button>
+                <span className="bg-bg border border-border px-1.5 py-0.5 rounded flex items-center gap-1">
+                  stage = <b className="text-fg">{stageFilter}</b>
+                  <button onClick={() => setStageFilter("")} className="text-fg-subtle hover:text-rose-600">×</button>
                 </span>
               )}
               {tier !== "all" && (
-                <span className="bg-[#F6F6FA] border border-[#E6E6E6] px-1.5 py-0.5 rounded flex items-center gap-1">
-                  tier = <b className="text-[#2E2E38]">{tier}</b>
-                  <button onClick={() => setTier("all")} className="text-[#B3B3BC] hover:text-rose-600">×</button>
+                <span className="bg-bg border border-border px-1.5 py-0.5 rounded flex items-center gap-1">
+                  tier = <b className="text-fg">{tier}</b>
+                  <button onClick={() => setTier("all")} className="text-fg-subtle hover:text-rose-600">×</button>
                 </span>
               )}
               {query && (
-                <span className="bg-[#F6F6FA] border border-[#E6E6E6] px-1.5 py-0.5 rounded flex items-center gap-1">
-                  query = <b className="text-[#2E2E38]">{query}</b>
-                  <button onClick={() => setQuery("")} className="text-[#B3B3BC] hover:text-rose-600">×</button>
+                <span className="bg-bg border border-border px-1.5 py-0.5 rounded flex items-center gap-1">
+                  query = <b className="text-fg">{query}</b>
+                  <button onClick={() => setQuery("")} className="text-fg-subtle hover:text-rose-600">×</button>
                 </span>
               )}
               <span className="ml-auto">
-                Showing <b className="text-[#2E2E38]">{visibleSections.length}</b> of {report.sections?.length || 0}
+                Showing <b className="text-fg">{visibleSections.length}</b> of {report.sections?.length || 0}
               </span>
             </div>
           )}
@@ -742,13 +744,13 @@ export default function AccuracyReport({ projectId }) {
           {/* ─────────────── Per-section list ─────────────── */}
           <div className="space-y-2">
             {visibleSections.length === 0 ? (
-              <div className="bg-white border border-dashed border-[#E6E6E6] rounded-md p-6 text-center text-[11px] text-[#747480]">
+              <div className="bg-surface border border-dashed border-border rounded-md p-6 text-center text-micro text-fg-muted">
                 <CheckCircle2 className="w-6 h-6 mx-auto mb-2 text-emerald-500" />
                 No sections match the current filter.
                 {(stageFilter || tier !== "all" || query) && (
                   <button
                     onClick={() => { setStageFilter(""); setTier("all"); setQuery(""); }}
-                    className="ml-2 underline hover:text-[#2E2E38]"
+                    className="ml-2 underline hover:text-fg"
                   >
                     Clear filters
                   </button>

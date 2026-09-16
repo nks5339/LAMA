@@ -1,79 +1,108 @@
-@import url("https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap");
-
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   LAMA design tokens — the single source of truth.
+
+   Replaces the four parallel systems that lived here before:
+     --mos-*  (slate palette)     --pro-*  (gray + EY yellow)
+     shadcn HSL set               tailwind.config `ey.*`
+
+   LIGHT ONLY. A dark theme was added in the modernisation and then
+   removed: it shipped with a toolbar toggle that cycled on every click
+   and persisted to localStorage, so two clicks put the whole studio in a
+   dark scheme nobody had asked for. The product is a light UI, as it has
+   always been — white panels on the #F6F6FA ground.
+
+   Tokens are SPACE-SEPARATED RGB CHANNELS, not hex, and Tailwind binds
+   them as `rgb(var(--x) / <alpha-value>)`. That is what makes opacity
+   modifiers work: with a hex value, `bg-ink/40` compiles to nothing at
+   all — silently — and 86 such classes (modal scrims, panel tints) were
+   producing no CSS. Raw CSS below must therefore write `rgb(var(--x))`.
+
+   Text is DARKER than the palette it replaced. The old #747480 measured
+   4.28:1 on the app background, which fails AA; every text token below
+   clears 5.9:1 and the two used for body copy clear 8:1 (AAA).
+   ============================================================ */
+
 :root {
-  --mos-bg: #f8fafc;
-  --mos-surface: #ffffff;
-  --mos-primary: #0a2540;
-  --mos-primary-hover: #1A1A24;
-  --mos-text: #0f172a;
-  --mos-muted: #64748b;
-  --mos-border: #cbd5e1;
-  --mos-border-strong: #94a3b8;
-  --mos-success: #15803d;
-  --mos-warning: #b45309;
-  --mos-error: #b91c1c;
-  --mos-info: #0369a1;
-  --mos-accent-tint: #e2e8f0;
-  
-  /* iter-14.0 — Professional UI/UX Design System */
-  
-  /* Typography Scale */
-  --type-title: 1.25rem;      /* 20px */
-  --type-heading: 1rem;       /* 16px */
-  --type-body: 0.875rem;      /* 14px */
-  --type-caption: 0.75rem;    /* 12px */
-  --type-tiny: 0.6875rem;     /* 11px */
-  
-  /* Line Heights */
-  --leading-tight: 1.25;
-  --leading-normal: 1.5;
-  --leading-relaxed: 1.75;
-  
-  /* Spacing Scale (8px base) */
-  --space-xs: 0.25rem;   /* 4px */
-  --space-sm: 0.5rem;    /* 8px */
-  --space-md: 0.75rem;   /* 12px */
-  --space-lg: 1rem;      /* 16px */
-  --space-xl: 1.5rem;    /* 24px */
-  --space-2xl: 2rem;     /* 32px */
-  --space-3xl: 3rem;     /* 48px */
-  
-  /* Shadows */
-  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-  --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
-  --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
-  
-  /* Z-index layers */
-  --z-base: 0;
-  --z-dropdown: 10;
-  --z-sticky: 20;
-  --z-overlay: 30;
-  --z-modal: 40;
-  --z-toast: 50;
-  
-  /* Professional UI Colors (keeping EY brand) */
-  --pro-yellow: #FFE600;
-  --pro-yellow-hover: #F5DC00;
-  --pro-yellow-tint: #FFFCE6;
-  --pro-dark: #2E2E38;
-  --pro-dark-light: #4B5563;
-  --pro-gray-50: #F9FAFB;
-  --pro-gray-100: #F3F4F6;
-  --pro-gray-200: #E5E7EB;
-  --pro-gray-300: #D1D5DB;
-  --pro-gray-400: #9CA3AF;
-  --pro-gray-500: #6B7280;
-  --pro-gray-600: #4B5563;
-  --pro-gray-700: #374151;
-  --pro-gray-800: #1F2937;
-  --pro-gray-900: #111827;
+  color-scheme: light;
+
+  /* ---- Surfaces — unchanged from the original design ---- */
+  --bg: 246 246 250;              /* page ground                          */
+  --surface: 255 255 255;         /* cards, panels, popovers              */
+  --surface-2: 242 242 247;       /* inset wells, table headers           */
+  --surface-3: 233 233 240;       /* pressed / selected rows              */
+  --border: 230 230 230;          /* hairlines                            */
+  --border-strong: 201 201 210;   /* emphasised edges, inputs             */
+
+  /* ---- Text — measured against BOTH --surface and --bg ---- *
+   *            on #FFFFFF   on #F6F6FA
+   *  --fg        13.4:1       12.5:1   headings, body
+   *  --fg-muted   8.7:1        8.1:1   secondary copy, labels
+   *  --fg-subtle  6.4:1        5.9:1   the lightest permitted        */
+  --fg: 46 46 56;              /* brand navy, unchanged                */
+  --fg-muted: 74 74 87;
+  --fg-subtle: 94 94 107;
+  --fg-onDark: 244 244 247;       /* text on --ink panels        13.2:1 */
+  --fg-onDark-muted: 184 184 196; /* secondary on --ink           6.8:1 */
+  --fg-onDark-subtle: 138 138 153;/* disabled on --ink            4.0:1 */       /* text on --ink panels                 */
+
+  /* ---- Brand ------------------------------------------- *
+   * Yellow is a FILL and an ACCENT BAR. Never text on a light
+   * surface, and never a focus ring — it measures 1.27:1 on white. */
+  --brand: 255 230 0;
+  --brand-hover: 240 217 0;
+  --brand-fg: 46 46 56;        /* 10.6:1 on --brand                    */
+  --brand-tint: 255 252 230;
+  --brand-edge: 212 192 0;      /* 3:1 border version, for outlines     */
+
+  /* ---- Primary action (dark fill) ----------------------- */
+  --ink: 46 46 56;
+  --ink-hover: 26 26 36;
+  --ink-fg: 255 255 255;          /* 13.4:1 on --ink                      */
+
+  /* ---- Focus ring — 4.9:1 on white, 4.5:1 on --bg ------- */
+  --ring: 26 111 212;
+
+  /* ---- Semantic — all ≥ 5.9:1 on white ------------------ */
+  --ok: 15 107 79;        --ok-bg: 228 242 236;        --ok-edge: 124 191 166;
+  --warn: 138 90 0;      --warn-bg: 251 242 223;      --warn-edge: 212 172 85;
+  --crit: 179 32 14;      --crit-bg: 251 234 231;      --crit-edge: 217 133 119;
+  --info: 31 79 135;      --info-bg: 231 238 247;      --info-edge: 134 170 212;
+
+  /* Text that sits ON a semantic fill. */
+  --ok-fg: 255 255 255;
+  --warn-fg: 255 255 255;
+  --crit-fg: 255 255 255;
+  --info-fg: 255 255 255;
+
+  /* ---- Elevation — three steps, spent by role ----------- */
+  --shadow-raised: 0 1px 2px rgba(46, 46, 56, 0.06);
+  --shadow-overlay: 0 8px 24px -12px rgba(46, 46, 56, 0.28);
+  --shadow-modal: 0 24px 48px -16px rgba(46, 46, 56, 0.34);
+
+  /* ---- Radius ------------------------------------------- */
+  --radius-sm: 4px;
+  --radius: 6px;
+  --radius-lg: 10px;
+
+  /* ---- Motion — 150–300ms, one easing curve ------------- */
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 150ms;
+  --dur: 200ms;
+  --dur-slow: 300ms;
+
+  /* ---- Scrollbar (consumed by .mos-scroll) -------------- */
+  --scroll-thumb: 176 176 189;
+  --scroll-thumb-hover: 143 143 157;
+  --scroll-track: 238 238 243;
 }
+
+/* ============================================================
+   Base
+   ============================================================ */
 
 html,
 body,
@@ -83,305 +112,180 @@ body,
 
 body {
   margin: 0;
-  font-family: "IBM Plex Sans", system-ui, sans-serif;
-  background: var(--mos-bg);
-  color: var(--mos-text);
+  font-family: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  background: rgb(var(--bg));
+  color: rgb(var(--fg));
   -webkit-font-smoothing: antialiased;
-  /* iter-13.89 — Prevent rubber-band horizontal scroll on small
-     screens. Any inner overflow is contained by its own scroller
-     (e.g. .mos-scroll), never by the page body. */
+  /* iter-13.89 — prevent rubber-band horizontal scroll. Inner
+     overflow is contained by its own scroller, never the body. */
   overflow-x: hidden;
 }
 
 h1, h2, h3, h4, h5, .font-display {
   font-family: "Chivo", "IBM Plex Sans", sans-serif;
   letter-spacing: -0.01em;
+  text-wrap: balance;
 }
 
 code, pre, .font-mono {
   font-family: "IBM Plex Mono", Menlo, monospace;
 }
 
-/* Shadcn light theme tokens, mapped to LAMA palette */
 @layer base {
-  :root {
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 213 73% 15%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 214 32% 91%;
-    --secondary-foreground: 222 47% 11%;
-    --muted: 214 32% 91%;
-    --muted-foreground: 215 16% 47%;
-    --accent: 214 32% 91%;
-    --accent-foreground: 222 47% 11%;
-    --destructive: 0 70% 42%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 214 20% 73%;
-    --input: 214 20% 73%;
-    --ring: 213 73% 15%;
-    --radius: 0.25rem;
+  * {
+    border-color: rgb(var(--border));
   }
 }
 
-@layer base {
-  * { @apply border-border; }
-  body { @apply bg-background text-foreground; }
+/* ============================================================
+   Accessibility — global rules
+   ============================================================ */
+
+/* P0-2 — the focus ring was `2px solid #FFE600`, which measures
+   1.27:1 on white against the 3:1 WCAG 1.4.11 floor. --ring is
+   4.9:1 on white and 5.4:1 on the dark surface. The offset keeps
+   it legible on filled buttons as well as on plain backgrounds. */
+:where(button, a, [role="button"], input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid rgb(var(--ring));
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
 }
 
-/* Density helpers */
+button:disabled,
+[role="button"][aria-disabled="true"],
+a[aria-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+button:disabled *,
+[role="button"][aria-disabled="true"] * {
+  pointer-events: none;
+}
+
+/* Visible only to screen readers. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+/* Skip link — first tab stop on every page. */
+.skip-link {
+  position: absolute;
+  left: 8px;
+  top: -48px;
+  z-index: 100;
+  padding: 8px 16px;
+  background: rgb(var(--surface));
+  color: rgb(var(--fg));
+  border: 2px solid rgb(var(--ring));
+  border-radius: var(--radius-sm);
+  font-size: 14px;
+  font-weight: 600;
+  transition: top var(--dur-fast) var(--ease);
+}
+.skip-link:focus {
+  top: 8px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ============================================================
+   Retained utilities — re-pointed at tokens.
+   The unused .pro-btn / .pro-badge / .pro-input / .pro-toolbar /
+   .mos-divider / .mos-typeahead / .mos-srs-editable / .no-anim
+   blocks were removed: a repo-wide grep found zero call sites.
+   ============================================================ */
+
 .mos-panel {
-  background: var(--mos-surface);
-  border: 1px solid #E6E6E6;
-  border-radius: 0.25rem;
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius-sm);
 }
 
 .mos-label {
-  font-size: 0.7rem;
+  font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--mos-muted);
+  color: rgb(var(--fg-subtle));
 }
 
-.mos-divider { border-top: 1px solid var(--mos-border); }
-
-/* iter-14.0 — Professional UI Utilities */
-
-/* Card styles */
 .pro-card {
-  background: white;
-  border: 1px solid var(--pro-gray-200);
-  border-radius: 0.375rem;
-  box-shadow: var(--shadow-sm);
-  transition: box-shadow 0.15s ease, border-color 0.15s ease;
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--border));
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-raised);
+  transition: box-shadow var(--dur-fast) var(--ease),
+              border-color var(--dur-fast) var(--ease);
 }
-
 .pro-card:hover {
-  border-color: var(--pro-gray-300);
-  box-shadow: var(--shadow-md);
+  border-color: rgb(var(--border-strong));
+  box-shadow: var(--shadow-overlay);
 }
 
-.pro-card-interactive {
-  cursor: pointer;
-}
-
-.pro-card-interactive:active {
-  transform: translateY(1px);
-}
-
-/* Toolbar styles */
-.pro-toolbar {
-  background: white;
-  border-bottom: 1px solid var(--pro-gray-200);
-  padding: var(--space-sm) var(--space-lg);
-  display: flex;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: 3rem;
-}
-
-/* Button variants */
-.pro-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-lg);
-  border-radius: 0.25rem;
-  font-size: var(--type-body);
-  font-weight: 500;
-  transition: all 0.15s ease;
-  cursor: pointer;
-  border: 1px solid transparent;
-}
-
-.pro-btn-primary {
-  background: var(--pro-yellow);
-  color: var(--pro-dark);
-  border-color: var(--pro-yellow);
-}
-
-.pro-btn-primary:hover {
-  background: var(--pro-yellow-hover);
-  border-color: var(--pro-yellow-hover);
-}
-
-.pro-btn-secondary {
-  background: white;
-  color: var(--pro-dark);
-  border-color: var(--pro-gray-300);
-}
-
-.pro-btn-secondary:hover {
-  background: var(--pro-gray-50);
-  border-color: var(--pro-gray-400);
-}
-
-.pro-btn-ghost {
-  background: transparent;
-  color: var(--pro-gray-600);
-}
-
-.pro-btn-ghost:hover {
-  background: var(--pro-gray-100);
-  color: var(--pro-dark);
-}
-
-.pro-btn-sm {
-  padding: var(--space-xs) var(--space-md);
-  font-size: var(--type-caption);
-}
-
-.pro-btn-lg {
-  padding: var(--space-md) var(--space-xl);
-  font-size: var(--type-heading);
-}
-
-/* Badge styles */
-.pro-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-  padding: 0.125rem var(--space-sm);
-  border-radius: 9999px;
-  font-size: var(--type-tiny);
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-}
-
-.pro-badge-success {
-  background: #DCFCE7;
-  color: #15803D;
-}
-
-.pro-badge-warning {
-  background: #FEF3C7;
-  color: #B45309;
-}
-
-.pro-badge-error {
-  background: #FEE2E2;
-  color: #B91C1C;
-}
-
-.pro-badge-info {
-  background: #DBEAFE;
-  color: #0369A1;
-}
-
-.pro-badge-neutral {
-  background: var(--pro-gray-100);
-  color: var(--pro-gray-700);
-}
-
-/* Input styles */
-.pro-input {
-  width: 100%;
-  padding: var(--space-sm) var(--space-md);
-  border: 1px solid var(--pro-gray-300);
-  border-radius: 0.25rem;
-  font-size: var(--type-body);
-  background: white;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-}
-
-.pro-input:focus {
-  outline: none;
-  border-color: var(--pro-yellow);
-  box-shadow: 0 0 0 3px var(--pro-yellow-tint);
-}
-
-.pro-input:disabled {
-  background: var(--pro-gray-50);
-  color: var(--pro-gray-400);
-  cursor: not-allowed;
-}
-
-/* Professional scrollbar */
-.mos-scroll::-webkit-scrollbar-thumb { background: #94a3b8; border-radius: 4px; border: 2px solid transparent; background-clip: padding-box; }
-.mos-scroll::-webkit-scrollbar-thumb:hover { background: #64748b; background-clip: padding-box; border: 2px solid transparent; }
-.mos-scroll::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 4px; }
-
-/* iter-13.78 — Visible always-on scrollbar on macOS / iOS / mobile.
-   `-webkit-appearance: none` above disables the native overlay style
-   (which auto-hides scrollbars on macOS / Edge / Chrome). Combined
-   with an explicit thumb colour the scrollbar is always visible so
-   users can SEE that a region is scrollable. */
+/* iter-13.78 — always-visible scrollbar. `-webkit-appearance: none`
+   plus an explicit thumb colour defeats the macOS overlay style, so
+   users can SEE that a region scrolls. */
 .mos-scroll {
   scrollbar-width: thin;
-  scrollbar-color: #94a3b8 #f1f5f9;
+  scrollbar-color: rgb(var(--scroll-thumb)) rgb(var(--scroll-track));
   -webkit-overflow-scrolling: touch;
 }
+.mos-scroll::-webkit-scrollbar-thumb {
+  background: rgb(var(--scroll-thumb));
+  border-radius: 4px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+.mos-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--scroll-thumb-hover));
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+.mos-scroll::-webkit-scrollbar-track {
+  background: rgb(var(--scroll-track));
+  border-radius: 4px;
+}
 
-/* iter-13.78 — Defensive: ensure flex-child scrollers can actually
-   shrink (flex items default to min-height: auto which prevents
-   overflow scroll inside flex columns). Targeted at children of
-   flex columns so we don't accidentally collapse fixed-height
-   scrollers like `max-h-60 overflow-y-auto mos-scroll`. */
+/* iter-13.78 — flex children default to min-height:auto, which stops
+   overflow scrolling inside flex columns. Targeted so fixed-height
+   scrollers (max-h-60 overflow-y-auto) are not collapsed. */
 .flex-col > .mos-scroll,
 .flex-col > .flex-1.mos-scroll {
   min-height: 0;
 }
 
-/* SRS editor inline */
-.mos-srs-editable {
-  min-height: 4rem;
-  padding: 0.75rem;
-  border: 1px solid transparent;
-  border-radius: 0.25rem;
-  white-space: pre-wrap;
-  font-size: 0.9rem;
-  line-height: 1.6;
-}
-.mos-srs-editable:hover {
-  border-color: var(--mos-border);
-  background: #fbfcfd;
-}
-.mos-srs-editable:focus {
-  outline: none;
-  border-color: var(--mos-primary);
-  background: #ffffff;
-  box-shadow: inset 0 0 0 1px var(--mos-primary);
-}
-
-/* Type-ahead dropdown */
-.mos-typeahead {
-  position: absolute;
-  bottom: 100%;
-  left: 0;
-  right: 0;
-  max-height: 200px;
-  overflow-y: auto;
-  background: white;
-  border: 1px solid var(--mos-border);
-  border-radius: 0.25rem;
-  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
-  z-index: 30;
-}
-
-/* Resizable panel handle (EY yellow on hover) */
+/* Resizable panel handle. */
 .lama-resize-handle {
   width: 4px;
-  background: #E6E6E6;
+  background: rgb(var(--border));
   cursor: col-resize;
-  transition: background 0.15s;
+  transition: background var(--dur-fast) var(--ease);
   flex-shrink: 0;
 }
 .lama-resize-handle:hover,
 .lama-resize-handle[data-resize-handle-active] {
-  background: #FFE600;
+  background: rgb(var(--brand));
 }
-/* iter-13.89 — Direction-aware variant. react-resizable-panels stamps
- * data-panel-group-direction="vertical" on the wrapper when the group
- * is vertical; we swap width↔height and cursor accordingly so the same
- * `.lama-resize-handle` class works in both orientations. Also bump
- * the hit-target on coarse pointers (touch) for finger-friendliness. */
+/* iter-13.89 — react-resizable-panels stamps data-panel-group-direction
+   on the wrapper; swap width/height and cursor so one class serves both. */
 [data-panel-group-direction="vertical"] > .lama-resize-handle {
   width: 100%;
   height: 4px;
@@ -395,68 +299,54 @@ code, pre, .font-mono {
   }
 }
 
-/* Markdown rendering for SRS sections */
+/* Markdown rendering for SRS sections. */
 .lama-srs-content {
-  font-size: 0.875rem;
-  line-height: 1.6;
-  color: #2E2E38;
+  font-size: 14px;
+  line-height: 1.65;
+  color: rgb(var(--fg));
 }
-.lama-srs-content p { margin: 0 0 0.75rem; }
-.lama-srs-content ul, .lama-srs-content ol {
-  margin: 0 0 0.75rem 1.2rem;
+.lama-srs-content p { margin: 0 0 12px; }
+.lama-srs-content ul,
+.lama-srs-content ol { margin: 0 0 12px 20px; }
+.lama-srs-content li { margin-bottom: 4px; }
+.lama-srs-content hr {
+  border: 0;
+  border-top: 1px solid rgb(var(--border));
+  margin: 16px 0;
 }
-.lama-srs-content li { margin-bottom: 0.25rem; }
-.lama-srs-content hr { border: 0; border-top: 1px solid #E6E6E6; margin: 1rem 0; }
 .lama-srs-content blockquote {
-  border-left: 3px solid #FFE600;
-  background: #FFFCE6;
-  padding: 0.5rem 0.75rem;
-  margin: 0.5rem 0;
-  color: #2E2E38;
+  border-left: 3px solid rgb(var(--brand));
+  background: rgb(var(--brand-tint));
+  padding: 8px 12px;
+  margin: 8px 0;
+  color: rgb(var(--fg));
 }
 
-/* Reset all transitions for government-grade no-animation aesthetic */
-.no-anim, .no-anim * { transition: none !important; animation: none !important; }
+/* ============================================================
+   Skeleton — the shared loading primitive. 140 hand-rolled
+   animate-spin call sites are being migrated onto this.
+   ============================================================ */
 
-/* iter-14.1 — Global accessibility & UX polish
-   -------------------------------------------------
-   1. Consistent, visible focus rings for keyboard users on every
-      interactive element (never suppress :focus without providing
-      an alternative). Skips :focus-visible-supporting browsers'
-      unhelpful default outline via a targeted override.
-   2. Consistent disabled cursor + reduced opacity so users always
-      know what's actionable — the audit found ~8 different variants
-      across the stage pages.
-   3. Smooth reduced-motion opt-out for users with vestibular issues.
-*/
-button:focus-visible,
-a:focus-visible,
-[role="button"]:focus-visible,
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible {
-  outline: 2px solid #FFE600;
-  outline-offset: 2px;
-  border-radius: 2px;
+@keyframes lama-shimmer {
+  100% { transform: translateX(100%); }
 }
 
-button:disabled,
-[role="button"][aria-disabled="true"],
-a[aria-disabled="true"] {
-  cursor: not-allowed !important;
-  opacity: 0.5;
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgb(var(--surface-2));
+  border-radius: var(--radius-sm);
 }
-
-/* Ensure links inside disabled buttons still show the right cursor */
-button:disabled *,
-[role="button"][aria-disabled="true"] * {
-  pointer-events: none;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
-  }
+.skeleton::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.45),
+    transparent
+  );
+  animation: lama-shimmer 1.6s var(--ease) infinite;
 }

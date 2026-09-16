@@ -19,11 +19,11 @@ export default function Toolbar({
   const [overflowOpen, setOverflowOpen] = React.useState(false);
 
   return (
-    <div className={`flex items-center gap-1 px-3 py-2 bg-white border-b border-[#E6E6E6] ${className}`}>
+    <div className={`flex items-center gap-1 px-3 py-2 bg-surface border-b border-border ${className}`}>
       {/* Primary Actions */}
       {actions.map((action, idx) => {
         if (action.type === "divider") {
-          return <div key={idx} className="w-px h-5 bg-[#E6E6E6] mx-1" />;
+          return <div key={idx} className="w-px h-5 bg-border mx-1" />;
         }
 
         if (action.type === "group") {
@@ -44,7 +44,7 @@ export default function Toolbar({
         <div className="ml-auto relative">
           <button
             onClick={() => setOverflowOpen(!overflowOpen)}
-            className="w-8 h-8 flex items-center justify-center rounded hover:bg-[#F6F6FA] text-[#6B7280] hover:text-[#2E2E38] transition-colors"
+            className="w-8 h-8 flex items-center justify-center rounded hover:bg-bg text-fg-muted hover:text-fg transition-colors"
             title="More actions"
           >
             <MoreVertical className="w-4 h-4" />
@@ -52,14 +52,14 @@ export default function Toolbar({
 
           {overflowOpen && (
             <>
-              <div 
+              <div aria-hidden="true" 
                 className="fixed inset-0 z-10" 
                 onClick={() => setOverflowOpen(false)}
               />
-              <div className="absolute right-0 top-full mt-1 min-w-48 bg-white border border-[#E6E6E6] rounded shadow-lg z-20">
+              <div className="absolute right-0 top-full mt-1 min-w-48 bg-surface border border-border rounded shadow-lg z-20">
                 {secondaryActions.map((action, idx) => (
                   action.type === "divider" ? (
-                    <div key={idx} className="my-1 border-t border-[#E6E6E6]" />
+                    <div key={idx} className="my-1 border-t border-border" />
                   ) : (
                     <button
                       key={idx}
@@ -68,9 +68,9 @@ export default function Toolbar({
                         setOverflowOpen(false);
                       }}
                       disabled={action.disabled}
-                      className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-[#2E2E38] hover:bg-[#F6F6FA] disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                      className="w-full flex items-center gap-3 px-3 py-2 text-left text-sm text-fg hover:bg-bg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
-                      {action.icon && <action.icon className="w-4 h-4 text-[#6B7280]" />}
+                      {action.icon && <action.icon className="w-4 h-4 text-fg-muted" />}
                       <span>{action.label}</span>
                     </button>
                   )
@@ -96,10 +96,10 @@ function ToolbarButton({
   const baseClasses = "flex items-center gap-1.5 px-2.5 py-1.5 rounded text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed";
   
   const variantClasses = {
-    primary: "bg-[#FFE600] text-[#2E2E38] hover:bg-[#F5DC00]",
-    secondary: "bg-white text-[#2E2E38] border border-[#D1D5DB] hover:bg-[#F9FAFB]",
-    ghost: "text-[#6B7280] hover:text-[#2E2E38] hover:bg-[#F6F6FA]",
-    danger: "text-[#B91C1C] hover:bg-[#FEE2E2]"
+    primary: "bg-brand text-fg hover:bg-brand-hover",
+    secondary: "bg-surface text-fg border border-border-strong hover:bg-surface-2",
+    ghost: "text-fg-muted hover:text-fg hover:bg-bg",
+    danger: "text-crit hover:bg-crit-bg"
   };
 
   return (

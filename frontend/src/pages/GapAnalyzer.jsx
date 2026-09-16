@@ -73,22 +73,22 @@ const fmtBytes = (b) => {
 const sevColor = (s) => ({
   critical: "text-red-700 bg-red-50 border-red-200",
   major: "text-amber-700 bg-amber-50 border-amber-200",
-  minor: "text-slate-600 bg-slate-50 border-slate-200",
-}[s] || "text-slate-600 bg-slate-50 border-slate-200");
+  minor: "text-fg-muted bg-surface-2 border-border",
+}[s] || "text-fg-muted bg-surface-2 border-border");
 
 const sevDot = (s) => ({
   critical: "bg-red-500",
   major: "bg-amber-500",
-  minor: "bg-slate-400",
-}[s] || "bg-slate-400");
+  minor: "bg-fg-subtle",
+}[s] || "bg-fg-subtle");
 
 /* ═════════ Sub-components ═════════ */
 
 const StatCard = ({ label, value, icon: Icon, tone = "slate" }) => (
-  <div className="border border-slate-200 rounded-md px-2.5 py-1.5 bg-white">
+  <div className="border border-border rounded-md px-2.5 py-1.5 bg-surface">
     <div className="flex items-center justify-between">
-      <span className="text-[9px] uppercase tracking-wide text-slate-500 font-semibold">{label}</span>
-      {Icon && <Icon size={11} className="text-slate-400" />}
+      <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">{label}</span>
+      {Icon && <Icon size={11} className="text-fg-subtle" />}
     </div>
     <div className={`text-base font-bold tabular-nums leading-tight text-${tone}-700`}>{value}</div>
   </div>
@@ -131,11 +131,11 @@ const InputTab = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50/40">
+    <div className="flex-1 overflow-y-auto bg-surface-2/40">
       <div className="px-4 py-3 space-y-3">
         {/* Analysis name — compact single-row */}
-        <div className="bg-white border border-slate-200 rounded-lg px-3 py-2 flex items-center gap-3">
-          <label className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold flex-shrink-0">
+        <div className="bg-surface border border-border rounded-lg px-3 py-2 flex items-center gap-3">
+          <label className="text-micro uppercase tracking-wide text-fg-subtle font-semibold flex-shrink-0">
             Analysis Name
           </label>
           <input
@@ -144,9 +144,9 @@ const InputTab = ({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="e.g. JHS Q4 Requirements Coverage"
-            className="flex-1 px-2 py-1 text-sm border border-slate-200 rounded-md bg-white focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none"
+            className="flex-1 px-2 py-1 text-sm border border-border rounded-md bg-surface focus:border-brand focus:ring-1 focus:ring-brand outline-none"
           />
-          <span className="text-[10px] text-slate-400">
+          <span className="text-micro text-fg-subtle">
             {name.trim() ? "✓" : "required"}
           </span>
         </div>
@@ -154,19 +154,19 @@ const InputTab = ({
         {/* 2-column grid: Source Code | Documentation */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-3">
           {/* Source Code Section */}
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50/70">
+          <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface-2/70">
               <div className="flex items-center gap-2">
                 <Code2 size={14} className="text-violet-600" />
-                <span className="text-sm font-semibold text-slate-800">Source Code</span>
-                <span className="text-[10px] text-slate-400">Required</span>
+                <span className="text-sm font-semibold text-fg">Source Code</span>
+                <span className="text-micro text-fg-subtle">Required</span>
               </div>
-              <div className="flex items-center rounded-md border border-slate-200 bg-white p-0.5">
+              <div className="flex items-center rounded-md border border-border bg-surface p-0.5">
                 <button
                   data-testid="src-mode-upload"
                   onClick={() => setSourceMode("upload")}
-                  className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium transition-colors ${
-                    sourceMode === "upload" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  className={`text-micro px-2.5 py-1 rounded flex items-center gap-1.5 font-medium transition-colors ${
+                    sourceMode === "upload" ? "bg-ink text-white" : "text-fg-muted hover:bg-surface-2"
                   }`}
                 >
                   <FolderUp size={11} /> Upload
@@ -174,8 +174,8 @@ const InputTab = ({
                 <button
                   data-testid="src-mode-github"
                   onClick={() => setSourceMode("github")}
-                  className={`text-[11px] px-2.5 py-1 rounded flex items-center gap-1.5 font-medium transition-colors ${
-                    sourceMode === "github" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"
+                  className={`text-micro px-2.5 py-1 rounded flex items-center gap-1.5 font-medium transition-colors ${
+                    sourceMode === "github" ? "bg-ink text-white" : "text-fg-muted hover:bg-surface-2"
                   }`}
                 >
                   <Github size={11} /> GitHub
@@ -186,14 +186,23 @@ const InputTab = ({
             {sourceMode === "upload" ? (
               <div className="p-3 flex-1 flex flex-col">
                 <div
-                  onClick={() => codeInputRef.current?.click()}
+                  role="button"
+                tabIndex={0}
+                aria-label="Choose source code files, or drop them here"
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      codeInputRef.current?.click();
+                    }
+                  }}
+                onClick={() => codeInputRef.current?.click()}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => { e.preventDefault(); addCodeFiles(e.dataTransfer.files); }}
-                  className="border-2 border-dashed border-slate-300 rounded-md py-4 flex flex-col items-center justify-center cursor-pointer hover:border-violet-400 hover:bg-violet-50/30 transition-colors"
+                  className="border-2 border-dashed border-border-strong rounded-md py-4 flex flex-col items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:border-violet-400 hover:bg-violet-50/30 transition-colors"
                 >
-                  <Upload size={20} className="text-slate-400 mb-1" />
-                  <p className="text-xs font-medium text-slate-700">Drop or click to add</p>
-                  <p className="text-[10px] text-slate-500 mt-0.5">
+                  <Upload size={20} className="text-fg-subtle mb-1" />
+                  <p className="text-xs font-medium text-fg-muted">Drop or click to add</p>
+                  <p className="text-micro text-fg-subtle mt-0.5">
                     .zip, .tar, .jar, .war or individual source files
                   </p>
                   <input
@@ -206,19 +215,19 @@ const InputTab = ({
                   />
                 </div>
                 {codeFiles.length > 0 && (
-                  <div className="mt-2 border border-slate-200 rounded overflow-hidden">
-                    <div className="px-2.5 py-1 bg-slate-50 border-b border-slate-200 flex items-center justify-between">
-                      <span className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                  <div className="mt-2 border border-border rounded overflow-hidden">
+                    <div className="px-2.5 py-1 bg-surface-2 border-b border-border flex items-center justify-between">
+                      <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
                         {codeFiles.length} file{codeFiles.length > 1 ? "s" : ""}
                       </span>
                       <button
                         onClick={() => setCodeFiles([])}
-                        className="text-[10px] text-slate-500 hover:text-red-600 flex items-center gap-1"
+                        className="text-micro text-fg-subtle hover:text-red-600 flex items-center gap-1"
                       >
                         <Trash2 size={10} /> Clear all
                       </button>
                     </div>
-                    <div className="max-h-[260px] overflow-y-auto divide-y divide-slate-100 p-1 space-y-1">
+                    <div className="max-h-[260px] overflow-y-auto divide-y divide-border p-1 space-y-1">
                       {codeFiles.map((f, i) => (
                         <ZipFileRow
                           key={i}
@@ -236,7 +245,7 @@ const InputTab = ({
             ) : (
               <div className="p-3 space-y-2 flex-1">
                 <div>
-                  <label className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1 flex items-center gap-1">
+                  <label className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-1 flex items-center gap-1">
                     <LinkIcon size={10} /> Repository URL <span className="text-red-500">*</span>
                   </label>
                   <input
@@ -245,12 +254,12 @@ const InputTab = ({
                     value={githubUrl}
                     onChange={(e) => setGithubUrl(e.target.value)}
                     placeholder="https://github.com/owner/repo.git"
-                    className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-md focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none font-mono"
+                    className="w-full px-2.5 py-1.5 text-sm border border-border rounded-md focus:border-brand focus:ring-1 focus:ring-brand outline-none font-mono"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1 block">
+                    <label className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-1 block">
                       Branch
                     </label>
                     <input
@@ -259,11 +268,11 @@ const InputTab = ({
                       value={githubBranch}
                       onChange={(e) => setGithubBranch(e.target.value)}
                       placeholder="main"
-                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-md focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none"
+                      className="w-full px-2.5 py-1.5 text-sm border border-border rounded-md focus:border-brand focus:ring-1 focus:ring-brand outline-none"
                     />
                   </div>
                   <div>
-                    <label className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold mb-1 block">
+                    <label className="text-micro uppercase tracking-wide text-fg-subtle font-semibold mb-1 block">
                       Access Token
                     </label>
                     <input
@@ -272,11 +281,11 @@ const InputTab = ({
                       value={githubToken}
                       onChange={(e) => setGithubToken(e.target.value)}
                       placeholder="ghp_… (private repos)"
-                      className="w-full px-2.5 py-1.5 text-sm border border-slate-200 rounded-md focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none font-mono"
+                      className="w-full px-2.5 py-1.5 text-sm border border-border rounded-md focus:border-brand focus:ring-1 focus:ring-brand outline-none font-mono"
                     />
                   </div>
                 </div>
-                <p className="text-[10px] text-slate-500 flex items-start gap-1.5 pt-0.5">
+                <p className="text-micro text-fg-subtle flex items-start gap-1.5 pt-0.5">
                   <Info size={11} className="mt-[1px] flex-shrink-0" />
                   Shallow clone (depth=1). Token used only for this clone, never persisted.
                 </p>
@@ -285,17 +294,26 @@ const InputTab = ({
           </div>
 
           {/* Documents Section */}
-          <div className="bg-white border border-slate-200 rounded-lg overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between px-4 py-2.5 border-b border-slate-200 bg-slate-50/70">
+          <div className="bg-surface border border-border rounded-lg overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between px-4 py-2.5 border-b border-border bg-surface-2/70">
               <div className="flex items-center gap-2">
                 <FileText size={14} className="text-sky-600" />
-                <span className="text-sm font-semibold text-slate-800">Documentation</span>
-                <span className="text-[10px] text-slate-400">Required · tag each file</span>
+                <span className="text-sm font-semibold text-fg">Documentation</span>
+                <span className="text-micro text-fg-subtle">Required · tag each file</span>
               </div>
               <button
                 data-testid="add-doc-btn"
+                role="button"
+                tabIndex={0}
+                aria-label="Choose SRS, FRS, BRD or API documents, or drop them here"
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      docInputRef.current?.click();
+                    }
+                  }}
                 onClick={() => docInputRef.current?.click()}
-                className="text-[11px] px-2.5 py-1 rounded border border-slate-200 hover:bg-slate-50 text-slate-700 font-medium flex items-center gap-1"
+                className="text-micro px-2.5 py-1 rounded border border-border hover:bg-surface-2 text-fg-muted font-medium flex items-center gap-1"
               >
                 <Plus size={11} /> Add file
               </button>
@@ -311,59 +329,68 @@ const InputTab = ({
 
             {docFiles.length === 0 ? (
               <div
+                role="button"
+                tabIndex={0}
+                aria-label="Choose SRS, FRS, BRD or API documents, or drop them here"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    docInputRef.current?.click();
+                  }
+                }}
                 onClick={() => docInputRef.current?.click()}
                 onDragOver={(e) => e.preventDefault()}
                 onDrop={(e) => { e.preventDefault(); addDocFiles(e.dataTransfer.files); }}
-                className="m-3 border-2 border-dashed border-slate-300 rounded-md py-4 flex-1 flex flex-col items-center justify-center cursor-pointer hover:border-sky-400 hover:bg-sky-50/30 transition-colors"
+                className="m-3 border-2 border-dashed border-border-strong rounded-md py-4 flex-1 flex flex-col items-center justify-center cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring hover:border-sky-400 hover:bg-sky-50/30 transition-colors"
               >
-                <FileText size={20} className="text-slate-400 mb-1" />
-                <p className="text-xs font-medium text-slate-700">Drop SRS / FRS / BRD / API docs</p>
-                <p className="text-[10px] text-slate-500 mt-0.5">
+                <FileText size={20} className="text-fg-subtle mb-1" />
+                <p className="text-xs font-medium text-fg-muted">Drop SRS / FRS / BRD / API docs</p>
+                <p className="text-micro text-fg-subtle mt-0.5">
                   Individual files or ZIP · PDF / DOCX / MD / TXT
                 </p>
               </div>
             ) : (
               <div className="flex-1 overflow-y-auto">
-                <div className="grid grid-cols-[minmax(0,1fr)_180px_54px_28px] items-center px-3 py-1.5 text-[10px] uppercase tracking-wide text-slate-500 font-semibold bg-slate-50/60 border-b border-slate-200 gap-2">
+                <div className="grid grid-cols-[minmax(0,1fr)_180px_54px_28px] items-center px-3 py-1.5 text-micro uppercase tracking-wide text-fg-subtle font-semibold bg-surface-2/60 border-b border-border gap-2">
                   <span>File</span>
                   <span>Type</span>
                   <span className="text-right">Size</span>
                   <span></span>
                 </div>
                 {docFiles.map((f, i) => (
-                  <div key={i} className="grid grid-cols-[minmax(0,1fr)_180px_54px_28px] items-center gap-2 px-3 py-1.5 hover:bg-slate-50/60 text-xs border-b border-slate-100 group">
+                  <div key={i} className="grid grid-cols-[minmax(0,1fr)_180px_54px_28px] items-center gap-2 px-3 py-1.5 hover:bg-surface-2/60 text-xs border-b border-border group">
                     <div className="flex items-center gap-2 min-w-0">
                       <FileText size={12} className="text-sky-500 flex-shrink-0" />
-                      <span className="truncate text-slate-700 font-medium" title={f.file.name}>{f.file.name}</span>
+                      <span className="truncate text-fg-muted font-medium" title={f.file.name}>{f.file.name}</span>
                     </div>
                     <select
                       data-testid={`doc-type-select-${i}`}
                       value={f.docType}
                       onChange={(e) => setDocFiles(prev => prev.map((d, idx) => idx === i ? { ...d, docType: e.target.value } : d))}
-                      className="text-[11px] border border-slate-200 rounded px-1.5 py-1 bg-white focus:border-[#FFE600] focus:ring-1 focus:ring-[#FFE600] outline-none"
+                      className="text-micro border border-border rounded px-1.5 py-1 bg-surface focus:border-brand focus:ring-1 focus:ring-brand outline-none"
                     >
                       {DOC_TYPES.map(dt => (
                         <option key={dt.key} value={dt.key}>{dt.label}</option>
                       ))}
                     </select>
-                    <span className="text-[10px] text-slate-400 tabular-nums text-right">{fmtBytes(f.file.size)}</span>
+                    <span className="text-micro text-fg-subtle tabular-nums text-right">{fmtBytes(f.file.size)}</span>
                     <button
                       data-testid={`doc-file-remove-${i}`}
                       onClick={() => setDocFiles(prev => prev.filter((_, idx) => idx !== i))}
                       title="Remove file"
-                      className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded p-0.5"
+                      className="text-fg-subtle hover:text-red-600 hover:bg-red-50 rounded p-0.5"
                     >
                       <X size={12} />
                     </button>
                   </div>
                 ))}
-                <div className="px-3 py-1.5 flex items-center justify-between bg-slate-50/40">
-                  <span className="text-[10px] text-slate-500">
+                <div className="px-3 py-1.5 flex items-center justify-between bg-surface-2/40">
+                  <span className="text-micro text-fg-subtle">
                     {docFiles.length} document{docFiles.length > 1 ? "s" : ""}
                   </span>
                   <button
                     onClick={() => setDocFiles([])}
-                    className="text-[10px] text-slate-500 hover:text-red-600 flex items-center gap-1"
+                    className="text-micro text-fg-subtle hover:text-red-600 flex items-center gap-1"
                   >
                     <Trash2 size={10} /> Clear all
                   </button>
@@ -374,22 +401,22 @@ const InputTab = ({
         </div>
 
         {/* Submit bar — sticky bottom, full width */}
-        <div className="sticky bottom-0 bg-white border border-slate-200 rounded-lg shadow-sm px-4 py-2.5 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-3 text-[11px] text-slate-500">
+        <div className="sticky bottom-0 bg-surface border border-border rounded-lg shadow-sm px-4 py-2.5 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3 text-micro text-fg-subtle">
             <span className="flex items-center gap-1">
               <Code2 size={11} className="text-violet-500" />
-              Code: <span className="font-semibold text-slate-700">
+              Code: <span className="font-semibold text-fg-muted">
                 {sourceMode === "github" ? (githubUrl ? "GitHub repo" : "—") : `${codeFiles.length} file(s)`}
               </span>
             </span>
-            <span className="text-slate-300">•</span>
+            <span className="text-fg-subtle">•</span>
             <span className="flex items-center gap-1">
               <FileText size={11} className="text-sky-500" />
-              Docs: <span className="font-semibold text-slate-700">{docFiles.length} file(s)</span>
+              Docs: <span className="font-semibold text-fg-muted">{docFiles.length} file(s)</span>
             </span>
             {!canSubmit && validationMsg && (
               <>
-                <span className="text-slate-300">•</span>
+                <span className="text-fg-subtle">•</span>
                 <span className="text-amber-600 font-medium">{validationMsg}</span>
               </>
             )}
@@ -398,7 +425,7 @@ const InputTab = ({
             data-testid="gap-analyzer-run-btn"
             onClick={onCreate}
             disabled={!canSubmit || creating}
-            className="px-4 py-2 bg-[#FFE600] hover:bg-[#FFD500] text-slate-900 font-semibold rounded-md text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2 bg-brand hover:bg-brand-hover text-fg font-semibold rounded-md text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {creating ? <RefreshCw size={14} className="animate-spin" /> : <Play size={14} />}
             {creating ? "Uploading…" : "Build KB & Run Analysis"}
@@ -415,15 +442,15 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
 
   if (!kb) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-slate-50">
-        <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-surface-2">
+        <div className="w-14 h-14 rounded-full bg-surface shadow-sm flex items-center justify-center mb-3">
           {phase && phase !== "report" ? (
-            <RefreshCw size={22} className="text-slate-400 animate-spin" />
+            <RefreshCw size={22} className="text-fg-subtle animate-spin" />
           ) : (
-            <Database size={22} className="text-slate-300" />
+            <Database size={22} className="text-fg-subtle" />
           )}
         </div>
-        <p className="text-sm font-medium text-slate-600">
+        <p className="text-sm font-medium text-fg-muted">
           {phaseLabel ||
            (phase === "kb" ? "Extracting code entities…" :
             phase === "extract" ? "Building UI→API→DB traceability map…" :
@@ -432,13 +459,13 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
         </p>
         {phase && phase !== "report" && (
           <div className="mt-4 w-72">
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{ width: `${Math.max(3, Math.min(100, progressPct || 3))}%` }}
               />
             </div>
-            <div className="text-[10px] text-slate-500 mt-1 tabular-nums">
+            <div className="text-micro text-fg-subtle mt-1 tabular-nums">
               {progressPct || 0}% complete
             </div>
           </div>
@@ -465,9 +492,9 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
   });
 
   return (
-    <div className="flex-1 overflow-y-auto bg-slate-50">
+    <div className="flex-1 overflow-y-auto bg-surface-2">
       {/* Stats bar */}
-      <div className="grid grid-cols-6 gap-2 p-3 bg-white border-b border-slate-200">
+      <div className="grid grid-cols-6 gap-2 p-3 bg-surface border-b border-border">
         <StatCard label="Code Files" value={stats.code_files || 0} icon={Code2} />
         <StatCard label="Entities" value={stats.entities || 0} icon={Layers} />
         <StatCard label="UI Files" value={stats.ui_files || 0} icon={Layers} tone="violet" />
@@ -479,22 +506,22 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
       {/* Traceability + Requirements — two-column on wide screens so both are visible */}
       <div className="p-3 grid grid-cols-1 xl:grid-cols-2 gap-3">
         {/* UI → API → DB Traceability */}
-        <div className="bg-white border border-slate-200 rounded-md overflow-hidden flex flex-col min-h-0">
-          <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 flex-shrink-0">
+        <div className="bg-surface border border-border rounded-md overflow-hidden flex flex-col min-h-0">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-surface-2/70 flex-shrink-0">
             <div className="flex items-center gap-2 min-w-0">
-              <Network size={13} className="text-slate-600 flex-shrink-0" />
-              <span className="text-xs font-semibold text-slate-700 truncate">UI → API → DB Traceability</span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium flex-shrink-0">
+              <Network size={13} className="text-fg-muted flex-shrink-0" />
+              <span className="text-xs font-semibold text-fg-muted truncate">UI → API → DB Traceability</span>
+              <span className="text-micro px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-medium flex-shrink-0">
                 {stats.resolved_chains || 0} resolved
               </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-medium flex-shrink-0">
+              <span className="text-micro px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-medium flex-shrink-0">
                 {stats.unresolved_chains || 0} unresolved
               </span>
             </div>
             <select
               value={chainFilter}
               onChange={(e) => setChainFilter(e.target.value)}
-              className="text-[11px] px-2 py-0.5 border border-slate-200 rounded bg-white flex-shrink-0"
+              className="text-micro px-2 py-0.5 border border-border rounded bg-surface flex-shrink-0"
             >
               <option value="all">All chains</option>
               <option value="resolved">Resolved only</option>
@@ -503,10 +530,10 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
           </div>
           <div className="max-h-[380px] overflow-y-auto">
             {filteredChains.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">No traceability chains detected</div>
+              <div className="text-center py-6 text-xs text-fg-subtle">No traceability chains detected</div>
             ) : (
               <table className="w-full text-xs">
-                <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide sticky top-0">
+                <thead className="bg-surface-2 text-fg-subtle uppercase text-micro tracking-wide sticky top-0">
                   <tr>
                     <th className="text-left px-3 py-1.5 font-semibold">UI Source</th>
                     <th className="px-2 py-1.5"></th>
@@ -516,25 +543,25 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
                     <th className="px-2 py-1.5 font-semibold">Status</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-border">
                   {filteredChains.slice(0, 100).map((c, i) => (
-                    <tr key={i} className="hover:bg-slate-50">
-                      <td className="px-3 py-1.5 font-mono text-[11px] text-slate-600 max-w-[200px] truncate" title={c.ui}>{c.ui}</td>
-                      <td className="text-slate-300"><ArrowRight size={11} /></td>
-                      <td className="px-3 py-1.5 font-mono text-[11px] text-slate-700">
+                    <tr key={i} className="hover:bg-surface-2">
+                      <td className="px-3 py-1.5 font-mono text-micro text-fg-muted max-w-[200px] truncate" title={c.ui}>{c.ui}</td>
+                      <td className="text-fg-subtle"><ArrowRight size={11} /></td>
+                      <td className="px-3 py-1.5 font-mono text-micro text-fg-muted">
                         <span className={`px-1 rounded ${
                           c.http_method === "GET" ? "text-emerald-700" :
                           c.http_method === "POST" ? "text-sky-700" :
                           c.http_method === "PUT" || c.http_method === "PATCH" ? "text-amber-700" :
-                          c.http_method === "DELETE" ? "text-red-700" : "text-slate-600"
+                          c.http_method === "DELETE" ? "text-red-700" : "text-fg-muted"
                         }`}>{c.http_method || ""}</span>{" "}
                         {c.api_resolved || c.api_ref}
                       </td>
-                      <td className="text-slate-300"><ArrowRight size={11} /></td>
-                      <td className="px-3 py-1.5 text-[11px] text-slate-600">
+                      <td className="text-fg-subtle"><ArrowRight size={11} /></td>
+                      <td className="px-3 py-1.5 text-micro text-fg-muted">
                         {c.tables?.length ? c.tables.map(t => (
                           <span key={t} className="inline-block mr-1 px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-mono">{t}</span>
-                        )) : <span className="text-slate-300">—</span>}
+                        )) : <span className="text-fg-subtle">—</span>}
                       </td>
                       <td className="px-2 py-1.5">
                         {c.resolved ? (
@@ -552,37 +579,37 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
         </div>
 
         {/* Requirements */}
-        <div className="bg-white border border-slate-200 rounded-md overflow-hidden flex flex-col min-h-0">
-          <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between bg-slate-50/70 flex-shrink-0">
+        <div className="bg-surface border border-border rounded-md overflow-hidden flex flex-col min-h-0">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-surface-2/70 flex-shrink-0">
             <div className="flex items-center gap-2 min-w-0">
-              <Target size={13} className="text-slate-600 flex-shrink-0" />
-              <span className="text-xs font-semibold text-slate-700 truncate">Extracted Requirements ({reqs.length})</span>
+              <Target size={13} className="text-fg-muted flex-shrink-0" />
+              <span className="text-xs font-semibold text-fg-muted truncate">Extracted Requirements ({reqs.length})</span>
             </div>
             <select
               value={reqFilter}
               onChange={(e) => setReqFilter(e.target.value)}
-              className="text-[11px] px-2 py-0.5 border border-slate-200 rounded bg-white flex-shrink-0"
+              className="text-micro px-2 py-0.5 border border-border rounded bg-surface flex-shrink-0"
             >
               <option value="all">All categories</option>
               {reqCategories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
-          <div className="max-h-[380px] overflow-y-auto divide-y divide-slate-100">
+          <div className="max-h-[380px] overflow-y-auto divide-y divide-border">
             {filteredReqs.length === 0 ? (
-              <div className="text-center py-6 text-xs text-slate-400">No requirements extracted</div>
+              <div className="text-center py-6 text-xs text-fg-subtle">No requirements extracted</div>
             ) : filteredReqs.slice(0, 80).map((r, i) => (
-              <div key={i} className="px-3 py-1.5 hover:bg-slate-50 text-xs flex items-start gap-2">
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono font-semibold flex-shrink-0 ${
-                  r.type === "EXPLICIT" ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-600"
+              <div key={i} className="px-3 py-1.5 hover:bg-surface-2 text-xs flex items-start gap-2">
+                <span className={`text-micro px-1.5 py-0.5 rounded font-mono font-semibold flex-shrink-0 ${
+                  r.type === "EXPLICIT" ? "bg-emerald-50 text-emerald-700" : "bg-surface-2 text-fg-muted"
                 }`}>{r.id}</span>
-                <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
+                <span className={`text-micro px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${
                   r.category === "security" ? "bg-red-50 text-red-700" :
                   r.category === "api" ? "bg-sky-50 text-sky-700" :
                   r.category === "data" ? "bg-emerald-50 text-emerald-700" :
                   r.category === "ui" ? "bg-violet-50 text-violet-700" :
-                  "bg-slate-100 text-slate-600"
+                  "bg-surface-2 text-fg-muted"
                 }`}>{r.category}</span>
-                <span className="flex-1 text-slate-700 leading-snug">{r.text}</span>
+                <span className="flex-1 text-fg-muted leading-snug">{r.text}</span>
               </div>
             ))}
           </div>
@@ -598,15 +625,15 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
               { label: "Orphan DB Tables", items: orphanedDb, icon: Database, tone: "emerald" },
               { label: "Orphan UI Files", items: orphanedUi, icon: Layers, tone: "violet" },
             ].map(o => (
-              <div key={o.label} className="bg-white border border-slate-200 rounded-md overflow-hidden">
-                <div className="px-3 py-1.5 border-b border-slate-200 bg-amber-50/50 flex items-center gap-2">
+              <div key={o.label} className="bg-surface border border-border rounded-md overflow-hidden">
+                <div className="px-3 py-1.5 border-b border-border bg-amber-50/50 flex items-center gap-2">
                   <AlertTriangle size={11} className="text-amber-600" />
-                  <span className="text-[11px] font-semibold text-slate-700">{o.label} ({o.items.length})</span>
+                  <span className="text-micro font-semibold text-fg-muted">{o.label} ({o.items.length})</span>
                 </div>
-                <div className="p-2 max-h-[120px] overflow-y-auto text-[11px] font-mono text-slate-600">
-                  {o.items.length === 0 ? <span className="text-slate-400">none</span> :
+                <div className="p-2 max-h-[120px] overflow-y-auto text-micro font-mono text-fg-muted">
+                  {o.items.length === 0 ? <span className="text-fg-subtle">none</span> :
                     o.items.slice(0, 10).map((x, i) => <div key={i} className="truncate py-0.5" title={x}>{x}</div>)}
-                  {o.items.length > 10 && <div className="text-slate-400 pt-1">+{o.items.length - 10} more</div>}
+                  {o.items.length > 10 && <div className="text-fg-subtle pt-1">+{o.items.length - 10} more</div>}
                 </div>
               </div>
             ))}
@@ -615,17 +642,17 @@ const KBTab = ({ kb, phase, phaseLabel, progressPct, requirements }) => {
 
         {/* Entity sample */}
         {entitySample.length > 0 && (
-          <div className="bg-white border border-slate-200 rounded-md overflow-hidden mt-3">
-            <div className="px-3 py-2 border-b border-slate-200 flex items-center gap-2 bg-slate-50/70">
-              <Layers size={13} className="text-slate-600" />
-              <span className="text-xs font-semibold text-slate-700">Extracted Entities Sample</span>
+          <div className="bg-surface border border-border rounded-md overflow-hidden mt-3">
+            <div className="px-3 py-2 border-b border-border flex items-center gap-2 bg-surface-2/70">
+              <Layers size={13} className="text-fg-muted" />
+              <span className="text-xs font-semibold text-fg-muted">Extracted Entities Sample</span>
             </div>
-            <div className="max-h-[200px] overflow-y-auto p-2 grid grid-cols-2 gap-1 text-[11px]">
+            <div className="max-h-[200px] overflow-y-auto p-2 grid grid-cols-2 gap-1 text-micro">
               {entitySample.slice(0, 40).map((e, i) => (
-                <div key={i} className="flex items-center gap-2 px-2 py-1 hover:bg-slate-50 rounded">
-                  <span className="text-[9px] px-1 py-0.5 rounded bg-slate-100 text-slate-600 font-mono font-semibold flex-shrink-0">{e.type}</span>
-                  <span className="font-mono text-slate-700 truncate">{e.name}</span>
-                  {e.source_file && <span className="text-slate-400 truncate ml-auto text-[10px]" title={e.source_file}>{e.source_file.split("/").pop()}</span>}
+                <div key={i} className="flex items-center gap-2 px-2 py-1 hover:bg-surface-2 rounded">
+                  <span className="text-micro px-1 py-0.5 rounded bg-surface-2 text-fg-muted font-mono font-semibold flex-shrink-0">{e.type}</span>
+                  <span className="font-mono text-fg-muted truncate">{e.name}</span>
+                  {e.source_file && <span className="text-fg-subtle truncate ml-auto text-micro" title={e.source_file}>{e.source_file.split("/").pop()}</span>}
                 </div>
               ))}
             </div>
@@ -672,19 +699,19 @@ const ReportChartsPanel = ({ result, matrix, gaps }) => {
   const noCoverage = matrix.length === 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-white border-b border-slate-200">
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-surface border-b border-border">
       {/* Coverage Donut */}
-      <div className="border border-slate-200 rounded-md p-3">
+      <div className="border border-border rounded-md p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
             Coverage
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-micro text-fg-subtle">
             {covered}/{matrix.length} requirements
           </span>
         </div>
         {noCoverage ? (
-          <div className="h-[160px] flex items-center justify-center text-[11px] text-slate-400">
+          <div className="h-[160px] flex items-center justify-center text-micro text-fg-subtle">
             No coverage matrix available
           </div>
         ) : (
@@ -712,11 +739,11 @@ const ReportChartsPanel = ({ result, matrix, gaps }) => {
               <div className={`text-2xl font-bold tabular-nums ${
                 covPct >= 70 ? "text-emerald-600" : covPct >= 40 ? "text-amber-600" : "text-red-600"
               }`}>{covPct}%</div>
-              <div className="text-[9px] uppercase tracking-wide text-slate-400 font-semibold">Coverage</div>
+              <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">Coverage</div>
             </div>
           </div>
         )}
-        <div className="flex items-center justify-center gap-3 mt-1 text-[10px] text-slate-600">
+        <div className="flex items-center justify-center gap-3 mt-1 text-micro text-fg-muted">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded-full bg-emerald-500" /> Covered ({covered})
           </span>
@@ -727,17 +754,17 @@ const ReportChartsPanel = ({ result, matrix, gaps }) => {
       </div>
 
       {/* Severity Donut */}
-      <div className="border border-slate-200 rounded-md p-3">
+      <div className="border border-border rounded-md p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
             Gap Severity
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-micro text-fg-subtle">
             {gaps.length} total
           </span>
         </div>
         {noSeverity ? (
-          <div className="h-[160px] flex items-center justify-center text-[11px] text-emerald-600 flex-col gap-1">
+          <div className="h-[160px] flex items-center justify-center text-micro text-emerald-600 flex-col gap-1">
             <CheckCircle size={20} />
             <span>No gaps found</span>
           </div>
@@ -764,7 +791,7 @@ const ReportChartsPanel = ({ result, matrix, gaps }) => {
             </ResponsiveContainer>
           </div>
         )}
-        <div className="flex items-center justify-center gap-3 mt-1 text-[10px] text-slate-600 flex-wrap">
+        <div className="flex items-center justify-center gap-3 mt-1 text-micro text-fg-muted flex-wrap">
           {severityData.map(s => (
             <span key={s.key} className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full" style={{ background: SEV_COLORS[s.key] }} />
@@ -775,17 +802,17 @@ const ReportChartsPanel = ({ result, matrix, gaps }) => {
       </div>
 
       {/* Category Bar */}
-      <div className="border border-slate-200 rounded-md p-3">
+      <div className="border border-border rounded-md p-3">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+          <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
             Gaps by Category
           </span>
-          <span className="text-[10px] text-slate-400">
+          <span className="text-micro text-fg-subtle">
             {categoryData.length} type{categoryData.length !== 1 ? "s" : ""}
           </span>
         </div>
         {noCategory ? (
-          <div className="h-[180px] flex items-center justify-center text-[11px] text-slate-400">
+          <div className="h-[180px] flex items-center justify-center text-micro text-fg-subtle">
             No categorized gaps
           </div>
         ) : (
@@ -828,16 +855,16 @@ const _tcStatusStyle = (s) => {
     case "BLOCKED":
       return { bg: "bg-amber-50", border: "border-amber-200", text: "text-amber-700", dot: "bg-amber-500", label: "BLOCKED" };
     case "NOT_APPLICABLE":
-      return { bg: "bg-slate-50", border: "border-slate-200", text: "text-slate-600", dot: "bg-slate-400", label: "N/A" };
+      return { bg: "bg-surface-2", border: "border-border", text: "text-fg-muted", dot: "bg-fg-subtle", label: "N/A" };
     default:
-      return { bg: "bg-slate-50", border: "border-slate-200", text: "text-slate-600", dot: "bg-slate-400", label: (s || "UNKNOWN").toUpperCase() };
+      return { bg: "bg-surface-2", border: "border-border", text: "text-fg-muted", dot: "bg-fg-subtle", label: (s || "UNKNOWN").toUpperCase() };
   }
 };
 
 const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
   if (!testCases || testCases.length === 0) {
     return (
-      <div className="text-center py-12 text-sm text-slate-400">
+      <div className="text-center py-12 text-sm text-fg-subtle">
         No test cases were generated. Re-run the analysis with the updated verifier prompt.
       </div>
     );
@@ -880,8 +907,8 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
     <div className="space-y-3">
       {/* Charts strip */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="bg-white border border-slate-200 rounded-md p-3">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 mb-1">Accuracy</div>
+        <div className="bg-surface border border-border rounded-md p-3">
+          <div className="text-micro font-semibold uppercase text-fg-subtle mb-1">Accuracy</div>
           <div className="flex items-center gap-3">
             <div className="w-24 h-24 relative">
               <ResponsiveContainer width="100%" height="100%">
@@ -895,20 +922,20 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
                 <span className={`text-lg font-bold ${accuracy >= 70 ? "text-emerald-600" : accuracy >= 40 ? "text-amber-600" : "text-red-600"}`}>{accuracy}%</span>
               </div>
             </div>
-            <div className="flex-1 text-[11px] space-y-1">
+            <div className="flex-1 text-micro space-y-1">
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500"/> Passed: <span className="font-semibold ml-auto">{stats.passed}</span></div>
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500"/> Failed: <span className="font-semibold ml-auto">{stats.failed}</span></div>
               <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500"/> Blocked: <span className="font-semibold ml-auto">{stats.blocked}</span></div>
-              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-slate-400"/> N/A: <span className="font-semibold ml-auto">{stats.not_applicable}</span></div>
+              <div className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-fg-subtle"/> N/A: <span className="font-semibold ml-auto">{stats.not_applicable}</span></div>
             </div>
           </div>
-          <div className="mt-2 text-[10px] text-slate-500">Accuracy = Passed / (Passed + Failed + Blocked). N/A excluded.</div>
+          <div className="mt-2 text-micro text-fg-subtle">Accuracy = Passed / (Passed + Failed + Blocked). N/A excluded.</div>
         </div>
-        <div className="bg-white border border-slate-200 rounded-md p-3">
-          <div className="text-[10px] font-semibold uppercase text-slate-500 mb-1 flex items-center justify-between">
+        <div className="bg-surface border border-border rounded-md p-3">
+          <div className="text-micro font-semibold uppercase text-fg-subtle mb-1 flex items-center justify-between">
             <span>Status Distribution</span>
             {(positiveCount + negativeCount) > 0 && (
-              <span className="normal-case tracking-normal text-[10px] text-slate-400 flex items-center gap-2">
+              <span className="normal-case tracking-normal text-micro text-fg-subtle flex items-center gap-2">
                 <span className="text-emerald-700">+{positiveCount} positive</span>
                 <span className="text-rose-700">−{negativeCount} negative</span>
               </span>
@@ -925,9 +952,9 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
             </BarChart>
           </ResponsiveContainer>
           {caseTypeData.length > 0 && (
-            <div className="mt-2 flex items-center gap-1 text-[10px]">
-              <span className="text-slate-500 font-semibold uppercase mr-1">Design Coverage:</span>
-              <div className="flex-1 h-2 rounded-full overflow-hidden bg-slate-100 flex">
+            <div className="mt-2 flex items-center gap-1 text-micro">
+              <span className="text-fg-subtle font-semibold uppercase mr-1">Design Coverage:</span>
+              <div className="flex-1 h-2 rounded-full overflow-hidden bg-surface-2 flex">
                 {positiveCount > 0 && (
                   <div
                     style={{ width: `${(positiveCount / (positiveCount + negativeCount)) * 100}%` }}
@@ -950,7 +977,7 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
 
       {/* Detail rows */}
       {filtered.length === 0 ? (
-        <div className="text-center py-8 text-sm text-slate-400">No test cases match the current filter.</div>
+        <div className="text-center py-8 text-sm text-fg-subtle">No test cases match the current filter.</div>
       ) : (
         <div className="space-y-1.5">
           {filtered.map((tc, i) => {
@@ -959,19 +986,19 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
             const st = _tcStatusStyle(tc.status);
             const steps = Array.isArray(tc.steps) ? tc.steps : (tc.steps ? [tc.steps] : []);
             return (
-              <div key={key} className={`border rounded-md bg-white overflow-hidden ${st.border}`}>
+              <div key={key} className={`border rounded-md bg-surface overflow-hidden ${st.border}`}>
                 <button
                   onClick={() => toggle(key)}
-                  className="w-full px-3 py-2 flex items-start gap-2 text-left hover:bg-slate-50/50"
+                  className="w-full px-3 py-2 flex items-start gap-2 text-left hover:bg-surface-2/50"
                 >
                   <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${st.dot}`} />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      {tc.id && <span className="text-[10px] font-mono text-slate-500">{tc.id}</span>}
-                      <span className="text-xs font-semibold text-slate-800">{tc.title || "Untitled test case"}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${st.bg} ${st.text}`}>{st.label}</span>
+                      {tc.id && <span className="text-micro font-mono text-fg-subtle">{tc.id}</span>}
+                      <span className="text-xs font-semibold text-fg">{tc.title || "Untitled test case"}</span>
+                      <span className={`text-micro px-1.5 py-0.5 rounded font-semibold uppercase ${st.bg} ${st.text}`}>{st.label}</span>
                       {tc.case_type && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${
+                        <span className={`text-micro px-1.5 py-0.5 rounded font-semibold uppercase ${
                           tc.case_type === "negative"
                             ? "bg-rose-50 text-rose-700 border border-rose-200"
                             : "bg-emerald-50 text-emerald-700 border border-emerald-200"
@@ -980,78 +1007,78 @@ const TestCasesView = ({ testCases, stats, filter, expanded, setExpanded }) => {
                         </span>
                       )}
                       {tc.requirement_type && (
-                        <span className="text-[9px] px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 font-semibold uppercase">
+                        <span className="text-micro px-1.5 py-0.5 rounded bg-violet-50 text-violet-700 font-semibold uppercase">
                           {tc.requirement_type === "USE_CASE" ? "UC" : tc.requirement_type === "BUSINESS_RULE" ? "BR" : tc.requirement_type === "FUNCTIONAL" ? "FR" : tc.requirement_type === "UI_SPEC" ? "UI" : tc.requirement_type === "DATA_SPEC" ? "DATA" : tc.requirement_type}
                         </span>
                       )}
                       {tc.priority && tc.priority !== "P2" && (
-                        <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold ${
+                        <span className={`text-micro px-1.5 py-0.5 rounded font-semibold ${
                           tc.priority === "P0" ? "bg-red-100 text-red-800" :
                           tc.priority === "P1" ? "bg-amber-100 text-amber-800" :
-                          "bg-slate-100 text-slate-600"
+                          "bg-surface-2 text-fg-muted"
                         }`}>{tc.priority}</span>
                       )}
-                      {tc.severity && <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase">{tc.severity}</span>}
-                      {tc.category && <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{tc.category}</span>}
-                      {tc.requirement_id && <span className="text-[10px] text-emerald-700 font-mono">↳ Req: {tc.requirement_id}</span>}
+                      {tc.severity && <span className="text-micro px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted font-semibold uppercase">{tc.severity}</span>}
+                      {tc.category && <span className="text-micro px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">{tc.category}</span>}
+                      {tc.requirement_id && <span className="text-micro text-emerald-700 font-mono">↳ Req: {tc.requirement_id}</span>}
                       {tc.scenario && (
-                        <span className="text-[9px] text-slate-400 font-mono">· {tc.scenario.replace(/_/g, " ")}</span>
+                        <span className="text-micro text-fg-subtle font-mono">· {tc.scenario.replace(/_/g, " ")}</span>
                       )}
-                      {tc.synthesized && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold">AUTO</span>}
-                      {tc.source === "uploaded" && <span className="text-[9px] px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 font-semibold border border-teal-200" title="Authored by SME in uploaded documentation">SME</span>}
+                      {tc.synthesized && <span className="text-micro px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 font-semibold">AUTO</span>}
+                      {tc.source === "uploaded" && <span className="text-micro px-1.5 py-0.5 rounded bg-teal-50 text-teal-700 font-semibold border border-teal-200" title="Authored by SME in uploaded documentation">SME</span>}
                     </div>
                     {tc.human_summary && (
-                      <p className="text-[11.5px] text-slate-700 mt-1 leading-snug italic">
-                        <span className="text-slate-400 not-italic font-semibold mr-1">Summary:</span>
+                      <p className="text-[11.5px] text-fg-muted mt-1 leading-snug italic">
+                        <span className="text-fg-subtle not-italic font-semibold mr-1">Summary:</span>
                         {tc.human_summary}
                       </p>
                     )}
                     {!isExp && tc.expected_result && (
-                      <p className="text-[11px] text-slate-500 mt-0.5 line-clamp-1"><span className="text-slate-400">Expected:</span> {tc.expected_result}</p>
+                      <p className="text-micro text-fg-subtle mt-0.5 line-clamp-1"><span className="text-fg-subtle">Expected:</span> {tc.expected_result}</p>
                     )}
                   </div>
-                  <ChevronDown size={13} className={`text-slate-400 flex-shrink-0 transition-transform ${isExp ? "rotate-180" : ""}`} />
+                  <ChevronDown size={13} className={`text-fg-subtle flex-shrink-0 transition-transform ${isExp ? "rotate-180" : ""}`} />
                 </button>
                 {isExp && (
-                  <div className="px-3 pb-2.5 ml-4 space-y-1.5 text-[11px] border-t border-slate-100 pt-2">
+                  <div className="px-3 pb-2.5 ml-4 space-y-1.5 text-micro border-t border-border pt-2">
                     {tc.preconditions && (
-                      <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Preconditions:</span> <span className="text-slate-700">{tc.preconditions}</span></div>
+                      <div><span className="font-semibold text-fg-subtle uppercase text-micro">Preconditions:</span> <span className="text-fg-muted">{tc.preconditions}</span></div>
                     )}
                     {steps.length > 0 && (
                       <div>
-                        <div className="font-semibold text-slate-500 uppercase text-[10px] mb-0.5">Steps:</div>
-                        <ol className="list-decimal ml-4 space-y-0.5 text-slate-700">
+                        <div className="font-semibold text-fg-subtle uppercase text-micro mb-0.5">Steps:</div>
+                        <ol className="list-decimal ml-4 space-y-0.5 text-fg-muted">
                           {steps.map((s, si) => <li key={si}>{s}</li>)}
                         </ol>
                       </div>
                     )}
                     {tc.test_data && (
-                      <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Test Data:</span> <span className="font-mono text-slate-700">{typeof tc.test_data === "string" ? tc.test_data : JSON.stringify(tc.test_data)}</span></div>
+                      <div><span className="font-semibold text-fg-subtle uppercase text-micro">Test Data:</span> <span className="font-mono text-fg-muted">{typeof tc.test_data === "string" ? tc.test_data : JSON.stringify(tc.test_data)}</span></div>
                     )}
                     {tc.expected_result && (
-                      <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Expected:</span> <span className="text-slate-700">{tc.expected_result}</span></div>
+                      <div><span className="font-semibold text-fg-subtle uppercase text-micro">Expected:</span> <span className="text-fg-muted">{tc.expected_result}</span></div>
                     )}
                     {tc.actual_result && (
-                      <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Actual:</span> <span className="text-slate-700">{tc.actual_result}</span></div>
+                      <div><span className="font-semibold text-fg-subtle uppercase text-micro">Actual:</span> <span className="text-fg-muted">{tc.actual_result}</span></div>
                     )}
                     {tc.evidence && (Array.isArray(tc.evidence) ? tc.evidence.length > 0 : true) && (
                       <div>
-                        <span className="font-semibold text-slate-500 uppercase text-[10px]">Evidence:</span>{" "}
+                        <span className="font-semibold text-fg-subtle uppercase text-micro">Evidence:</span>{" "}
                         {Array.isArray(tc.evidence) ? (
                           <span className="inline-flex flex-wrap gap-1">
                             {tc.evidence.map((ev, ei) => (
-                              <span key={ei} className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-700">{ev}</span>
+                              <span key={ei} className="text-micro font-mono px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted">{ev}</span>
                             ))}
                           </span>
                         ) : (
-                          <span className="font-mono text-slate-700">{tc.evidence}</span>
+                          <span className="font-mono text-fg-muted">{tc.evidence}</span>
                         )}
                       </div>
                     )}
                     {tc.notes && (
-                      <div className="bg-slate-50 border border-slate-100 rounded p-2 mt-1">
-                        <span className="font-semibold text-slate-500 uppercase text-[10px]">Notes:</span>{" "}
-                        <span className="text-slate-700">{tc.notes}</span>
+                      <div className="bg-surface-2 border border-border rounded p-2 mt-1">
+                        <span className="font-semibold text-fg-subtle uppercase text-micro">Notes:</span>{" "}
+                        <span className="text-fg-muted">{tc.notes}</span>
                       </div>
                     )}
                   </div>
@@ -1140,7 +1167,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
   if (error) {
     return (
       <div className="flex-1 flex items-center justify-center p-6">
-        <div className="max-w-md w-full bg-white border border-red-200 rounded-md p-4">
+        <div className="max-w-md w-full bg-surface border border-red-200 rounded-md p-4">
           <div className="flex items-start gap-3">
             <AlertCircle size={18} className="text-red-600 flex-shrink-0 mt-0.5" />
             <div>
@@ -1155,15 +1182,15 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
 
   if (!result) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-slate-50">
-        <div className="w-14 h-14 rounded-full bg-white shadow-sm flex items-center justify-center mb-3">
+      <div className="flex-1 flex flex-col items-center justify-center text-center p-6 bg-surface-2">
+        <div className="w-14 h-14 rounded-full bg-surface shadow-sm flex items-center justify-center mb-3">
           {phase && phase !== "report" ? (
-            <RefreshCw size={22} className="text-slate-400 animate-spin" />
+            <RefreshCw size={22} className="text-fg-subtle animate-spin" />
           ) : (
-            <FileText size={22} className="text-slate-300" />
+            <FileText size={22} className="text-fg-subtle" />
           )}
         </div>
-        <p className="text-sm font-medium text-slate-600">
+        <p className="text-sm font-medium text-fg-muted">
           {phaseLabel ||
            (phase === "verify" ? "LLM verifier is comparing KB against requirements…" :
             phase === "kb" || phase === "extract" ? "Building knowledge base first…" :
@@ -1172,19 +1199,19 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
         </p>
         {phase && phase !== "report" && (
           <div className="mt-4 w-72">
-            <div className="h-2 bg-slate-200 rounded-full overflow-hidden">
+            <div className="h-2 bg-surface-3 rounded-full overflow-hidden">
               <div
                 className="h-full bg-blue-500 transition-all duration-500"
                 style={{ width: `${Math.max(3, Math.min(100, progressPct || 3))}%` }}
               />
             </div>
-            <div className="text-[10px] text-slate-500 mt-1 tabular-nums">
+            <div className="text-micro text-fg-subtle mt-1 tabular-nums">
               {progressPct || 0}% complete
             </div>
           </div>
         )}
         {phase === "verify" && (
-          <p className="text-[11px] text-slate-400 mt-2">This typically takes 30–90 seconds</p>
+          <p className="text-micro text-fg-subtle mt-2">This typically takes 30–90 seconds</p>
         )}
       </div>
     );
@@ -1221,7 +1248,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden bg-slate-50">
+    <div className="flex-1 flex flex-col overflow-hidden bg-surface-2">
       {/* iter-14.94 — Warnings banner (KB signal / coverage confidence).
           Rendered ABOVE the stat cards so a "100% coverage" number cannot
           be misread when the underlying data is insufficient. */}
@@ -1230,7 +1257,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
           <div className="flex items-start gap-2 rounded-md border border-amber-300 bg-amber-50 p-3">
             <AlertTriangle size={16} className="text-amber-600 shrink-0 mt-0.5" />
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-bold uppercase tracking-wide text-amber-800 mb-1">
+              <div className="text-micro font-bold uppercase tracking-wide text-amber-800 mb-1">
                 {result.kb_diagnostics?.is_ui_only
                   ? "Analysis inconclusive — frontend-only upload"
                   : "Analysis has caveats"}
@@ -1239,7 +1266,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                 {result.warnings.map((w, i) => <li key={i}>{w}</li>)}
               </ul>
               {result.kb_diagnostics && (
-                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-amber-800/80">
+                <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-micro text-amber-800/80">
                   <span>Backend entities: <b className="tabular-nums">{result.kb_diagnostics.backend_entities || 0}</b></span>
                   <span>API routes: <b className="tabular-nums">{result.kb_diagnostics.api_routes || 0}</b></span>
                   <span>DB tables: <b className="tabular-nums">{result.kb_diagnostics.db_tables || 0}</b></span>
@@ -1252,25 +1279,25 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
       )}
 
       {/* iter-15.0 — Visual analytics: collapsed by default so KPI row + toolbar + list stay above the fold */}
-      <div className="bg-white border-b border-slate-200">
+      <div className="bg-surface border-b border-border">
         <button
           onClick={() => setChartsOpen(v => !v)}
-          className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] font-medium text-slate-600 hover:bg-slate-50"
+          className="w-full flex items-center justify-between px-3 py-1.5 text-micro font-medium text-fg-muted hover:bg-surface-2"
         >
           <span className="flex items-center gap-2">
             <ChevronDown size={12} className={`transition-transform ${chartsOpen ? "" : "-rotate-90"}`} />
             <span className="uppercase tracking-wide">Visual Analytics</span>
-            <span className="text-slate-400 normal-case tracking-normal">
+            <span className="text-fg-subtle normal-case tracking-normal">
               coverage · severity · categories
             </span>
           </span>
-          <span className="text-[10px] text-slate-400">{chartsOpen ? "Hide" : "Show"}</span>
+          <span className="text-micro text-fg-subtle">{chartsOpen ? "Hide" : "Show"}</span>
         </button>
         {chartsOpen && <ReportChartsPanel result={result} matrix={matrix} gaps={gaps} />}
       </div>
 
       {/* Stats + export — compact */}
-      <div className="grid grid-cols-6 gap-2 px-3 py-2 bg-white border-b border-slate-200">
+      <div className="grid grid-cols-6 gap-2 px-3 py-2 bg-surface border-b border-border">
         <StatCard label="Coverage" value={`${result.coverage_pct || 0}%`} icon={Target} tone={result.coverage_pct >= 70 ? "emerald" : result.coverage_pct >= 40 ? "amber" : "red"} />
         <StatCard label="Accuracy" value={`${testStats.accuracy_pct || 0}%`} icon={CheckCircle} tone={testStats.accuracy_pct >= 70 ? "emerald" : testStats.accuracy_pct >= 40 ? "amber" : "red"} />
         <StatCard label="Test Cases" value={testStats.total || 0} icon={FileText} tone="sky" />
@@ -1280,29 +1307,29 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
       </div>
 
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-200 bg-white">
-        <div className="flex bg-slate-100 rounded-md p-0.5">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface">
+        <div className="flex bg-surface-2 rounded-md p-0.5">
           <button
             onClick={() => setView("gaps")}
-            className={`px-3 py-1 text-xs font-medium rounded ${view === "gaps" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
+            className={`px-3 py-1 text-xs font-medium rounded ${view === "gaps" ? "bg-surface shadow-sm text-fg" : "text-fg-subtle"}`}
           >Gaps ({gaps.length})</button>
           <button
             onClick={() => setView("tests")}
-            className={`px-3 py-1 text-xs font-medium rounded ${view === "tests" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
+            className={`px-3 py-1 text-xs font-medium rounded ${view === "tests" ? "bg-surface shadow-sm text-fg" : "text-fg-subtle"}`}
           >Test Cases ({testStats.total})</button>
           <button
             onClick={() => setView("matrix")}
-            className={`px-3 py-1 text-xs font-medium rounded ${view === "matrix" ? "bg-white shadow-sm text-slate-800" : "text-slate-500"}`}
+            className={`px-3 py-1 text-xs font-medium rounded ${view === "matrix" ? "bg-surface shadow-sm text-fg" : "text-fg-subtle"}`}
           >Coverage Matrix ({matrix.length})</button>
         </div>
 
         {view === "gaps" && (
           <div className="flex items-center gap-1 ml-3">
-            <Filter size={12} className="text-slate-400" />
+            <Filter size={12} className="text-fg-subtle" />
             <select
               value={severity}
               onChange={(e) => setSeverity(e.target.value)}
-              className="text-xs px-2 py-0.5 border border-slate-200 rounded bg-white"
+              className="text-xs px-2 py-0.5 border border-border rounded bg-surface"
             >
               <option value="all">All severity</option>
               <option value="critical">Critical</option>
@@ -1313,11 +1340,11 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
         )}
         {view === "matrix" && (
           <div className="flex items-center gap-1 ml-3">
-            <Filter size={12} className="text-slate-400" />
+            <Filter size={12} className="text-fg-subtle" />
             <select
               value={matrixFilter}
               onChange={(e) => setMatrixFilter(e.target.value)}
-              className="text-xs px-2 py-0.5 border border-slate-200 rounded bg-white"
+              className="text-xs px-2 py-0.5 border border-border rounded bg-surface"
             >
               <option value="all">All requirements ({matrix.length})</option>
               <option value="covered">Covered only ({matrix.filter(r => r.implemented).length})</option>
@@ -1327,11 +1354,11 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
         )}
         {view === "tests" && (
           <div className="flex items-center gap-1 ml-3">
-            <Filter size={12} className="text-slate-400" />
+            <Filter size={12} className="text-fg-subtle" />
             <select
               value={testFilter}
               onChange={(e) => setTestFilter(e.target.value)}
-              className="text-xs px-2 py-0.5 border border-slate-200 rounded bg-white"
+              className="text-xs px-2 py-0.5 border border-border rounded bg-surface"
             >
               <option value="all">All ({testStats.total})</option>
               <option value="POSITIVE">+ Positive ({testStats.positive != null ? testStats.positive : testCases.filter(t => t.case_type === "positive").length})</option>
@@ -1348,7 +1375,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
           {/* iter-15.4 — Frozen state badge */}
           {isFrozen && (
             <span
-              className="px-2 py-1 text-[11px] font-semibold rounded flex items-center gap-1 bg-sky-50 text-sky-700 border border-sky-200"
+              className="px-2 py-1 text-micro font-semibold rounded flex items-center gap-1 bg-sky-50 text-sky-700 border border-sky-200"
               title={`Frozen at ${result.frozen_at || "n/a"} — Re-analyze is locked`}
             >
               <Lock size={11} /> Frozen
@@ -1361,7 +1388,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
               <button
                 onClick={() => !isFrozen && setReOpen(v => !v)}
                 disabled={reBusy || isFrozen}
-                className="px-2 py-1 text-[11px] font-medium bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 flex items-center gap-1 border border-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="px-2 py-1 text-micro font-medium bg-indigo-50 text-indigo-700 rounded hover:bg-indigo-100 flex items-center gap-1 border border-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed"
                 title={isFrozen ? "Analysis is frozen — unfreeze to re-analyze" : "Re-run analysis on the same artefacts with the selected model"}
               >
                 <RefreshCw size={11} className={reBusy ? "animate-spin" : ""} />
@@ -1369,12 +1396,12 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                 <ChevronDown size={10} className={`transition-transform ${reOpen ? "rotate-180" : ""}`} />
               </button>
               {reOpen && (
-                <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-md shadow-lg w-72 p-3 space-y-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">Re-analyze with model</div>
+                <div className="absolute right-0 top-full mt-1 z-30 bg-surface border border-border rounded-md shadow-lg w-72 p-3 space-y-2">
+                  <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">Re-analyze with model</div>
                   <select
                     value={reModel}
                     onChange={(e) => setReModel(e.target.value)}
-                    className="w-full text-xs px-2 py-1 border border-slate-200 rounded bg-white"
+                    className="w-full text-xs px-2 py-1 border border-border rounded bg-surface"
                   >
                     <option value="">Auto (Console routing)</option>
                     {models.map(m => (
@@ -1384,19 +1411,19 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                       </option>
                     ))}
                   </select>
-                  <p className="text-[10px] text-slate-500 leading-snug">
+                  <p className="text-micro text-fg-subtle leading-snug">
                     Reuses uploaded code &amp; docs. KB is rebuilt and the LLM re-authors gaps, coverage matrix, and test cases.
                   </p>
-                  {reErr && <div className="text-[11px] text-red-600">{reErr}</div>}
+                  {reErr && <div className="text-micro text-red-600">{reErr}</div>}
                   <div className="flex justify-end gap-1.5">
                     <button
                       onClick={() => setReOpen(false)}
-                      className="px-2 py-1 text-[11px] rounded text-slate-600 hover:bg-slate-100"
+                      className="px-2 py-1 text-micro rounded text-fg-muted hover:bg-surface-2"
                     >Cancel</button>
                     <button
                       onClick={handleReanalyze}
                       disabled={reBusy}
-                      className="px-2 py-1 text-[11px] rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1"
+                      className="px-2 py-1 text-micro rounded bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-60 flex items-center gap-1"
                     >
                       <Play size={10} /> {reBusy ? "Starting…" : "Start"}
                     </button>
@@ -1405,7 +1432,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
               )}
             </div>
           )}
-          <span className="text-[10px] text-slate-500 uppercase tracking-wide font-semibold mr-1">Export:</span>
+          <span className="text-micro text-fg-subtle uppercase tracking-wide font-semibold mr-1">Export:</span>
           {analysisId && [
             { fmt: "csv", label: "CSV", icon: FileSpreadsheet, color: "emerald" },
             { fmt: "json", label: "JSON", icon: FileJson, color: "sky" },
@@ -1416,7 +1443,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
               href={gapAnalysisExportUrl(analysisId, x.fmt)}
               target="_blank"
               rel="noreferrer"
-              className={`px-2 py-1 text-[11px] font-medium bg-${x.color}-50 text-${x.color}-700 rounded hover:bg-${x.color}-100 flex items-center gap-1 border border-${x.color}-100`}
+              className={`px-2 py-1 text-micro font-medium bg-${x.color}-50 text-${x.color}-700 rounded hover:bg-${x.color}-100 flex items-center gap-1 border border-${x.color}-100`}
             >
               <x.icon size={11} /> {x.label}
             </a>
@@ -1427,10 +1454,10 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
             <div className="relative">
               <button
                 onClick={() => { setFreezeOpen(v => !v); setFreezeConfirm(""); setFreezeErr(""); }}
-                className={`px-2 py-1 text-[11px] font-semibold rounded flex items-center gap-1 border ${
+                className={`px-2 py-1 text-micro font-semibold rounded flex items-center gap-1 border ${
                   isFrozen
                     ? "bg-amber-50 text-amber-700 hover:bg-amber-100 border-amber-200"
-                    : "bg-slate-800 text-white hover:bg-slate-900 border-slate-800"
+                    : "bg-ink text-white hover:bg-ink border-border-strong"
                 }`}
                 title={isFrozen ? "Unfreeze the report to allow re-analysis" : "Freeze the report to prevent further changes"}
               >
@@ -1439,18 +1466,18 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                 <ChevronDown size={10} className={`transition-transform ${freezeOpen ? "rotate-180" : ""}`} />
               </button>
               {freezeOpen && (
-                <div className="absolute right-0 top-full mt-1 z-30 bg-white border border-slate-200 rounded-md shadow-lg w-80 p-3 space-y-2">
-                  <div className="text-[10px] uppercase tracking-wide text-slate-500 font-semibold">
+                <div className="absolute right-0 top-full mt-1 z-30 bg-surface border border-border rounded-md shadow-lg w-80 p-3 space-y-2">
+                  <div className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
                     {isFrozen ? "Unfreeze Report" : "Freeze Report"}
                   </div>
-                  <p className="text-[11px] text-slate-600 leading-snug">
+                  <p className="text-micro text-fg-muted leading-snug">
                     {isFrozen
                       ? "Unfreezing allows Re-analyze again with different models or configurations."
                       : "Once frozen, this report becomes the final version. Re-analyze is locked until you unfreeze."}
                   </p>
                   <div>
-                    <label className="text-[10px] uppercase font-semibold text-slate-500">
-                      Type <span className="font-mono text-slate-800">{isFrozen ? "UNFREEZE" : "FREEZE"}</span> to confirm
+                    <label className="text-micro uppercase font-semibold text-fg-subtle">
+                      Type <span className="font-mono text-fg">{isFrozen ? "UNFREEZE" : "FREEZE"}</span> to confirm
                     </label>
                     <input
                       type="text"
@@ -1458,23 +1485,23 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                       onChange={(e) => setFreezeConfirm(e.target.value)}
                       onKeyDown={(e) => { if (e.key === "Enter") handleFreezeToggle(); }}
                       autoFocus
-                      className="w-full mt-1 text-xs px-2 py-1 border border-slate-300 rounded font-mono focus:border-slate-800 focus:outline-none"
+                      className="w-full mt-1 text-xs px-2 py-1 border border-border-strong rounded font-mono focus:border-border-strong focus:outline-none"
                       placeholder={isFrozen ? "UNFREEZE" : "FREEZE"}
                     />
                   </div>
-                  {freezeErr && <div className="text-[11px] text-red-600">{freezeErr}</div>}
+                  {freezeErr && <div className="text-micro text-red-600">{freezeErr}</div>}
                   <div className="flex justify-end gap-1.5">
                     <button
                       onClick={() => { setFreezeOpen(false); setFreezeConfirm(""); setFreezeErr(""); }}
-                      className="px-2 py-1 text-[11px] rounded text-slate-600 hover:bg-slate-100"
+                      className="px-2 py-1 text-micro rounded text-fg-muted hover:bg-surface-2"
                     >Cancel</button>
                     <button
                       onClick={handleFreezeToggle}
                       disabled={freezeBusy || freezeConfirm.trim().toUpperCase() !== (isFrozen ? "UNFREEZE" : "FREEZE")}
-                      className={`px-2 py-1 text-[11px] rounded font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed ${
+                      className={`px-2 py-1 text-micro rounded font-semibold flex items-center gap-1 disabled:opacity-40 disabled:cursor-not-allowed ${
                         isFrozen
                           ? "bg-amber-600 text-white hover:bg-amber-700"
-                          : "bg-slate-800 text-white hover:bg-slate-900"
+                          : "bg-ink text-white hover:bg-ink"
                       }`}
                     >
                       {isFrozen ? <Unlock size={10} /> : <Lock size={10} />}
@@ -1490,7 +1517,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
 
       {/* Summary strip */}
       {result.summary && (
-        <div className="px-3 py-2 bg-blue-50/40 border-b border-blue-100 text-xs text-slate-700">
+        <div className="px-3 py-2 bg-blue-50/40 border-b border-blue-100 text-xs text-fg-muted">
           <Info size={11} className="inline mr-1.5 text-blue-500" />
           {typeof result.summary === "string" ? result.summary : JSON.stringify(result.summary)}
         </div>
@@ -1500,7 +1527,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
       <div className="flex-1 overflow-y-auto p-3">
         {view === "gaps" && (
           filtered.length === 0 ? (
-            <div className="text-center py-12 text-sm text-slate-400">
+            <div className="text-center py-12 text-sm text-fg-subtle">
               {gaps.length === 0 ? "No gaps identified — full requirement coverage!" : "No gaps match the current filter"}
             </div>
           ) : (
@@ -1508,43 +1535,43 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
               {filtered.map((g, i) => {
                 const isExp = expanded.has(g.id || i);
                 return (
-                  <div key={g.id || i} className={`border rounded-md bg-white overflow-hidden ${sevColor(g.severity)}`}>
+                  <div key={g.id || i} className={`border rounded-md bg-surface overflow-hidden ${sevColor(g.severity)}`}>
                     <button
                       onClick={() => toggle(g.id || i)}
-                      className="w-full px-3 py-2 flex items-start gap-2 text-left hover:bg-slate-50/50"
+                      className="w-full px-3 py-2 flex items-start gap-2 text-left hover:bg-surface-2/50"
                     >
                       <span className={`w-2 h-2 rounded-full flex-shrink-0 mt-1.5 ${sevDot(g.severity)}`} />
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          {g.id && <span className="text-[10px] font-mono text-slate-500">{g.id}</span>}
-                          <span className="text-xs font-semibold text-slate-800">{g.title}</span>
-                          <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold uppercase ${sevColor(g.severity)}`}>{g.severity}</span>
-                          {g.type && <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{g.type}</span>}
-                          {g.doc_reference && <span className="text-[10px] text-emerald-700 font-mono">↳ {g.doc_reference}</span>}
+                          {g.id && <span className="text-micro font-mono text-fg-subtle">{g.id}</span>}
+                          <span className="text-xs font-semibold text-fg">{g.title}</span>
+                          <span className={`text-micro px-1.5 py-0.5 rounded font-semibold uppercase ${sevColor(g.severity)}`}>{g.severity}</span>
+                          {g.type && <span className="text-micro px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted font-semibold">{g.type}</span>}
+                          {g.doc_reference && <span className="text-micro text-emerald-700 font-mono">↳ {g.doc_reference}</span>}
                         </div>
                         {!isExp && g.description && (
-                          <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">{g.description}</p>
+                          <p className="text-micro text-fg-muted mt-0.5 line-clamp-1">{g.description}</p>
                         )}
                       </div>
-                      <ChevronDown size={13} className={`text-slate-400 flex-shrink-0 transition-transform ${isExp ? "rotate-180" : ""}`} />
+                      <ChevronDown size={13} className={`text-fg-subtle flex-shrink-0 transition-transform ${isExp ? "rotate-180" : ""}`} />
                     </button>
                     {isExp && (
-                      <div className="px-3 pb-2.5 ml-4 space-y-1.5 text-[11px] border-t border-slate-100 pt-2">
+                      <div className="px-3 pb-2.5 ml-4 space-y-1.5 text-micro border-t border-border pt-2">
                         {g.description && (
-                          <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Description:</span> <span className="text-slate-700">{g.description}</span></div>
+                          <div><span className="font-semibold text-fg-subtle uppercase text-micro">Description:</span> <span className="text-fg-muted">{g.description}</span></div>
                         )}
                         {g.expected && (
-                          <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Expected:</span> <span className="text-slate-700">{g.expected}</span></div>
+                          <div><span className="font-semibold text-fg-subtle uppercase text-micro">Expected:</span> <span className="text-fg-muted">{g.expected}</span></div>
                         )}
                         {g.actual && (
-                          <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Actual:</span> <span className="text-slate-700">{g.actual}</span></div>
+                          <div><span className="font-semibold text-fg-subtle uppercase text-micro">Actual:</span> <span className="text-fg-muted">{g.actual}</span></div>
                         )}
                         {g.location && (
-                          <div><span className="font-semibold text-slate-500 uppercase text-[10px]">Location:</span> <span className="font-mono text-slate-700">{g.location}</span></div>
+                          <div><span className="font-semibold text-fg-subtle uppercase text-micro">Location:</span> <span className="font-mono text-fg-muted">{g.location}</span></div>
                         )}
                         {g.recommendation && (
                           <div className="bg-emerald-50 border border-emerald-100 rounded p-2 mt-1">
-                            <span className="font-semibold text-emerald-700 uppercase text-[10px]">💡 Recommendation:</span>{" "}
+                            <span className="font-semibold text-emerald-700 uppercase text-micro">💡 Recommendation:</span>{" "}
                             <span className="text-emerald-800">{g.recommendation}</span>
                           </div>
                         )}
@@ -1567,7 +1594,7 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
         )}
         {view === "matrix" && (
           matrix.length === 0 ? (
-            <div className="text-center py-12 text-sm text-slate-400">
+            <div className="text-center py-12 text-sm text-fg-subtle">
               No coverage matrix returned by the verifier.
             </div>
           ) : (
@@ -1580,39 +1607,39 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
               const coveredCount = matrix.filter(r => r.implemented).length;
               const missingCount = matrix.length - coveredCount;
               return (
-                <div className="bg-white border border-slate-200 rounded-md overflow-hidden">
+                <div className="bg-surface border border-border rounded-md overflow-hidden">
                   {/* Summary strip — always visible, shows totals even if 0% covered */}
-                  <div className="px-3 py-2 border-b border-slate-200 bg-slate-50/70 flex items-center gap-3 text-[11px]">
-                    <span className="font-semibold text-slate-700">
+                  <div className="px-3 py-2 border-b border-border bg-surface-2/70 flex items-center gap-3 text-micro">
+                    <span className="font-semibold text-fg-muted">
                       {filteredMatrix.length} of {matrix.length} requirement{matrix.length !== 1 ? "s" : ""}
                     </span>
-                    <span className="text-slate-300">•</span>
+                    <span className="text-fg-subtle">•</span>
                     <span className="flex items-center gap-1 text-emerald-700">
                       <CheckCircle size={11} /> {coveredCount} covered
                     </span>
                     <span className="flex items-center gap-1 text-red-700">
                       <AlertCircle size={11} /> {missingCount} missing
                     </span>
-                    <span className="text-slate-300">•</span>
-                    <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                    <span className="text-fg-subtle">•</span>
+                    <div className="flex-1 h-1.5 bg-surface-3 rounded-full overflow-hidden">
                       <div
                         className="h-full bg-emerald-500"
                         style={{ width: `${matrix.length ? (coveredCount / matrix.length) * 100 : 0}%` }}
                       />
                     </div>
-                    <span className="tabular-nums font-semibold text-slate-700">
+                    <span className="tabular-nums font-semibold text-fg-muted">
                       {matrix.length ? Math.round((coveredCount / matrix.length) * 100) : 0}%
                     </span>
                   </div>
 
                   {filteredMatrix.length === 0 ? (
-                    <div className="text-center py-8 text-xs text-slate-400">
+                    <div className="text-center py-8 text-xs text-fg-subtle">
                       No requirements match this filter.
                     </div>
                   ) : (
                     <div className="overflow-auto max-h-[560px]">
                       <table className="w-full text-xs">
-                        <thead className="bg-slate-50 text-slate-500 uppercase text-[10px] tracking-wide sticky top-0">
+                        <thead className="bg-surface-2 text-fg-subtle uppercase text-micro tracking-wide sticky top-0">
                           <tr>
                             <th className="text-left px-3 py-1.5 font-semibold w-24">Req. ID</th>
                             <th className="text-left px-3 py-1.5 font-semibold w-20">Doc Type</th>
@@ -1621,30 +1648,30 @@ const ReportTab = ({ result, analysisId, phase, phaseLabel, progressPct, error, 
                             <th className="px-3 py-1.5 font-semibold w-24 text-center">Status</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-100">
+                        <tbody className="divide-y divide-border">
                           {filteredMatrix.map((row, i) => (
-                            <tr key={i} className={`hover:bg-slate-50 ${row.implemented ? "" : "bg-red-50/30"}`}>
-                              <td className="px-3 py-1.5 font-mono text-[11px] text-slate-700 font-semibold">
+                            <tr key={i} className={`hover:bg-surface-2 ${row.implemented ? "" : "bg-red-50/30"}`}>
+                              <td className="px-3 py-1.5 font-mono text-micro text-fg-muted font-semibold">
                                 {row.requirement_id}
                               </td>
                               <td className="px-3 py-1.5">
                                 {row.doc_type ? (
-                                  <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold uppercase">
+                                  <span className="text-micro px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted font-semibold uppercase">
                                     {row.doc_type}
                                   </span>
-                                ) : <span className="text-slate-300">—</span>}
+                                ) : <span className="text-fg-subtle">—</span>}
                               </td>
-                              <td className="px-3 py-1.5 text-slate-600">{row.requirement_text}</td>
-                              <td className="px-3 py-1.5 font-mono text-[10px] text-slate-500">
+                              <td className="px-3 py-1.5 text-fg-muted">{row.requirement_text}</td>
+                              <td className="px-3 py-1.5 font-mono text-micro text-fg-subtle">
                                 {row.code_locations?.length ? row.code_locations.join(", ") : "—"}
                               </td>
                               <td className="px-3 py-1.5 text-center">
                                 {row.implemented ? (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold inline-flex items-center gap-1">
+                                  <span className="text-micro px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold inline-flex items-center gap-1">
                                     <CheckCircle size={10} /> Covered
                                   </span>
                                 ) : (
-                                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-semibold inline-flex items-center gap-1">
+                                  <span className="text-micro px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-semibold inline-flex items-center gap-1">
                                     <AlertCircle size={10} /> Missing
                                   </span>
                                 )}
@@ -1709,7 +1736,7 @@ const HistoryMenu = ({ currentId, onOpen }) => {
       setConfirmId(null);
       setMenuOpen(null);
     } catch (e) {
-      // eslint-disable-next-line no-alert
+       
       alert(e?.response?.data?.detail || "Failed to remove analysis");
     }
   };
@@ -1728,38 +1755,38 @@ const HistoryMenu = ({ currentId, onOpen }) => {
   };
 
   const statusBadge = (s) => {
-    if (s === "completed") return <span className="text-[9px] px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">DONE</span>;
-    if (s === "failed") return <span className="text-[9px] px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-semibold">FAILED</span>;
-    if (s === "analyzing") return <span className="text-[9px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">RUNNING</span>;
-    return <span className="text-[9px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-semibold">{(s || "?").toUpperCase()}</span>;
+    if (s === "completed") return <span className="text-micro px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-700 font-semibold">DONE</span>;
+    if (s === "failed") return <span className="text-micro px-1.5 py-0.5 rounded bg-red-50 text-red-700 font-semibold">FAILED</span>;
+    if (s === "analyzing") return <span className="text-micro px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-semibold">RUNNING</span>;
+    return <span className="text-micro px-1.5 py-0.5 rounded bg-surface-2 text-fg-muted font-semibold">{(s || "?").toUpperCase()}</span>;
   };
 
   return (
     <div ref={containerRef} className="relative">
       <button
         onClick={() => setOpen(v => !v)}
-        className="text-[11px] px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 text-slate-600 font-medium flex items-center gap-1"
+        className="text-micro px-2 py-1 border border-border rounded hover:bg-surface-2 text-fg-muted font-medium flex items-center gap-1"
         title="Show past analyses"
       >
         <HistoryIcon size={12} /> History
         <ChevronDown size={10} className={`transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="absolute right-0 top-full mt-1 z-40 w-96 max-h-[420px] flex flex-col bg-white border border-slate-200 rounded-md shadow-lg">
-          <div className="px-3 py-2 border-b border-slate-200 flex items-center justify-between">
-            <span className="text-[11px] uppercase tracking-wide text-slate-500 font-semibold">
+        <div className="absolute right-0 top-full mt-1 z-40 w-96 max-h-[420px] flex flex-col bg-surface border border-border rounded-md shadow-lg">
+          <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+            <span className="text-micro uppercase tracking-wide text-fg-subtle font-semibold">
               Saved analyses {items.length > 0 && `· ${items.length}`}
             </span>
-            <button onClick={refresh} className="text-[10px] text-slate-500 hover:text-slate-700 flex items-center gap-1">
+            <button onClick={refresh} className="text-micro text-fg-subtle hover:text-fg-muted flex items-center gap-1">
               <RefreshCw size={10} className={loading ? "animate-spin" : ""} /> Refresh
             </button>
           </div>
           <div className="flex-1 overflow-y-auto">
             {loading && items.length === 0 && (
-              <div className="p-6 text-center text-xs text-slate-400">Loading…</div>
+              <div className="p-6 text-center text-xs text-fg-subtle">Loading…</div>
             )}
             {!loading && items.length === 0 && (
-              <div className="p-6 text-center text-xs text-slate-400">
+              <div className="p-6 text-center text-xs text-fg-subtle">
                 No saved analyses yet. Each run is auto-saved and appears here.
               </div>
             )}
@@ -1769,7 +1796,7 @@ const HistoryMenu = ({ currentId, onOpen }) => {
               return (
                 <div
                   key={id}
-                  className={`group px-3 py-2 border-b border-slate-100 hover:bg-slate-50 ${isCurrent ? "bg-amber-50/40" : ""}`}
+                  className={`group px-3 py-2 border-b border-border hover:bg-surface-2 ${isCurrent ? "bg-amber-50/40" : ""}`}
                 >
                   <div className="flex items-start gap-2">
                     <button
@@ -1777,16 +1804,16 @@ const HistoryMenu = ({ currentId, onOpen }) => {
                       className="flex-1 text-left min-w-0"
                     >
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-xs font-semibold text-slate-800 truncate">{it.name || "Untitled analysis"}</span>
+                        <span className="text-xs font-semibold text-fg truncate">{it.name || "Untitled analysis"}</span>
                         {statusBadge(it.status)}
-                        {isCurrent && <span className="text-[9px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">CURRENT</span>}
+                        {isCurrent && <span className="text-micro px-1.5 py-0.5 rounded bg-amber-100 text-amber-800 font-semibold">CURRENT</span>}
                         {it.reanalyze_count > 0 && (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">
+                          <span className="text-micro px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 font-semibold">
                             v{(it.reanalyze_count || 0) + 1}
                           </span>
                         )}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-2 text-[10px] text-slate-500 tabular-nums">
+                      <div className="mt-0.5 flex items-center gap-2 text-micro text-fg-subtle tabular-nums">
                         <span className="flex items-center gap-1"><Clock size={9} /> {fmtWhen(it.updated_at || it.created_at)}</span>
                         {it.code_file_count != null && <span>· {it.code_file_count} code</span>}
                         {it.doc_file_count != null && <span>· {it.doc_file_count} doc{it.doc_file_count === 1 ? "" : "s"}</span>}
@@ -1796,16 +1823,16 @@ const HistoryMenu = ({ currentId, onOpen }) => {
                     <div className="relative">
                       <button
                         onClick={(e) => { e.stopPropagation(); setMenuOpen(menuOpen === id ? null : id); setConfirmId(null); }}
-                        className="p-1 rounded hover:bg-slate-200 text-slate-500"
+                        className="p-1 rounded hover:bg-surface-3 text-fg-subtle"
                         title="More"
                       >
                         <MoreVertical size={13} />
                       </button>
                       {menuOpen === id && (
-                        <div className="absolute right-0 top-full mt-1 z-50 w-40 bg-white border border-slate-200 rounded-md shadow-lg py-1">
+                        <div className="absolute right-0 top-full mt-1 z-50 w-40 bg-surface border border-border rounded-md shadow-lg py-1">
                           <button
                             onClick={() => { setOpen(false); setMenuOpen(null); onOpen && onOpen(id); }}
-                            className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 text-xs text-fg-muted hover:bg-surface-2 flex items-center gap-2"
                           >
                             <ExternalLink size={11} /> Open
                           </button>
@@ -1813,22 +1840,22 @@ const HistoryMenu = ({ currentId, onOpen }) => {
                             href={gapAnalysisExportUrl(id, "csv")}
                             target="_blank" rel="noreferrer"
                             onClick={() => setMenuOpen(null)}
-                            className="w-full text-left px-3 py-1.5 text-xs text-slate-700 hover:bg-slate-50 flex items-center gap-2"
+                            className="w-full text-left px-3 py-1.5 text-xs text-fg-muted hover:bg-surface-2 flex items-center gap-2"
                           >
                             <Download size={11} /> Download CSV
                           </a>
-                          <div className="my-1 border-t border-slate-100" />
+                          <div className="my-1 border-t border-border" />
                           {confirmId === id ? (
                             <div className="px-3 py-2 space-y-1">
-                              <div className="text-[10px] text-red-700 font-semibold">Remove permanently?</div>
+                              <div className="text-micro text-red-700 font-semibold">Remove permanently?</div>
                               <div className="flex gap-1">
                                 <button
                                   onClick={() => handleRemove(id)}
-                                  className="flex-1 px-2 py-1 text-[11px] bg-red-600 text-white rounded hover:bg-red-700"
+                                  className="flex-1 px-2 py-1 text-micro bg-red-600 text-white rounded hover:bg-red-700"
                                 >Yes, remove</button>
                                 <button
                                   onClick={() => setConfirmId(null)}
-                                  className="px-2 py-1 text-[11px] text-slate-600 hover:bg-slate-100 rounded"
+                                  className="px-2 py-1 text-micro text-fg-muted hover:bg-surface-2 rounded"
                                 >Cancel</button>
                               </div>
                             </div>
@@ -1937,7 +1964,10 @@ export default function GapAnalyzerPage() {
           try {
             const kbData = await getGapAnalysisKB(analysisId);
             setKb(kbData.summary || kbData);
-          } catch {}
+          } catch {
+          // One failed poll tick is not an error — the next tick retries,
+          // and a toast every 2s during a network blip would be worse.
+          }
         }
 
         if (s.status === "completed") {
@@ -1956,7 +1986,10 @@ export default function GapAnalyzerPage() {
             try {
               const kbData = await getGapAnalysisKB(analysisId);
               setKb(kbData.summary || kbData);
-            } catch {}
+            } catch {
+            // One failed poll tick is not an error — the next tick retries,
+            // and a toast every 2s during a network blip would be worse.
+            }
           }
         } else if (s.status === "failed") {
           setStatus("failed");
@@ -2056,48 +2089,48 @@ export default function GapAnalyzerPage() {
   }, [navigate, location.pathname]);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 bg-white">
+    <div className="flex-1 flex flex-col min-h-0 bg-surface">
       {/* Header */}
-      <div className="h-11 px-4 flex items-center justify-between border-b border-slate-200 bg-white">
+      <div className="h-11 px-4 flex items-center justify-between border-b border-border bg-surface">
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded bg-[#FFE600] flex items-center justify-center">
-            <Search size={14} className="text-slate-900" />
+          <div className="w-7 h-7 rounded bg-brand flex items-center justify-center">
+            <Search size={14} className="text-fg" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-sm font-semibold text-slate-800">Gap Analyzer</h1>
-              <span className="text-[10px] text-slate-400">·</span>
-              <span className="text-[11px] text-slate-500">Two-phase KB-driven verification</span>
+              <h1 className="text-sm font-semibold text-fg">Gap Analyzer</h1>
+              <span className="text-micro text-fg-subtle">·</span>
+              <span className="text-micro text-fg-subtle">Two-phase KB-driven verification</span>
             </div>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           {status === "completed" && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium flex items-center gap-1">
+            <span className="text-micro px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-medium flex items-center gap-1">
               <CheckCircle size={10} /> Completed
             </span>
           )}
           {status === "failed" && (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-medium flex items-center gap-1">
+            <span className="text-micro px-2 py-0.5 rounded-full bg-red-50 text-red-700 font-medium flex items-center gap-1">
               <AlertCircle size={10} /> Failed
             </span>
           )}
           {status === "analyzing" && (
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium flex items-center gap-1">
+              <span className="text-micro px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-medium flex items-center gap-1">
                 <RefreshCw size={10} className="animate-spin" />
                 Running {progressPct ? `${progressPct}%` : ""}
               </span>
               {/* iter-15.6 — header progress bar so users see live progression */}
-              <div className="w-40 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+              <div className="w-40 h-1.5 bg-surface-3 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-blue-500 transition-all duration-500"
                   style={{ width: `${Math.max(3, Math.min(100, progressPct || 3))}%` }}
                 />
               </div>
               {phaseLabel && (
-                <span className="text-[10px] text-slate-500 max-w-[280px] truncate" title={phaseLabel}>
+                <span className="text-micro text-fg-subtle max-w-[280px] truncate" title={phaseLabel}>
                   {phaseLabel}
                 </span>
               )}
@@ -2121,7 +2154,10 @@ export default function GapAnalyzerPage() {
                 try {
                   const kbData = await getGapAnalysisKB(id);
                   setKb(kbData.summary || kbData);
-                } catch {}
+                } catch {
+                // One failed poll tick is not an error — the next tick retries,
+                // and a toast every 2s during a network blip would be worse.
+                }
               } catch (e) {
                 setError(e?.response?.data?.detail || "Failed to open analysis");
               }
@@ -2130,7 +2166,7 @@ export default function GapAnalyzerPage() {
           {(status === "completed" || status === "failed") && (
             <button
               onClick={reset}
-              className="text-[11px] px-2 py-1 border border-slate-200 rounded hover:bg-slate-50 text-slate-600 font-medium"
+              className="text-micro px-2 py-1 border border-border rounded hover:bg-surface-2 text-fg-muted font-medium"
             >
               New Analysis
             </button>
@@ -2142,7 +2178,7 @@ export default function GapAnalyzerPage() {
           stage progress. This page keeps only the tab bar. */}
 
       {/* Tabs */}
-      <div className="flex items-center gap-0 px-3 border-b border-slate-200 bg-slate-50/50">
+      <div className="flex items-center gap-0 px-3 border-b border-border bg-surface-2/50">
         {[
           { id: "input", label: "Input", icon: Upload, enabled: true },
           { id: "kb", label: "Knowledge Base", icon: Database, enabled: kbAvailable || !!kb, badge: kb?.stats?.entities },
@@ -2156,15 +2192,15 @@ export default function GapAnalyzerPage() {
               onClick={() => t.enabled && changeTab(t.id)}
               disabled={!t.enabled}
               className={`flex items-center gap-1.5 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${
-                active ? "border-[#FFE600] text-slate-900" :
-                t.enabled ? "border-transparent text-slate-500 hover:text-slate-800" :
-                "border-transparent text-slate-300 cursor-not-allowed"
+                active ? "border-brand text-fg" :
+                t.enabled ? "border-transparent text-fg-subtle hover:text-fg" :
+                "border-transparent text-fg-subtle cursor-not-allowed"
               }`}
             >
               <Icon size={12} />
               <span>{t.label}</span>
               {t.badge != null && t.badge > 0 && (
-                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-200 text-slate-700 font-semibold tabular-nums">{t.badge}</span>
+                <span className="text-micro px-1.5 py-0.5 rounded-full bg-surface-3 text-fg-muted font-semibold tabular-nums">{t.badge}</span>
               )}
             </button>
           );

@@ -44,7 +44,7 @@ export default function StatusBar() {
 
   return (
     <div 
-      className="h-6 shrink-0 flex items-center justify-between px-3 bg-[#2E2E38] text-white text-[11px] font-medium border-t border-[#1A1A24] z-10"
+      className="h-6 shrink-0 flex items-center justify-between px-3 bg-ink text-ink-fg text-micro font-medium border-t border-ink-hover z-10"
       data-testid="status-bar"
     >
       {/* Left: Backend Status */}
@@ -52,28 +52,28 @@ export default function StatusBar() {
         <div className="flex items-center gap-1.5">
           {backendStatus === "online" ? (
             <>
-              <Wifi className="w-3 h-3 text-[#10B981]" />
-              <span className="text-[#10B981]">Connected</span>
+              <Wifi className="w-3 h-3 text-ok" />
+              <span className="text-ok">Connected</span>
             </>
           ) : backendStatus === "offline" ? (
             <>
-              <WifiOff className="w-3 h-3 text-[#EF4444]" />
-              <span className="text-[#EF4444]">Offline</span>
+              <WifiOff className="w-3 h-3 text-crit" />
+              <span className="text-crit">Offline</span>
             </>
           ) : (
             <>
-              <Activity className="w-3 h-3 text-[#FFE600] animate-pulse" />
-              <span className="text-[#9CA3AF]">Checking...</span>
+              <Activity className="w-3 h-3 text-brand animate-pulse" />
+              <span className="text-fg-subtle">Checking...</span>
             </>
           )}
         </div>
 
         {active && (
           <>
-            <div className="w-px h-3 bg-[#4B5563]" />
+            <div className="w-px h-3 bg-fg-muted" />
             <div className="flex items-center gap-1.5">
-              <Database className="w-3 h-3 text-[#9CA3AF]" />
-              <span className="text-[#D1D5DB]">{active.name}</span>
+              <Database className="w-3 h-3 text-fg-subtle" />
+              <span className="text-border-strong">{active.name}</span>
             </div>
           </>
         )}
@@ -84,18 +84,18 @@ export default function StatusBar() {
         {tokenStats && (
           <>
             <div className="flex items-center gap-1.5">
-              <Cpu className="w-3 h-3 text-[#9CA3AF]" />
-              <span className="text-[#D1D5DB]">
+              <Cpu className="w-3 h-3 text-fg-subtle" />
+              <span className="text-border-strong">
                 {formatNumber(tokenStats.input + tokenStats.output)} tokens
               </span>
             </div>
-            <div className="w-px h-3 bg-[#4B5563]" />
+            <div className="w-px h-3 bg-fg-muted" />
           </>
         )}
         
         <div className="flex items-center gap-1.5">
-          <Server className="w-3 h-3 text-[#9CA3AF]" />
-          <span className="text-[#9CA3AF]">LAMA v1.0</span>
+          <Server className="w-3 h-3 text-fg-subtle" />
+          <span className="text-fg-subtle">LAMA v1.0</span>
         </div>
       </div>
     </div>

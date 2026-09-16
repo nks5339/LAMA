@@ -1,66 +1,98 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { 
-  Upload, 
-  MessageSquare, 
-  FileText, 
-  Boxes, 
+import {
+  Upload,
+  MessageSquare,
+  FileText,
+  Boxes,
   Folder,
   FileCode,
   Sparkles,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
 } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
-import { skipStage } from "@/lib/api";
+// kbStatus is aliased because the component also holds a state variable of
+// the same shape. The previous version imported only skipStage, so the call
+// on line 54 resolved to the useState variable (null), threw
+// "kbStatus is not a function", and was swallowed by an empty catch — which
+// is why all four metric tiles read 0 on every load and kbReady never
+// became true. ESLint had been reporting it as a missing dependency.
+import { skipStage, kbStatus as fetchKbStatus } from "@/lib/api";
 import UploadPanel from "@/components/UploadPanelV2";
 import DataSourcePanel from "@/components/DataSourcePanel";
 import SRSPanel from "@/components/SRSPanel";
 import TargetStackSuggester from "@/components/TargetStackSuggester";
 import FloatingChat from "@/components/FloatingChat";
 import { MetricCard, StepCard, StatusBadge, EmptyState } from "@/components/ux/Cards";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 
 /**
- * Discovery Page - V2 Redesign
- * 
- * Modern tabbed interface with:
- * - Hero section with project stats
- * - Clear step-by-step workflow
- * - Visual progress indicators
- * - Tab-based navigation (Upload | Chat | SRS)
+ * Discovery — Stage 1.
+ *
+ * Upload legacy source, build the knowledge base, generate and freeze an
+ * IEEE-830 SRS.
  */
 export default function DiscoveryV2() {
   const { active } = useProjects();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState("upload");
-  const [kbStatus, setKbStatus] = useState(null);
+  const [kb, setKb] = useState(null);
+  const [kbLoading, setKbLoading] = useState(true);
+  const [kbError, setKbError] = useState(null);
   const [conversationId, setConversationId] = useState(null);
   const [srsRefreshKey, setSrsRefreshKey] = useState(0);
   const [skippingDM, setSkippingDM] = useState(false);
-  // Read-only: nothing in the UI can change this today. The picker that
-  // used to set it lived in ChatPanel, which had no render site and was
-  // removed. See HUMAN_INTERVENTION.md DEC-8.
-  const [chatModel] = useState(
-    typeof window !== "undefined" ? (localStorage.getItem("lama:chat:model") || "") : ""
-  );
 
-  // Load KB health on mount
-  useEffect(() => {
+  // Read-only: nothing in the UI sets this today. The picker lived in
+  // ChatPanel, which had no render site and was removed. See DEC-8.
+  const [chatModel] = useState(() => {
+    try {
+      return localStorage.getItem("lama:chat:model") || "";
+    } catch {
+      return "";
+    }
+  });
+
+  const loadKb = useCallback(async () => {
     if (!active?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const h = await kbStatus(active.id);
-        if (!cancelled) setKbStatus(h);
-      } catch (_) {}
-    })();
-    return () => { cancelled = true; };
+    setKbLoading(true);
+    setKbError(null);
+    try {
+      const h = await fetchKbStatus(active.id);
+      setKb(h);
+    } catch (e) {
+      // Never swallow this: the user needs to know why the tiles are empty.
+      const msg = e?.response?.data?.detail || e?.message || "Request failed";
+      setKbError(msg);
+      toast.error("Couldn't load knowledge-base status", {
+        description: msg,
+        action: { label: "Retry", onClick: () => loadKb() },
+      });
+    } finally {
+      setKbLoading(false);
+    }
   }, [active?.id]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!active?.id) {
+      setKbLoading(false);
+      return undefined;
+    }
+    (async () => {
+      if (!cancelled) await loadKb();
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [active?.id, loadKb]);
+
   // iter-13.120 — "Skip DataModel → Architecture" fast-path. Requires
-  // Discovery to be frozen (backend rejects otherwise). Marks DataModel
-  // as skipped in stage_context so Architecture becomes available.
+  // Discovery frozen (the backend rejects otherwise); marks DataModel
+  // skipped in stage_context so Architecture becomes available.
   const handleSkipToArchitecture = async () => {
     if (!active?.id) return;
     if (active.stage_status?.Discovery !== "frozen") {
@@ -71,12 +103,11 @@ export default function DiscoveryV2() {
     }
     setSkippingDM(true);
     try {
-      // DataModel may already be skipped or frozen — force=true handles both.
       await skipStage(active.id, "DataModel", { force: true });
-      toast.success("Skipped DataModel → going to Architecture");
+      toast.success("Skipped Data Model — going to Architecture");
       navigate("/architecture");
     } catch (e) {
-      toast.error("Could not skip DataModel", {
+      toast.error("Could not skip Data Model", {
         description: e?.response?.data?.detail || e.message,
       });
     } finally {
@@ -88,196 +119,250 @@ export default function DiscoveryV2() {
     setConversationId(cid);
     if (srsTriggered) {
       setSrsRefreshKey((k) => k + 1);
-      setActiveTab("srs"); // Auto-switch to SRS tab
+      setActiveTab("srs");
     }
   };
 
-  const kbReady = (kbStatus?.entities || 0) > 0 || (kbStatus?.chunks || 0) > 0 || (kbStatus?.files || 0) > 0;
-
-  // Determine step status
+  const kbReady =
+    (kb?.entities || 0) > 0 || (kb?.chunks || 0) > 0 || (kb?.files || 0) > 0;
+  const frozen = active?.stage_status?.Discovery === "frozen";
 
   if (!active) {
     return (
       <EmptyState
         icon={Folder}
-        title="No Project Selected"
-        description="Create or select a project from the sidebar to begin the discovery process."
+        title="No project selected"
+        description="Pick a project from the sidebar, or create one, to start discovery."
+        actionLabel="Open project switcher"
+        onAction={() => {
+          // The switcher lives in the sidebar; on mobile it is behind the
+          // menu, so surface that rather than leaving a dead end.
+          document
+            .querySelector('[data-testid="project-switcher"]')
+            ?.scrollIntoView({ behavior: "smooth", block: "center" });
+          document.querySelector('[data-testid="mobile-menu-toggle"]')?.click();
+        }}
       />
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-gradient-to-br from-[#F6F6FA] to-white">
-      {/* Compact Header */}
-      <header className="bg-white border-b border-[#E6E6E6] px-6 py-3 shrink-0">
-        <div className="flex items-center justify-between">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="font-display text-xl font-bold text-[#2E2E38]">
-                Discovery & Requirements
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg">
+      {/* Header */}
+      <header className="bg-surface border-b border-border px-4 sm:px-6 py-3 shrink-0">
+        <div className="flex items-start sm:items-center justify-between gap-3 flex-wrap">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 flex-wrap">
+              <h1 className="font-display text-xl font-bold text-fg">
+                Discovery &amp; Requirements
               </h1>
-              <StatusBadge 
-                status={active.stage_status?.Discovery === "frozen" ? "success" : "active"}
-                label={active.stage_status?.Discovery === "frozen" ? "Frozen" : "In Progress"}
+              <StatusBadge
+                status={frozen ? "success" : "active"}
+                label={frozen ? "Frozen" : "In progress"}
                 size="sm"
               />
             </div>
-            <p className="text-xs text-[#747480] mt-0.5">
-              Stage 1 of 5 • Upload source code, analyze with AI, generate SRS documentation
+            <p className="text-xs text-fg-muted mt-0.5">
+              Stage 1 of 5 · Upload source code, analyse with AI, generate SRS
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            {active?.stage_status?.Discovery === "frozen" && (
-              <button
+
+          <div className="flex items-center gap-2 shrink-0">
+            {frozen && (
+              <Button
+                variant="brand"
+                size="sm"
                 onClick={handleSkipToArchitecture}
-                disabled={skippingDM}
+                loading={skippingDM}
                 data-testid="skip-to-architecture-btn"
-                className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#FFE600] text-[#2E2E38] text-xs font-bold rounded-lg border border-[#2E2E38] hover:bg-[#FFD700] transition-colors disabled:opacity-60"
-                title="Mark DataModel as skipped and jump straight to Architecture"
               >
-                {skippingDM ? "Skipping…" : "Skip to Architecture"}
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+                Skip to Architecture
+                <ArrowRight className="size-3.5" aria-hidden />
+              </Button>
             )}
-            <Link
-              to="/ontology-studio"
-              className="inline-flex items-center gap-2 px-3 py-1.5 bg-[#2E2E38] text-white text-xs font-medium rounded-lg hover:bg-[#FFE600] hover:text-[#2E2E38] transition-colors"
-            >
-              <Boxes className="w-3.5 h-3.5" />
-              Ontology Studio
-            </Link>
+            <Button variant="primary" size="sm" asChild>
+              <Link to="/ontology-studio">
+                <Boxes className="size-3.5" aria-hidden />
+                Ontology Studio
+              </Link>
+            </Button>
           </div>
         </div>
       </header>
 
-      {/* iter-14.1 — Onboarding banner (shows only when no files yet) */}
-      {(!kbStatus?.files || kbStatus.files === 0) && active.stage_status?.Discovery !== "frozen" && (
-        <div className="bg-gradient-to-r from-[#FFFCE6] via-[#FFF9B0] to-[#FFFCE6] border-b-2 border-[#FFE600] px-6 py-3 shrink-0" data-testid="onboarding-banner">
+      {/* Onboarding — only before the first upload. */}
+      {!kbLoading && !kbError && !kb?.files && !frozen && (
+        <div
+          className="bg-brand-tint border-b border-brand-edge px-4 sm:px-6 py-3 shrink-0"
+          data-testid="onboarding-banner"
+        >
           <div className="flex items-start gap-3">
-            <div className="w-8 h-8 rounded-full bg-[#FFE600] text-[#2E2E38] flex items-center justify-center shrink-0 font-bold text-sm">
-              👋
+            <div className="size-7 rounded-lg bg-brand text-brand-fg grid place-items-center shrink-0 font-bold text-xs">
+              1
             </div>
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold text-[#2E2E38]">
-                Welcome to LAMA — let's migrate your legacy app in 5 steps
-              </div>
-              <div className="text-xs text-[#4B5563] mt-0.5">
-                <span className="font-semibold">Start here:</span> upload your source folder (.zip / .php / .java / .sql) below,
-                click <span className="inline-block px-1.5 py-0.5 bg-white border border-[#FFE600] rounded text-[10px] font-mono font-bold">Build Knowledge Base</span>,
-                then chat with the AI to generate an IEEE-830 SRS. Freeze it to unlock Stage 2.
-              </div>
+              <p className="text-sm font-semibold text-fg">
+                Start by uploading your legacy source
+              </p>
+              <p className="text-xs text-fg-muted mt-0.5">
+                Drop a .zip, or individual .php / .java / .sql files, then choose{" "}
+                <span className="font-mono font-semibold">Build Knowledge Base</span>.
+                Chat with the AI to generate an IEEE-830 SRS, and freeze it to
+                unlock Stage&nbsp;2.
+              </p>
             </div>
           </div>
         </div>
       )}
 
-      {/* Compact Metrics Row */}
-      <div className="bg-white border-b border-[#E6E6E6] px-6 py-2 shrink-0">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+      {/* KB status failed to load — say so rather than showing zeroes. */}
+      {kbError && (
+        <div
+          className="bg-crit-bg border-b border-crit-edge px-4 sm:px-6 py-2.5 shrink-0"
+          role="alert"
+        >
+          <div className="flex items-center gap-3">
+            <AlertTriangle className="size-4 text-crit shrink-0" aria-hidden />
+            <p className="text-xs text-fg flex-1 min-w-0">
+              Couldn&apos;t load knowledge-base status — the counts below may be
+              out of date.{" "}
+              <span className="text-fg-muted">{kbError}</span>
+            </p>
+            <Button size="xs" variant="outline" onClick={loadKb}>
+              Retry
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Metrics */}
+      <div className="bg-surface border-b border-border px-4 sm:px-6 py-2 shrink-0">
+        <div
+          className="grid grid-cols-2 md:grid-cols-4 gap-2"
+          aria-busy={kbLoading}
+        >
           <MetricCard
-            label="Source Files"
-            value={kbStatus?.files || 0}
+            label="Source files"
+            value={kb?.files ?? 0}
             icon={FileCode}
-            color="blue"
+            loading={kbLoading}
+            tone={kb?.files ? "ok" : "neutral"}
+            data-testid="metric-files"
           />
           <MetricCard
-            label="Code Entities"
-            value={kbStatus?.entities || 0}
+            label="Code entities"
+            value={kb?.entities ?? 0}
             icon={Sparkles}
-            color="purple"
+            loading={kbLoading}
+            data-testid="metric-entities"
           />
           <MetricCard
-            label="KB Chunks"
-            value={kbStatus?.chunks || 0}
+            label="KB chunks"
+            value={kb?.chunks ?? 0}
             icon={Boxes}
-            color="green"
+            loading={kbLoading}
+            data-testid="metric-chunks"
           />
           <MetricCard
-            label="Chat Sessions"
+            label="Chat sessions"
             value={conversationId ? 1 : 0}
             icon={MessageSquare}
-            color="yellow"
+            data-testid="metric-sessions"
           />
         </div>
       </div>
 
-      {/* Clickable Workflow Steps - Compact */}
-      <div className="bg-white border-b border-[#E6E6E6] px-6 py-3 shrink-0">
+      {/* Workflow steps — these ARE the tab navigation. */}
+      <div className="bg-surface border-b border-border px-4 sm:px-6 py-3 shrink-0">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <StepCard
             stepNumber={1}
-            title="Upload Knowledge Base"
+            title="Upload knowledge base"
             description="Import your legacy codebase"
-            status={activeTab === "upload" ? "active" : (kbReady ? "complete" : "pending")}
+            status={
+              activeTab === "upload" ? "active" : kbReady ? "complete" : "pending"
+            }
             icon={Upload}
             onClick={() => setActiveTab("upload")}
+            data-testid="step-upload"
           />
           <StepCard
             stepNumber={2}
             title="Generate SRS"
             description="IEEE-830 compliant specification"
-            status={activeTab === "srs" ? "active" : (active?.stage_status?.Discovery === "frozen" ? "complete" : "pending")}
+            status={activeTab === "srs" ? "active" : frozen ? "complete" : "pending"}
             icon={FileText}
-            onClick={() => kbReady && setActiveTab("srs")}
+            disabled={!kbReady}
+            // The old version was `onClick={() => kbReady && setActiveTab("srs")}`,
+            // so a blocked step looked pressable and silently did nothing.
+            disabledReason="Build the knowledge base first — upload source files, then choose Build Knowledge Base."
+            onClick={() => setActiveTab("srs")}
+            data-testid="step-srs"
           />
         </div>
       </div>
 
-      {/* Main Content - Maximized Space */}
+      {/* Panels */}
       <div className="flex-1 min-h-0 overflow-hidden">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          {/* Hide tab buttons - step cards are now the navigation */}
-          <div className="hidden">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="upload">Knowledge Base</TabsTrigger>
-              <TabsTrigger value="srs">SRS Document</TabsTrigger>
-            </TabsList>
-          </div>
+        <Tabs
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="h-full flex flex-col"
+        >
+          {/* The step cards above are the visible navigation; this list is
+              kept mounted and screen-reader reachable so Radix's roving
+              tabindex still provides a keyboard path between panels. */}
+          <TabsList className="sr-only">
+            <TabsTrigger value="upload">Knowledge base</TabsTrigger>
+            <TabsTrigger value="srs" disabled={!kbReady}>
+              SRS document
+            </TabsTrigger>
+          </TabsList>
 
-          <TabsContent value="upload" className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=active]:flex data-[state=inactive]:hidden">
-            <div className="flex-1 min-h-0 overflow-y-auto">
-              <div className="w-full p-6 space-y-6">
-                {/* Upload Knowledge Base Section */}
-                <div className="bg-white rounded-lg border border-[#E6E6E6] shadow-sm">
-                  <UploadPanel
-                    projectId={active.id}
-                    onKBUpdated={setKbStatus}
-                  />
+          <TabsContent
+            value="upload"
+            className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=active]:flex data-[state=inactive]:hidden"
+          >
+            <div className="flex-1 min-h-0 overflow-y-auto mos-scroll">
+              <div className="w-full p-4 sm:p-6 flex flex-col gap-6">
+                <div className="bg-surface rounded border border-border shadow-raised">
+                  <UploadPanel projectId={active.id} onKBUpdated={setKb} />
                 </div>
 
-                {/* Live Data Sources — DB + App URL (iter 13.8) */}
-                <div className="bg-white rounded-lg border border-[#E6E6E6] shadow-sm p-6">
+                {/* Live data sources — DB + app URL (iter 13.8) */}
+                <section className="bg-surface rounded border border-border shadow-raised p-4 sm:p-6">
                   <div className="mb-4">
-                    <h3 className="text-sm font-semibold text-[#2E2E38] uppercase tracking-wide">
-                      Live Data Sources
-                    </h3>
-                    <p className="text-xs text-[#747480] mt-1">
-                      Connect a live database and/or the running application URL so LAMA can ingest schema + endpoints directly into the KB.
+                    <h2 className="text-sm font-semibold text-fg uppercase tracking-wide">
+                      Live data sources
+                    </h2>
+                    <p className="text-xs text-fg-muted mt-1 max-w-prose">
+                      Connect a live database and/or the running application URL
+                      so LAMA can ingest schema and endpoints directly into the
+                      knowledge base.
                     </p>
                   </div>
                   <DataSourcePanel
                     projectId={active.id}
-                    onSchemaIngested={() => setKbStatus((s) => ({ ...(s || {}) }))}
+                    onSchemaIngested={loadKb}
                   />
-                </div>
+                </section>
 
-                {/* Target Stack Selection Section */}
-                <div className="bg-white rounded-lg border border-[#E6E6E6] shadow-sm p-6">
+                <section className="bg-surface rounded border border-border shadow-raised p-4 sm:p-6">
                   <TargetStackSuggester
                     projectId={active.id}
                     kbReady={kbReady}
-                    onApplied={(updatedProject) => {
-                      // Optionally refresh project context if needed
-                      console.log("Target stack applied:", updatedProject);
-                    }}
+                    onApplied={() => loadKb()}
                   />
-                </div>
+                </section>
               </div>
             </div>
           </TabsContent>
 
-          <TabsContent value="srs" className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=active]:flex data-[state=inactive]:hidden">
-            <div className="flex-1 min-h-0 bg-white rounded-lg border border-[#E6E6E6] overflow-hidden">
+          <TabsContent
+            value="srs"
+            className="flex-1 flex flex-col overflow-hidden mt-0 data-[state=active]:flex data-[state=inactive]:hidden"
+          >
+            <div className="flex-1 min-h-0 bg-surface border-t border-border overflow-hidden">
               <SRSPanel
                 key={srsRefreshKey}
                 projectId={active.id}
@@ -291,7 +376,6 @@ export default function DiscoveryV2() {
         </Tabs>
       </div>
 
-      {/* Floating Chat - ChatGPT-like overlay */}
       <FloatingChat
         projectId={active.id}
         kbReady={kbReady}
@@ -299,7 +383,7 @@ export default function DiscoveryV2() {
         onConversationUpdated={handleConversationUpdated}
         stage="Discovery"
         agentKey="srs.chat"
-        enableSrsEdit={true}
+        enableSrsEdit
         chatTitle="Discovery Chat"
       />
     </div>

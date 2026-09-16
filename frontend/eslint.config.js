@@ -34,6 +34,10 @@ const js = require("@eslint/js");
 const globals = require("globals");
 const react = require("eslint-plugin-react");
 const reactHooks = require("eslint-plugin-react-hooks");
+// ESLint's default parser (espree) cannot read type annotations, so the
+// strangler .ts modules need this. Syntax-only — no type-aware rules, so
+// lint stays fast and `tsc --noEmit` remains the type gate.
+const tseslint = require("typescript-eslint");
 
 module.exports = [
   {
@@ -105,6 +109,40 @@ module.exports = [
       // reversed character range rather than a literal hyphen.
       "no-useless-escape": "warn",
       "no-misleading-character-class": "warn",
+    },
+  },
+  {
+    // Test files: Jest globals, plus Node's require/__dirname for the
+    // source-level contract suite in src/__tests__/design-system.test.js,
+    // which reads the tree off disk rather than rendering it.
+    files: ["src/**/*.test.{js,jsx,ts,tsx}", "src/setupTests.js"],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+        ...globals.node,
+      },
+    },
+    rules: {
+      // A test may deliberately assert on an empty catch or an unused
+      // binding while setting up a fixture.
+      "no-unused-vars": ["error", { args: "none", varsIgnorePattern: "^_" }],
+    },
+  },
+  {
+    // TypeScript sources — the strangler modules, plus the generated
+    // api.d.ts. Parsed by typescript-eslint; `no-undef` is switched off
+    // because TS itself resolves identifiers and the rule double-reports
+    // every type name.
+    files: ["src/**/*.ts", "src/**/*.tsx"],
+    languageOptions: {
+      parser: tseslint.parser,
+      ecmaVersion: 2022,
+      sourceType: "module",
+      globals: { ...globals.browser, ...globals.es2021 },
+    },
+    rules: {
+      "no-undef": "off",
+      "no-unused-vars": "off",   // tsc reports these with better precision
     },
   },
   {

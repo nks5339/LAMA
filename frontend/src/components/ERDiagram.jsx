@@ -225,7 +225,7 @@ export default function ERDiagram({ data, height = 500 }) {
     return (
       <div
         data-testid="er-diagram-empty"
-        className="flex items-center justify-center h-48 text-sm text-[#747480]"
+        className="flex items-center justify-center h-48 text-sm text-fg-muted"
       >
         No entity data yet — generate SRS first.
       </div>
@@ -234,15 +234,15 @@ export default function ERDiagram({ data, height = 500 }) {
 
   return (
     <div className="flex flex-col h-full" data-testid="er-diagram">
-      <div className="flex items-center gap-3 px-3 py-2 border-b border-[#E6E6E6] bg-white flex-shrink-0">
+      <div className="flex items-center gap-3 px-3 py-2 border-b border-border bg-surface flex-shrink-0">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search tables…"
           data-testid="er-search-input"
-          className="text-xs border border-[#E6E6E6] rounded-sm px-2 py-1 w-40 focus:border-[#2E2E38] outline-none"
+          className="text-xs border border-border rounded-sm px-2 py-1 w-40 focus:border-fg outline-none"
         />
-        <label className="flex items-center gap-1 text-xs text-[#747480]">
+        <label className="flex items-center gap-1 text-xs text-fg-muted">
           <input
             type="checkbox"
             checked={showLogs}
@@ -252,7 +252,7 @@ export default function ERDiagram({ data, height = 500 }) {
           Show logs tables
         </label>
         <span
-          className="text-xs text-[#747480] ml-auto"
+          className="text-xs text-fg-muted ml-auto"
           data-testid="er-stats"
         >
           {data.stats?.total_tables} tables · {data.stats?.total_relationships} relationships · {data.stats?.domains} domains
@@ -260,29 +260,29 @@ export default function ERDiagram({ data, height = 500 }) {
       </div>
       <svg
         ref={svgRef}
-        className="flex-1 w-full bg-[#F6F6FA]"
+        className="flex-1 w-full bg-bg"
         style={{ minHeight: height }}
       />
       {selected && (
         <div
-          className="border-t border-[#E6E6E6] bg-white p-3 max-h-48 overflow-y-auto flex-shrink-0"
+          className="border-t border-border bg-surface p-3 max-h-48 overflow-y-auto flex-shrink-0"
           data-testid="er-selected-detail"
         >
           <div className="flex items-center justify-between mb-2">
-            <span className="font-bold text-sm text-[#2E2E38] font-mono">
+            <span className="font-bold text-sm text-fg font-mono">
               {selected.name}
             </span>
             <button
               onClick={() => setSelected(null)}
               data-testid="er-close-detail"
-              className="text-xs text-[#747480] hover:text-[#2E2E38]"
+              className="text-xs text-fg-muted hover:text-fg"
             >
               ✕ close
             </button>
           </div>
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[#2E2E38] text-white">
+              <tr className="bg-ink text-ink-fg">
                 <th className="px-2 py-1 text-left">Column</th>
                 <th className="px-2 py-1 text-left">Type</th>
                 <th className="px-2 py-1 text-left">Key</th>
@@ -292,18 +292,18 @@ export default function ERDiagram({ data, height = 500 }) {
               {(selected.columns || []).map((c) => (
                 <tr
                   key={c.name}
-                  className="border-b border-[#E6E6E6] even:bg-[#F6F6FA]"
+                  className="border-b border-border even:bg-bg"
                 >
                   <td className="px-2 py-1 font-mono">{c.name}</td>
-                  <td className="px-2 py-1 text-[#747480]">{c.type}</td>
+                  <td className="px-2 py-1 text-fg-muted">{c.type}</td>
                   <td className="px-2 py-1">
                     {c.is_pk && (
-                      <span className="bg-[#FFE600] text-[#2E2E38] px-1 rounded text-[10px] font-bold">
+                      <span className="bg-brand text-fg px-1 rounded text-micro font-bold">
                         PK
                       </span>
                     )}
                     {c.is_fk && (
-                      <span className="bg-[#0066CC] text-white px-1 rounded text-[10px] ml-1">
+                      <span className="bg-info text-info-fg px-1 rounded text-micro ml-1">
                         FK
                       </span>
                     )}

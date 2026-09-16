@@ -140,7 +140,7 @@ export const cloneGitRepoAndWait = async (
   const initial = await cloneGitRepo(projectId, payload, replace);
   if (!initial?.source_id || initial.status === "done") return initial;
   const deadline = Date.now() + timeoutMs;
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     if (Date.now() > deadline) {
       throw new Error(
@@ -255,6 +255,80 @@ export const listDataSources = (projectId) =>
 export const listModels = () => api.get("/chat/models").then((r) => r.data);
 export const sendMessage = (payload) => api.post("/chat", payload).then((r) => r.data);
 
+/**
+ * Streaming chat over SSE — the progressive counterpart to `sendMessage`.
+ *
+ * Both hit the same context pipeline on the backend (`_prepare_turn`), so a
+ * streamed reply is identical to a buffered one; only the delivery differs.
+ * A provider that cannot stream still works — `fabric_call_stream` degrades
+ * to one buffered chunk, so the caller may receive the whole reply as a
+ * single `token` event. Append deltas; never count them.
+ *
+ *   onEvent(evt) fires for every event:
+ *     { type: "phase",    phase }
+ *     { type: "citation", filename, filetype, score }
+ *     { type: "token",    text }
+ *     { type: "complete", conversation_id, message, intent, srs_triggered, … }
+ *     { type: "error",    message }
+ *     { type: "ping" }
+ *
+ * Pass an AbortSignal to support a Stop button. Resolves with the
+ * `complete` payload; rejects on an `error` event or a transport failure.
+ */
+export const streamMessage = async (payload, onEvent = () => {}, signal) => {
+  let token = "";
+  try {
+    token = window.localStorage.getItem(TOKEN_KEY) || "";
+  } catch { /* localStorage may be blocked */ }
+
+  const res = await fetch(`${API}/chat/stream`, {
+    method: "POST",
+    signal,
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok || !res.body) {
+    const detail = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(detail.detail || `HTTP ${res.status}`);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buf = "";
+  let final = null;
+
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+      const frames = buf.split("\n\n");
+      buf = frames.pop() || "";
+      for (const frame of frames) {
+        const line = frame.split("\n").find((l) => l.startsWith("data:"));
+        if (!line) continue;
+        let data;
+        try { data = JSON.parse(line.slice(5).trim()); } catch { continue; }
+        if (data.type === "ping") continue;
+        try { onEvent(data); } catch { /* a listener throw must not kill the stream */ }
+        if (data.type === "complete") final = data;
+        else if (data.type === "error") throw new Error(data.message || "Chat failed");
+      }
+      if (final) break;
+    }
+  } finally {
+    try { reader.cancel(); } catch { /* already closed */ }
+  }
+
+  if (!final) throw new Error("Stream ended without a complete event");
+  return final;
+};
+
 // iter-13.100 — Rolling-memory agent sessions (droid-handoff aware).
 // One session per (project, stage, agent_key) gives the LLM an
 // "infinite conversation" that survives browser refresh, context-window
@@ -341,7 +415,7 @@ export const regenerateSRSSectionStream = async (
   const decoder = new TextDecoder();
   let buf = "";
   let final = null;
-  // eslint-disable-next-line no-constant-condition
+   
   while (true) {
     const { value, done } = await reader.read();
     if (done) break;

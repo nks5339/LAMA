@@ -10,11 +10,14 @@ export default function HelpIcon({ text, side = "top", testId }) {
     <TooltipProvider delayDuration={150}>
       <Tooltip>
         <TooltipTrigger asChild>
+          {/* Not a button — it performs no action. It is a focusable help
+              affordance whose only job is to surface the tooltip, so
+              role="button" was announcing a control that does nothing.
+              tabIndex keeps it keyboard-reachable; Radix handles the rest. */}
           <span
-            role="button"
             tabIndex={0}
             data-testid={testId || "help-icon"}
-            className="inline-flex items-center justify-center w-4 h-4 ml-1 text-slate-400 hover:text-slate-700 cursor-help"
+            className="inline-flex items-center justify-center w-4 h-4 ml-1 text-fg-subtle hover:text-fg-muted cursor-help"
             aria-label="Help"
           >
             <HelpCircle className="w-4 h-4" />

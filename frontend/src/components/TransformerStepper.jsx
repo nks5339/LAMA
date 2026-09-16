@@ -29,7 +29,7 @@ export default function TransformerStepper({ steps = [], currentStep, onStepClic
           ? "bg-emerald-600 text-white border-emerald-600"
           : isCurrent
             ? "bg-violet-600 text-white border-violet-600 ring-2 ring-violet-200"
-            : "bg-slate-100 text-slate-500 border-slate-200";
+            : "bg-surface-2 text-fg-subtle border-border";
 
         return (
           <div
@@ -54,7 +54,7 @@ export default function TransformerStepper({ steps = [], currentStep, onStepClic
               </button>
               {!isLast && (
                 <span
-                  className={`hidden lg:block w-px flex-1 my-1 ${isDone ? "bg-emerald-300" : "bg-slate-200"}`}
+                  className={`hidden lg:block w-px flex-1 my-1 ${isDone ? "bg-emerald-300" : "bg-surface-3"}`}
                   style={{ minHeight: 22 }}
                   aria-hidden="true"
                 />
@@ -71,13 +71,13 @@ export default function TransformerStepper({ steps = [], currentStep, onStepClic
               >
                 <div
                   className={`text-xs font-semibold leading-tight ${
-                    isCurrent ? "text-violet-700" : isDone ? "text-slate-800" : "text-slate-500"
+                    isCurrent ? "text-violet-700" : isDone ? "text-fg" : "text-fg-subtle"
                   }`}
                 >
                   {step.label}
                 </div>
                 {step.sublabel && (
-                  <div className="hidden lg:block text-xs text-slate-500 mt-0.5">{step.sublabel}</div>
+                  <div className="hidden lg:block text-xs text-fg-subtle mt-0.5">{step.sublabel}</div>
                 )}
               </button>
             </div>
@@ -85,7 +85,7 @@ export default function TransformerStepper({ steps = [], currentStep, onStepClic
             {/* Horizontal connector (narrow only) */}
             {!isLast && (
               <span
-                className={`lg:hidden absolute top-3 left-[calc(50%+16px)] right-0 h-px ${isDone ? "bg-emerald-300" : "bg-slate-200"}`}
+                className={`lg:hidden absolute top-3 left-[calc(50%+16px)] right-0 h-px ${isDone ? "bg-emerald-300" : "bg-surface-3"}`}
                 aria-hidden="true"
               />
             )}

@@ -330,16 +330,16 @@ function MermaidBlock({ chart, id }) {
   if (err) {
     return (
       <div className="bg-amber-50 border border-amber-200 rounded-sm p-2 my-1" data-testid="mermaid-error">
-        <div className="text-[10px] uppercase font-bold text-amber-700">Mermaid render error</div>
-        <pre className="text-[11px] text-amber-800 mt-1 whitespace-pre-wrap">{err}</pre>
+        <div className="text-micro uppercase font-bold text-amber-700">Mermaid render error</div>
+        <pre className="text-micro text-amber-800 mt-1 whitespace-pre-wrap">{err}</pre>
         <details className="mt-1">
-          <summary className="text-[10px] text-[#747480] cursor-pointer">Show source</summary>
-          <pre className="text-[10px] mt-1 bg-white border border-[#E6E6E6] p-2 rounded-sm overflow-x-auto whitespace-pre-wrap">{chart}</pre>
+          <summary className="text-micro text-fg-muted cursor-pointer">Show source</summary>
+          <pre className="text-micro mt-1 bg-surface border border-border p-2 rounded-sm overflow-x-auto whitespace-pre-wrap">{chart}</pre>
         </details>
       </div>
     );
   }
-  return <div ref={ref} data-testid={`mermaid-${id}`} title={rendered && rendered !== chart ? "auto-repaired" : undefined} className="bg-white border border-[#E6E6E6] rounded-sm p-3 overflow-x-auto" />;
+  return <div ref={ref} data-testid={`mermaid-${id}`} title={rendered && rendered !== chart ? "auto-repaired" : undefined} className="bg-surface border border-border rounded-sm p-3 overflow-x-auto" />;
 }
 
 // Render markdown with embedded mermaid fenced blocks
@@ -372,9 +372,9 @@ function MarkdownWithMermaid({ source, idPrefix }) {
     if (last < source.length) out.push({ type: "md", content: source.slice(last) });
     return out;
   }, [source, idPrefix]);
-  if (!source) return <div className="text-xs text-[#747480]">No content yet.</div>;
+  if (!source) return <div className="text-xs text-fg-muted">No content yet.</div>;
   return (
-    <div className="prose prose-sm max-w-none text-[#2E2E38]">
+    <div className="prose prose-sm max-w-none text-fg">
       {parts.map((p, i) =>
         p.type === "mermaid" ? (
           <MermaidBlock key={p.key} chart={p.content} id={p.key} />
@@ -471,7 +471,7 @@ function ApiContractsView({ source, projectId }) {
   }, [services.length, activeIdx]);
 
   if (!services.length) {
-    return <div className="text-xs text-[#747480] p-4">No API Contracts content yet.</div>;
+    return <div className="text-xs text-fg-muted p-4">No API Contracts content yet.</div>;
   }
 
   const active = services[activeIdx] || services[0];
@@ -504,33 +504,33 @@ function ApiContractsView({ source, projectId }) {
   return (
     <div className="flex flex-col h-full" data-testid="api-contracts-view">
       {/* Toolbar */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[#E6E6E6] bg-[#FAFAFC] flex-wrap">
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-surface-2 flex-wrap">
         <div className="flex items-center gap-1" data-testid="api-contracts-format-toggle">
           <button
             onClick={() => setFormat("json")}
-            className={`text-[11px] px-2 py-1 rounded-sm border ${
+            className={`text-micro px-2 py-1 rounded-sm border ${
               format === "json"
-                ? "bg-[#2E2E38] text-white border-[#2E2E38]"
-                : "bg-white text-[#2E2E38] border-[#E6E6E6] hover:bg-[#F6F6FA]"
+                ? "bg-ink text-ink-fg border-fg"
+                : "bg-surface text-fg border-border hover:bg-bg"
             }`}
             data-testid="api-contracts-format-json"
           >JSON</button>
           <button
             onClick={() => setFormat("yaml")}
-            className={`text-[11px] px-2 py-1 rounded-sm border ${
+            className={`text-micro px-2 py-1 rounded-sm border ${
               format === "yaml"
-                ? "bg-[#2E2E38] text-white border-[#2E2E38]"
-                : "bg-white text-[#2E2E38] border-[#E6E6E6] hover:bg-[#F6F6FA]"
+                ? "bg-ink text-ink-fg border-fg"
+                : "bg-surface text-fg border-border hover:bg-bg"
             }`}
             data-testid="api-contracts-format-yaml"
           >YAML</button>
         </div>
-        <div className="mx-2 h-4 border-l border-[#E6E6E6]" />
-        <label className="text-[11px] text-[#747480]">Service:</label>
+        <div className="mx-2 h-4 border-l border-border" />
+        <label className="text-micro text-fg-muted">Service:</label>
         <select
           value={activeIdx}
           onChange={(e) => setActiveIdx(Number(e.target.value))}
-          className="text-[11px] border border-[#E6E6E6] rounded-sm px-2 py-1 bg-white max-w-xs"
+          className="text-micro border border-border rounded-sm px-2 py-1 bg-surface max-w-xs"
           data-testid="api-contracts-service-selector"
         >
           {services.map((s, i) => (
@@ -542,12 +542,12 @@ function ApiContractsView({ source, projectId }) {
         <div className="ml-auto flex items-center gap-1">
           <button
             onClick={copyToClipboard}
-            className="text-[11px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA]"
+            className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg"
             data-testid="api-contracts-copy"
           >Copy</button>
           <button
             onClick={downloadCurrent}
-            className="text-[11px] px-2 py-1 border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] flex items-center gap-1"
+            className="text-micro px-2 py-1 border border-border rounded-sm hover:bg-bg flex items-center gap-1"
             data-testid="api-contracts-download-current"
           ><Download className="w-3 h-3" /> {format.toUpperCase()}</button>
         </div>
@@ -555,14 +555,14 @@ function ApiContractsView({ source, projectId }) {
 
       {/* Header comment (provenance banner from the renderer) */}
       {active.headerText && (
-        <div className="px-3 py-1.5 text-[11px] text-[#747480] bg-[#F6F6FA] border-b border-[#E6E6E6] whitespace-pre-wrap font-mono">
+        <div className="px-3 py-1.5 text-micro text-fg-muted bg-bg border-b border-border whitespace-pre-wrap font-mono">
           {active.headerText}
         </div>
       )}
 
       {/* Parse-error banner */}
       {format === "json" && active.parseErr && (
-        <div className="px-3 py-1.5 text-[11px] text-amber-800 bg-amber-50 border-b border-amber-200">
+        <div className="px-3 py-1.5 text-micro text-amber-800 bg-amber-50 border-b border-amber-200">
           YAML parse failed — showing raw text. {active.parseErr}
         </div>
       )}
@@ -589,7 +589,7 @@ function ApiContractsEditor({ value, language }) {
   }, []);
   if (!Editor) {
     return (
-      <pre className="text-[11px] leading-snug font-mono p-3 overflow-auto h-full whitespace-pre bg-white">
+      <pre className="text-micro leading-snug font-mono p-3 overflow-auto h-full whitespace-pre bg-surface">
         {value}
       </pre>
     );
@@ -624,22 +624,22 @@ function ResetModal({ open, onClose, onConfirm, title, warning }) {
   if (!open) return null;
   const enabled = typed === "RESET";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="arch-reset-modal">
-      <div className="bg-white max-w-md w-full rounded-sm border-2 border-orange-500 p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" data-testid="arch-reset-modal">
+      <div className="bg-surface max-w-md w-full rounded-sm border-2 border-orange-500 p-5">
         <h3 className="font-display font-bold text-lg text-orange-700 flex items-center gap-2">
           <RotateCcw className="w-4 h-4" /> {title}
         </h3>
-        <p className="text-xs text-[#2E2E38] mt-2 leading-snug">{warning}</p>
-        <p className="text-xs text-[#747480] mt-3">Type <code className="bg-[#F6F6FA] px-1">RESET</code> to confirm.</p>
+        <p className="text-xs text-fg mt-2 leading-snug">{warning}</p>
+        <p className="text-xs text-fg-muted mt-3">Type <code className="bg-bg px-1">RESET</code> to confirm.</p>
         <input
           autoFocus
           value={typed}
           onChange={(e) => setTyped(e.target.value)}
           data-testid="arch-reset-input"
-          className="mt-1 w-full border border-[#E6E6E6] focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm"
+          className="mt-1 w-full border border-border focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm"
         />
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-[#E6E6E6] rounded-sm">Cancel</button>
+          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-border rounded-sm">Cancel</button>
           <button
             disabled={!enabled}
             onClick={onConfirm}
@@ -670,10 +670,10 @@ function UtilitiesPanel({ utilities, selected, configs, onToggle, onConfigChange
       data-testid="utilities-panel"
     >
       <div className="flex items-center justify-between mb-2">
-        <div className="text-[11px] uppercase tracking-wider text-violet-700 font-semibold">
+        <div className="text-micro uppercase tracking-wider text-violet-700 font-semibold">
           Cross-cutting utilities
         </div>
-        <span className="text-[10px] text-slate-500">
+        <span className="text-micro text-fg-subtle">
           Generated into every service when checked
         </span>
       </div>
@@ -685,7 +685,7 @@ function UtilitiesPanel({ utilities, selected, configs, onToggle, onConfigChange
             <div
               key={u.key}
               data-testid={`utility-${u.key}`}
-              className={`border rounded-sm p-2 bg-white transition-opacity ${on ? "border-violet-200" : "border-dashed border-slate-200 opacity-75"}`}
+              className={`border rounded-sm p-2 bg-surface transition-opacity ${on ? "border-violet-200" : "border-dashed border-border opacity-75"}`}
             >
               <label className="flex items-start gap-2 cursor-pointer">
                 <input
@@ -697,9 +697,9 @@ function UtilitiesPanel({ utilities, selected, configs, onToggle, onConfigChange
                   className="accent-violet-600 mt-0.5 shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <div className="font-semibold text-[13px] text-slate-800">{u.display_name}</div>
-                  <div className="text-[11px] text-slate-600 leading-snug">{u.description}</div>
-                  <div className="text-[10px] text-slate-400 mt-0.5">
+                  <div className="font-semibold text-[13px] text-fg">{u.display_name}</div>
+                  <div className="text-micro text-fg-muted leading-snug">{u.description}</div>
+                  <div className="text-micro text-fg-subtle mt-0.5">
                     Supported targets: {(u.supported_langs || []).join(" · ")}
                   </div>
                 </div>
@@ -709,7 +709,7 @@ function UtilitiesPanel({ utilities, selected, configs, onToggle, onConfigChange
                   {u.config_schema.map((field) => (
                     <label
                       key={field.key}
-                      className="text-[10px] text-slate-600 flex flex-col"
+                      className="text-micro text-fg-muted flex flex-col"
                       title={field.label}
                     >
                       <span className="truncate">{field.label}</span>
@@ -733,7 +733,7 @@ function UtilitiesPanel({ utilities, selected, configs, onToggle, onConfigChange
                               field.type === "number" ? Number(e.target.value) : e.target.value,
                             )
                           }
-                          className="block w-full mt-0.5 border border-slate-200 rounded-sm px-1.5 py-0.5 text-[11px] font-mono"
+                          className="block w-full mt-0.5 border border-border rounded-sm px-1.5 py-0.5 text-micro font-mono"
                         />
                       )}
                     </label>
@@ -844,8 +844,8 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
     <div className="space-y-3" data-testid="service-map-view">
       <div className="flex items-center justify-between text-xs">
         <div>
-          <span className="text-[#747480]">Recommended pattern:</span>{" "}
-          <span className="font-bold text-[#2E2E38]" data-testid="recommended-pattern">{data.recommended_pattern || "—"}</span>
+          <span className="text-fg-muted">Recommended pattern:</span>{" "}
+          <span className="font-bold text-fg" data-testid="recommended-pattern">{data.recommended_pattern || "—"}</span>
         </div>
         <div className="flex items-center gap-3">
           <button
@@ -853,30 +853,30 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
             onClick={() => navigate("/integrations")}
             data-testid="govt-service-integration-link"
             title="Open the Govt. Service Integration catalog (PAN, Aadhaar e-KYC, GSTIN, DigiLocker, e-Sign, UPI). Inject any of these into the generated services."
-            className="flex items-center gap-1 text-[11px] font-semibold text-[#2E2E38] bg-[#FFFCE6] hover:bg-[#FFE600] border border-[#FFE600] px-2 py-1 rounded-sm"
+            className="flex items-center gap-1 text-micro font-semibold text-fg bg-brand-tint hover:bg-brand border border-brand px-2 py-1 rounded-sm"
           >
             <Plug className="w-3 h-3" />
             Govt. Service Integration
             <ArrowRight className="w-3 h-3" />
           </button>
-          <label className="flex items-center gap-1 text-[11px] text-[#2E2E38] cursor-pointer">
+          <label className="flex items-center gap-1 text-micro text-fg cursor-pointer">
             <input
               type="checkbox"
               data-testid="svc-select-all"
               checked={allChecked}
               disabled={frozen || services.length === 0}
               onChange={(e) => onToggleAll?.(e.target.checked)}
-              className="accent-[#FFE600]"
+              className="accent-brand"
             />
             <span>Select all</span>
           </label>
-          <span className="text-[#747480]" data-testid="svc-selected-count">
+          <span className="text-fg-muted" data-testid="svc-selected-count">
             {selectedCount}/{services.length} selected
           </span>
         </div>
       </div>
       {!frozen && selectedCount === 0 && services.length > 0 && (
-        <div className="text-[11px] bg-amber-50 border border-amber-200 text-amber-800 rounded-sm p-2">
+        <div className="text-micro bg-amber-50 border border-amber-200 text-amber-800 rounded-sm p-2">
           No services selected — Approve is disabled. Tick at least one service to continue.
         </div>
       )}
@@ -892,7 +892,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
       {!frozen && services.length > 0 && (
         <div className="border border-emerald-300 bg-emerald-50 rounded-sm p-2 space-y-2" data-testid="merge-groups-panel">
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 text-[11px] text-emerald-900 font-semibold">
+            <div className="flex items-center gap-2 text-micro text-emerald-900 font-semibold">
               <Boxes className="w-3 h-3 text-emerald-700" />
               Merge Groups
               <span className="text-emerald-700 font-normal">
@@ -902,7 +902,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
             <div className="flex items-center gap-2">
               <button
                 onClick={addGroup}
-                className="text-[11px] px-2 py-0.5 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-sm font-semibold"
+                className="text-micro px-2 py-0.5 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-sm font-semibold"
                 data-testid="add-merge-group-btn"
                 title="Create a new merge group"
               >
@@ -911,7 +911,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
               {groups.length > 0 && (
                 <button
                   onClick={clearAllGroups}
-                  className="text-[11px] px-2 py-0.5 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-sm"
+                  className="text-micro px-2 py-0.5 border border-emerald-300 text-emerald-800 hover:bg-emerald-100 rounded-sm"
                   data-testid="clear-merge-groups-btn"
                 >
                   Clear
@@ -922,7 +922,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                 disabled={!canApplyGroups}
                 data-testid="apply-merge-groups-btn"
                 title={groupErrors.length ? groupErrors.join("; ") : `Apply ${groups.length} merge group(s)`}
-                className="text-[11px] px-2 py-0.5 bg-emerald-600 text-white rounded-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                className="text-micro px-2 py-0.5 bg-emerald-600 text-white rounded-sm font-bold disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
               >
                 {mergeGroupsBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <GitBranch className="w-3 h-3" />}
                 Apply {groups.length} group{groups.length === 1 ? "" : "s"}
@@ -930,7 +930,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
             </div>
           </div>
           {groups.length === 0 && (
-            <div className="text-[11px] text-emerald-700 italic">
+            <div className="text-micro text-emerald-700 italic">
               No groups yet. Click <b>+ Add group</b>, name it (e.g. <code>billing-invoicing-svc</code>),
               then assign 2+ services to it via the <b>Group</b> dropdown on each service card below.
               Unassigned services stay as-is.
@@ -939,10 +939,10 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
           {groups.map((g) => (
             <div
               key={g.id}
-              className="border border-emerald-200 bg-white rounded-sm p-2 flex flex-wrap items-center gap-2"
+              className="border border-emerald-200 bg-surface rounded-sm p-2 flex flex-wrap items-center gap-2"
               data-testid={`merge-group-card-${g.id}`}
             >
-              <span className="text-[10px] uppercase font-bold text-emerald-700 shrink-0">
+              <span className="text-micro uppercase font-bold text-emerald-700 shrink-0">
                 Group #{g.id}
               </span>
               <input
@@ -951,15 +951,15 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                 value={g.name}
                 onChange={(e) => renameGroup(g.id, e.target.value)}
                 data-testid={`merge-group-name-${g.id}`}
-                className="text-[11px] flex-1 min-w-[220px] border border-emerald-300 focus:border-emerald-600 outline-none rounded-sm px-1.5 py-0.5 font-mono"
+                className="text-micro flex-1 min-w-[220px] border border-emerald-300 focus:border-emerald-600 outline-none rounded-sm px-1.5 py-0.5 font-mono"
               />
-              <span className="text-[11px] text-emerald-800">
+              <span className="text-micro text-emerald-800">
                 {g.members.size} service{g.members.size === 1 ? "" : "s"}
                 {g.members.size > 0 && `: ${[...g.members].slice(0, 3).join(", ")}${g.members.size > 3 ? ` +${g.members.size - 3}` : ""}`}
               </span>
               <button
                 onClick={() => removeGroup(g.id)}
-                className="text-[11px] text-red-700 hover:text-red-900 px-1"
+                className="text-micro text-red-700 hover:text-red-900 px-1"
                 data-testid={`remove-merge-group-${g.id}`}
                 title="Delete this group (services return to unassigned)"
               >
@@ -968,7 +968,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
             </div>
           ))}
           {groupErrors.length > 0 && (
-            <div className="text-[10px] bg-red-50 border border-red-200 text-red-800 rounded-sm p-1.5 space-y-0.5">
+            <div className="text-micro bg-red-50 border border-red-200 text-red-800 rounded-sm p-1.5 space-y-0.5">
               {groupErrors.slice(0, 4).map((e, i) => <div key={i}>• {e}</div>)}
               {groupErrors.length > 4 && <div>… {groupErrors.length - 4} more</div>}
             </div>
@@ -982,7 +982,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
           return (
             <div
               key={i}
-              className={`border rounded-sm p-2 bg-white transition-opacity ${isSel ? "border-[#E6E6E6]" : "border-dashed border-[#E6E6E6] opacity-60"} ${currentGid ? "ring-2 ring-emerald-400" : ""}`}
+              className={`border rounded-sm p-2 bg-surface transition-opacity ${isSel ? "border-border" : "border-dashed border-border opacity-60"} ${currentGid ? "ring-2 ring-emerald-400" : ""}`}
               data-testid={`service-card-${s.name}`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -993,7 +993,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                     checked={isSel}
                     disabled={frozen}
                     onChange={() => onToggle?.(s.name)}
-                    className="accent-[#FFE600] shrink-0"
+                    className="accent-brand shrink-0"
                   />
                   <div className="font-semibold text-[13px] truncate">{s.display_name || s.name || "(unnamed)"}</div>
                 </label>
@@ -1013,7 +1013,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                         else assignSvcToGroup(s.name, gid);
                       }}
                       data-testid={`svc-group-picker-${s.name}`}
-                      className={`text-[10px] border rounded-sm px-1 py-0.5 font-semibold ${currentGid ? "bg-emerald-100 border-emerald-400 text-emerald-900" : "bg-white border-[#E6E6E6] text-[#747480]"}`}
+                      className={`text-micro border rounded-sm px-1 py-0.5 font-semibold ${currentGid ? "bg-emerald-100 border-emerald-400 text-emerald-900" : "bg-surface border-border text-fg-muted"}`}
                       title="Assign this service to a merge group"
                     >
                       <option value={0}>Unassigned</option>
@@ -1027,7 +1027,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                   {/* iter-13.81.13 — surface merged-from provenance */}
                   {s.merged_from?.length > 0 && (
                     <span
-                      className="text-[9px] uppercase bg-emerald-100 text-emerald-700 px-1 rounded-sm font-bold"
+                      className="text-micro uppercase bg-emerald-100 text-emerald-700 px-1 rounded-sm font-bold"
                       title={`Merged from: ${s.merged_from.join(", ")}`}
                       data-testid={`merged-badge-${s.name}`}
                     >
@@ -1037,7 +1037,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                   {!frozen && s.merged_from?.length > 0 && (
                     <button
                       onClick={(e) => { e.preventDefault(); onUnmerge?.(s.name); }}
-                      className="text-[9px] uppercase text-emerald-700 hover:text-red-700 px-1"
+                      className="text-micro uppercase text-emerald-700 hover:text-red-700 px-1"
                       title="Delete this merged service. Re-run Recommend to repopulate the originals from KB."
                       data-testid={`unmerge-btn-${s.name}`}
                     >
@@ -1047,7 +1047,7 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                   {/* iter-13.46 — show api_count alongside the language badge
                       so the user can see per-service surface size at a glance */}
                   {(s.api_count ?? s.route_count) > 0 && (
-                    <span className="text-[10px] bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm font-semibold">
+                    <span className="text-micro bg-brand text-fg px-1.5 py-0.5 rounded-sm font-semibold">
                       {s.api_count ?? s.route_count} API{(s.api_count ?? s.route_count) === 1 ? '' : 's'}
                     </span>
                   )}
@@ -1068,9 +1068,9 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                               : '')
                           : 'No legacy endpoints to mirror (synthetic / utility bucket)'
                       }
-                      className={`text-[10px] px-1.5 py-0.5 rounded-sm font-semibold ${
+                      className={`text-micro px-1.5 py-0.5 rounded-sm font-semibold ${
                         s.parity.legacy_endpoint_count === 0
-                          ? 'bg-[#F6F6FA] text-[#747480]'
+                          ? 'bg-bg text-fg-muted'
                           : s.parity.pass
                             ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
                             : 'bg-amber-100 text-amber-800 border border-amber-300'
@@ -1080,22 +1080,22 @@ function ServiceMapView({ artifact, selected, onToggle, onToggleAll, frozen, uti
                       {s.parity.missing_count > 0 && ` (–${s.parity.missing_count})`}
                     </span>
                   )}
-                  <span className="text-[10px] uppercase bg-[#F6F6FA] px-1.5 py-0.5 rounded-sm">{s.backend_lang || "—"}</span>
+                  <span className="text-micro uppercase bg-bg px-1.5 py-0.5 rounded-sm">{s.backend_lang || "—"}</span>
                 </div>
               </div>
-              <div className="text-[11px] text-[#747480] mt-1">{s.description || s.responsibility}</div>
+              <div className="text-micro text-fg-muted mt-1">{s.description || s.responsibility}</div>
               {s.tables?.length > 0 && (
-                <div className="text-[11px] mt-1"><span className="text-[#747480]">Tables:</span> {s.tables.slice(0, 6).join(", ")}{s.tables.length > 6 ? ` +${s.tables.length - 6}` : ""}</div>
+                <div className="text-micro mt-1"><span className="text-fg-muted">Tables:</span> {s.tables.slice(0, 6).join(", ")}{s.tables.length > 6 ? ` +${s.tables.length - 6}` : ""}</div>
               )}
               {s.api_endpoints?.length > 0 && (
-                <div className="text-[11px] mt-0.5"><span className="text-[#747480]">Endpoints:</span> {s.api_endpoints.length}</div>
+                <div className="text-micro mt-0.5"><span className="text-fg-muted">Endpoints:</span> {s.api_endpoints.length}</div>
               )}
             </div>
           );
         })}
       </div>
       {data.event_bus && (
-        <div className="text-[11px] text-[#2E2E38] bg-[#FFFCE6] border border-[#FFE600] rounded-sm p-2">
+        <div className="text-micro text-fg bg-brand-tint border border-brand rounded-sm p-2">
           Event bus enabled: {data.event_bus_type || "Kafka"}
         </div>
       )}
@@ -1128,7 +1128,7 @@ function useJobPoll(getter) {
     setRunning(true);
     tick();
     return () => { cancelled = true; };
-  }, [job?.id, getter]); // eslint-disable-line
+  }, [job?.id, getter]);  
   const start = (jid) => { startId.current = jid; setJob({ id: jid, status: "queued", step: "Starting…", pct: 0 }); setRunning(true); };
   return { job, running, start };
 }
@@ -1557,7 +1557,7 @@ export default function ArchitecturePage() {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="text-xs px-3 py-1.5 bg-[#FFE600] text-[#2E2E38] rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2E2E38]"
+          className="text-xs px-3 py-1.5 bg-brand text-fg rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-fg"
           data-testid="empty-goto-discovery"
         >
           Go to Discovery →
@@ -1569,17 +1569,17 @@ export default function ArchitecturePage() {
   // Locked view
   if (isLocked) {
     return (
-      <div className="flex-1 flex flex-col bg-[#F6F6FA]" data-testid="arch-locked">
-        <header className="bg-white border-b-2 border-[#FFE600] px-6 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 3 of 5</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Architecture</h1>
+      <div className="flex-1 flex flex-col bg-bg" data-testid="arch-locked">
+        <header className="bg-surface border-b-2 border-brand px-6 py-3">
+          <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 3 of 5</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg">Architecture</h1>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-md bg-white border border-[#E6E6E6] rounded-sm p-6 text-center">
-            <Lock className="w-8 h-8 mx-auto text-[#747480] mb-3" />
-            <h2 className="font-display font-bold text-[#2E2E38]">Locked — DataModel not frozen</h2>
-            <p className="text-xs text-[#747480] mt-2">Freeze both OLTP and OLAP DDLs in Stage 2 to unlock Architecture.</p>
-            <button onClick={() => navigate("/data-model")} className="mt-4 text-xs px-3 py-1.5 bg-[#2E2E38] text-white rounded-sm">Open DataModel →</button>
+          <div className="max-w-md bg-surface border border-border rounded-sm p-6 text-center">
+            <Lock className="w-8 h-8 mx-auto text-fg-muted mb-3" />
+            <h2 className="font-display font-bold text-fg">Locked — DataModel not frozen</h2>
+            <p className="text-xs text-fg-muted mt-2">Freeze both OLTP and OLAP DDLs in Stage 2 to unlock Architecture.</p>
+            <button onClick={() => navigate("/data-model")} className="mt-4 text-xs px-3 py-1.5 bg-ink text-ink-fg rounded-sm">Open DataModel →</button>
           </div>
         </div>
       </div>
@@ -1597,15 +1597,15 @@ export default function ArchitecturePage() {
   ];
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#F6F6FA]" data-testid="arch-page">
-      <header className="bg-white border-b-2 border-[#FFE600] px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg" data-testid="arch-page">
+      <header className="bg-surface border-b-2 border-brand px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 3 of 5</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Architecture</h1>
+          <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 3 of 5</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg">Architecture</h1>
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-[11px] text-[#747480]">{services.length} services · {artifacts.length} artifacts</span>
-          {isFrozen && <span className="text-[10px] uppercase font-bold bg-[#FFE600] text-[#2E2E38] px-2 py-0.5 rounded-sm">Frozen</span>}
+          <span className="text-micro text-fg-muted">{services.length} services · {artifacts.length} artifacts</span>
+          {isFrozen && <span className="text-micro uppercase font-bold bg-brand text-fg px-2 py-0.5 rounded-sm">Frozen</span>}
           <button onClick={onPurgeBroken} data-testid="arch-purge-broken-btn" title="Delete artifacts whose body is just a baked-in DNS / network error from a previous failed run." className="text-xs px-2 py-1 border border-amber-300 text-amber-700 rounded-sm hover:bg-amber-50">
             Purge broken
           </button>
@@ -1622,44 +1622,44 @@ export default function ArchitecturePage() {
         >
           {/* LEFT: actions + chat */}
           <Panel defaultSize={30} minSize={22}>
-            <div className="h-full bg-white border-r border-[#E6E6E6] flex flex-col">
-              <div className="px-3 py-2 border-b border-[#E6E6E6]">
+            <div className="h-full bg-surface border-r border-border flex flex-col">
+              <div className="px-3 py-2 border-b border-border">
                 <div className="mos-label mb-1">Generate</div>
                 <div className="grid grid-cols-2 gap-1">
-                  <Button data-testid="btn-recommend" onClick={onRecommend} disabled={recJob.running} className="h-8 text-[11px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500]">
+                  <Button data-testid="btn-recommend" onClick={onRecommend} disabled={recJob.running} className="h-8 text-micro bg-brand text-fg hover:bg-brand-hover">
                     {recJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Wand2 className="w-3 h-3" />} Recommend
                   </Button>
-                  <Button data-testid="btn-hld" onClick={onHld} disabled={hldJob.running} className="h-8 text-[11px]" variant="outline">
+                  <Button data-testid="btn-hld" onClick={onHld} disabled={hldJob.running} className="h-8 text-micro" variant="outline">
                     {hldJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Boxes className="w-3 h-3" />} HLD
                   </Button>
-                  <Button data-testid="btn-lld" onClick={onLld} disabled={lldJob.running} className="h-8 text-[11px]" variant="outline">
+                  <Button data-testid="btn-lld" onClick={onLld} disabled={lldJob.running} className="h-8 text-micro" variant="outline">
                     {lldJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <FileText className="w-3 h-3" />} LLD
                   </Button>
-                  <Button data-testid="btn-seq" onClick={onSeq} disabled={seqJob.running} className="h-8 text-[11px]" variant="outline">
+                  <Button data-testid="btn-seq" onClick={onSeq} disabled={seqJob.running} className="h-8 text-micro" variant="outline">
                     {seqJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Workflow className="w-3 h-3" />} Sequence
                   </Button>
-                  <Button data-testid="btn-api-contracts" onClick={onApiContracts} disabled={apiJob.running} className="h-8 text-[11px] col-span-2" variant="outline">
+                  <Button data-testid="btn-api-contracts" onClick={onApiContracts} disabled={apiJob.running} className="h-8 text-micro col-span-2" variant="outline">
                     {apiJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <GitBranch className="w-3 h-3" />} API Contracts (OpenAPI 3.1)
                   </Button>
                 </div>
                 <div className="mt-2 space-y-1">
                   {[{ j: recJob, k: "rec" }, { j: hldJob, k: "hld" }, { j: lldJob, k: "lld" }, { j: seqJob, k: "seq" }, { j: apiJob, k: "api" }].filter(x => x.j.job).map(({ j, k }) => (
-                    <div key={k} data-testid={`job-${k}`} className="text-[10px]">
+                    <div key={k} data-testid={`job-${k}`} className="text-micro">
                       <div className="flex items-center justify-between">
-                        <span className="text-[#747480] truncate">{j.job.kind}: {j.job.step}</span>
-                        <span className="text-[#2E2E38] font-semibold">{j.job.pct || 0}%</span>
+                        <span className="text-fg-muted truncate">{j.job.kind}: {j.job.step}</span>
+                        <span className="text-fg font-semibold">{j.job.pct || 0}%</span>
                       </div>
-                      <div className="h-1 bg-[#F6F6FA] rounded-sm overflow-hidden">
-                        <div className="h-full bg-[#FFE600]" style={{ width: `${j.job.pct || 0}%` }} />
+                      <div className="h-1 bg-bg rounded-sm overflow-hidden">
+                        <div className="h-full bg-brand" style={{ width: `${j.job.pct || 0}%` }} />
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
 
-              <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-2">
+              <div className="px-3 py-2 border-b border-border flex items-center gap-2">
                 <div className="mos-label">Chat target</div>
-                <select data-testid="chat-target" value={target} onChange={(e) => setTarget(e.target.value)} className="text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-0.5">
+                <select data-testid="chat-target" value={target} onChange={(e) => setTarget(e.target.value)} className="text-micro border border-border rounded-sm px-1 py-0.5">
                   <option value="all">All</option>
                   <option value="hld">HLD</option>
                   <option value="lld">LLD</option>
@@ -1670,28 +1670,28 @@ export default function ArchitecturePage() {
 
               <div className="flex-1 overflow-y-auto mos-scroll p-3 space-y-2" data-testid="arch-chat-log">
                 {chatMessages.length === 0 && (
-                  <div className="text-[11px] text-[#747480]">Ask the architect-LLM to refine services, modify HLD sections, or update LLDs. The LLM may emit `[HLD_CHANGE:section]…[/HLD_CHANGE]`, `[ARCH_CHANGE:service]…[/ARCH_CHANGE]`, or `[SERVICE_ADD]…[/SERVICE_ADD]` — review and click Apply.</div>
+                  <div className="text-micro text-fg-muted">Ask the architect-LLM to refine services, modify HLD sections, or update LLDs. The LLM may emit `[HLD_CHANGE:section]…[/HLD_CHANGE]`, `[ARCH_CHANGE:service]…[/ARCH_CHANGE]`, or `[SERVICE_ADD]…[/SERVICE_ADD]` — review and click Apply.</div>
                 )}
                 {chatMessages.map((m, i) => (
-                  <div key={i} className={`text-[12px] p-2 rounded-sm ${m.role === "user" ? "bg-[#FFFCE6] border border-[#FFE600]" : "bg-[#F6F6FA] border border-[#E6E6E6]"}`}>
-                    <div className="text-[9px] uppercase font-bold text-[#747480] mb-1">{m.role}</div>
-                    <pre className="whitespace-pre-wrap text-[12px] leading-snug text-[#2E2E38]">{m.content}</pre>
+                  <div key={i} className={`text-[12px] p-2 rounded-sm ${m.role === "user" ? "bg-brand-tint border border-brand" : "bg-bg border border-border"}`}>
+                    <div className="text-micro uppercase font-bold text-fg-muted mb-1">{m.role}</div>
+                    <pre className="whitespace-pre-wrap text-[12px] leading-snug text-fg">{m.content}</pre>
                     {m.changes?.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">
-                        <button onClick={() => onApplyChanges(m.changes, m.message_id)} data-testid={`apply-changes-${i}`} className="text-[10px] px-2 py-0.5 bg-[#2E2E38] text-white rounded-sm">
+                        <button onClick={() => onApplyChanges(m.changes, m.message_id)} data-testid={`apply-changes-${i}`} className="text-micro px-2 py-0.5 bg-ink text-ink-fg rounded-sm">
                           Apply {m.changes.length} change(s)
                         </button>
                         {m.changes.map((c, j) => (
-                          <span key={j} className="text-[9px] uppercase bg-white border border-[#E6E6E6] px-1 py-0.5 rounded-sm">{c.type}{c.target ? `:${c.target}` : ""}</span>
+                          <span key={j} className="text-micro uppercase bg-surface border border-border px-1 py-0.5 rounded-sm">{c.type}{c.target ? `:${c.target}` : ""}</span>
                         ))}
                       </div>
                     )}
                   </div>
                 ))}
-                {chatBusy && <div className="text-[11px] text-[#747480] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Thinking…</div>}
+                {chatBusy && <div className="text-micro text-fg-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Thinking…</div>}
               </div>
 
-              <div className="border-t border-[#E6E6E6] p-2 flex gap-1">
+              <div className="border-t border-border p-2 flex gap-1">
                 <textarea
                   rows={2}
                   value={chatInput}
@@ -1699,20 +1699,20 @@ export default function ArchitecturePage() {
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSendChat(); } }}
                   placeholder="Refine architecture…"
                   data-testid="arch-chat-input"
-                  className="flex-1 text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-1.5 resize-none"
+                  className="flex-1 text-[12px] border border-border focus:border-fg outline-none rounded-sm px-2 py-1.5 resize-none"
                 />
-                <Button data-testid="arch-chat-send" onClick={onSendChat} disabled={chatBusy} className="h-auto bg-[#2E2E38] text-white px-3"><Send className="w-3 h-3" /></Button>
+                <Button data-testid="arch-chat-send" onClick={onSendChat} disabled={chatBusy} className="h-auto bg-ink text-ink-fg px-3"><Send className="w-3 h-3" /></Button>
               </div>
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-[#E6E6E6] hover:bg-[#FFE600]" />
+          <PanelResizeHandle className="w-1 bg-border hover:bg-brand" />
 
           {/* RIGHT: artifact viewer */}
           <Panel defaultSize={70}>
-            <div className="h-full flex flex-col bg-white">
+            <div className="h-full flex flex-col bg-surface">
               {/* Tabs */}
-              <div className="flex items-center border-b border-[#E6E6E6] px-2">
+              <div className="flex items-center border-b border-border px-2">
                 {tabs.map((t) => {
                   const a = artifacts.find((x) => x.type === t.type);
                   const Icon = t.icon;
@@ -1722,34 +1722,34 @@ export default function ArchitecturePage() {
                       key={t.type}
                       data-testid={`tab-${t.type}`}
                       onClick={() => { setActiveType(t.type); setEditing(false); }}
-                      className={`flex items-center gap-1 text-[12px] px-2.5 py-2 border-b-2 ${isActive ? "border-[#FFE600] text-[#2E2E38] font-semibold" : "border-transparent text-[#747480] hover:text-[#2E2E38]"}`}
+                      className={`flex items-center gap-1 text-[12px] px-2.5 py-2 border-b-2 ${isActive ? "border-brand text-fg font-semibold" : "border-transparent text-fg-muted hover:text-fg"}`}
                       title={t.optional ? "Optional — not required to unlock CodeGen" : undefined}
                     >
                       <Icon className="w-3 h-3" /> {t.label}
                       {t.optional && (
                         <span
-                          className="text-[8px] uppercase font-bold text-[#B0B0B8] bg-[#F6F6FA] px-1 rounded-sm"
+                          className="text-micro uppercase font-bold text-fg-subtle bg-bg px-1 rounded-sm"
                           data-testid={`tab-${t.type}-optional`}
                         >
                           opt
                         </span>
                       )}
-                      {a?.frozen && <Lock className="w-3 h-3 text-[#FFE600]" />}
-                      {a && !a.frozen && <span className="text-[9px] bg-[#F6F6FA] px-1 rounded-sm">v{a.version}</span>}
+                      {a?.frozen && <Lock className="w-3 h-3 text-brand" />}
+                      {a && !a.frozen && <span className="text-micro bg-bg px-1 rounded-sm">v{a.version}</span>}
                     </button>
                   );
                 })}
                 <div className="ml-auto flex items-center gap-1 py-1">
                   {activeArtifact && !activeArtifact.frozen && !editing && (
                     <>
-                      <button onClick={startEdit} data-testid="edit-artifact" className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>
+                      <button onClick={startEdit} data-testid="edit-artifact" className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>
                       {activeType === "service_map" ? (
                         <button
                           onClick={onApproveSm}
                           disabled={selectedSvcNames.length === 0}
                           data-testid="approve-service-map"
                           title="Approve the service map AND freeze the Architecture stage. HLD / LLD / Sequence / API Contracts are optional and can be generated later."
-                          className={`text-[11px] px-2 py-1 rounded-sm font-bold flex items-center gap-1 ${selectedSvcNames.length === 0 ? "bg-[#FFF3A1] text-[#9A9A9A] cursor-not-allowed" : "bg-[#FFE600] text-[#2E2E38]"}`}
+                          className={`text-micro px-2 py-1 rounded-sm font-bold flex items-center gap-1 ${selectedSvcNames.length === 0 ? "bg-brand-tint text-fg-subtle cursor-not-allowed" : "bg-brand text-fg"}`}
                         >
                           <Lock className="w-3 h-3" />
                           Approve &amp; Freeze{selectedSvcNames.length > 0 ? ` (${selectedSvcNames.length})` : ""}
@@ -1758,7 +1758,7 @@ export default function ArchitecturePage() {
                         <>
                           {/* iter-13.71 — per-stage Accuracy / Confidence badge */}
                           <ConfidenceBadge projectId={projectId} stage="Architecture" compact />
-                          <button onClick={() => onFreeze(activeArtifact)} data-testid="freeze-artifact" className="text-[11px] px-2 py-1 bg-[#2E2E38] text-white rounded-sm flex items-center gap-1"><Lock className="w-3 h-3" /> Freeze</button>
+                          <button onClick={() => onFreeze(activeArtifact)} data-testid="freeze-artifact" className="text-micro px-2 py-1 bg-ink text-ink-fg rounded-sm flex items-center gap-1"><Lock className="w-3 h-3" /> Freeze</button>
                         </>
                       )}
                     </>
@@ -1771,10 +1771,10 @@ export default function ArchitecturePage() {
                       {activeArtifact.frozen && activeType !== "service_map" && (
                         <ConfidenceBadge projectId={projectId} stage="Architecture" compact />
                       )}
-                      <a href={downloadArchArtifactUrl(projectId, activeArtifact.id)} data-testid="download-artifact" title="Download raw source (markdown / YAML / JSON)" className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /></a>
+                      <a href={downloadArchArtifactUrl(projectId, activeArtifact.id)} data-testid="download-artifact" title="Download raw source (markdown / YAML / JSON)" className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /></a>
                       {/* iter-14.25.12 — PDF export for HLD / LLD /
                           Sequence / API Contracts / Service Map. */}
-                      <a href={downloadArchArtifactPdfUrl(projectId, activeArtifact.id)} data-testid="download-artifact-pdf" title="Download as PDF (business review format)" className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /> PDF</a>
+                      <a href={downloadArchArtifactPdfUrl(projectId, activeArtifact.id)} data-testid="download-artifact-pdf" title="Download as PDF (business review format)" className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm flex items-center gap-1"><Download className="w-3 h-3" /> PDF</a>
                     </>
                   )}
                 </div>
@@ -1783,8 +1783,8 @@ export default function ArchitecturePage() {
               {/* Body */}
               <div className="flex-1 overflow-y-auto mos-scroll p-4" data-testid={`artifact-body-${activeType}`}>
                 {!activeArtifact && (
-                  <div className="text-center text-[#747480] mt-12">
-                    <Sparkles className="w-8 h-8 mx-auto mb-2 text-[#FFE600]" />
+                  <div className="text-center text-fg-muted mt-12">
+                    <Sparkles className="w-8 h-8 mx-auto mb-2 text-brand" />
                     <div className="text-sm font-semibold">No {ARTIFACT_META[activeType]?.label || activeType} yet</div>
                     <div className="text-xs mt-1">Use Generate buttons on the left.</div>
                   </div>
@@ -1795,11 +1795,11 @@ export default function ArchitecturePage() {
                       value={editBuf}
                       onChange={(e) => setEditBuf(e.target.value)}
                       data-testid="edit-textarea"
-                      className="flex-1 min-h-[300px] text-[12px] font-mono border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm p-2"
+                      className="flex-1 min-h-[300px] text-[12px] font-mono border border-border focus:border-fg outline-none rounded-sm p-2"
                     />
                     <div className="flex justify-end gap-2">
-                      <button onClick={() => setEditing(false)} className="text-[11px] px-3 py-1 border border-[#E6E6E6] rounded-sm">Cancel</button>
-                      <button onClick={saveEdit} data-testid="save-edit" className="text-[11px] px-3 py-1 bg-[#2E2E38] text-white rounded-sm">Save</button>
+                      <button onClick={() => setEditing(false)} className="text-micro px-3 py-1 border border-border rounded-sm">Cancel</button>
+                      <button onClick={saveEdit} data-testid="save-edit" className="text-micro px-3 py-1 bg-ink text-ink-fg rounded-sm">Save</button>
                     </div>
                   </div>
                 )}

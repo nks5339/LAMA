@@ -1,9 +1,12 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { X, MessageSquare, Send, Bot, User, Plus, Clock, Trash2, Pencil } from "lucide-react";
-import { sendMessage, createSession, getSession, listSessions, archiveSession, updateSRSSection } from "@/lib/api";
+import { X, MessageSquare, Send, Bot, User, Plus, Clock, Trash2, Pencil, Square, FileText } from "lucide-react";
+import { streamMessage, createSession, getSession, listSessions, archiveSession, updateSRSSection } from "@/lib/api";
 import { useProjects } from "@/state/ProjectContext";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { ThinkingDots, AgentTimeline } from "@/components/ui/job-progress";
+import { useElapsed, formatDuration, phaseLabel } from "@/hooks/useJobProgress";
 
 const SECTION_OPTIONS = [
   { value: "purpose", label: "1. Purpose" },
@@ -56,6 +59,19 @@ export default function FloatingChat({
   const [activeCategory, setActiveCategory] = useState(categories?.[0]?.key || null);
   const scrollRef = useRef(null);
   const { getSessionId, setSessionId } = useProjects();
+
+  // Drives the "n s elapsed" line while a reply is in flight.
+  const thinkingFor = useElapsed(sending);
+  // Streaming state: tokens as they land, the current phase, and the
+  // citations the answer is grounded in. `abortRef` backs the Stop button.
+  const [draft, setDraft] = useState("");
+  const [phase, setPhase] = useState(null);
+  const [citations, setCitations] = useState([]);
+  const abortRef = useRef(null);
+  // The send handler reads citations after the stream closes, from inside an
+  // async closure that captured the render-time value — so mirror them into
+  // a ref rather than reading stale state.
+  const citationsRef = useRef([]);
 
   const SESSION_STAGE = stage;
   const SESSION_AGENT = categories ? `${agentKey}.${activeCategory}` : agentKey;
@@ -122,15 +138,12 @@ export default function FloatingChat({
     
     (async () => {
       try {
-        console.log("Loading session:", activeSessionId);
         // Get session details which contain live_turns
         const sess = await getSession(activeSessionId);
-        console.log("Session loaded:", sess);
         setActiveSession(sess);
         
         // Convert session's live_turns to chat history format
         if (sess?.live_turns && Array.isArray(sess.live_turns)) {
-          console.log("Live turns found:", sess.live_turns.length);
           const messages = [];
           sess.live_turns.forEach(turn => {
             if (turn.user_content) {
@@ -148,10 +161,8 @@ export default function FloatingChat({
               });
             }
           });
-          console.log("Converted messages:", messages);
           setHistory(messages);
         } else {
-          console.log("No live turns in session");
           setHistory([]);
         }
       } catch (e) {
@@ -166,7 +177,7 @@ export default function FloatingChat({
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
-  }, [history]);
+  }, [history, draft]);
 
   const handleNewSession = async () => {
     // Don't create session immediately - wait for first message
@@ -193,17 +204,26 @@ export default function FloatingChat({
 
   const handleSend = async () => {
     if (!input.trim() || sending || !projectId) return;
-    
+
     const userMsg = input.trim();
     setInput("");
     setSending(true);
+    setDraft("");
+    setCitations([]);
+    citationsRef.current = [];
+    setPhase("retrieving");
 
-    // Optimistic update
+    // Optimistic user bubble.
     const tempMsg = { role: "user", content: userMsg, timestamp: new Date().toISOString() };
     setHistory((prev) => [...prev, tempMsg]);
 
+    const controller = new AbortController();
+    abortRef.current = controller;
+
+    let streamed = "";
     try {
-      // Create session on first message if none exists
+      // Create the session on the first message rather than up front, so an
+      // abandoned "New chat" leaves no empty session behind.
       let sessionIdToUse = activeSessionId;
       if (!activeSessionId) {
         const sess = await createSession({
@@ -215,7 +235,7 @@ export default function FloatingChat({
         setActiveSessionId(sessionIdToUse);
         setSessionId(SESSION_STAGE, SESSION_AGENT, sessionIdToUse);
       }
-      
+
       const payload = {
         project_id: projectId,
         message: userMsg,
@@ -224,79 +244,87 @@ export default function FloatingChat({
         session_id: sessionIdToUse || undefined,
         stage: SESSION_STAGE,
       };
-      
-      // Only add edit mode params for Discovery chat
       if (enableSrsEdit) {
         payload.edit_mode = srsEditMode;
         payload.selected_section = srsEditMode ? editSection : null;
       }
-      
-      const resp = await sendMessage(payload);
 
-      // If a session was used, reload it to get updated live_turns
-      if (sessionIdToUse) {
-        const sess = await getSession(sessionIdToUse);
-        setActiveSession(sess);
-        
-        // Convert session's live_turns to history
-        if (sess?.live_turns && Array.isArray(sess.live_turns)) {
-          const messages = [];
-          sess.live_turns.forEach(turn => {
-            if (turn.user_content) {
-              messages.push({
-                role: "user",
-                content: turn.user_content,
-                timestamp: turn.timestamp || sess.updated_at
-              });
-            }
-            if (turn.assistant_content) {
-              // Tag edit mode responses for Apply button (only for Discovery)
-              const msg = {
-                role: "assistant",
-                content: turn.assistant_content,
-                timestamp: turn.timestamp || sess.updated_at
-              };
-              if (enableSrsEdit && srsEditMode && turn.metadata?.edit_section) {
-                msg._editSection = turn.metadata.edit_section;
-              }
-              messages.push(msg);
-            }
-          });
-          setHistory(messages);
-        }
-      } else {
-        // Fallback to old conversation-based history
-        const enrichedMsg = (enableSrsEdit && srsEditMode)
-          ? { role: "assistant", content: resp.response, timestamp: resp.timestamp, _editSection: editSection }
-          : { role: "assistant", content: resp.response, timestamp: resp.timestamp };
-          
-        setHistory((prev) => [
-          ...prev.filter((m) => m !== tempMsg),
-          { role: "user", content: userMsg, timestamp: resp.timestamp },
-          enrichedMsg,
-        ]);
+      const final = await streamMessage(
+        payload,
+        (evt) => {
+          if (evt.type === "phase") setPhase(evt.phase);
+          else if (evt.type === "citation") {
+            setCitations((c) => {
+              const next = c.some((x) => x.filename === evt.filename) ? c : [...c, evt];
+              citationsRef.current = next;
+              return next;
+            });
+          } else if (evt.type === "token") {
+            streamed += evt.text;
+            setDraft(streamed);
+          }
+        },
+        controller.signal,
+      );
+
+      // Commit the streamed reply into history as one message.
+      const assistantMsg = {
+        role: "assistant",
+        content: final?.message?.content || streamed,
+        timestamp: final?.message?.created_at || new Date().toISOString(),
+        _citations: citationsRef.current.length ? citationsRef.current : undefined,
+      };
+      if (enableSrsEdit && srsEditMode) {
+        assistantMsg._editSection = editSection;
       }
+      setHistory((prev) => [...prev, assistantMsg]);
+      setDraft("");
+      setConversationId(final?.conversation_id || conversationId);
 
-      setConversationId(resp.conversation_id);
       if (onConversationUpdated) {
-        onConversationUpdated(resp.conversation_id, resp.srs_triggered || false);
+        onConversationUpdated(final?.conversation_id, final?.srs_triggered || false);
       }
-      
-      // Reload sessions if we just created a new one
-      if (!activeSessionId && sessionIdToUse) {
-        loadSessions();
+      // The backend used to swallow auto-trigger failures entirely. It now
+      // reports them, so say so rather than leaving the user waiting for an
+      // SRS that was never generated.
+      if (final?.srs_error) {
+        toast.error("SRS generation could not start", { description: final.srs_error });
       }
+      if (!activeSessionId && sessionIdToUse) loadSessions();
     } catch (e) {
-      toast.error("Message failed", {
-        description: e.response?.data?.detail || e.message,
-      });
-      setHistory((prev) => prev.filter((m) => m !== tempMsg));
+      if (e?.name === "AbortError") {
+        // Stopped on purpose — keep whatever arrived so the user does not
+        // lose a long partial answer.
+        if (streamed.trim()) {
+          setHistory((prev) => [...prev, {
+            role: "assistant",
+            content: streamed,
+            timestamp: new Date().toISOString(),
+            _stopped: true,
+          }]);
+        }
+        setDraft("");
+        toast.message("Stopped");
+      } else {
+        toast.error("Message failed", {
+          description: e?.response?.data?.detail || e.message,
+        });
+        setHistory((prev) => prev.filter((m) => m !== tempMsg));
+        setDraft("");
+      }
     } finally {
+      abortRef.current = null;
+      setPhase(null);
       setSending(false);
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleStop = () => {
+    abortRef.current?.abort();
+  };
+
+
+  const handleKeyDown = (e) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
@@ -319,7 +347,7 @@ export default function FloatingChat({
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-[#2E2E38] hover:bg-[#FFE600] text-white hover:text-[#2E2E38] rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-50"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-ink hover:bg-brand text-ink-fg hover:text-fg rounded-full shadow-lg flex items-center justify-center transition-all hover:scale-110 z-50"
         aria-label="Open Discovery Chat"
         data-testid="floating-chat-trigger"
       >
@@ -329,15 +357,15 @@ export default function FloatingChat({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-lg shadow-2xl w-[95vw] h-[90vh] max-w-7xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/50 backdrop-blur-sm">
+      <div className="bg-surface rounded-lg shadow-2xl w-[95vw] h-[90vh] max-w-7xl flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-[#2E2E38] text-white px-6 py-3 flex items-center justify-between shrink-0">
+        <div className="bg-ink text-ink-fg px-6 py-3 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <MessageSquare className="w-5 h-5" />
             <div>
               <h2 className="font-display text-lg font-bold">{chatTitle}</h2>
-              <p className="text-xs text-gray-300">
+              <p className="text-xs text-fg-onDarkMuted">
                 {activeSessionId 
                   ? `Session ${activeSessionId.slice(0, 8)} • ${history.length} messages`
                   : "AI-powered knowledge exploration"}
@@ -352,8 +380,8 @@ export default function FloatingChat({
                 className={cn(
                   "text-xs px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors",
                   srsEditMode
-                    ? "bg-[#FFE600] text-[#2E2E38] font-semibold"
-                    : "bg-white/10 text-white hover:bg-white/20"
+                    ? "bg-brand text-fg font-semibold"
+                    : "bg-surface/10 text-white hover:bg-surface/20"
                 )}
               >
                 <Pencil className="w-3 h-3" />
@@ -363,14 +391,14 @@ export default function FloatingChat({
             
             <button
               onClick={() => setShowSidebar(!showSidebar)}
-              className="hover:bg-white/10 rounded px-3 py-1.5 transition-colors text-xs"
+              className="hover:bg-surface/10 rounded px-3 py-1.5 transition-colors text-xs"
               title={showSidebar ? "Hide sessions" : "Show sessions"}
             >
               {showSidebar ? "Hide Sessions" : "Show Sessions"}
             </button>
             <button
               onClick={() => setIsOpen(false)}
-              className="hover:bg-white/10 rounded p-2 transition-colors"
+              className="hover:bg-surface/10 rounded p-2 transition-colors"
               aria-label="Close chat"
             >
               <X className="w-5 h-5" />
@@ -380,33 +408,33 @@ export default function FloatingChat({
 
         {/* SRS Edit Mode strip - Only for Discovery */}
         {enableSrsEdit && srsEditMode && (
-          <div className="px-6 py-2 bg-[#FFE600]/10 border-b border-[#FFE600]/40 flex items-center gap-3">
-            <span className="text-[10px] uppercase tracking-wider text-[#2E2E38] font-semibold">Editing section:</span>
+          <div className="px-6 py-2 bg-brand/10 border-b border-brand/40 flex items-center gap-3">
+            <span className="text-micro uppercase tracking-wider text-fg font-semibold">Editing section:</span>
             <select
               value={editSection}
               onChange={(e) => setEditSection(e.target.value)}
-              className="text-xs border border-[#E6E6E6] rounded px-2 py-1 bg-white focus:border-[#2E2E38] focus:ring-1 focus:ring-[#2E2E38] outline-none"
+              className="text-xs border border-border rounded px-2 py-1 bg-surface text-fg focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               {SECTION_OPTIONS.map((s) => (
                 <option key={s.value} value={s.value}>{s.label}</option>
               ))}
             </select>
-            <span className="text-[10px] text-[#747480]">Describe what to add or change in this section.</span>
+            <span className="text-micro text-fg-muted">Describe what to add or change in this section.</span>
           </div>
         )}
         
         {/* Category tabs - For DataModel chat */}
         {categories && categories.length > 0 && (
-          <div className="border-b border-[#E6E6E6] flex bg-white">
+          <div className="border-b border-border flex bg-surface">
             {categories.map((cat) => (
               <button
                 key={cat.key}
                 type="button"
                 onClick={() => setActiveCategory(cat.key)}
-                className={`text-xs px-4 py-2 font-semibold tracking-tight border-r border-[#E6E6E6] transition-colors ${
+                className={`text-xs px-4 py-2 font-semibold tracking-tight border-r border-border transition-colors ${
                   activeCategory === cat.key
-                    ? "bg-[#2E2E38] text-white"
-                    : "bg-white text-[#747480] hover:text-[#2E2E38] hover:bg-gray-50"
+                    ? "bg-ink text-ink-fg"
+                    : "bg-surface text-fg-muted hover:text-fg hover:bg-surface-2"
                 }`}
               >
                 {cat.label}
@@ -419,11 +447,11 @@ export default function FloatingChat({
         <div className="flex-1 flex overflow-hidden">
           {/* Sidebar - Chat Sessions */}
           {showSidebar && (
-            <div className="w-64 bg-[#F6F6FA] border-r border-[#E6E6E6] flex flex-col shrink-0">
-              <div className="p-4 border-b border-[#E6E6E6]">
+            <div className="w-64 bg-surface-2 border-r border-border flex flex-col shrink-0">
+              <div className="p-4 border-b border-border">
                 <button
                   onClick={handleNewSession}
-                  className="w-full bg-[#FFE600] hover:bg-[#FFD700] text-[#2E2E38] font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
+                  className="w-full bg-brand hover:bg-brand-hover text-fg font-semibold py-2 px-4 rounded-lg flex items-center justify-center gap-2 transition-colors"
                 >
                   <Plus className="w-4 h-4" />
                   New Chat
@@ -431,38 +459,49 @@ export default function FloatingChat({
               </div>
 
               <div className="flex-1 overflow-y-auto p-2">
-                <h3 className="text-xs font-semibold text-[#747480] uppercase tracking-wide px-2 mb-2">
+                <h3 className="text-xs font-semibold text-fg-muted uppercase tracking-wide px-2 mb-2">
                   Recent Sessions ({sessions.length})
                 </h3>
                 {loadingSessions ? (
-                  <div className="text-xs text-[#747480] text-center py-4">Loading sessions...</div>
+                  <div className="text-xs text-fg-muted text-center py-4">Loading sessions...</div>
                 ) : sessions.length === 0 ? (
-                  <div className="text-xs text-[#747480] px-2 py-4">
+                  <div className="text-xs text-fg-muted px-2 py-4">
                     <p className="mb-2">No sessions found.</p>
-                    <p className="text-[10px]">Click "New Chat" to start a conversation.</p>
+                    <p className="text-micro">Click "New Chat" to start a conversation.</p>
                   </div>
                 ) : (
                   <div className="space-y-1">
                     {sessions.map((sess) => (
                       <div
                         key={sess.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-current={activeSessionId === sess.id ? "true" : undefined}
                         className={cn(
-                          "group relative p-2 rounded-lg cursor-pointer transition-colors",
+                          "group relative p-2 rounded cursor-pointer transition-colors",
+                          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                           activeSessionId === sess.id
-                            ? "bg-white border border-[#FFE600]"
-                            : "hover:bg-white/50"
+                            ? "bg-surface border border-brand-edge"
+                            : "hover:bg-surface"
                         )}
                         onClick={() => {
                           setActiveSessionId(sess.id);
                           setSessionId(SESSION_STAGE, SESSION_AGENT, sess.id);
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" || e.key === " ") {
+                            e.preventDefault();
+                            setActiveSessionId(sess.id);
+                            setSessionId(SESSION_STAGE, SESSION_AGENT, sess.id);
+                          }
+                        }}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
-                            <div className="text-xs font-medium text-[#2E2E38] truncate">
+                            <div className="text-xs font-medium text-fg truncate">
                               Session {sess.id.slice(0, 8)}
                             </div>
-                            <div className="text-[10px] text-[#747480] flex items-center gap-1 mt-1">
+                            <div className="text-micro text-fg-muted flex items-center gap-1 mt-1">
                               <Clock className="w-3 h-3" />
                               {new Date(sess.created_at).toLocaleDateString()}
                             </div>
@@ -487,17 +526,31 @@ export default function FloatingChat({
           )}
 
           {/* Chat Area */}
-          <div className="flex-1 flex flex-col bg-white">
+          <div className="flex-1 flex flex-col bg-surface">
             {/* Messages */}
-            <div ref={scrollRef} className="flex-1 overflow-y-auto p-6 space-y-4">
+            <div
+              ref={scrollRef}
+              className="flex-1 overflow-y-auto mos-scroll p-6 space-y-4"
+              role="log"
+              aria-live="polite"
+              aria-atomic="false"
+              aria-busy={sending}
+              aria-label="Conversation"
+              data-testid="chat-transcript"
+            >
               {!kbReady && (
-                <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 text-sm text-amber-900">
-                  <strong>Knowledge Base not ready.</strong> Build the KB first to enable AI-powered discovery.
+                <div
+                  role="status"
+                  className="bg-warn-bg border border-warn-edge rounded p-4 text-sm text-fg"
+                >
+                  <strong className="text-warn">Knowledge base not ready.</strong>{" "}
+                  Upload source files and choose Build Knowledge Base to enable
+                  AI-powered discovery.
                 </div>
               )}
 
               {history.length === 0 && kbReady && (
-                <div className="text-center py-12 text-[#747480]">
+                <div className="text-center py-12 text-fg-muted">
                   <Bot className="w-12 h-12 mx-auto mb-3 opacity-50" />
                   <p className="text-sm">Start a conversation to explore your codebase</p>
                   <p className="text-xs mt-1">Ask questions about architecture, dependencies, or functionality</p>
@@ -513,7 +566,7 @@ export default function FloatingChat({
                   )}
                 >
                   {msg.role === "assistant" && (
-                    <div className="w-8 h-8 bg-[#2E2E38] rounded-full flex items-center justify-center shrink-0">
+                    <div className="w-8 h-8 bg-ink rounded-full flex items-center justify-center shrink-0">
                       <Bot className="w-4 h-4 text-white" />
                     </div>
                   )}
@@ -522,74 +575,163 @@ export default function FloatingChat({
                       className={cn(
                         "rounded-lg px-4 py-2",
                         msg.role === "user"
-                          ? "bg-[#2E2E38] text-white ml-auto max-w-[90%]"
-                          : "bg-[#F6F6FA] text-[#2E2E38] border border-[#E6E6E6]"
+                          ? "bg-ink text-ink-fg ml-auto max-w-[90%]"
+                          : "bg-surface-2 text-fg border border-border"
                       )}
                     >
                       <div className="text-sm whitespace-pre-wrap">{msg.content}</div>
                       {msg.timestamp && (
-                        <div className={cn("text-[10px] mt-1", msg.role === "user" ? "text-gray-300" : "text-[#747480]")}>
+                        <div className={cn("text-micro mt-1", msg.role === "user" ? "text-fg-onDarkMuted" : "text-fg-subtle")}>
                           {new Date(msg.timestamp).toLocaleTimeString()}
                         </div>
                       )}
                     </div>
                     
+                    {/* Sources this answer was grounded in. The backend
+                        emits one citation per RAG chunk, so this is the
+                        actual retrieval set — not a guess. */}
+                    {msg.role === "assistant" && msg._citations?.length > 0 && (
+                      <ul className="mt-1.5 flex flex-wrap gap-1" aria-label="Sources">
+                        {msg._citations.map((c) => (
+                          <li key={c.filename}>
+                            <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface-2 px-1.5 py-0.5 text-micro font-mono text-fg-muted">
+                              <FileText className="size-3 shrink-0" aria-hidden />
+                              {c.filename}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+
+                    {msg._stopped && (
+                      <p className="mt-1 text-micro text-warn">Stopped — partial reply</p>
+                    )}
+
                     {/* Apply to SRS button for edit mode responses - Only for Discovery */}
                     {enableSrsEdit && msg.role === "assistant" && msg._editSection && (
                       <button
                         onClick={() => applySrsEdit(msg.content, msg._editSection)}
-                        className="mt-2 text-xs bg-[#FFE600] hover:bg-[#FFD700] text-[#2E2E38] px-3 py-1.5 rounded font-semibold transition-colors"
+                        className="mt-2 text-xs bg-brand hover:bg-brand-hover text-fg px-3 py-1.5 rounded font-semibold transition-colors"
                       >
                         Apply to {SECTION_OPTIONS.find((s) => s.value === msg._editSection)?.label || msg._editSection}
                       </button>
                     )}
                   </div>
                   {msg.role === "user" && (
-                    <div className="w-8 h-8 bg-[#FFE600] rounded-full flex items-center justify-center shrink-0">
-                      <User className="w-4 h-4 text-[#2E2E38]" />
+                    <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center shrink-0">
+                      <User className="w-4 h-4 text-fg" />
                     </div>
                   )}
                 </div>
               ))}
 
+              {/* The assistant is working. The previous version showed three
+                  bouncing dots and nothing else — no phase, no elapsed time,
+                  and nothing announced to assistive tech, so a slow reply was
+                  indistinguishable from a hung one. */}
+              {/* In-flight reply. Tokens render as they arrive, so the
+                  user reads the answer while the model is still writing it
+                  — the previous version showed three bouncing dots until
+                  the entire response had landed. */}
               {sending && (
-                <div className="flex gap-3 justify-start">
-                  <div className="w-8 h-8 bg-[#2E2E38] rounded-full flex items-center justify-center shrink-0">
-                    <Bot className="w-4 h-4 text-white" />
+                <div className="flex gap-3 justify-start" data-testid="chat-pending">
+                  <div className="size-8 bg-ink rounded-lg grid place-items-center shrink-0">
+                    <Bot className="size-4 text-ink-fg" aria-hidden />
                   </div>
-                  <div className="bg-[#F6F6FA] rounded-lg px-4 py-2 border border-[#E6E6E6]">
-                    <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-[#747480] rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="w-2 h-2 bg-[#747480] rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <div className="w-2 h-2 bg-[#747480] rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  <div className="flex-1 min-w-0 max-w-[80%] flex flex-col gap-1.5">
+                    <div className="bg-surface-2 rounded px-4 py-2.5 border border-border flex flex-col gap-1.5">
+                      {draft ? (
+                        <>
+                          <div className="text-sm whitespace-pre-wrap text-fg">
+                            {draft}
+                            <span
+                              className="inline-block w-1.5 h-4 -mb-0.5 ml-0.5 bg-fg-muted motion-safe:animate-pulse"
+                              aria-hidden
+                            />
+                          </div>
+                          <span className="text-micro text-fg-subtle tabular-nums">
+                            {formatDuration(thinkingFor)}
+                          </span>
+                        </>
+                      ) : (
+                        <>
+                          <ThinkingDots
+                            label={
+                              phaseLabel(phase) ||
+                              (srsEditMode ? "Drafting the section edit" : "Working")
+                            }
+                          />
+                          <span className="text-micro text-fg-subtle tabular-nums">
+                            {formatDuration(thinkingFor)} elapsed
+                          </span>
+                        </>
+                      )}
                     </div>
+
+                    {citations.length > 0 && (
+                      <AgentTimeline
+                        steps={citations.map((c) => ({
+                          id: c.filename,
+                          agent: "retrieving",
+                          summary: c.filename,
+                          status: "done",
+                          source: c.filetype || undefined,
+                        }))}
+                      />
+                    )}
                   </div>
                 </div>
               )}
             </div>
 
             {/* Input Area */}
-            <div className="border-t border-[#E6E6E6] p-4 bg-white">
+            <div className="border-t border-border p-4 bg-surface">
               <div className="flex gap-2">
+                <label htmlFor="chat-composer" className="sr-only">
+                  Message
+                </label>
                 <textarea
+                  id="chat-composer"
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask about your codebase..."
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    kbReady
+                      ? "Ask about your codebase…"
+                      : "Build the knowledge base to start chatting"
+                  }
                   disabled={!kbReady || sending}
-                  className="flex-1 resize-none border border-[#E6E6E6] rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-[#FFE600] disabled:bg-gray-50 disabled:text-gray-400"
+                  aria-describedby="chat-composer-hint"
+                  className="flex-1 resize-none border border-border-strong rounded bg-surface text-fg px-4 py-3 text-sm placeholder:text-fg-subtle focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-surface disabled:bg-surface-2 disabled:text-fg-subtle"
                   rows={2}
                 />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || sending || !kbReady}
-                  className="bg-[#2E2E38] hover:bg-[#FFE600] text-white hover:text-[#2E2E38] px-6 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  <Send className="w-5 h-5" />
-                </button>
+                {sending ? (
+                  <Button
+                    variant="outline"
+                    onClick={handleStop}
+                    aria-label="Stop generating"
+                    className="px-6 self-stretch"
+                    data-testid="chat-stop-btn"
+                  >
+                    <Square className="size-4" aria-hidden />
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    onClick={handleSend}
+                    disabled={!input.trim() || !kbReady}
+                    aria-label="Send message"
+                    className="px-6 self-stretch"
+                    data-testid="chat-send-btn"
+                  >
+                    <Send className="size-4" aria-hidden />
+                  </Button>
+                )}
               </div>
-              <div className="flex items-center justify-between mt-2 text-xs text-[#747480]">
-                <span>Press Enter to send, Shift+Enter for new line</span>
+              <div className="flex items-center justify-between mt-2 text-xs text-fg-muted">
+                <span id="chat-composer-hint">
+                  Enter to send · Shift+Enter for a new line
+                </span>
                 {activeSessionId && (
                   <span className="font-mono">Session: {activeSessionId.slice(0, 8)}...</span>
                 )}

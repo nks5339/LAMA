@@ -1,195 +1,244 @@
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { StatusChip, ProgressBar } from "@/components/ui/status";
+
+export { ProgressBar };
 
 /**
- * MetricCard - Display key metrics with clean visual hierarchy
+ * MetricCard — a single figure.
+ *
+ * Changes: the old version put `onClick` on a bare <div>, so a clickable
+ * tile had no keyboard path and no role. It also took a `color` prop from a
+ * five-way rainbow (blue / green / yellow / purple / gray) that carried no
+ * meaning — four tiles on Discovery were four different colours for four
+ * equally neutral counts. Colour is now reserved for actual state via
+ * `tone`, and the default is neutral.
  */
-export function MetricCard({ label, value, trend, icon: Icon, color = "blue", className, onClick }) {
-  const colorClasses = {
-    blue: "bg-blue-50 border-blue-200 text-blue-900",
-    green: "bg-green-50 border-green-200 text-green-900",
-    yellow: "bg-yellow-50 border-yellow-200 text-yellow-900",
-    purple: "bg-purple-50 border-purple-200 text-purple-900",
-    gray: "bg-gray-50 border-gray-200 text-gray-900",
-  };
+export function MetricCard({
+  label,
+  value,
+  trend,
+  icon: Icon,
+  tone = "neutral",
+  hint,
+  className,
+  onClick,
+  loading = false,
+  ...rest
+}) {
+  const toneRing = {
+    neutral: "",
+    ok: "border-l-2 border-l-ok",
+    warn: "border-l-2 border-l-warn",
+    crit: "border-l-2 border-l-crit",
+    brand: "border-l-2 border-l-brand",
+  }[tone];
+
+  const Comp = onClick ? "button" : "div";
 
   return (
-    <div
+    <Comp
+      type={onClick ? "button" : undefined}
+      onClick={onClick}
       className={cn(
-        "border rounded-lg p-2 transition-all hover:shadow-md",
-        colorClasses[color],
-        onClick && "cursor-pointer hover:scale-105",
+        "rounded border border-border bg-surface p-3 text-left w-full",
+        "transition-[border-color,box-shadow] duration-fast ease",
+        toneRing,
+        onClick &&
+          "hover:border-border-strong hover:shadow-raised cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
         className
       )}
-      onClick={onClick}
+      {...rest}
     >
-      <div className="flex items-start justify-between mb-1">
-        <p className="text-[10px] font-medium uppercase tracking-wide opacity-70">{label}</p>
-        {Icon && <Icon className="w-3 h-3 opacity-60" />}
+      <div className="flex items-start justify-between gap-2 mb-1">
+        <p className="text-micro font-medium uppercase tracking-wide text-fg-subtle truncate">
+          {label}
+        </p>
+        {Icon && <Icon className="size-3.5 shrink-0 text-fg-subtle" aria-hidden />}
       </div>
+
       <div className="flex items-baseline gap-2">
-        <p className="text-xl font-bold">{value}</p>
-        {trend && (
-          <span className="text-[10px] font-medium">
+        {loading ? (
+          <span className="skeleton h-6 w-12 rounded-sm" aria-hidden />
+        ) : (
+          <p className="text-xl font-display font-bold text-fg tabular-nums">
+            {value}
+          </p>
+        )}
+        {trend != null && (
+          <span
+            className={cn(
+              "text-micro font-medium tabular-nums",
+              trend > 0 ? "text-ok" : trend < 0 ? "text-crit" : "text-fg-subtle"
+            )}
+          >
             {trend > 0 ? "+" : ""}
             {trend}%
           </span>
         )}
       </div>
-    </div>
+
+      {hint && <p className="text-micro text-fg-subtle mt-1 truncate">{hint}</p>}
+    </Comp>
   );
 }
 
 /**
- * StepCard - Wizard-style step card for guided workflows
- * Can be clickable for navigation
+ * StepCard — a step in a guided workflow.
+ *
+ * Changes: `pending` used to be `opacity-60`, which dropped the description
+ * to roughly 2.1:1. More importantly, a disabled step used to be a card
+ * that looked pressable and silently did nothing when clicked — the most
+ * common dead-click in the product. A blocked step now states its own
+ * precondition, both visibly and as the accessible description.
  */
-export function StepCard({ 
-  stepNumber, 
-  title, 
-  description, 
+export function StepCard({
+  stepNumber,
+  title,
+  description,
   status = "pending", // pending | active | complete | error
   icon: Icon,
   onClick,
-  className 
+  disabled = false,
+  disabledReason,
+  className,
+  ...rest
 }) {
-  const statusStyles = {
-    pending: "border-gray-200 bg-white opacity-60",
-    active: "border-[#FFE600] bg-white shadow-md",
-    complete: "border-green-300 bg-green-50",
-    error: "border-red-300 bg-red-50",
-  };
+  const shell = {
+    pending: "border-border bg-surface",
+    active: "border-brand bg-surface shadow-raised",
+    complete: "border-ok-edge bg-ok-bg",
+    error: "border-crit-edge bg-crit-bg",
+  }[status];
 
-  const iconStyles = {
-    pending: "bg-gray-100 text-gray-400",
-    active: "bg-[#FFE600] text-[#2E2E38]",
-    complete: "bg-green-500 text-white",
-    error: "bg-red-500 text-white",
-  };
+  const badge = {
+    pending: "bg-surface-2 text-fg-subtle border border-border",
+    active: "bg-brand text-brand-fg",
+    complete: "bg-ok text-ok-fg",
+    error: "bg-crit text-crit-fg",
+  }[status];
 
-  const Component = onClick ? "button" : "div";
+  const hintId = disabledReason ? `step-${stepNumber}-hint` : undefined;
+  const interactive = Boolean(onClick);
+  const Comp = interactive ? "button" : "div";
 
   return (
-    <Component
-      onClick={onClick}
+    <Comp
+      type={interactive ? "button" : undefined}
+      onClick={interactive && !disabled ? onClick : undefined}
+      aria-disabled={disabled || undefined}
+      aria-describedby={hintId}
       className={cn(
-        "border-2 rounded-lg transition-all w-full text-left",
-        statusStyles[status],
-        onClick && "cursor-pointer hover:shadow-lg hover:scale-105",
+        "border rounded w-full text-left transition-[border-color,box-shadow] duration-fast ease",
+        shell,
+        interactive &&
+          !disabled &&
+          "cursor-pointer hover:shadow-overlay hover:border-border-strong focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-bg",
+        disabled && "cursor-not-allowed",
+        className
+      )}
+      {...rest}
+    >
+      <div className="px-3 py-2.5 flex items-center gap-3">
+        <div
+          className={cn(
+            "size-8 rounded-lg grid place-items-center shrink-0 font-bold text-sm",
+            badge
+          )}
+        >
+          {Icon ? <Icon className="size-4" aria-hidden /> : stepNumber}
+        </div>
+
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm text-fg leading-tight truncate">
+            {title}
+          </h3>
+          {description && (
+            <p className="text-xs text-fg-muted leading-tight mt-0.5 truncate">
+              {description}
+            </p>
+          )}
+          {disabled && disabledReason && (
+            <p id={hintId} className="text-micro text-warn mt-1">
+              {disabledReason}
+            </p>
+          )}
+        </div>
+      </div>
+    </Comp>
+  );
+}
+
+/**
+ * StatusBadge — kept for the existing call sites; delegates to the one
+ * shared StatusChip vocabulary so "success" looks the same everywhere.
+ */
+export function StatusBadge({ status, label, size = "md" }) {
+  const tone =
+    { success: "ok", warning: "warn", error: "crit", info: "info", active: "brand", neutral: "idle" }[
+      status
+    ] || "idle";
+  return (
+    <StatusChip tone={tone} size={size}>
+      {label}
+    </StatusChip>
+  );
+}
+
+/**
+ * EmptyState — now requires somewhere to go.
+ *
+ * The Discovery "No Project Selected" state passed no action, dead-ending
+ * first-run users on the screen meant to onboard them. `action` is still
+ * optional, but `actionLabel` + `onAction` gives callers a one-liner.
+ */
+export function EmptyState({
+  icon: Icon,
+  title,
+  description,
+  action,
+  actionLabel,
+  onAction,
+  className,
+}) {
+  return (
+    <div
+      className={cn(
+        "flex flex-col items-center justify-center py-12 px-4 text-center",
+        className
+      )}
+      data-testid="empty-state"
+    >
+      {Icon && (
+        <div className="size-14 rounded-lg bg-surface-2 border border-border grid place-items-center mb-4">
+          <Icon className="size-6 text-fg-subtle" aria-hidden />
+        </div>
+      )}
+      <h3 className="text-lg font-display font-bold text-fg mb-1">{title}</h3>
+      {description && (
+        <p className="text-sm text-fg-muted max-w-md mb-4">{description}</p>
+      )}
+      {action ??
+        (actionLabel && onAction ? (
+          <Button variant="primary" size="sm" onClick={onAction}>
+            {actionLabel}
+          </Button>
+        ) : null)}
+    </div>
+  );
+}
+
+/** Sticky bottom action bar. */
+export function ActionPanel({ children, className }) {
+  return (
+    <div
+      className={cn(
+        "sticky bottom-0 left-0 right-0 bg-surface border-t border-border px-6 py-3",
+        "flex items-center justify-between gap-4 shadow-overlay",
         className
       )}
     >
-      <div className="px-3 py-2 flex items-center gap-2">
-        <div className={cn("w-8 h-8 rounded-full flex items-center justify-center shrink-0", iconStyles[status])}>
-          {Icon ? <Icon className="w-4 h-4" /> : <span className="font-bold text-sm">{stepNumber}</span>}
-        </div>
-        <div className="flex-1 min-w-0">
-          <h3 className="font-semibold text-sm text-[#2E2E38] leading-tight">{title}</h3>
-          <p className="text-xs text-[#747480] leading-tight mt-0.5">{description}</p>
-        </div>
-      </div>
-    </Component>
-  );
-}
-
-/**
- * StatusBadge - Consistent status indicators
- */
-export function StatusBadge({ status, label, size = "md" }) {
-  const sizeClasses = {
-    sm: "text-xs px-2 py-0.5",
-    md: "text-sm px-3 py-1",
-    lg: "text-base px-4 py-1.5",
-  };
-
-  const statusStyles = {
-    success: "bg-green-100 text-green-800 border-green-300",
-    warning: "bg-yellow-100 text-yellow-800 border-yellow-300",
-    error: "bg-red-100 text-red-800 border-red-300",
-    info: "bg-blue-100 text-blue-800 border-blue-300",
-    neutral: "bg-gray-100 text-gray-800 border-gray-300",
-    active: "bg-[#FFE600] text-[#2E2E38] border-[#FFE600]",
-  };
-
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 font-medium border rounded-full",
-        sizeClasses[size],
-        statusStyles[status]
-      )}
-    >
-      <div className={cn("w-1.5 h-1.5 rounded-full", {
-        "bg-green-500": status === "success",
-        "bg-yellow-500": status === "warning",
-        "bg-red-500": status === "error",
-        "bg-blue-500": status === "info",
-        "bg-gray-500": status === "neutral",
-        "bg-[#2E2E38]": status === "active",
-      })} />
-      {label}
-    </span>
-  );
-}
-
-/**
- * EmptyState - Consistent empty state messaging
- */
-export function EmptyState({ icon: Icon, title, description, action }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-12 px-4 text-center">
-      {Icon && (
-        <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-          <Icon className="w-8 h-8 text-gray-400" />
-        </div>
-      )}
-      <h3 className="text-lg font-semibold text-[#2E2E38] mb-2">{title}</h3>
-      <p className="text-sm text-[#747480] max-w-md mb-4">{description}</p>
-      {action && <div className="mt-2">{action}</div>}
-    </div>
-  );
-}
-
-/**
- * ActionPanel - Sticky bottom action panel with CTAs
- */
-export function ActionPanel({ children, className }) {
-  return (
-    <div className={cn(
-      "sticky bottom-0 left-0 right-0 bg-white border-t-2 border-[#E6E6E6] px-6 py-4 flex items-center justify-between gap-4 shadow-lg",
-      className
-    )}>
       {children}
-    </div>
-  );
-}
-
-/**
- * ProgressBar - Visual progress indicator
- */
-export function ProgressBar({ value, max = 100, label, showPercentage = true, color = "blue" }) {
-  const percentage = Math.min(100, Math.round((value / max) * 100));
-  
-  const colorClasses = {
-    blue: "bg-blue-500",
-    green: "bg-green-500",
-    yellow: "bg-[#FFE600]",
-    red: "bg-red-500",
-  };
-
-  return (
-    <div className="w-full">
-      {label && (
-        <div className="flex items-center justify-between mb-2">
-          <span className="text-sm font-medium text-[#2E2E38]">{label}</span>
-          {showPercentage && <span className="text-sm text-[#747480]">{percentage}%</span>}
-        </div>
-      )}
-      <div className="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
-        <div
-          className={cn("h-full transition-all duration-300 rounded-full", colorClasses[color])}
-          style={{ width: `${percentage}%` }}
-        />
-      </div>
     </div>
   );
 }

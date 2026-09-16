@@ -28,14 +28,14 @@ const POLL_MS = 1500;
 const LS_KEY = "lama:transformer:telemetry:open";
 
 const LEVEL_COLORS = {
-  info: "text-slate-300",
+  info: "text-fg-subtle",
   warn: "text-amber-400",
   error: "text-red-400",
   llm: "text-violet-300",
 };
 
 const LEVEL_BADGE = {
-  info: "bg-slate-700 text-slate-200",
+  info: "bg-ink text-fg-onDark",
   warn: "bg-amber-900/60 text-amber-300",
   error: "bg-red-900/60 text-red-300",
   llm: "bg-violet-900/60 text-violet-300",
@@ -81,7 +81,10 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY, open ? "1" : "0");
-    } catch {}
+    } catch {
+    // localStorage/CustomEvent may be unavailable (private mode,
+    // blocked site data). The feature degrades; it never fails.
+    }
   }, [open]);
 
   // Reset buffer when the transformation changes (fresh session)
@@ -95,7 +98,10 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
       if (!window.localStorage.getItem(LS_KEY) && isRunning) {
         setOpen(true);
       }
-    } catch {}
+    } catch {
+    // localStorage/CustomEvent may be unavailable (private mode,
+    // blocked site data). The feature degrades; it never fails.
+    }
   }, [isRunning]);
 
   // Poll loop
@@ -158,7 +164,10 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
       await navigator.clipboard.writeText(text);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch (_e) {}
+    } catch (_e) {
+    // One failed poll tick is not an error — the next tick retries,
+    // and a toast every 2s during a network blip would be worse.
+    }
   }, [lines]);
 
   const jumpToLatest = useCallback(() => {
@@ -175,14 +184,14 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
     return (
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-3 left-3 z-40 h-8 px-3 rounded-full bg-slate-900 text-slate-100 shadow-lg hover:bg-slate-800 flex items-center gap-1.5 text-[11px] font-medium border border-slate-700"
+        className="fixed bottom-3 left-3 z-40 h-8 px-3 rounded-full bg-ink text-fg-onDark shadow-lg hover:bg-ink flex items-center gap-1.5 text-micro font-medium border border-border-strong"
         data-testid="transformer-telemetry-toggle"
         title="Show live worker logs"
       >
         <Terminal size={12} />
         Live Telemetry
         {lines.length > 0 && (
-          <span className="ml-1 px-1.5 py-0.5 rounded bg-slate-700 text-[10px] tabular-nums">
+          <span className="ml-1 px-1.5 py-0.5 rounded bg-ink text-micro tabular-nums">
             {lines.length}
           </span>
         )}
@@ -195,25 +204,25 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 bg-slate-950 border-t border-slate-800 shadow-2xl flex flex-col"
+      className="fixed bottom-0 left-0 right-0 z-40 bg-ink border-t border-border-strong shadow-2xl flex flex-col"
       style={{ height: "240px" }}
       data-testid="transformer-telemetry-drawer"
     >
       {/* Header */}
-      <div className="h-8 flex-shrink-0 px-3 flex items-center justify-between bg-slate-900 border-b border-slate-800">
+      <div className="h-8 flex-shrink-0 px-3 flex items-center justify-between bg-ink border-b border-border-strong">
         <div className="flex items-center gap-2">
-          <Terminal size={12} className="text-slate-400" />
-          <span className="text-[11px] font-semibold text-slate-200">Live Telemetry</span>
-          <span className="text-[10px] text-slate-500 tabular-nums">
+          <Terminal size={12} className="text-fg-subtle" />
+          <span className="text-micro font-semibold text-fg-onDark">Live Telemetry</span>
+          <span className="text-micro text-fg-subtle tabular-nums">
             {lines.length} log{lines.length === 1 ? "" : "s"}
           </span>
-          <span className="flex items-center gap-1 text-[10px]">
+          <span className="flex items-center gap-1 text-micro">
             <span
               className={`w-1.5 h-1.5 rounded-full ${
-                isRunning ? "bg-emerald-400 animate-pulse" : "bg-slate-600"
+                isRunning ? "bg-emerald-400 animate-pulse" : "bg-fg-muted"
               }`}
             />
-            <span className={isRunning ? "text-emerald-400" : "text-slate-500"}>
+            <span className={isRunning ? "text-emerald-400" : "text-fg-subtle"}>
               {isRunning ? "Live" : "Idle"}
             </span>
           </span>
@@ -221,7 +230,7 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
         <div className="flex items-center gap-1">
           <button
             onClick={handleCopy}
-            className="h-6 px-2 rounded hover:bg-slate-800 flex items-center gap-1 text-[10px] text-slate-300"
+            className="h-6 px-2 rounded hover:bg-ink hover:text-fg-onDark flex items-center gap-1 text-micro text-fg-muted"
             data-testid="transformer-telemetry-copy"
             title="Copy all logs"
           >
@@ -230,7 +239,7 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
           </button>
           <button
             onClick={() => setOpen(false)}
-            className="h-6 w-6 rounded hover:bg-slate-800 flex items-center justify-center text-slate-400"
+            className="h-6 w-6 rounded hover:bg-ink hover:text-fg-onDark flex items-center justify-center text-fg-muted"
             title="Hide telemetry"
           >
             <X size={12} />
@@ -242,10 +251,10 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        className="flex-1 overflow-y-auto font-mono text-[11px] leading-[1.45] px-3 py-2 bg-slate-950"
+        className="flex-1 overflow-y-auto font-mono text-micro leading-[1.45] px-3 py-2 bg-ink"
       >
         {lines.length === 0 ? (
-          <div className="text-slate-600 italic">
+          <div className="text-fg-muted italic">
             Waiting for worker output…
           </div>
         ) : (
@@ -257,11 +266,11 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
                 data-testid={`transformer-telemetry-line-${i}`}
                 className="flex items-start gap-2 whitespace-pre-wrap break-words"
               >
-                <span className="text-slate-600 tabular-nums shrink-0">
+                <span className="text-fg-muted tabular-nums shrink-0">
                   {formatTs(l.ts)}
                 </span>
                 <span
-                  className={`shrink-0 px-1 rounded text-[9px] font-bold uppercase tracking-wider ${LEVEL_BADGE[lvl] || LEVEL_BADGE.info}`}
+                  className={`shrink-0 px-1 rounded text-micro font-bold uppercase tracking-wider ${LEVEL_BADGE[lvl] || LEVEL_BADGE.info}`}
                 >
                   {lvl}
                 </span>
@@ -277,7 +286,7 @@ export default function TransformerTelemetry({ transformId, isRunning }) {
       {!autoscroll && (
         <button
           onClick={jumpToLatest}
-          className="absolute bottom-3 right-3 h-6 px-2 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 flex items-center gap-1 text-[10px] font-semibold"
+          className="absolute bottom-3 right-3 h-6 px-2 rounded-full bg-violet-600 text-white shadow-lg hover:bg-violet-500 flex items-center gap-1 text-micro font-semibold"
         >
           <ChevronDown size={11} />
           Jump to latest

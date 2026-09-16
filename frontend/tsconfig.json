@@ -1,0 +1,42 @@
+{
+  "//": [
+    "Incremental TypeScript adoption — a strangler, not a rewrite.",
+    "",
+    "`allowJs` + `checkJs: false` means the 60-odd existing .jsx files are",
+    "compiled but NOT type-checked, so nothing that works today can start",
+    "failing. New and converted modules are .ts/.tsx and are checked fully.",
+    "",
+    "The payoff lands at the API boundary: src/lib/api.d.ts declares every",
+    "export of lib/api.js, so importing a name that does not exist becomes a",
+    "compile error. That is exactly the class of bug that shipped as",
+    "`kbStatus` — DiscoveryV2 called a function it had never imported, the",
+    "call resolved to a useState variable, and an empty catch hid it.",
+    "",
+    "Run `yarn typecheck` to check without building.",
+    "CRA rewrites a few of these fields on start; that is expected."
+  ],
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["dom", "dom.iterable", "ES2020"],
+    "allowJs": true,
+    "checkJs": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "strict": true,
+    "noFallthroughCasesInSwitch": true,
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "jsx": "react-jsx",
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "src",
+    "paths": {
+      "@/*": ["./*"]
+    }
+  },
+  "include": ["src"],
+  "exclude": ["node_modules", "build"]
+}

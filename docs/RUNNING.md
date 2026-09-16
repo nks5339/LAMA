@@ -19,7 +19,7 @@ Everything below is also scripted — see [Scripts](#scripts).
 | Software | Needed for | Install |
 |---|---|---|
 | **Python 3.11+** (3.14 works) | backend | `brew install python@3.14` |
-| **MongoDB 7/8** | system of record — **required** | `brew tap mongodb/brew && brew install mongodb-community` |
+| **MongoDB 7/8** | system of record — **required** | `brew tap mongodb/brew && brew install mongodb-community@8.0` |
 | **Node 20+** (image uses 24 LTS) | frontend | `brew install node` |
 | **yarn 1.22** | frontend — *never use npm* | `corepack enable` |
 | **An LLM provider** | all generation | Ollama (below) **or** an OpenRouter key |
@@ -130,7 +130,10 @@ LAMA_OLLAMA_EMBED_MODEL=nomic-embed-text
 ### 3. Start MongoDB
 
 ```bash
-brew services start mongodb-community     # persistent
+brew services start mongodb-community@8.0   # persistent — note the version
+# The formula is versioned. `brew services start mongodb-community` fails with
+# "Formula not installed"; `... stop mongodb-community` silently reports
+# "not started" even while it is running. Always use the @8.0 suffix.
 # or, foreground:  mongod --config /opt/homebrew/etc/mongod.conf
 nc -z 127.0.0.1 27017 && echo "Mongo up"
 ```
@@ -144,10 +147,20 @@ cd backend
 
 # Terminal 2 — UI
 cd frontend
-REACT_APP_BACKEND_URL=http://127.0.0.1:8000 yarn start
+yarn start
 ```
 
 Or: **`./scripts/run-backend.sh`** and **`./scripts/run-frontend.sh`**.
+
+Two ways to point the UI at the API, and they are not the same thing:
+
+| | What happens | When to use |
+|---|---|---|
+| `yarn start` (default) | Browser calls relative `/api`; the CRA dev server proxies to `http://127.0.0.1:8000`. Same origin, no CORS. | Normal split dev |
+| `REACT_APP_BACKEND_URL=http://127.0.0.1:8000 yarn start` | Browser calls the backend **directly**; the proxy is bypassed and CORS applies. | Backend on another host |
+
+Set `REACT_APP_API_PROXY` instead if you only want to move the proxy target
+without changing what the browser calls.
 
 | URL | What |
 |---|---|
@@ -257,11 +270,39 @@ docker compose exec lama bash               # shell inside
 
 ## Tests
 
+### Backend — 1,055 tests
+
 ```bash
 ./.venv/bin/python -m pytest backend/tests/ -q
 ./.venv/bin/python -m pytest backend/tests/test_lama_v4.py -k test_chat -x   # one test
+./.venv/bin/python -m pytest backend/tests/test_iter20_chat_stream.py -q      # streaming chat
 ./.venv/bin/python -m pyflakes backend/routes/codegen.py                      # lint
+ruff check backend                                                            # the waste bar
 ```
+
+### Frontend — 221 tests
+
+Jest 27 (shipped with react-scripts) + React Testing Library 16. No live
+server or Mongo needed; everything is stubbed.
+
+```bash
+cd frontend
+yarn test:ci            # 221 tests, 12 suites — the CI gate
+yarn test               # watch mode
+yarn test:coverage      # same, with a coverage table
+yarn typecheck          # tsc --noEmit — 0 errors expected
+yarn lint               # 0 errors, 19 known warnings
+```
+
+Run one suite:
+
+```bash
+cd frontend
+CI=true npx craco test --watchAll=false --testPathPattern="StageProgress"
+```
+
+> **`yarn test` needs no backend.** If a suite hangs, you are probably in
+> watch mode — use `yarn test:ci`, which passes `--watchAll=false`.
 
 Many suites call a live server and expect one at `REACT_APP_BACKEND_URL`:
 
@@ -286,6 +327,9 @@ a regression.
 | `401 Unauthorized` | Expected — log in. LAMA is multi-tenant with JWT auth. |
 | `toolchain missing on PATH: mvn` | Install the toolchain; a missing binary fails the job by design. |
 | CORS / no `Access-Control-Allow-Origin` | `localhost` vs `127.0.0.1` mismatch between UI and `REACT_APP_BACKEND_URL`. |
+| Every `/api/*` call returns **504** in dev | The CRA proxy cannot reach the backend. Its default target is now `http://127.0.0.1:8000`; if uvicorn is on another port, set `REACT_APP_API_PROXY=http://127.0.0.1:<port>`. (Before 2026-09 the fallback was `:8382`, the *container* port, so a bare `yarn start` 504'd on every call.) |
+| `Something is already running on port 3000` | A previous dev server survived. `lsof -nP -iTCP:3000 -sTCP:LISTEN` then `kill -9 <pid>`. |
+| Jest: `Cannot find module 'react-router-dom'` | Stale Jest cache after a dependency change. `cd frontend && npx craco test --clearCache`. |
 | `library load disallowed by system policy` | macOS quarantined a downloaded copy. `xattr -dr com.apple.quarantine .` then rebuild `.venv`. |
 | `pull access denied for lama:local` | The image isn't built. See [Path B step 2](#2-choose-the-image). |
 | Semantic search returns nothing | Qdrant off. Set `QDRANT_PATH` (offline) or `QDRANT_URL`. It degrades silently by design. |

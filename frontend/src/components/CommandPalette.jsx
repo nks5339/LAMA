@@ -106,30 +106,30 @@ export default function CommandPalette({ isOpen, onClose }) {
   return (
     <>
       {/* Backdrop */}
-      <div
-        className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 animate-in fade-in duration-150"
+      <div aria-hidden="true"
+        className="fixed inset-0 bg-ink/40 backdrop-blur-sm z-50 animate-in fade-in duration-150"
         onClick={onClose}
         data-testid="command-palette-backdrop"
       />
 
       {/* Palette */}
       <div
-        className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-white rounded-lg shadow-2xl border border-[#E6E6E6] z-50 animate-in fade-in slide-in-from-top-4 duration-200"
+        className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-2xl bg-surface rounded-lg shadow-2xl border border-border z-50 animate-in fade-in slide-in-from-top-4 duration-200"
         data-testid="command-palette"
       >
         {/* Search Input */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-[#E6E6E6]">
-          <Search className="w-5 h-5 text-[#9CA3AF] shrink-0" />
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border">
+          <Search className="w-5 h-5 text-fg-subtle shrink-0" />
           <input
             ref={inputRef}
             type="text"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Type to search pages, actions, files..."
-            className="flex-1 text-[15px] text-[#2E2E38] placeholder:text-[#9CA3AF] outline-none bg-transparent"
+            className="flex-1 text-[15px] text-fg placeholder:text-fg-subtle outline-none bg-transparent"
             data-testid="command-palette-input"
           />
-          <kbd className="hidden sm:inline-block px-2 py-0.5 bg-[#F6F6FA] border border-[#E6E6E6] rounded text-[11px] font-mono text-[#6B7280]">
+          <kbd className="hidden sm:inline-block px-2 py-0.5 bg-bg border border-border rounded text-micro font-mono text-fg-muted">
             ESC
           </kbd>
         </div>
@@ -137,7 +137,7 @@ export default function CommandPalette({ isOpen, onClose }) {
         {/* Results */}
         <div className="max-h-96 overflow-y-auto mos-scroll">
           {filteredItems.length === 0 ? (
-            <div className="px-4 py-8 text-center text-sm text-[#9CA3AF]">
+            <div className="px-4 py-8 text-center text-sm text-fg-subtle">
               No results found for "{query}"
             </div>
           ) : (
@@ -149,7 +149,7 @@ export default function CommandPalette({ isOpen, onClose }) {
 
                 return (
                   <div key={type}>
-                    <div className="px-4 py-1.5 text-[11px] font-semibold text-[#9CA3AF] uppercase tracking-wide">
+                    <div className="px-4 py-1.5 text-micro font-semibold text-fg-subtle uppercase tracking-wide">
                       {type === "nav" ? "Pages" : "Tools"}
                     </div>
                     {items.map((item, idx) => {
@@ -163,17 +163,17 @@ export default function CommandPalette({ isOpen, onClose }) {
                           onMouseEnter={() => setSelectedIndex(globalIdx)}
                           className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
                             isSelected 
-                              ? "bg-[#FFFCE6] border-l-2 border-[#FFE600]" 
-                              : "hover:bg-[#F6F6FA] border-l-2 border-transparent"
+                              ? "bg-brand-tint border-l-2 border-brand" 
+                              : "hover:bg-bg border-l-2 border-transparent"
                           }`}
                           data-testid={`command-item-${item.label.toLowerCase().replace(/\s+/g, "-")}`}
                         >
-                          <item.icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-[#2E2E38]" : "text-[#9CA3AF]"}`} />
-                          <span className={`flex-1 text-sm font-medium ${isSelected ? "text-[#2E2E38]" : "text-[#4B5563]"}`}>
+                          <item.icon className={`w-4 h-4 shrink-0 ${isSelected ? "text-fg" : "text-fg-subtle"}`} />
+                          <span className={`flex-1 text-sm font-medium ${isSelected ? "text-fg" : "text-fg-muted"}`}>
                             {item.label}
                           </span>
                           {isSelected && (
-                            <kbd className="px-1.5 py-0.5 bg-white border border-[#E6E6E6] rounded text-[10px] font-mono text-[#6B7280]">
+                            <kbd className="px-1.5 py-0.5 bg-surface border border-border rounded text-micro font-mono text-fg-muted">
                               ↵
                             </kbd>
                           )}
@@ -188,18 +188,18 @@ export default function CommandPalette({ isOpen, onClose }) {
         </div>
 
         {/* Footer Hints */}
-        <div className="flex items-center justify-between px-4 py-2 border-t border-[#E6E6E6] bg-[#F6F6FA]">
-          <div className="flex items-center gap-4 text-[11px] text-[#6B7280]">
+        <div className="flex items-center justify-between px-4 py-2 border-t border-border bg-bg">
+          <div className="flex items-center gap-4 text-micro text-fg-muted">
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-[#E6E6E6] rounded font-mono">↑↓</kbd>
+              <kbd className="px-1.5 py-0.5 bg-surface border border-border rounded font-mono">↑↓</kbd>
               <span>Navigate</span>
             </div>
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-[#E6E6E6] rounded font-mono">↵</kbd>
+              <kbd className="px-1.5 py-0.5 bg-surface border border-border rounded font-mono">↵</kbd>
               <span>Select</span>
             </div>
             <div className="flex items-center gap-1">
-              <kbd className="px-1.5 py-0.5 bg-white border border-[#E6E6E6] rounded font-mono">ESC</kbd>
+              <kbd className="px-1.5 py-0.5 bg-surface border border-border rounded font-mono">ESC</kbd>
               <span>Close</span>
             </div>
           </div>

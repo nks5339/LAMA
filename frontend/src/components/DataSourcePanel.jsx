@@ -137,22 +137,22 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
     <div className="mos-panel p-4 flex flex-col gap-3" data-testid="data-source-panel">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Plug className="w-4 h-4 text-[#2E2E38]" />
-          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-[#2E2E38]">
+          <Plug className="w-4 h-4 text-fg" />
+          <h3 className="font-display text-sm font-bold uppercase tracking-wider text-fg">
             Live Data Source
           </h3>
         </div>
         <button
           type="button"
           onClick={refresh}
-          className="text-[10px] uppercase tracking-wider text-[#747480] hover:text-[#2E2E38] flex items-center gap-1"
+          className="text-micro uppercase tracking-wider text-fg-muted hover:text-fg flex items-center gap-1"
           data-testid="refresh-data-sources"
         >
           <RefreshCw className={`w-3 h-3 ${loadingSources ? "animate-spin" : ""}`} /> Refresh
         </button>
       </div>
 
-      <p className="text-[11px] text-[#747480] leading-relaxed">
+      <p className="text-micro text-fg-muted leading-relaxed">
         Provide database credentials and (optionally) the application URL.
         LAMA connects via <code>information_schema</code> and adds the live
         tables + foreign keys to the Knowledge Base so SRS prompts get the
@@ -163,10 +163,10 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-[#747480]">DB Type</span>
+          <span className="text-micro uppercase tracking-wider text-fg-muted">DB Type</span>
           <select
             data-testid="ds-db-type"
-            className="border border-[#E6E6E6] rounded-sm px-2 py-1.5 text-xs bg-white"
+            className="border border-border rounded-sm px-2 py-1.5 text-xs bg-surface"
             value={form.db_type}
             onChange={(e) => onChange("db_type", e.target.value)}
           >
@@ -176,7 +176,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
           </select>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-[#747480]">Port</span>
+          <span className="text-micro uppercase tracking-wider text-fg-muted">Port</span>
           <Input
             data-testid="ds-port"
             type="number"
@@ -188,7 +188,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-[#747480]">
+        <span className="text-micro uppercase tracking-wider text-fg-muted">
           {form.db_type === "sqlite" ? "SQLite file path" : "Host"}
         </span>
         <Input
@@ -201,7 +201,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
       </label>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-[#747480]">
+        <span className="text-micro uppercase tracking-wider text-fg-muted">
           {form.db_type === "oracle"
             ? "Service / EZ-connect (e.g. ORCLPDB1 or host:1521/ORCLPDB1)"
             : "Database name"}
@@ -216,7 +216,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
 
       <div className="grid grid-cols-2 gap-2">
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-[#747480]">Username</span>
+          <span className="text-micro uppercase tracking-wider text-fg-muted">Username</span>
           <Input
             data-testid="ds-user"
             value={form.username}
@@ -226,7 +226,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-[#747480]">Password</span>
+          <span className="text-micro uppercase tracking-wider text-fg-muted">Password</span>
           <Input
             data-testid="ds-password"
             type="password"
@@ -239,7 +239,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-[10px] uppercase tracking-wider text-[#747480]">
+        <span className="text-micro uppercase tracking-wider text-fg-muted">
           <Globe className="w-3 h-3 inline mr-1" /> Application URL (optional)
         </span>
         <Input
@@ -251,7 +251,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
         />
       </label>
 
-      <div className="flex items-center gap-3 text-[11px] text-[#2E2E38]">
+      <div className="flex items-center gap-3 text-micro text-fg">
         <label className="flex items-center gap-1 cursor-pointer">
           <input
             type="checkbox"
@@ -277,7 +277,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
           onClick={handleConnect}
           disabled={submitting}
           data-testid="ds-connect-btn"
-          className="bg-[#2E2E38] text-white hover:bg-[#FFE600] hover:text-[#2E2E38] text-xs h-8 px-3"
+          className="bg-ink text-ink-fg hover:bg-brand hover:text-fg text-xs h-8 px-3"
         >
           {submitting
             ? (<><Loader2 className="w-3 h-3 mr-1 animate-spin" /> Connecting…</>)
@@ -306,16 +306,16 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
 
       {lastResult && (
         <div
-          className="border border-[#E6E6E6] bg-[#F6F6FA] rounded-sm p-2 text-[11px]"
+          className="border border-border bg-bg rounded-sm p-2 text-micro"
           data-testid="ds-last-result"
         >
-          <div className="flex items-center gap-1.5 mb-1 font-semibold text-[#2E2E38]">
+          <div className="flex items-center gap-1.5 mb-1 font-semibold text-fg">
             {lastResult.ok
               ? <CheckCircle2 className="w-3.5 h-3.5 text-green-600" />
               : <AlertCircle className="w-3.5 h-3.5 text-amber-600" />}
             Last result
           </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-[#747480]">
+          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 text-fg-muted">
             <div>TCP reachable:</div><div className="font-mono">{String(lastResult.tcp_probe?.reachable)}</div>
             <div>Tables seen:</div><div className="font-mono">{lastResult.tables_seen}</div>
             <div>FKs:</div><div className="font-mono">{lastResult.fk_count}</div>
@@ -332,22 +332,22 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
       )}
 
       {sources.length > 0 && (
-        <div className="border-t border-[#E6E6E6] pt-2">
+        <div className="border-t border-border pt-2">
           <div className="flex items-center justify-between mb-1">
-            <div className="text-[10px] uppercase tracking-wider text-[#747480]">
+            <div className="text-micro uppercase tracking-wider text-fg-muted">
               Registered ({sources.length})
             </div>
             <button
               type="button"
               onClick={resetForm}
               data-testid="ds-add-another-inline"
-              className="text-[10px] uppercase tracking-wider text-[#2E2E38] hover:text-[#FFE600] flex items-center gap-1"
+              className="text-micro uppercase tracking-wider text-fg hover:text-brand flex items-center gap-1"
               title="Clear the form to register another data source"
             >
               <Plus className="w-3 h-3" /> Add data source
             </button>
           </div>
-          <ul className="space-y-1 text-[11px]" data-testid="ds-list">
+          <ul className="space-y-1 text-micro" data-testid="ds-list">
             {sources.map((s, i) => (
               <li key={i} className="flex items-center gap-2">
                 {s.kind === "database" ? <Database className="w-3 h-3" /> : <Globe className="w-3 h-3" />}
@@ -357,7 +357,7 @@ export default function DataSourcePanel({ projectId, onSchemaIngested }) {
                     : s.application_url}
                 </span>
                 {s.schema_summary && (
-                  <span className="text-[#747480]">
+                  <span className="text-fg-muted">
                     · {s.schema_summary.tables} tables · {s.schema_summary.fk_count} FKs
                   </span>
                 )}

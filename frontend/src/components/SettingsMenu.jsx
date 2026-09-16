@@ -72,20 +72,10 @@ function resumePathFor(project) {
   return STAGE_PATHS[target] || "/";
 }
 
-/** Hook to be mounted once at the app shell. When auto-save is ON, every
- *  navigation persists `{projectId, pathname}` to localStorage so that
- *  re-opening a project from History returns the user to the same stage. */
-export function useAutoSaveTracker(activeProjectId, pathname) {
-  useEffect(() => {
-    if (!activeProjectId) return;
-    try {
-      if (localStorage.getItem(AUTOSAVE_KEY) === "off") return;
-      if (Object.values(STAGE_PATHS).includes(pathname)) {
-        localStorage.setItem(lsKey(activeProjectId), pathname);
-      }
-    } catch (_) { /* ignore */ }
-  }, [activeProjectId, pathname]);
-}
+// useAutoSaveTracker moved to hooks/useAutoSaveTracker.js so the Sidebar
+// can call it without statically importing this module, which pulls in
+// recharts. Re-exported here for any remaining call site.
+export { useAutoSaveTracker } from "@/hooks/useAutoSaveTracker";
 
 // ─── Sub-panes ────────────────────────────────────────────────────────────
 
@@ -103,10 +93,10 @@ function HistoryPane({ onClose }) {
   };
 
   if (loading && projects.length === 0) {
-    return <div className="p-4 text-sm text-slate-500 flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading projects…</div>;
+    return <div className="p-4 text-sm text-fg-subtle flex items-center gap-2"><Loader2 className="w-4 h-4 animate-spin" /> Loading projects…</div>;
   }
   if (!projects.length) {
-    return <div className="p-4 text-sm text-slate-500">No projects yet.</div>;
+    return <div className="p-4 text-sm text-fg-subtle">No projects yet.</div>;
   }
   return (
     <div data-testid="settings-history-pane" className="max-h-[55vh] overflow-y-auto -mx-1">
@@ -130,28 +120,28 @@ function HistoryPane({ onClose }) {
                 onClick={() => handleOpen(p)}
                 className={`w-full text-left px-3 py-2.5 rounded-sm border flex items-start gap-3 ${
                   isActive
-                    ? "border-[#FFE600] bg-[#FFFCE6]"
-                    : "border-[#E6E6E6] bg-white hover:bg-slate-50"
+                    ? "border-brand bg-brand-tint"
+                    : "border-border bg-surface hover:bg-surface-2"
                 }`}
               >
                 <div className="flex-1 min-w-0">
-                  <div className="text-[13px] font-semibold text-slate-900 truncate flex items-center gap-2">
+                  <div className="text-[13px] font-semibold text-fg truncate flex items-center gap-2">
                     {p.name}
                     {isActive && (
-                      <span className="text-[9px] uppercase tracking-wider bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm">
+                      <span className="text-micro uppercase tracking-wider bg-brand text-fg px-1.5 py-0.5 rounded-sm">
                         Active
                       </span>
                     )}
                   </div>
-                  <div className="text-[11px] text-slate-500 mt-0.5 truncate">
-                    {p.source_tech || "—"} <span className="text-slate-400">→</span> {p.target_tech || "—"}
+                  <div className="text-micro text-fg-subtle mt-0.5 truncate">
+                    {p.source_tech || "—"} <span className="text-fg-subtle">→</span> {p.target_tech || "—"}
                   </div>
-                  <div className="flex items-center gap-3 mt-1.5 text-[10px] text-slate-500">
+                  <div className="flex items-center gap-3 mt-1.5 text-micro text-fg-subtle">
                     <span className="flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-600" /> {frozen}/5 frozen
                     </span>
                     <span className="flex items-center gap-1">
-                      <ArrowRight className="w-3 h-3" /> Resume at <b className="text-slate-700">{resumeLabel}</b>
+                      <ArrowRight className="w-3 h-3" /> Resume at <b className="text-fg-muted">{resumeLabel}</b>
                     </span>
                   </div>
                 </div>
@@ -188,12 +178,12 @@ function AutoSavePane() {
   };
   return (
     <div data-testid="settings-autosave-pane" className="space-y-4 p-1">
-      <div className="flex items-start justify-between gap-4 p-3 border border-[#E6E6E6] rounded-sm">
+      <div className="flex items-start justify-between gap-4 p-3 border border-border rounded-sm">
         <div>
           <div className="text-[13px] font-semibold flex items-center gap-2">
             <Save className="w-4 h-4" /> Auto-save current stage
           </div>
-          <div className="text-[11px] text-slate-500 mt-1 leading-snug max-w-md">
+          <div className="text-micro text-fg-subtle mt-1 leading-snug max-w-md">
             When ON, LAMA remembers the last stage you visited in each project so
             you can resume from where you left off via <b>History</b>. All stage
             artifacts (KB, SRS, DDL, etc.) are <i>always</i> persisted on the
@@ -205,17 +195,17 @@ function AutoSavePane() {
           data-testid="autosave-toggle"
           onClick={toggle}
           className={`relative inline-flex h-5 w-9 items-center rounded-full transition shrink-0 ${
-            enabled ? "bg-[#7C3AED]" : "bg-slate-300"
+            enabled ? "bg-info" : "bg-surface-3"
           }`}
           aria-pressed={enabled}
         >
-          <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
+          <span className={`inline-block h-4 w-4 transform rounded-full bg-surface transition ${enabled ? "translate-x-4" : "translate-x-0.5"}`} />
         </button>
       </div>
       <button
         data-testid="autosave-clear"
         onClick={clearHistory}
-        className="text-[12px] text-slate-600 underline hover:text-slate-900"
+        className="text-[12px] text-fg-muted underline hover:text-fg"
       >
         Clear remembered stage history
       </button>
@@ -226,11 +216,11 @@ function AutoSavePane() {
 function RefreshAppPane({ onTrigger, busy }) {
   return (
     <div data-testid="settings-refresh-pane" className="space-y-4 p-1">
-      <div className="p-3 border border-[#FFE600] bg-[#FFFCE6] rounded-sm">
+      <div className="p-3 border border-brand bg-brand-tint rounded-sm">
         <div className="text-[13px] font-semibold flex items-center gap-2">
           <RefreshCw className="w-4 h-4" /> Refresh App
         </div>
-        <div className="text-[11px] text-slate-700 mt-1 leading-snug">
+        <div className="text-micro text-fg-muted mt-1 leading-snug">
           DELETES the active project's Knowledge Base, SRS, Discovery chat, Data
           Model artifacts, stage context, vectors, and audit log — then reloads
           the UI. The project itself is kept; all stages return to locked.
@@ -240,7 +230,7 @@ function RefreshAppPane({ onTrigger, busy }) {
           data-testid="refresh-app-confirm"
           onClick={onTrigger}
           disabled={busy}
-          className="mt-3 px-3 py-1.5 bg-[#2E2E38] text-white text-[12px] font-semibold rounded-sm hover:bg-black disabled:opacity-50 flex items-center gap-1.5"
+          className="mt-3 px-3 py-1.5 bg-ink text-ink-fg text-[12px] font-semibold rounded-sm hover:bg-ink disabled:opacity-50 flex items-center gap-1.5"
         >
           {busy && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
           Refresh active project
@@ -295,7 +285,7 @@ function NewProjectPane({ onClose }) {
 
   return (
     <form data-testid="settings-newproject-pane" onSubmit={submit} className="space-y-4">
-      <div className="p-3 border border-[#FFE600] bg-[#FFFCE6] rounded-sm text-[12px] text-slate-700 leading-snug">
+      <div className="p-3 border border-brand bg-brand-tint rounded-sm text-[12px] text-fg-muted leading-snug">
         Spin up a brand new project with an empty pipeline. The new project
         becomes the active one and you'll land on <b>Discovery</b> to upload
         legacy files. Existing projects stay intact and are reachable from
@@ -312,19 +302,19 @@ function NewProjectPane({ onClose }) {
           placeholder="e.g. Order Management Modernisation"
           maxLength={120}
           required
-          className="w-full mt-1 px-3 py-2 border border-[#E6E6E6] rounded-sm text-[13px]"
+          className="w-full mt-1 px-3 py-2 border border-border rounded-sm text-[13px]"
         />
       </div>
 
-      <div className="p-3 border border-[#E6E6E6] bg-slate-50 rounded-sm text-[11px] text-slate-600 leading-snug space-y-1.5">
+      <div className="p-3 border border-border bg-surface-2 rounded-sm text-micro text-fg-muted leading-snug space-y-1.5">
         <div>
-          <b className="text-slate-700">Source stack is auto-detected</b>{" "}
+          <b className="text-fg-muted">Source stack is auto-detected</b>{" "}
           from the legacy code you upload during <b>Build KB</b> in Discovery.
           LAMA scans file extensions, framework markers (Struts, Spring, EF,
           etc.), and SQL dialect to fingerprint the stack automatically.
         </div>
         <div>
-          <b className="text-slate-700">Target stack is chosen after Build KB</b>{" "}
+          <b className="text-fg-muted">Target stack is chosen after Build KB</b>{" "}
           — once the Knowledge Base is built, LAMA recommends the top-3 modern
           target stacks (e.g. Spring Boot 3 / FastAPI / .NET 8). You pick one,
           or click <b>Others</b> to assemble your own from a tech catalog
@@ -342,7 +332,7 @@ function NewProjectPane({ onClose }) {
           onChange={(e) => setDescription(e.target.value)}
           rows={2}
           placeholder="One-line summary of the legacy app and migration goal."
-          className="w-full mt-1 px-3 py-2 border border-[#E6E6E6] rounded-sm text-[13px]"
+          className="w-full mt-1 px-3 py-2 border border-border rounded-sm text-[13px]"
         />
       </div>
 
@@ -351,7 +341,7 @@ function NewProjectPane({ onClose }) {
           type="submit"
           data-testid="newproject-create"
           disabled={busy}
-          className="px-4 py-2 bg-[#2E2E38] text-white text-[12px] font-semibold rounded-sm hover:bg-black disabled:opacity-50 flex items-center gap-1.5"
+          className="px-4 py-2 bg-ink text-ink-fg text-[12px] font-semibold rounded-sm hover:bg-ink disabled:opacity-50 flex items-center gap-1.5"
         >
           {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FilePlus2 className="w-3.5 h-3.5" />}
           Create &amp; Open
@@ -359,7 +349,7 @@ function NewProjectPane({ onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-2 text-[12px] text-slate-600 hover:text-slate-900"
+          className="px-3 py-2 text-[12px] text-fg-muted hover:text-fg"
         >
           Cancel
         </button>
@@ -424,7 +414,7 @@ function DeleteProjectPane({ onClose }) {
 
   if (!projects || projects.length === 0) {
     return (
-      <div data-testid="settings-delete-pane" className="p-4 text-sm text-slate-500">
+      <div data-testid="settings-delete-pane" className="p-4 text-sm text-fg-subtle">
         No projects to delete.
       </div>
     );
@@ -436,7 +426,7 @@ function DeleteProjectPane({ onClose }) {
         <div className="text-[13px] font-semibold flex items-center gap-2 text-red-800">
           <AlertTriangle className="w-4 h-4" /> Delete project
         </div>
-        <div className="text-[11px] text-red-900/90 mt-1 leading-snug">
+        <div className="text-micro text-red-900/90 mt-1 leading-snug">
           Permanently removes the project AND every reference to it — the
           knowledge base, chat history, SRS, data model, architecture
           documents, code-gen tree, freeze gates, stage context, GitHub
@@ -453,7 +443,7 @@ function DeleteProjectPane({ onClose }) {
           data-testid="delete-project-select"
           value={targetId}
           onChange={(e) => { setTargetId(e.target.value); setTyped(""); }}
-          className="w-full px-3 py-2 border border-[#E6E6E6] rounded-sm text-[13px] bg-white"
+          className="w-full px-3 py-2 border border-border rounded-sm text-[13px] bg-surface"
         >
           <option value="">— Choose a project —</option>
           {projects.map((p) => (
@@ -467,7 +457,7 @@ function DeleteProjectPane({ onClose }) {
       {target && (
         <div className="space-y-2">
           <label htmlFor="dp-confirm" className="mos-label">
-            Type <span className="font-mono bg-slate-100 px-1.5 py-0.5 rounded-sm border border-slate-200">{target.name}</span> to confirm
+            Type <span className="font-mono bg-surface-2 px-1.5 py-0.5 rounded-sm border border-border">{target.name}</span> to confirm
           </label>
           <input
             id="dp-confirm"
@@ -476,7 +466,7 @@ function DeleteProjectPane({ onClose }) {
             onChange={(e) => setTyped(e.target.value)}
             placeholder={target.name}
             autoComplete="off"
-            className="w-full px-3 py-2 border border-[#E6E6E6] rounded-sm text-[13px] font-mono"
+            className="w-full px-3 py-2 border border-border rounded-sm text-[13px] font-mono"
           />
         </div>
       )}
@@ -494,7 +484,7 @@ function DeleteProjectPane({ onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="px-3 py-2 text-[12px] text-slate-600 hover:text-slate-900"
+          className="px-3 py-2 text-[12px] text-fg-muted hover:text-fg"
         >
           Cancel
         </button>
@@ -687,10 +677,10 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
     const grand = total ?? rows.reduce((n, r) => n + (r.value || 0), 0);
     return (
       <div
-        className="rounded-md bg-white/95 backdrop-blur-sm border border-slate-200 shadow-xl text-[12px] overflow-hidden"
+        className="rounded-md bg-surface/95 backdrop-blur-sm border border-border shadow-xl text-[12px] overflow-hidden"
         style={{ minWidth: 180 }}
       >
-        <div className="px-3 py-1.5 bg-gradient-to-r from-slate-900 to-slate-700 text-white text-[11px] font-semibold tracking-wide">
+        <div className="px-3 py-1.5 bg-gradient-to-r from-slate-900 to-slate-700 text-white text-micro font-semibold tracking-wide">
           {head}
         </div>
         <div className="px-3 py-2 space-y-1">
@@ -700,20 +690,20 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
             return (
               <div key={r.dataKey} className="flex items-center gap-2">
                 <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: c }} />
-                <span className="flex-1 text-slate-700 truncate">{r.name || r.dataKey}</span>
-                <span className="font-mono tabular-nums text-slate-900">
+                <span className="flex-1 text-fg-muted truncate">{r.name || r.dataKey}</span>
+                <span className="font-mono tabular-nums text-fg">
                   {Number(r.value).toLocaleString()}
                 </span>
-                <span className="font-mono tabular-nums text-slate-500 text-[10px] w-10 text-right">
+                <span className="font-mono tabular-nums text-fg-subtle text-micro w-10 text-right">
                   {pct.toFixed(1)}%
                 </span>
               </div>
             );
           })}
           {payload[0]?.payload?.total != null && (
-            <div className="pt-1 mt-1 border-t border-slate-100 flex items-center justify-between text-[11px]">
-              <span className="text-slate-500">Total</span>
-              <span className="font-mono tabular-nums font-semibold text-slate-900">
+            <div className="pt-1 mt-1 border-t border-border flex items-center justify-between text-micro">
+              <span className="text-fg-subtle">Total</span>
+              <span className="font-mono tabular-nums font-semibold text-fg">
                 {Number(payload[0].payload.total).toLocaleString()}
               </span>
             </div>
@@ -726,16 +716,16 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
   return (
     <div data-testid="settings-stats-pane" className="space-y-3">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="flex items-center gap-2 text-[12px] text-slate-600">
+        <div className="flex items-center gap-2 text-[12px] text-fg-muted">
           <span>Window:</span>
           {[1, 7, 30].map((d) => (
             <button
               key={d}
               onClick={() => setDays(d)}
-              className={`px-2 py-1 rounded-sm border text-[11px] transition-all ${
+              className={`px-2 py-1 rounded-sm border text-micro transition-all ${
                 days === d
-                  ? "border-[#2E2E38] bg-gradient-to-b from-[#3a3a44] to-[#2E2E38] text-white shadow-sm"
-                  : "border-[#E6E6E6] hover:bg-slate-50"
+                  ? "border-fg bg-gradient-to-b from-surface-3 to-ink text-white shadow-sm"
+                  : "border-border hover:bg-surface-2"
               }`}
             >
               {d === 1 ? "Today" : `${d}d`}
@@ -747,10 +737,10 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
               key={opt.k}
               data-testid={`stats-scope-${opt.k}`}
               onClick={() => setScope(opt.k)}
-              className={`px-2 py-1 rounded-sm border text-[11px] transition-all ${
+              className={`px-2 py-1 rounded-sm border text-micro transition-all ${
                 scope === opt.k
-                  ? "border-[#2E2E38] bg-gradient-to-b from-[#3a3a44] to-[#2E2E38] text-white shadow-sm"
-                  : "border-[#E6E6E6] hover:bg-slate-50"
+                  ? "border-fg bg-gradient-to-b from-surface-3 to-ink text-white shadow-sm"
+                  : "border-border hover:bg-surface-2"
               }`}
             >
               {opt.l}
@@ -759,7 +749,7 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
         </div>
         <button
           onClick={load} disabled={busy}
-          className="text-[11px] text-slate-500 hover:text-slate-900 disabled:opacity-50 flex items-center gap-1"
+          className="text-micro text-fg-subtle hover:text-fg disabled:opacity-50 flex items-center gap-1"
         >
           {busy ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
           Refresh
@@ -775,7 +765,7 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
           against the same "Discovery/DataModel/…" mental model). */}
       {scope === "active" && activeProject && (
         <div
-          className="flex items-center gap-2 text-[11px] text-slate-600"
+          className="flex items-center gap-2 text-micro text-fg-muted"
           data-testid="stats-active-project-type"
         >
           <span
@@ -789,7 +779,7 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
             <span className="w-1.5 h-1.5 rounded-full" style={{ background: projectTypeMeta(activeProjectType).color }} />
             {projectTypeMeta(activeProjectType).label}
           </span>
-          <span className="truncate text-slate-500">{activeProject.name}</span>
+          <span className="truncate text-fg-subtle">{activeProject.name}</span>
         </div>
       )}
 
@@ -806,7 +796,7 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
         ].map((tile) => (
           <div
             key={tile.label}
-            className="relative overflow-hidden rounded-md border border-slate-200 bg-white p-3 transition-shadow hover:shadow-md"
+            className="relative overflow-hidden rounded-md border border-border bg-surface p-3 transition-shadow hover:shadow-md"
           >
             <div
               className="absolute inset-y-0 left-0 w-1"
@@ -815,8 +805,8 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
             <div className="absolute -right-6 -top-6 w-20 h-20 rounded-full opacity-20"
                  style={{ background: `radial-gradient(circle, ${tile.accent} 0%, transparent 70%)` }} />
             <div className="pl-2 relative">
-              <div className="text-[10px] uppercase tracking-wider text-slate-500">{tile.label}</div>
-              <div className="text-[22px] font-bold text-slate-900 mt-0.5 leading-none font-mono tabular-nums">
+              <div className="text-micro uppercase tracking-wider text-fg-subtle">{tile.label}</div>
+              <div className="text-[22px] font-bold text-fg mt-0.5 leading-none font-mono tabular-nums">
                 {tile.value}
               </div>
             </div>
@@ -831,16 +821,16 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
           meaningful for every project type at once, regardless of scope. */}
       {projectTypeChartData.length > 0 && (
         <div
-          className="border border-slate-200 rounded-md p-3 bg-gradient-to-br from-white to-slate-50"
+          className="border border-border rounded-md p-3 bg-gradient-to-br from-white to-slate-50"
           data-testid="stats-project-type-breakdown"
         >
           <div className="flex items-center justify-between mb-2">
-            <div className="text-[11px] uppercase tracking-wider text-slate-500">Tokens by project type</div>
-            <div className="text-[10px] text-slate-400 font-mono tabular-nums">
+            <div className="text-micro uppercase tracking-wider text-fg-subtle">Tokens by project type</div>
+            <div className="text-micro text-fg-subtle font-mono tabular-nums">
               {projectTypeTotal.toLocaleString()} total
             </div>
           </div>
-          <div className="flex h-2.5 rounded-full overflow-hidden bg-slate-100 mb-3">
+          <div className="flex h-2.5 rounded-full overflow-hidden bg-surface-2 mb-3">
             {projectTypeChartData.map((r) => {
               const meta = projectTypeMeta(r.type);
               const pct = projectTypeTotal > 0 ? (r.tokens / projectTypeTotal) * 100 : 0;
@@ -860,18 +850,18 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
               return (
                 <div
                   key={r.type}
-                  className="rounded-md border border-slate-200 bg-white p-2.5"
+                  className="rounded-md border border-border bg-surface p-2.5"
                   data-testid={`stats-project-type-${r.type}`}
                 >
-                  <div className="flex items-center gap-1.5 text-[11px] font-semibold" style={{ color: meta.color }}>
+                  <div className="flex items-center gap-1.5 text-micro font-semibold" style={{ color: meta.color }}>
                     <span className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
                     {meta.label}
                   </div>
-                  <div className="font-mono text-[16px] font-bold text-slate-900 mt-0.5 tabular-nums">
+                  <div className="font-mono text-[16px] font-bold text-fg mt-0.5 tabular-nums">
                     {r.tokens.toLocaleString()}
-                    <span className="text-[10px] text-slate-400 font-normal"> tok · {pct.toFixed(1)}%</span>
+                    <span className="text-micro text-fg-subtle font-normal"> tok · {pct.toFixed(1)}%</span>
                   </div>
-                  <div className="text-[10px] text-slate-500 font-mono">
+                  <div className="text-micro text-fg-subtle font-mono">
                     ${r.cost.toFixed(4)} · {r.projects} project{r.projects === 1 ? "" : "s"}
                   </div>
                 </div>
@@ -884,17 +874,17 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
       {/* iter-13.58 — Tokens-by-stage redesigned as a 2-column split:
           left = donut (share-of-total), right = bar chart with gradient
           fills. Both charts use shared gradient ids and the FancyTooltip. */}
-      <div className="border border-slate-200 rounded-md p-3 bg-gradient-to-br from-white to-slate-50">
+      <div className="border border-border rounded-md p-3 bg-gradient-to-br from-white to-slate-50">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">
+          <div className="text-micro uppercase tracking-wider text-fg-subtle">
             {agentDrivenView ? "Tokens by agent" : "Tokens by stage"}
           </div>
-          <div className="text-[10px] text-slate-400 font-mono tabular-nums">
+          <div className="text-micro text-fg-subtle font-mono tabular-nums">
             {stageTotalTokens.toLocaleString()} total
           </div>
         </div>
         {stageChartData.length === 0 ? (
-          <div className="text-[12px] text-slate-500 py-10 text-center">
+          <div className="text-[12px] text-fg-subtle py-10 text-center">
             No LLM activity in this window yet.
           </div>
         ) : (
@@ -981,20 +971,20 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
       {/* Project-wise stacked chart — each bar shows a project's total
           tokens broken down by stage. Only meaningful when scope spans
           all projects, or when the active project has cross-stage data. */}
-      <div data-testid="stats-project-chart" className="border border-slate-200 rounded-md p-3 bg-gradient-to-br from-white to-slate-50">
+      <div data-testid="stats-project-chart" className="border border-border rounded-md p-3 bg-gradient-to-br from-white to-slate-50">
         <div className="flex items-center justify-between mb-2">
-          <div className="text-[11px] uppercase tracking-wider text-slate-500">Tokens by project (stacked by stage)</div>
+          <div className="text-micro uppercase tracking-wider text-fg-subtle">Tokens by project (stacked by stage)</div>
           {scope === "active" && projectChartData.rows.length <= 1 && (
             <button
               onClick={() => setScope("all")}
-              className="text-[10px] text-[#7C3AED] hover:underline"
+              className="text-micro text-info hover:underline"
             >
               Switch to "All projects" to compare →
             </button>
           )}
         </div>
         {projectChartData.rows.length === 0 ? (
-          <div className="text-[12px] text-slate-500 py-10 text-center">
+          <div className="text-[12px] text-fg-subtle py-10 text-center">
             No project-level activity in this window.
           </div>
         ) : (
@@ -1068,9 +1058,9 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
       </div>
 
       {stageChartData.length > 0 && (
-        <div className="border border-slate-200 rounded-md overflow-hidden">
+        <div className="border border-border rounded-md overflow-hidden">
           <table className="w-full text-[12px]">
-            <thead className="bg-gradient-to-b from-slate-50 to-white text-slate-600">
+            <thead className="bg-gradient-to-b from-slate-50 to-white text-fg-muted">
               <tr>
                 <th className="text-left px-3 py-1.5 font-semibold">{agentDrivenView ? "Agent" : "Stage"}</th>
                 <th className="text-right px-3 py-1.5 font-semibold">Tokens</th>
@@ -1083,7 +1073,7 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
                 const pct = stageTotalTokens > 0 ? (r.tokens / stageTotalTokens) * 100 : 0;
                 const c = stageBaseColor(r.stage);
                 return (
-                  <tr key={r.stage} className="border-t border-slate-100 hover:bg-slate-50">
+                  <tr key={r.stage} className="border-t border-border hover:bg-surface-2">
                     <td className="px-3 py-1.5">
                       <span className="inline-block w-2.5 h-2.5 rounded-full mr-2 align-middle" style={{ background: c }} />
                       {r.stage}
@@ -1091,8 +1081,8 @@ function StatisticsPane() {  const { activeId, projects } = useProjects();
                     <td className="px-3 py-1.5 text-right font-mono tabular-nums">{r.tokens.toLocaleString()}</td>
                     <td className="px-3 py-1.5 text-right">
                       <div className="inline-flex items-center gap-1.5">
-                        <span className="font-mono tabular-nums text-slate-600 text-[11px] w-9 text-right">{pct.toFixed(1)}%</span>
-                        <span className="inline-block h-1.5 w-16 bg-slate-100 rounded-full overflow-hidden">
+                        <span className="font-mono tabular-nums text-fg-muted text-micro w-9 text-right">{pct.toFixed(1)}%</span>
+                        <span className="inline-block h-1.5 w-16 bg-surface-2 rounded-full overflow-hidden">
                           <span className="block h-full rounded-full" style={{ width: `${Math.min(100, pct)}%`, background: c }} />
                         </span>
                       </div>
@@ -1263,10 +1253,10 @@ function HelpPane() {
     <div data-testid="settings-help-pane" className="space-y-4 p-1">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="text-[15px] font-semibold flex items-center gap-2 text-[#2E2E38]">
+          <div className="text-[15px] font-semibold flex items-center gap-2 text-fg">
             <HelpCircle className="w-4 h-4" /> User Manual
           </div>
-          <div className="text-[11px] text-slate-600 mt-1">
+          <div className="text-micro text-fg-muted mt-1">
             End-to-end guide to running LAMA — pipeline, model routing, logs,
             settings, and troubleshooting.
           </div>
@@ -1274,7 +1264,7 @@ function HelpPane() {
         <button
           data-testid="help-download-pdf"
           onClick={downloadPdf}
-          className="shrink-0 px-3 py-1.5 bg-[#2E2E38] text-white text-[12px] font-semibold rounded-sm hover:bg-black flex items-center gap-1.5"
+          className="shrink-0 px-3 py-1.5 bg-ink text-ink-fg text-[12px] font-semibold rounded-sm hover:bg-ink flex items-center gap-1.5"
           title="Open the manual in a printable window — choose 'Save as PDF' in the print dialog"
         >
           <Download className="w-3.5 h-3.5" />
@@ -1282,15 +1272,15 @@ function HelpPane() {
         </button>
       </div>
 
-      <div className="border border-[#E6E6E6] rounded-sm bg-white divide-y divide-[#F0F0F0]">
+      <div className="border border-border rounded-sm bg-surface divide-y divide-surface-2">
         {MANUAL_SECTIONS.map((s) => (
           <section key={s.id} data-testid={`help-section-${s.id}`} className="p-4">
-            <h3 className="text-[13px] font-bold text-[#2E2E38] border-l-4 border-[#FFE600] pl-2 mb-2">
+            <h3 className="text-[13px] font-bold text-fg border-l-4 border-brand pl-2 mb-2">
               {s.title}
             </h3>
             <div className="space-y-1.5">
               {s.body.map((p, i) => (
-                <p key={i} className="text-[12px] text-slate-700 leading-relaxed">
+                <p key={i} className="text-[12px] text-fg-muted leading-relaxed">
                   {p}
                 </p>
               ))}
@@ -1299,7 +1289,7 @@ function HelpPane() {
         ))}
       </div>
 
-      <div className="text-[10px] text-slate-500 italic px-1">
+      <div className="text-micro text-fg-subtle italic px-1">
         Tip: the "Download PDF" button opens a print-optimised view. In the
         print dialog, pick "Save as PDF" as the destination.
       </div>
@@ -1328,7 +1318,7 @@ export default function SettingsMenu({ open, onOpenChange, onRefreshApp, refresh
         data-testid="settings-menu-dialog"
         className="max-w-3xl p-0 gap-0 overflow-hidden"
       >
-        <DialogHeader className="px-5 py-3 border-b border-[#E6E6E6]">
+        <DialogHeader className="px-5 py-3 border-b border-border">
           <DialogTitle className="flex items-center gap-2 text-base">
             <SettingsIcon className="w-4 h-4" />
             Settings
@@ -1337,7 +1327,7 @@ export default function SettingsMenu({ open, onOpenChange, onRefreshApp, refresh
 
         <div className="flex">
           {/* Tabs rail */}
-          <nav className="w-44 shrink-0 border-r border-[#E6E6E6] bg-slate-50 py-2">
+          <nav className="w-44 shrink-0 border-r border-border bg-surface-2 py-2">
             {TABS.map((t) => {
               const Icon = t.icon;
               const isActive = tab === t.key;
@@ -1348,8 +1338,8 @@ export default function SettingsMenu({ open, onOpenChange, onRefreshApp, refresh
                   onClick={() => setTab(t.key)}
                   className={`w-full flex items-center gap-2 px-4 py-2 text-[13px] text-left ${
                     isActive
-                      ? "bg-white text-[#2E2E38] font-semibold border-r-2 border-[#FFE600]"
-                      : "text-slate-600 hover:bg-white"
+                      ? "bg-surface text-fg font-semibold border-r-2 border-brand"
+                      : "text-fg-muted hover:bg-surface"
                   }`}
                 >
                   <Icon className="w-4 h-4" />

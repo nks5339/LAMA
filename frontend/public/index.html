@@ -3,11 +3,27 @@
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#000000" />
+        <meta name="theme-color" content="#2E2E38" />
         <meta name="description" content="LAMA — Legacy Application Modernisation AI Studio" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@600&display=swap" rel="stylesheet" />
+        <!-- The three faces the app actually declares. Previously this tag
+             loaded Inter:600 — which nothing in the codebase references — while
+             the real faces arrived through an @import at the top of index.css,
+             serialising them behind the CSS parse. Both problems fixed here:
+             one non-blocking request, no unused font, no waterfall. -->
+        <link
+            href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+            rel="stylesheet"
+            media="print"
+            onload="this.media='all'"
+        />
+        <noscript>
+            <link
+                href="https://fonts.googleapis.com/css2?family=Chivo:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap"
+                rel="stylesheet"
+            />
+        </noscript>
         <!--
         manifest.json provides metadata used when your web app is installed on a
         user's mobile device or desktop. See https://developers.google.com/web/fundamentals/web-app-manifest/
@@ -22,6 +38,16 @@
         Learn how to configure a non-root public URL by running `npm run build`.
         -->
         <title>LAMA · Legacy Application Modernisation AI Studio</title>
+        <script>
+            // One-shot cleanup: the short-lived theme toggle persisted a
+            // choice here and stamped data-theme on <html>. Both are gone;
+            // drop the key so a browser that still has it is not left
+            // carrying dead state.
+            try {
+                localStorage.removeItem("lama:theme");
+                document.documentElement.removeAttribute("data-theme");
+            } catch (e) {}
+        </script>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
     </head>
     <body>

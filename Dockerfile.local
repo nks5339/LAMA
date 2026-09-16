@@ -9,7 +9,16 @@
 #
 # Build:   docker build -f Dockerfile.local -t lama:local .
 # Run:     LAMA_IMAGE=lama:local docker compose up -d
-FROM mishramesh/lama:latest
+# --platform is explicit because mishramesh/lama:latest is published
+# linux/amd64 only. On Apple Silicon Docker would otherwise warn
+# "InvalidBaseImagePlatform" on every build and silently run the whole
+# stack under Rosetta emulation. Stating it keeps the build quiet and the
+# emulation intentional — expect slower CodeGen/Tester native builds here
+# than on an amd64 host. An ARG rather than a literal so this can be
+# overridden (--build-arg BASE_PLATFORM=linux/arm64) the day the base
+# image is republished multi-arch.
+ARG BASE_PLATFORM=linux/amd64
+FROM --platform=${BASE_PLATFORM} mishramesh/lama:latest
 
 USER root
 

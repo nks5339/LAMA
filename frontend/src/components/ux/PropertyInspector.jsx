@@ -37,14 +37,14 @@ export default function PropertyInspector({
   }, {});
 
   return (
-    <div className={`flex flex-col bg-white border-l border-[#E6E6E6] ${className}`}>
+    <div className={`flex flex-col bg-surface border-l border-border ${className}`}>
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2.5 border-b border-[#E6E6E6] bg-[#F9FAFB]">
-        <h3 className="text-sm font-semibold text-[#2E2E38]">{title}</h3>
+      <div className="flex items-center justify-between px-3 py-2.5 border-b border-border bg-surface-2">
+        <h3 className="text-sm font-semibold text-fg">{title}</h3>
         {onClose && (
           <button
             onClick={onClose}
-            className="w-6 h-6 flex items-center justify-center rounded hover:bg-[#E6E6E6] text-[#6B7280] hover:text-[#2E2E38] transition-colors"
+            className="w-6 h-6 flex items-center justify-center rounded hover:bg-border text-fg-muted hover:text-fg transition-colors"
             title="Close"
           >
             <X className="w-4 h-4" />
@@ -55,7 +55,7 @@ export default function PropertyInspector({
       {/* Properties */}
       <div className="flex-1 overflow-y-auto mos-scroll">
         {Object.keys(sections).length === 0 ? (
-          <div className="px-3 py-8 text-center text-sm text-[#9CA3AF]">
+          <div className="px-3 py-8 text-center text-sm text-fg-subtle">
             No properties to display
           </div>
         ) : (
@@ -63,25 +63,25 @@ export default function PropertyInspector({
             const isExpanded = expandedSections.has(sectionName);
 
             return (
-              <div key={sectionName} className="border-b border-[#F3F4F6] last:border-b-0">
+              <div key={sectionName} className="border-b border-surface-2 last:border-b-0">
                 {/* Section Header */}
                 <button
                   onClick={() => toggleSection(sectionName)}
-                  className="w-full flex items-center justify-between px-3 py-2 bg-[#F9FAFB] hover:bg-[#F3F4F6] transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-2 bg-surface-2 hover:bg-surface-2 transition-colors"
                 >
-                  <span className="text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
+                  <span className="text-xs font-semibold text-fg-muted uppercase tracking-wide">
                     {sectionName}
                   </span>
                   {isExpanded ? (
-                    <ChevronDown className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                    <ChevronDown className="w-3.5 h-3.5 text-fg-subtle" />
                   ) : (
-                    <ChevronRight className="w-3.5 h-3.5 text-[#9CA3AF]" />
+                    <ChevronRight className="w-3.5 h-3.5 text-fg-subtle" />
                   )}
                 </button>
 
                 {/* Section Content */}
                 {isExpanded && (
-                  <div className="divide-y divide-[#F3F4F6]">
+                  <div className="divide-y divide-surface-2">
                     {props.map((prop, idx) => (
                       <PropertyRow key={idx} {...prop} />
                     ))}
@@ -106,19 +106,19 @@ function PropertyRow({ label, value, type = "text", editable = false, onChange, 
   }
 
   return (
-    <div className="px-3 py-2.5 hover:bg-[#F9FAFB] transition-colors">
+    <div className="px-3 py-2.5 hover:bg-surface-2 transition-colors">
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-[#6B7280]">{label}</label>
+        <label className="text-xs font-medium text-fg-muted">{label}</label>
         
         {!editable ? (
-          <div className="text-sm text-[#2E2E38] font-mono">
+          <div className="text-sm text-fg font-mono">
             {value !== null && value !== undefined ? String(value) : "—"}
           </div>
         ) : type === "select" ? (
           <select
             value={value}
             onChange={(e) => onChange?.(e.target.value)}
-            className="text-sm px-2 py-1 border border-[#D1D5DB] rounded focus:outline-none focus:ring-2 focus:ring-[#FFE600] focus:border-[#FFE600]"
+            className="text-sm px-2 py-1 border border-border-strong rounded focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
           >
             {options?.map((opt) => (
               <option key={opt.value} value={opt.value}>
@@ -132,23 +132,23 @@ function PropertyRow({ label, value, type = "text", editable = false, onChange, 
               type="checkbox"
               checked={Boolean(value)}
               onChange={(e) => onChange?.(e.target.checked)}
-              className="w-4 h-4 accent-[#FFE600] cursor-pointer"
+              className="w-4 h-4 accent-brand cursor-pointer"
             />
-            <span className="text-sm text-[#6B7280]">Enabled</span>
+            <span className="text-sm text-fg-muted">Enabled</span>
           </label>
         ) : type === "textarea" ? (
           <textarea
             value={value || ""}
             onChange={(e) => onChange?.(e.target.value)}
             rows={3}
-            className="text-sm px-2 py-1 border border-[#D1D5DB] rounded focus:outline-none focus:ring-2 focus:ring-[#FFE600] focus:border-[#FFE600] font-mono resize-none"
+            className="text-sm px-2 py-1 border border-border-strong rounded focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand font-mono resize-none"
           />
         ) : (
           <input
             type={type}
             value={value || ""}
             onChange={(e) => onChange?.(e.target.value)}
-            className="text-sm px-2 py-1 border border-[#D1D5DB] rounded focus:outline-none focus:ring-2 focus:ring-[#FFE600] focus:border-[#FFE600]"
+            className="text-sm px-2 py-1 border border-border-strong rounded focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand"
           />
         )}
       </div>

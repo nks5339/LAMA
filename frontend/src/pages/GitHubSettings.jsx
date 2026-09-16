@@ -73,7 +73,7 @@ export default function GitHubSettingsPage() {
 
   if (!active) {
     return (
-      <div className="flex-1 flex items-center justify-center text-slate-500">
+      <div className="flex-1 flex items-center justify-center text-fg-subtle">
         <div className="text-sm">No active project.</div>
       </div>
     );
@@ -211,8 +211,8 @@ export default function GitHubSettingsPage() {
       onClick={() => setAuthMethod(id)}
       className={`text-xs px-3 py-1.5 border rounded-sm flex items-center gap-1 ${
         authMethod === id
-          ? "bg-[#2E2E38] text-white border-[#2E2E38]"
-          : "bg-white text-slate-700 border-[#E6E6E6] hover:bg-slate-50"
+          ? "bg-ink text-ink-fg border-fg"
+          : "bg-surface text-fg-muted border-border hover:bg-surface-2"
       }`}
     >
       <Icon className="w-3 h-3" />
@@ -222,9 +222,9 @@ export default function GitHubSettingsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0">
-      <header className="bg-white border-b border-[#E6E6E6] px-6 py-3">
-        <div className="text-[10px] uppercase tracking-widest text-slate-500">Settings</div>
-        <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38] flex items-center">
+      <header className="bg-surface border-b border-border px-6 py-3">
+        <div className="text-micro uppercase tracking-widest text-fg-subtle">Settings</div>
+        <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center">
           <Github className="w-5 h-5 mr-2" />
           GitHub Configuration
           <HelpIcon
@@ -234,21 +234,21 @@ export default function GitHubSettingsPage() {
         </h1>
       </header>
 
-      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-[#F6F6FA]">
+      <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-bg">
         <div className="max-w-3xl mx-auto space-y-6">
           {/* Section A — GitHub Config */}
           <section className="mos-panel p-6" data-testid="section-github-config">
-            <h2 className="font-display text-sm font-bold tracking-tight text-[#2E2E38] mb-1">
+            <h2 className="font-display text-sm font-bold tracking-tight text-fg mb-1">
               Repository Connection
             </h2>
-            <p className="text-xs text-slate-500 mb-4">
+            <p className="text-xs text-fg-subtle mb-4">
               Saved per project. Credentials are kept on the server. Choose either a personal access
               token or a username + password.
             </p>
 
             <div className="space-y-4">
               <div>
-                <Label htmlFor="gh-repo" className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                <Label htmlFor="gh-repo" className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   GitHub Repository
                   <HelpIcon text="The target GitHub repository where LAMA will push generated code, schema files, and Dockerfile. Must exist before pushing." testId="help-gh-repo" />
                 </Label>
@@ -264,7 +264,7 @@ export default function GitHubSettingsPage() {
 
               {/* Auth method switch */}
               <div>
-                <div className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600 mb-1">
+                <div className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted mb-1">
                   Authentication Method
                   <HelpIcon
                     text="Use a personal access token (recommended) OR a GitHub username + password."
@@ -279,7 +279,7 @@ export default function GitHubSettingsPage() {
 
               {authMethod === "token" && (
                 <div data-testid="gh-token-block">
-                  <Label htmlFor="gh-token" className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                  <Label htmlFor="gh-token" className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted">
                     <Lock className="w-3 h-3 mr-1" />
                     Personal Access Token
                     <HelpIcon text="GitHub PAT with repo write permission. Never stored in logs. Kept on the server only." testId="help-gh-token" />
@@ -299,7 +299,7 @@ export default function GitHubSettingsPage() {
               {authMethod === "basic" && (
                 <div className="space-y-3" data-testid="gh-basic-block">
                   <div>
-                    <Label htmlFor="gh-username" className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <Label htmlFor="gh-username" className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted">
                       <User className="w-3 h-3 mr-1" />
                       Username
                       <HelpIcon text="Your GitHub username (e.g. octocat)." testId="help-gh-username" />
@@ -314,7 +314,7 @@ export default function GitHubSettingsPage() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="gh-password" className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                    <Label htmlFor="gh-password" className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted">
                       <Lock className="w-3 h-3 mr-1" />
                       Password
                       <HelpIcon
@@ -336,7 +336,7 @@ export default function GitHubSettingsPage() {
               )}
 
               <div>
-                <Label htmlFor="gh-branch" className="flex items-center text-xs font-semibold uppercase tracking-wider text-slate-600">
+                <Label htmlFor="gh-branch" className="flex items-center text-xs font-semibold uppercase tracking-wider text-fg-muted">
                   Target Branch
                   <HelpIcon text="Default branch where LAMA commits. Usually 'main'." testId="help-gh-branch" />
                 </Label>
@@ -354,7 +354,7 @@ export default function GitHubSettingsPage() {
                   data-testid="gh-save-btn"
                   onClick={handleSave}
                   disabled={saving}
-                  className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm"
+                  className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm"
                 >
                   {saving ? "Saving…" : "Save GitHub Config"}
                 </Button>
@@ -363,7 +363,7 @@ export default function GitHubSettingsPage() {
                   onClick={handleTest}
                   disabled={testing}
                   variant="outline"
-                  className="bg-white border-[#E6E6E6] hover:bg-slate-50 text-slate-700 rounded-sm"
+                  className="bg-surface border-border hover:bg-surface-2 text-fg-muted rounded-sm"
                 >
                   <Cloud className="w-4 h-4 mr-1" />
                   {testing ? "Testing…" : "Test Connection"}
@@ -386,29 +386,29 @@ export default function GitHubSettingsPage() {
             <section className="mos-panel p-6" data-testid="section-folder-tree">
               <div className="flex items-start justify-between mb-3">
                 <div>
-                  <h2 className="font-display text-sm font-bold tracking-tight text-[#2E2E38] flex items-center">
+                  <h2 className="font-display text-sm font-bold tracking-tight text-fg flex items-center">
                     <Folder className="w-4 h-4 mr-1.5" />
                     Target Folder Structure
                     <HelpIcon text="LAMA will push this structure to GitHub in Stage 4 (Code Generation). Schema files are pushed after Stage 2 (Data Model)." testId="help-folder-tree" />
                   </h2>
-                  <p className="text-xs text-slate-500 mt-1">Read-only preview of what will be committed at each stage.</p>
+                  <p className="text-xs text-fg-subtle mt-1">Read-only preview of what will be committed at each stage.</p>
                 </div>
                 <Button
                   data-testid="push-srs-btn"
                   onClick={handlePushSRS}
                   disabled={pushing}
-                  className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-xs h-8"
+                  className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-xs h-8"
                 >
                   {pushing ? "Pushing…" : "Push SRS to GitHub"}
                 </Button>
               </div>
               <pre
                 data-testid="folder-tree"
-                className="bg-slate-50 border border-[#E6E6E6] rounded-sm p-4 text-[12px] font-mono text-slate-800 overflow-x-auto leading-relaxed"
+                className="bg-surface-2 border border-border rounded-sm p-4 text-[12px] font-mono text-fg overflow-x-auto leading-relaxed"
               >
 {FOLDER_TREE}
               </pre>
-              <div className="mt-3 text-[11px] text-slate-500 space-y-1">
+              <div className="mt-3 text-micro text-fg-subtle space-y-1">
                 <div>· <b>Stage 1 (SRS freeze):</b> pushes <code>docs/SRS.md</code></div>
                 <div>· <b>Stage 2 (DataModel freeze):</b> pushes <code>schema/*.sql</code></div>
                 <div>· <b>Stage 4 (CodeGen):</b> pushes full <code>backend/</code> + <code>frontend/</code> + Dockerfile</div>

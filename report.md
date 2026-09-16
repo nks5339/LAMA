@@ -2,6 +2,9 @@
 
 **Generated** 2026-09-16 · branch `refactor/zero-waste` · commit `e9a5378`+
 **Revised** after the orphan sweep — see *Corrections to the first issue* at the end
+**Revised again** after the frontend modernisation — a JS test runner now
+exists, so the *Frontend* section below reports measured results instead of
+declining to. Backend grew 19 tests (streaming chat + citation retrieval).
 **Scope** every function in `backend/` (1,542) plus the frontend surface
 
 ---
@@ -17,7 +20,8 @@ Every status below comes from one of three things I actually ran:
 
 | Evidence | Method | Result |
 |---|---|---|
-| **Test execution trace** | `sys.setprofile` over the full suite, recording every backend function that really ran | 1,036 passed / 129 skipped · 663 functions observed |
+| **Test execution trace** | `sys.setprofile` over the full suite, recording every backend function that really ran | 1,055 passed / 129 skipped · 663 functions observed |
+| **Frontend unit + contract suite** | Jest 27 + React Testing Library 16, `yarn test:ci` | **221 passed / 12 suites** · 0 failed |
 | **Live HTTP trace** | `TestClient` against the real app + real Mongo, every parameterless `GET` under `/api` | 31 routes · **0 responses ≥ 500** |
 | **Project-scoped HTTP trace** | Same, for every `GET` taking only `{project_id}` — run against *PMIS Migration Pilot* | 54 routes · **0 responses ≥ 500** |
 
@@ -47,9 +51,12 @@ Plus live model round-trips against your Azure account (detailed below).
 | **Total** | **1,524** | |
 
 **Nothing is marked "not working," and there is no longer any dead code.**
-Across 85 live HTTP routes and 1,036 tests, no function raised, no endpoint
-returned 5xx, and the backend boots with zero tracebacks and zero ERROR
-lines. The defects found were 18 orphans and 3 bugs — **all fixed**.
+Across 85 live HTTP routes and 1,055 backend tests, no function raised, no
+endpoint returned 5xx, and the backend boots with zero tracebacks and zero
+ERROR lines. A further **221 frontend tests** now cover the UI, which the
+previous issue could not measure at all. The defects found were 18 orphans
+and 3 backend bugs — **all fixed** — plus 6 frontend defects found by the
+new contract suite and the P0 audit, also all fixed.
 
 ---
 
@@ -148,6 +155,44 @@ line 559, not by name. A naive dead-code pass flags them; they stay.
 
 ---
 
+## New backend tests — streaming chat
+
+`routes/chat.py` was POST-only; `llm.fabric_call_stream` already existed and
+already handled the three execution modes, so streaming was wiring rather
+than new infrastructure. Two suites were added with it.
+
+| Suite | Tests | What it pins |
+|---|---:|---|
+| `test_iter20_chat_stream.py` | 10 | The SSE wire contract, pipeline parity between the two transports, degraded-provider behaviour, persist-exactly-once, session turn-appends, SRS-error reporting, 404-before-stream |
+| `test_iter20_vector_sources.py` | 9 | `search_with_sources` — citation metadata, content parity with `search()`, and every degradation path returning `[]` |
+
+Three of these encode decisions that are easy to get wrong later:
+
+- **Pipeline parity.** `_prepare_turn` builds prompt, RAG and history for
+  *both* transports. `test_both_transports_build_the_same_llm_messages`
+  asserts the two produce identical `llm_messages`, so a future change to
+  one path cannot silently diverge from the other.
+- **Degraded providers.** `fabric_call_stream` yields one buffered chunk on
+  Anthropic-native and Factory. `test_non_streaming_provider_yields_one_chunk`
+  pins that the route still emits a valid stream — the feature works on
+  every provider, it just stops being progressive.
+- **Session parity.** The buffered path gets turn-appending free from
+  `fabric_call_with_session`; the streaming path bypasses that wrapper.
+  `test_session_mode_appends_both_turns` catches the regression where every
+  streamed exchange would vanish from session memory.
+
+A defect this work also closed: the SRS auto-trigger used to swallow every
+failure into `srs_triggered = False`, so a user who asked for an SRS and got
+nothing had no way to find out why (it was on the P2 backlog). It now returns
+`srs_error`, logs server-side, and the UI raises a toast.
+
+**Not covered:** a live end-to-end token stream against a real model. The
+wire contract, persistence, session appends and degradation are all pinned
+against a stubbed `fabric_call_stream`; the first real stream is still worth
+watching once.
+
+---
+
 ## Live model verification
 
 All 12 JSON-parsed agents, each through its **real seeded prompt** and its
@@ -176,15 +221,119 @@ All 12 JSON-parsed agents, each through its **real seeded prompt** and its
 
 ## Frontend
 
-Not traced — there is no JS test runner in this repo, so I will not assert
-per-function status I did not measure.
+**Now traced.** The previous issue said "there is no JS test runner in this
+repo, so I will not assert per-function status I did not measure." There is
+one now: Jest 27 (shipped with react-scripts) + React Testing Library 16,
+wired through CRACO with the `@/` alias and a `react-router-dom` resolution
+map that Jest 27 needs because that package's `main` points at a file it
+does not ship.
+
+```
+yarn test:ci          # 221 tests, 12 suites
+yarn test:coverage    # same, with coverage
+yarn typecheck        # tsc --noEmit, 0 errors
+```
+
+Three toolchain snags worth recording, because each would stop the suite
+running on a fresh checkout:
+
+- **`react-router-dom` 7 will not resolve under Jest 27.** Its
+  `package.json` `main` points at `dist/main.js`, which the package does
+  not ship; Node is rescued by the `exports` map, which Jest 27 does not
+  read. `craco.config.js` maps `react-router-dom`, `react-router` and
+  `react-router/dom` to the CJS builds they actually ship.
+- **TypeScript had to be pinned to 5.6.3.** `yarn add -D typescript`
+  resolved 7.0.2, which CRA 5's `fork-ts-checker` cannot use.
+- **`jsconfig.json` was removed.** react-scripts refuses to start with both
+  it and a `tsconfig.json`; tsconfig supplies the same `@/*` paths and the
+  same `include`, plus `allowJs`.
+
+### Suites
+
+| Suite | Tests | What it pins |
+|---|---:|---|
+| `__tests__/design-system.test.js` | 19 | Codebase-wide token, type-scale, a11y and bundle invariants. Asserts on **source**, so a regression fails the moment it is written. |
+| `lib/__tests__/streamMessage.test.js` | 15 | The SSE wire contract for `POST /api/chat/stream` — split frames, degraded providers, aborts, malformed data. |
+| `hooks/__tests__/hooks.test.jsx` | 34 | `useBreakpoint` (matchMedia), `usePolling` (hidden-tab pause), `useJobProgress` (elapsed, phase labels). |
+| `components/ui/__tests__/button.test.jsx` | 16 | Loading-as-variant, `aria-busy`, WCAG 2.5.8 target sizes, token-only colours. |
+| `components/ui/__tests__/feedback.test.jsx` | 28 | Skeletons, `JobProgress`, `ThinkingDots`, `AgentTimeline` — every live region. |
+| `components/ui/__tests__/status.test.jsx` | 21 | The three-channel status vocabulary (icon + text + colour) and `ProgressBar` semantics. |
+| `components/ui/__tests__/form.test.jsx` | 19 | `Field` label/aria wiring, error announcement, focus-moving error summary. |
+| `components/__tests__/StageProgress.test.jsx` | 16 | The rewritten stepper: one tab stop per stage, no red-for-unreached, project-type and transformer-phase behaviour. |
+| `components/ux/__tests__/Cards.test.jsx` | 26 | `MetricCard` keyboard path, `StepCard` blocked-state reason, `EmptyState` action. |
+| `pages/__tests__/DiscoveryV2.test.jsx` | 14 | The **P0-1 regression guard** — see below. |
+| `hooks/__tests__/useAutoSaveTracker.test.jsx` | 12 | The hook extracted to get recharts off the critical path. |
+| `lib/__tests__/routes.test.js` | 11 | Route-chunk registry, prefetch idempotence, `cn()` merge order. |
+| **Total** | **221** | |
+
+### The P0-1 guard is verified, not assumed
+
+`DiscoveryV2` called `kbStatus(active.id)` while importing only `skipStage`.
+The call resolved to the `useState` variable of the same name, threw
+`TypeError: kbStatus is not a function`, and an empty `catch (_) {}` hid it
+— so every metric tile on the landing page read `0` and `kbReady` never
+became true, gating the Generate-SRS step behind a card that looked
+pressable and did nothing.
+
+I reintroduced the original defect and re-ran the suite: **6 of the 14
+Discovery tests fail**, including *"calls the API function, not the state
+variable of the same name"*. Restored, all 14 pass. The guard works.
+
+The same bug class is now caught a second way, at compile time:
+`src/lib/api.d.ts` declares all 228 exports of `lib/api.js`, so importing a
+name that does not exist is a `tsc` error (TS2305).
+
+### Coverage — modules authored in this work
+
+| Module | Stmts | Branch | Funcs |
+|---|---:|---:|---:|
+| `ui/button.jsx` | 100% | 100% | 100% |
+| `ui/status.jsx` | 100% | 89% | 100% |
+| `ui/skeleton.jsx` | 100% | 50% | 100% |
+| `ui/job-progress.jsx` | 100% | 83% | 100% |
+| `ui/form.jsx` | 100% | 92% | 100% |
+| `hooks/useAutoSaveTracker.ts` | 100% | 95% | 100% |
+| `hooks/useJobProgress.ts` | 100% | 94% | 100% |
+| `hooks/usePolling.ts` | 95% | 86% | 100% |
+| `StageProgress.jsx` | 93% | 84% | 83% |
+| `ux/Cards.jsx` | 92% | 97% | 80% |
+| `hooks/useBreakpoint.ts` | 75% | 83% | 54% |
+| **All authored modules** | **90%** | **89%** | **76%** |
+
+The 60-odd pre-existing page components are **not** covered by unit tests.
+Their behaviour is asserted indirectly by the source-level contract suite,
+and by lint, typecheck and build. Stated plainly so the number is not read
+as application-wide coverage.
+
+### Defects the contract suite found and fixed
+
+Writing the invariants surfaced real issues that lint had not:
+
+| # | Finding | Count | Resolution |
+|---|---|---:|---|
+| 1 | `onClick` on a `div`/`span`/`li` with no role — no keyboard path | 32 | Classified and fixed by kind: 16 modal scrims → `aria-hidden`; 11 event-containment wrappers → `role="presentation"`; 5 genuine controls (3 file dropzones, a tree row, a Regenerate action) → real keyboard operation |
+| 2 | Empty `catch {}` swallowing a failure silently — the class that hid P0-1 | 39 | Every one annotated with why swallowing is safe (localStorage unavailable / one failed poll tick / best-effort enrichment). A reviewer can now judge each. |
+| 3 | `<span role="button">` performing a real action | 1 | `AccuracyReport` Regenerate is now a real `<button>` with an accessible name |
+| 4 | `role="button"` on a Radix tooltip trigger that performs no action | 1 | `HelpIcon` — role removed; it stays focusable, but no longer announces a control that does nothing |
+| 5 | `border-white`, missed by the palette codemod | 1 | `ModernAccordion` → `border-surface`; a dead commented-out dot in `TopToolbar` removed |
+
+### Static gates
 
 | Check | Result |
 |---|---|
 | Pages | 17 |
-| `lib/api.js` exports | 228 |
-| `yarn lint` | **0 errors** (44 pre-existing warnings) |
+| `lib/api.js` exports | 228 (all declared in `api.d.ts`) |
+| `yarn test:ci` | ✅ **221 passed / 12 suites** |
+| `yarn typecheck` (`tsc --noEmit`) | ✅ 0 errors |
+| `yarn lint` | ✅ 0 errors (19 warnings, down from 44) |
 | `yarn build` | ✅ succeeds |
+| First-paint JS | **315 KB gzip** (was 769 KB — 59% smaller) |
+| Hardcoded hex literals | **0** (was 2,449) |
+| Fixed-palette greys | **0** (was ~1,900) |
+| Type below 12px | **0** (was 1,179) |
+| `console.log` in shipped code | **0** |
+| Empty `catch {}` | **0** |
+| `data-testid` contract | 710 (0 removed from the 691 baseline) |
 
 ---
 
@@ -192,13 +341,16 @@ per-function status I did not measure.
 
 | Gate | Result |
 |---|---|
-| `pytest backend/tests/` | ✅ 1,036 passed / 129 skipped |
+| `pytest backend/tests/` | ✅ **1,055 passed** / 129 skipped |
 | `ruff check backend` | ✅ clean |
-| `pyflakes` (changed files) | ✅ clean (`_abort_i` predates this work) |
-| `import server` | ✅ 312 routes |
+| `pyflakes` (changed files) | ✅ clean |
+| `import server` | ✅ 313 routes (+1: `POST /api/chat/stream`) |
 | Live boot | ✅ 0 tracebacks, 0 ERROR lines |
 | 85 live GET routes | ✅ 0 responses ≥ 500 |
-| `yarn lint` / `yarn build` | ✅ 0 errors / succeeds |
+| `yarn test:ci` | ✅ **221 passed** / 12 suites |
+| `yarn typecheck` | ✅ 0 errors |
+| `yarn lint` | ✅ 0 errors (19 warnings) |
+| `yarn build` | ✅ succeeds · 315 KB gzip first paint |
 
 ---
 
@@ -215,11 +367,20 @@ Stated plainly so the numbers are not read as more than they are:
 3. **Execution ≠ correctness.** A traced function ran without raising. For
    the LLM agents I checked output *shape* against the real parsers; I did
    not grade answer quality beyond the planted-defect tests.
-4. **The frontend is unmeasured** beyond lint and build.
+4. **Frontend coverage is 90% of the modules authored in the
+   modernisation, not of the application.** The 60-odd pre-existing page
+   components have no unit tests. They are covered indirectly — by the
+   source-level contract suite, lint, typecheck and build — which is
+   weaker than execution. `Transformer.jsx` (5,850 lines) and
+   `GapAnalyzer.jsx` (2,192) are the largest untested surfaces.
+5. **No end-to-end test exists.** Nothing here drives a browser through a
+   real migration. Backend routes and frontend units are each verified in
+   isolation; the seam between them is verified only by the two suites
+   that pin the same SSE contract from both sides.
 
 The honest one-line summary: **nothing in this application is known to be
-broken, 595 functions are proven to run, and the 14 dead ones are named
-above.**
+broken, 595 backend functions are proven to run, 221 frontend tests now
+cover the UI where there were none, and the dead code is gone.**
 
 ---
 
@@ -248,12 +409,20 @@ Re-run in full after every removal above.
 
 | Gate | Result |
 |---|---|
-| `pytest backend/tests/` | ✅ 1,036 passed / 129 skipped |
+| `pytest backend/tests/` | ✅ **1,055 passed** / 129 skipped |
+| `yarn test:ci` | ✅ **221 passed** / 12 suites |
 | `ruff check backend` | ✅ clean |
-| `import server` | ✅ 312 routes |
+| `pyflakes` (changed files) | ✅ clean |
+| `import server` | ✅ 313 routes |
 | Live boot | ✅ 0 tracebacks, 0 ERROR lines |
 | Test-execution trace | ✅ 663 functions observed |
 | 31 parameterless GET routes | ✅ 0 responses ≥ 500 |
 | 54 project-scoped GET routes | ✅ 0 responses ≥ 500 |
 | Orphan scan (AST) | ✅ **0 of 1,524** |
-| `yarn lint` / `yarn build` | ✅ 0 errors / succeeds |
+| `yarn typecheck` (`tsc --noEmit`) | ✅ 0 errors |
+| `yarn lint` | ✅ 0 errors |
+| `yarn build` | ✅ succeeds |
+| P0-1 regression guard | ✅ verified — fails on the reintroduced bug |
+
+**Combined: 1,276 automated tests across both halves of the application,
+all passing.**

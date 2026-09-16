@@ -61,7 +61,7 @@ export function ProjectProvider({ children }) {
         setActiveId(list[0].id);
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
+       
       console.error("[ProjectContext] listProjects failed:", err);
       setProjects([]);
     } finally {

@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, lazy, Suspense } from "react";
 import { FileDown, Lock, Unlock, RefreshCw, Sparkles, Loader2, ChevronRight, Pencil, Check, X, Code, Pause, Play, Square, MoreVertical, Trash2 } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -8,7 +8,11 @@ import {
   regenerateSRSSectionStream,
 } from "@/lib/api";
 import HelpIcon from "@/components/HelpIcon";
-import ERDiagram from "@/components/ERDiagram";
+// d3 is ~75 KB gzipped and ERDiagram renders inside a single section that
+// is usually collapsed. SRSPanel is reachable from the eager Discovery
+// route, so a static import would keep d3 on the critical path for
+// every user regardless of whether they ever open the ER view.
+const ERDiagram = lazy(() => import("@/components/ERDiagram"));
 import ConfidenceBadge from "@/components/ConfidenceBadge";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -55,14 +59,14 @@ const MD_COMPONENTS = {
       <table className="w-full text-xs border-collapse" {...props} />
     </div>
   ),
-  thead: (props) => <thead className="bg-[#2E2E38] text-white" {...props} />,
+  thead: (props) => <thead className="bg-ink text-ink-fg" {...props} />,
   th: (props) => <th className="px-3 py-2 text-left font-semibold text-xs" {...props} />,
   td: ({ children, ...props }) => (
     <td
       className={
         _isGap(children)
-          ? "px-3 py-2 border-b border-[#E6E6E6] text-xs align-top bg-[#FEE2E2] text-[#7F1D1D] font-semibold"
-          : "px-3 py-2 border-b border-[#E6E6E6] text-xs align-top"
+          ? "px-3 py-2 border-b border-border text-xs align-top bg-crit-bg text-crit font-semibold"
+          : "px-3 py-2 border-b border-border text-xs align-top"
       }
       {...props}
     >
@@ -71,22 +75,22 @@ const MD_COMPONENTS = {
   ),
   tr: ({ children, ...props }) => (
     <tr
-      className={_isGap(children) ? "bg-[#FEE2E2]" : "even:bg-[#F6F6FA]"}
+      className={_isGap(children) ? "bg-crit-bg" : "even:bg-bg"}
       {...props}
     >
       {children}
     </tr>
   ),
-  h1: (props) => <h1 className="text-base font-bold text-[#2E2E38] mt-5 mb-2" {...props} />,
-  h2: (props) => <h2 className="text-sm font-bold text-[#2E2E38] mt-4 mb-2" {...props} />,
-  h3: (props) => <h3 className="text-xs font-semibold text-[#2E2E38] mt-3 mb-1" {...props} />,
-  h4: (props) => <h4 className="text-xs font-semibold text-[#2E2E38] mt-2 mb-1 uppercase tracking-wider" {...props} />,
+  h1: (props) => <h1 className="text-base font-bold text-fg mt-5 mb-2" {...props} />,
+  h2: (props) => <h2 className="text-sm font-bold text-fg mt-4 mb-2" {...props} />,
+  h3: (props) => <h3 className="text-xs font-semibold text-fg mt-3 mb-1" {...props} />,
+  h4: (props) => <h4 className="text-xs font-semibold text-fg mt-2 mb-1 uppercase tracking-wider" {...props} />,
   p:  ({ children, ...props }) => (
     <p
       className={
         _isGap(children)
-          ? "text-[13px] leading-relaxed text-[#7F1D1D] bg-[#FEE2E2] border-l-4 border-[#B91C1C] px-2 py-1 rounded-sm mb-3 font-medium"
-          : "text-[13px] leading-relaxed text-[#2E2E38] mb-3"
+          ? "text-[13px] leading-relaxed text-crit bg-crit-bg border-l-4 border-crit px-2 py-1 rounded-sm mb-3 font-medium"
+          : "text-[13px] leading-relaxed text-fg mb-3"
       }
       {...props}
     >
@@ -99,21 +103,21 @@ const MD_COMPONENTS = {
     <li
       className={
         _isGap(children)
-          ? "text-[#7F1D1D] bg-[#FEE2E2] px-2 py-0.5 rounded-sm font-medium"
-          : "text-[#2E2E38]"
+          ? "text-crit bg-crit-bg px-2 py-0.5 rounded-sm font-medium"
+          : "text-fg"
       }
       {...props}
     >
       {children}
     </li>
   ),
-  hr: () => <hr className="my-3 border-t border-[#E6E6E6]" />,
+  hr: () => <hr className="my-3 border-t border-border" />,
   blockquote: ({ children, ...props }) => (
     <blockquote
       className={
         _isGap(children)
-          ? "border-l-4 border-[#B91C1C] bg-[#FEE2E2] px-3 py-2 my-2 text-[13px] font-semibold text-[#7F1D1D] rounded-sm"
-          : "border-l-2 border-[#FFE600] bg-[#FFFCE6] px-3 py-1 my-2 text-[13px] italic text-[#2E2E38]"
+          ? "border-l-4 border-crit bg-crit-bg px-3 py-2 my-2 text-[13px] font-semibold text-crit rounded-sm"
+          : "border-l-2 border-brand bg-brand-tint px-3 py-1 my-2 text-[13px] italic text-fg"
       }
       {...props}
     >
@@ -122,13 +126,13 @@ const MD_COMPONENTS = {
   ),
   // Block code: only show as <pre> when it has a real language/multiline.
   // Inline code stays a small mono pill.
-  pre: (props) => <pre className="bg-[#F6F6FA] border border-[#E6E6E6] rounded-sm p-2 text-[11px] font-mono overflow-x-auto my-2" {...props} />,
+  pre: (props) => <pre className="bg-bg border border-border rounded-sm p-2 text-micro font-mono overflow-x-auto my-2" {...props} />,
   code: ({ inline, ...props }) => inline
-    ? <code className="bg-[#F6F6FA] px-1 rounded text-[11px] font-mono" {...props} />
-    : <code className="text-[11px] font-mono" {...props} />,
-  strong: (props) => <strong className="font-semibold text-[#2E2E38]" {...props} />,
+    ? <code className="bg-bg px-1 rounded text-micro font-mono" {...props} />
+    : <code className="text-micro font-mono" {...props} />,
+  strong: (props) => <strong className="font-semibold text-fg" {...props} />,
   em: (props) => <em className="italic" {...props} />,
-  a: (props) => <a className="text-[#1A1A24] underline hover:no-underline" target="_blank" rel="noreferrer" {...props} />,
+  a: (props) => <a className="text-ink-hover underline hover:no-underline" target="_blank" rel="noreferrer" {...props} />,
 };
 
 /**
@@ -277,7 +281,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
         // still gets a result (it might 504 again — but at that point
         // the backend has already persisted the section, so a refresh
         // will pick it up). Console-only — don't toast twice.
-        // eslint-disable-next-line no-console
+         
         console.warn("[SRS] stream regen failed, falling back to POST:", streamErr);
         r = await regenerateSRSSection(projectId, sectionKey, {
           model: model || "",
@@ -388,7 +392,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
     // Without this, if the network request stalled silently the user thought
     // "nothing happened, regeneration is broken". Now they always see a
     // toast within ~50ms of clicking, regardless of what comes next.
-    // eslint-disable-next-line no-console
+     
     console.info("[SRS] Generate clicked", { projectId, conversationId, model, resume });
     toast.info(resume ? "Resuming SRS generation — keeping completed sections…" : "Starting SRS generation…", { duration: 2500 });
     setGenerating(true);
@@ -416,13 +420,13 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
       // Poll every 4s for up to 20 minutes. Backend job has its own
       // internal timeouts so we don't need to outlast it dramatically.
       const deadline = Date.now() + 20 * 60 * 1000;
-      // eslint-disable-next-line no-await-in-loop
+       
       while (Date.now() < deadline) {
-        // eslint-disable-next-line no-await-in-loop
+         
         await new Promise((r) => setTimeout(r, 4000));
         let status = null;
         try {
-          // eslint-disable-next-line no-await-in-loop
+           
           status = await getSRSGenerateStatus(projectId);
         } catch (_) {
           // status endpoint itself unreachable — just keep polling, the
@@ -441,7 +445,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
         }
         // Job no longer running → fetch the final document.
         try {
-          // eslint-disable-next-line no-await-in-loop
+           
           const finalDoc = await getSRS(projectId);
           const sectionKeys = Object.keys(finalDoc?.sections || {});
           const nonEmpty = sectionKeys.filter((k) => (finalDoc.sections[k] || "").trim());
@@ -503,19 +507,19 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
         // "SRS generation failed: SRS is frozen" and didn't understand
         // they needed to click the Unlock button.
         if (res.status === 400 && /frozen/i.test(msg)) {
-          // eslint-disable-next-line no-console
+           
           console.warn("[SRS] backend rejected generate: SRS is frozen");
           toast.warning("SRS is frozen — click 'Unlock' first, then Regenerate", {
             duration: 8000,
           });
           return;
         }
-        // eslint-disable-next-line no-console
+         
         console.error("[SRS] generate POST failed", { status: res.status, body: detail });
         throw new Error(msg);
       }
       streamStarted = true;
-      // eslint-disable-next-line no-console
+       
       console.info("[SRS] stream opened, reading events");
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -524,7 +528,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
       setSrs((s) => ({ ...(s || { project_id: projectId, version: 0 }), sections: { ...(s?.sections || {}) }, frozen: false }));
 
       try {
-        // eslint-disable-next-line no-constant-condition
+         
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
@@ -793,28 +797,28 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
         // timeout / mobile-tab-throttle. The backend job is detached and
         // KEEPS GENERATING, so don't show a red error toast: switch into
         // polling-recovery mode and tell the user we're waiting.
-        // eslint-disable-next-line no-console
+         
         console.warn("[SRS] stream reader error — falling back to status polling:", streamErr);
       }
 
       if (!completedCleanly) {
-        // eslint-disable-next-line no-console
+         
         console.info("[SRS] stream ended without complete event — entering recovery polling");
         await waitForBackgroundJob("stream-end");
       }
       await refresh();
-      // eslint-disable-next-line no-console
+       
       console.info("[SRS] handleGenerate finished cleanly", { completedCleanly });
     } catch (e) {
       // Only true HTTP-level / setup failures land here. If the stream
       // had already started, treat it as a recoverable interruption.
       if (streamStarted) {
-        // eslint-disable-next-line no-console
+         
         console.warn("[SRS] stream setup-after error — recovering via polling:", e);
         await waitForBackgroundJob("network");
         try { await refresh(); } catch (_) { /* noop */ }
       } else {
-        // eslint-disable-next-line no-console
+         
         console.error("[SRS] fetch failed before stream started:", e);
         toast.error("SRS generation failed", { description: e.message });
       }
@@ -979,12 +983,12 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
   return (
     <div className="h-full flex flex-col mos-panel min-h-0">
       {/* Header */}
-      <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center justify-between gap-2">
+      <div className="px-3 py-2 border-b border-border flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 min-w-0">
-          <h3 className="font-display text-[11px] font-bold tracking-tight uppercase text-[#2E2E38] whitespace-nowrap">IEEE 830 SRS</h3>
+          <h3 className="font-display text-micro font-bold tracking-tight uppercase text-fg whitespace-nowrap">IEEE 830 SRS</h3>
           <HelpIcon text="Live preview of the Software Requirements Specification. Edit any section inline. Freeze to lock and advance the pipeline." testId="help-srs" />
-          {frozen && <span className="text-[9px] uppercase tracking-wider bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm font-bold whitespace-nowrap">Frozen v{srs?.version}</span>}
-          {!frozen && hasContent && <span className="text-[9px] uppercase tracking-wider bg-[#F6F6FA] border border-[#E6E6E6] text-[#2E2E38] px-1.5 py-0.5 rounded-sm whitespace-nowrap">Draft v{srs?.version}</span>}
+          {frozen && <span className="text-micro uppercase tracking-wider bg-brand text-fg px-1.5 py-0.5 rounded-sm font-bold whitespace-nowrap">Frozen v{srs?.version}</span>}
+          {!frozen && hasContent && <span className="text-micro uppercase tracking-wider bg-bg border border-border text-fg px-1.5 py-0.5 rounded-sm whitespace-nowrap">Draft v{srs?.version}</span>}
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
           {/* iter-14.5 — RESUME button. Only visible when the SRS is partially
@@ -997,7 +1001,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               size="sm"
               onClick={() => handleGenerate({ resume: true })}
               disabled={!kbReady}
-              className="bg-[#FFE600] hover:bg-[#FFD400] text-[#2E2E38] border border-[#2E2E38]/10 rounded-sm text-xs h-7 font-bold"
+              className="bg-brand hover:bg-brand-hover text-fg border border-fg/10 rounded-sm text-xs h-7 font-bold"
               title={`Resume — keep the ${goodSectionCount} good sections, regenerate the missing ${totalSectionsExpected - goodSectionCount}`}
             >
               <RefreshCw className="w-3 h-3 mr-1" />
@@ -1011,7 +1015,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
             size="sm"
             onClick={() => handleGenerate()}
             disabled={generating || frozen || !kbReady}
-            className="bg-white border border-[#E6E6E6] hover:bg-[#F6F6FA] text-[#2E2E38] rounded-sm text-xs h-7"
+            className="bg-surface border border-border hover:bg-bg text-fg rounded-sm text-xs h-7"
             title={hasContent ? "Regenerate all 12 sections from scratch (overwrites completed sections)" : "Generate the full SRS"}
           >
             {generating ? <RefreshCw className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
@@ -1027,7 +1031,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               size="sm"
               onClick={handleUnfreeze}
               disabled={busy}
-              className="bg-white border border-[#E6E6E6] text-[#2E2E38] hover:bg-[#F6F6FA] rounded-sm text-xs h-7"
+              className="bg-surface border border-border text-fg hover:bg-bg rounded-sm text-xs h-7"
             >
               <Unlock className="w-3 h-3 mr-1" /> Unfreeze
             </Button>
@@ -1037,7 +1041,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               size="sm"
               onClick={handleFreeze}
               disabled={busy || !hasContent}
-              className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-xs h-7"
+              className="bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-xs h-7"
             >
               <Lock className="w-3 h-3 mr-1" /> Freeze SRS
             </Button>
@@ -1051,7 +1055,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               onClick={() => setMenuOpen((o) => !o)}
               title="More options"
               aria-label="More options"
-              className="p-1 rounded-sm border border-[#E6E6E6] hover:bg-[#F6F6FA] text-[#2E2E38] h-7 w-7 flex items-center justify-center"
+              className="p-1 rounded-sm border border-border hover:bg-bg text-fg h-7 w-7 flex items-center justify-center"
             >
               <MoreVertical className="w-3.5 h-3.5" />
             </button>
@@ -1065,7 +1069,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                 />
                 <div
                   data-testid="srs-more-menu-panel"
-                  className="absolute right-0 top-full mt-1 z-50 w-56 rounded-sm border border-[#E6E6E6] bg-white shadow-lg py-1 text-[12px]"
+                  className="absolute right-0 top-full mt-1 z-50 w-56 rounded-sm border border-border bg-surface shadow-lg py-1 text-[12px]"
                 >
                   <button
                     type="button"
@@ -1080,7 +1084,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                       setRawEditOpen(true);
                       setMenuOpen(false);
                     }}
-                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-[#F6F6FA] disabled:opacity-40 disabled:cursor-not-allowed text-[#2E2E38]"
+                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-bg disabled:opacity-40 disabled:cursor-not-allowed text-fg"
                   >
                     <Code className="w-3.5 h-3.5" /> Edit raw markdown
                   </button>
@@ -1089,7 +1093,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                     data-testid="export-pdf-btn"
                     disabled={!hasContent}
                     onClick={() => { handleExport(); setMenuOpen(false); }}
-                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-[#F6F6FA] disabled:opacity-40 disabled:cursor-not-allowed text-[#2E2E38]"
+                    className="w-full text-left px-3 py-1.5 flex items-center gap-2 hover:bg-bg disabled:opacity-40 disabled:cursor-not-allowed text-fg"
                   >
                     <FileDown className="w-3.5 h-3.5" /> Export PDF
                   </button>
@@ -1097,7 +1101,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                       confirmation via window.prompt. Kept in the kebab
                       to avoid mis-click on the toolbar; disabled while
                       generating or when there's nothing to remove. */}
-                  <div className="my-1 border-t border-[#E6E6E6]" />
+                  <div className="my-1 border-t border-border" />
                   <button
                     type="button"
                     data-testid="remove-srs-btn"
@@ -1118,7 +1122,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               type="button"
               onClick={onCollapse}
               data-testid="collapse-srs"
-              className="text-[#747480] hover:text-[#2E2E38] p-1 ml-1"
+              className="text-fg-muted hover:text-fg p-1 ml-1"
               aria-label="Collapse panel"
             >
               <ChevronRight className="w-4 h-4" />
@@ -1129,9 +1133,9 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
 
       {/* Progress bar (during streaming generation) */}
       {generating && (
-        <div className="px-4 py-3 border-b border-[#E6E6E6] bg-[#FFFCE6]" data-testid="srs-progress">
+        <div className="px-4 py-3 border-b border-border bg-brand-tint" data-testid="srs-progress">
           <div className="flex items-center justify-between text-xs">
-            <div className="flex items-center gap-2 text-[#2E2E38] font-semibold">
+            <div className="flex items-center gap-2 text-fg font-semibold">
               {jobPaused
                 ? <Pause className="w-3.5 h-3.5 text-amber-600" />
                 : <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -1147,7 +1151,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                   variant="outline"
                   onClick={onPauseJob}
                   disabled={controlBusy}
-                  className="h-7 text-[10px] rounded-sm border-[#E6E6E6] hover:bg-amber-50 hover:border-amber-400"
+                  className="h-7 text-micro rounded-sm border-border hover:bg-amber-50 hover:border-amber-400"
                   data-testid="srs-pause-btn"
                   title="Pause after the current section finishes"
                 >
@@ -1160,7 +1164,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                   variant="outline"
                   onClick={onResumeJob}
                   disabled={controlBusy}
-                  className="h-7 text-[10px] rounded-sm border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-700"
+                  className="h-7 text-micro rounded-sm border-amber-400 bg-amber-50 hover:bg-amber-100 text-amber-700"
                   data-testid="srs-resume-btn"
                   title="Resume generation"
                 >
@@ -1173,19 +1177,19 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                 variant="outline"
                 onClick={onCancelJob}
                 disabled={controlBusy}
-                className="h-7 text-[10px] rounded-sm border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700"
+                className="h-7 text-micro rounded-sm border-red-300 hover:bg-red-50 text-red-600 hover:text-red-700"
                 data-testid="srs-cancel-btn"
                 title="Cancel the run; sections already written are kept"
               >
                 <Square className="w-3 h-3 fill-current" />
                 <span className="ml-1">Cancel</span>
               </Button>
-              <div className="text-[#2E2E38] font-mono pl-1">{progress.index}/{progress.total}</div>
+              <div className="text-fg font-mono pl-1">{progress.index}/{progress.total}</div>
             </div>
           </div>
-          <div className="mt-2 h-1.5 bg-[#E6E6E6] rounded-sm overflow-hidden">
+          <div className="mt-2 h-1.5 bg-border rounded-sm overflow-hidden">
             <div
-              className={`h-full ${jobPaused ? "bg-amber-400" : "bg-[#FFE600]"}`}
+              className={`h-full ${jobPaused ? "bg-amber-400" : "bg-brand"}`}
               style={{ width: `${(progress.index / progress.total) * 100}%` }}
               data-testid="srs-progress-bar"
             />
@@ -1194,26 +1198,26 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
       )}
 
       {/* Body */}
-      <div className="flex-1 overflow-y-auto mos-scroll bg-[#F6F6FA]">
+      <div className="flex-1 overflow-y-auto mos-scroll bg-bg">
         <div className="w-full px-6 py-6">
-          <div className="bg-white border border-[#E6E6E6] shadow-sm rounded-sm p-8">
+          <div className="bg-surface border border-border shadow-sm rounded-sm p-8">
             {/* EY yellow accent bar */}
-            <div className="h-1.5 bg-[#FFE600] -mx-8 -mt-8 mb-6 rounded-t-sm" />
-            <div className="border-b border-[#E6E6E6] pb-3 mb-4">
-              <div className="text-[10px] uppercase tracking-widest text-[#747480]">Software Requirements Specification</div>
-              <h1 className="font-display text-2xl font-bold tracking-tight text-[#2E2E38] mt-1">
+            <div className="h-1.5 bg-brand -mx-8 -mt-8 mb-6 rounded-t-sm" />
+            <div className="border-b border-border pb-3 mb-4">
+              <div className="text-micro uppercase tracking-widest text-fg-muted">Software Requirements Specification</div>
+              <h1 className="font-display text-2xl font-bold tracking-tight text-fg mt-1">
                 {srs?.project_id ? `Migration SRS · v${srs?.version || 0}` : "—"}
               </h1>
               {frozen && (
-                <div className="text-[11px] text-[#747480] mt-1">
+                <div className="text-micro text-fg-muted mt-1">
                   Frozen on {new Date(srs.frozen_at).toLocaleString()} by {srs.frozen_by}
                 </div>
               )}
             </div>
 
             {!hasContent && !generating && (
-              <div className="text-center py-16 text-[#747480]">
-                <Sparkles className="w-6 h-6 mx-auto mb-2 text-[#747480]" />
+              <div className="text-center py-16 text-fg-muted">
+                <Sparkles className="w-6 h-6 mx-auto mb-2 text-fg-muted" />
                 <div className="text-sm">No SRS yet. Have a discovery conversation, then click <b>Generate</b>.</div>
               </div>
             )}
@@ -1225,9 +1229,9 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               && Object.keys(srs.sections_meta).length > 0 && (
               <div
                 data-testid="srs-iteration-legend"
-                className="mb-5 flex flex-wrap items-center gap-2 text-[10px] text-[#747480]"
+                className="mb-5 flex flex-wrap items-center gap-2 text-micro text-fg-muted"
               >
-                <span className="uppercase tracking-widest text-[#747480]">Iteration key:</span>
+                <span className="uppercase tracking-widest text-fg-muted">Iteration key:</span>
                 <span className="inline-flex items-center gap-1">
                   <span className="inline-block w-3 h-3 rounded-sm bg-emerald-50 border border-emerald-300" />
                   <span className="uppercase">1-shot ≥ 95%</span>
@@ -1245,7 +1249,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                   <span className="uppercase">Plateau &lt; 95% — KB gap</span>
                 </span>
                 <span className="inline-flex items-center gap-1" data-testid="srs-legend-evidence-gap">
-                  <span className="inline-block w-3 h-3 rounded-sm bg-[#FEE2E2] border border-[#B91C1C]" />
+                  <span className="inline-block w-3 h-3 rounded-sm bg-crit-bg border border-crit" />
                   <span className="uppercase">⚠ Evidence gap in body</span>
                 </span>
               </div>
@@ -1334,15 +1338,17 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                     data-section-state={isRegenerating ? "running" : (outcome?.status || "idle")}
                   >
                     <div className="flex items-center justify-between mb-2">
-                      <h2 className="font-display text-base font-bold text-[#2E2E38] tracking-tight">{s.label}</h2>
+                      <h2 className="font-display text-base font-bold text-fg tracking-tight">{s.label}</h2>
                       {generating && (
-                        isDone ? <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-sm font-bold">Done</span>
-                        : isCurrent ? <span className="text-[10px] uppercase tracking-wider bg-[#FFFCE6] border border-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm flex items-center"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />Computing</span>
-                        : <span className="text-[10px] uppercase tracking-wider bg-[#F6F6FA] text-[#747480] px-1.5 py-0.5 rounded-sm">Queued</span>
+                        isDone ? <span className="text-micro uppercase tracking-wider bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-sm font-bold">Done</span>
+                        : isCurrent ? <span className="text-micro uppercase tracking-wider bg-brand-tint border border-brand text-fg px-1.5 py-0.5 rounded-sm flex items-center"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />Computing</span>
+                        : <span className="text-micro uppercase tracking-wider bg-bg text-fg-muted px-1.5 py-0.5 rounded-sm">Queued</span>
                       )}
                     </div>
-                    <div className="border border-[#E6E6E6] rounded-sm overflow-hidden" style={{ height: 520 }}>
-                      <ERDiagram data={erData} height={520} />
+                    <div className="border border-border rounded-sm overflow-hidden" style={{ height: 520 }}>
+                      <Suspense fallback={<div className="skeleton h-[520px] w-full rounded" aria-hidden />}>
+                        <ERDiagram data={erData} height={520} />
+                      </Suspense>
                     </div>
                   </section>
                 );
@@ -1357,7 +1363,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                 >
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2 min-w-0">
-                      <h2 className="font-display text-base font-bold text-[#2E2E38] tracking-tight">{s.label}</h2>
+                      <h2 className="font-display text-base font-bold text-fg tracking-tight">{s.label}</h2>
                       {/* iter-14.11 — iteration-wise perfection chip. Shows the
                           score AND the iteration tag so the operator can tell
                           at a glance whether this section landed on the first
@@ -1369,12 +1375,12 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                           data-testid={`srs-iter-chip-${s.key}`}
                           className={
                             iterationTag === "1-SHOT"
-                              ? "text-[9px] uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-sm font-bold"
+                              ? "text-micro uppercase tracking-widest bg-emerald-100 text-emerald-800 border border-emerald-300 px-1.5 py-0.5 rounded-sm font-bold"
                               : iterationTag === "RETRY-1"
-                              ? "text-[9px] uppercase tracking-widest bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.5 rounded-sm font-bold"
+                              ? "text-micro uppercase tracking-widest bg-sky-100 text-sky-800 border border-sky-300 px-1.5 py-0.5 rounded-sm font-bold"
                               : iterationTag === "RETRY-2"
-                              ? "text-[9px] uppercase tracking-widest bg-violet-100 text-violet-800 border border-violet-300 px-1.5 py-0.5 rounded-sm font-bold"
-                              : "text-[9px] uppercase tracking-widest bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-sm font-bold"
+                              ? "text-micro uppercase tracking-widest bg-violet-100 text-violet-800 border border-violet-300 px-1.5 py-0.5 rounded-sm font-bold"
+                              : "text-micro uppercase tracking-widest bg-amber-100 text-amber-900 border border-amber-300 px-1.5 py-0.5 rounded-sm font-bold"
                           }
                           title={
                             `Attempt ${scoreInfo.attempts}/${scoreInfo.maxAttempts} · ` +
@@ -1394,30 +1400,30 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                       {/* iter-13.35 — per-section regen state badge (visible
                           only outside the full-run generation flow). */}
                       {!generating && isRegenerating && (
-                        <span className="text-[10px] uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-sm flex items-center font-bold animate-pulse">
+                        <span className="text-micro uppercase tracking-wider bg-amber-100 text-amber-800 px-1.5 py-0.5 rounded-sm flex items-center font-bold animate-pulse">
                           <Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />Regenerating
                         </span>
                       )}
                       {!generating && !isRegenerating && outcome?.status === "success" && (
-                        <span className="text-[10px] uppercase tracking-wider bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-sm font-bold flex items-center">
+                        <span className="text-micro uppercase tracking-wider bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded-sm font-bold flex items-center">
                           <Check className="w-2.5 h-2.5 mr-1" />Refreshed
                         </span>
                       )}
                       {!generating && !isRegenerating && outcome?.status === "error" && (
-                        <span className="text-[10px] uppercase tracking-wider bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-sm font-bold flex items-center">
+                        <span className="text-micro uppercase tracking-wider bg-rose-100 text-rose-700 px-1.5 py-0.5 rounded-sm font-bold flex items-center">
                           <X className="w-2.5 h-2.5 mr-1" />Refresh failed
                         </span>
                       )}
                       {generating && (
-                        isDone ? <span className="text-[10px] uppercase tracking-wider bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm font-bold">Done</span>
-                        : isCurrent ? <span className="text-[10px] uppercase tracking-wider bg-[#FFFCE6] border border-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm flex items-center"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />Writing</span>
-                        : <span className="text-[10px] uppercase tracking-wider bg-[#F6F6FA] text-[#747480] px-1.5 py-0.5 rounded-sm">Queued</span>
+                        isDone ? <span className="text-micro uppercase tracking-wider bg-brand text-fg px-1.5 py-0.5 rounded-sm font-bold">Done</span>
+                        : isCurrent ? <span className="text-micro uppercase tracking-wider bg-brand-tint border border-brand text-fg px-1.5 py-0.5 rounded-sm flex items-center"><Loader2 className="w-2.5 h-2.5 mr-1 animate-spin" />Writing</span>
+                        : <span className="text-micro uppercase tracking-wider bg-bg text-fg-muted px-1.5 py-0.5 rounded-sm">Queued</span>
                       )}
                       {!frozen && !generating && !isEditing && content && (
                         <button
                           type="button"
                           onClick={() => startEdit(s.key)}
-                          className="text-[#747480] hover:text-[#2E2E38] p-1"
+                          className="text-fg-muted hover:text-fg p-1"
                           data-testid={`srs-edit-btn-${s.key}`}
                           aria-label="Edit section"
                         >
@@ -1434,7 +1440,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                           type="button"
                           onClick={() => onRegenerateOne(s.key)}
                           disabled={!!regeneratingSection}
-                          className="flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD400] px-2 py-1 rounded-sm border border-[#2E2E38]/10 disabled:opacity-40 disabled:cursor-not-allowed"
+                          className="flex items-center gap-1 text-micro font-bold uppercase tracking-wider bg-brand text-fg hover:bg-brand-hover px-2 py-1 rounded-sm border border-fg/10 disabled:opacity-40 disabled:cursor-not-allowed"
                           data-testid={`srs-refresh-btn-${s.key}`}
                           aria-label="Regenerate just this section"
                           title="Re-validate and regenerate just this section (leaves other sections untouched)"
@@ -1452,13 +1458,13 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                       <textarea
                         value={editContent}
                         onChange={(e) => setEditContent(e.target.value)}
-                        className="w-full min-h-[14rem] font-mono text-xs bg-white border border-[#E6E6E6] rounded-sm p-2 focus:border-[#2E2E38] focus:ring-1 focus:ring-[#2E2E38] outline-none"
+                        className="w-full min-h-[14rem] font-mono text-xs bg-surface border border-border rounded-sm p-2 focus:border-fg focus:ring-1 focus:ring-fg outline-none"
                       />
                       <div className="mt-2 flex gap-2 justify-end">
                         <Button size="sm" variant="outline" onClick={cancelEdit} className="h-8 text-xs rounded-sm" data-testid={`srs-cancel-${s.key}`}>
                           <X className="w-3.5 h-3.5 mr-1" /> Cancel
                         </Button>
-                        <Button size="sm" onClick={saveEdit} className="bg-[#2E2E38] text-white hover:bg-[#1A1A24] h-8 text-xs rounded-sm" data-testid={`srs-save-${s.key}`}>
+                        <Button size="sm" onClick={saveEdit} className="bg-ink text-ink-fg hover:bg-ink-hover h-8 text-xs rounded-sm" data-testid={`srs-save-${s.key}`}>
                           <Check className="w-3.5 h-3.5 mr-1" /> Save
                         </Button>
                       </div>
@@ -1470,7 +1476,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                           {normaliseSectionContent(content)}
                         </ReactMarkdown>
                       ) : (
-                        <span className="text-[#747480] italic text-xs">
+                        <span className="text-fg-muted italic text-xs">
                           {isCurrent ? "Writing…" : generating ? "Pending — waiting for previous sections" : "(empty)"}
                         </span>
                       )}
@@ -1485,16 +1491,16 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
 
       {/* Raw markdown edit modal (escape hatch when chat-edit isn't enough) */}
       {rawEditOpen && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" data-testid="raw-edit-modal">
-          <div className="bg-white rounded-sm w-full max-w-5xl h-[85vh] flex flex-col border-2 border-[#FFE600]">
-            <div className="px-4 py-3 border-b border-[#E6E6E6] flex items-center justify-between">
+        <div className="fixed inset-0 bg-ink/50 z-50 flex items-center justify-center p-4" data-testid="raw-edit-modal">
+          <div className="bg-surface rounded-sm w-full max-w-5xl h-[85vh] flex flex-col border-2 border-brand">
+            <div className="px-4 py-3 border-b border-border flex items-center justify-between">
               <div>
-                <div className="text-[10px] uppercase tracking-widest text-[#747480]">Edit raw SRS markdown</div>
+                <div className="text-micro uppercase tracking-widest text-fg-muted">Edit raw SRS markdown</div>
                 <div className="text-sm font-display font-bold">
-                  Keep the <code className="text-[11px] bg-[#F6F6FA] px-1">{`<!-- SECTION:key -->`}</code> markers — they split the document back into the 9 sections on save.
+                  Keep the <code className="text-micro bg-bg px-1">{`<!-- SECTION:key -->`}</code> markers — they split the document back into the 9 sections on save.
                 </div>
               </div>
-              <button onClick={() => setRawEditOpen(false)} className="text-[#747480] hover:text-[#2E2E38]" data-testid="raw-edit-close"><X className="w-4 h-4" /></button>
+              <button onClick={() => setRawEditOpen(false)} className="text-fg-muted hover:text-fg" data-testid="raw-edit-close"><X className="w-4 h-4" /></button>
             </div>
             <textarea
               value={rawBuf}
@@ -1503,10 +1509,10 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
               className="flex-1 min-h-0 p-3 font-mono text-[12px] outline-none resize-none w-full"
               spellCheck={false}
             />
-            <div className="px-4 py-3 border-t border-[#E6E6E6] flex items-center justify-between bg-[#FAFAFC]">
-              <div className="text-[10px] text-[#747480]">{rawBuf.length.toLocaleString()} chars · ~{Math.round(rawBuf.length / 4).toLocaleString()} tokens</div>
+            <div className="px-4 py-3 border-t border-border flex items-center justify-between bg-surface-2">
+              <div className="text-micro text-fg-muted">{rawBuf.length.toLocaleString()} chars · ~{Math.round(rawBuf.length / 4).toLocaleString()} tokens</div>
               <div className="flex items-center gap-1.5">
-                <Button onClick={() => setRawEditOpen(false)} variant="outline" className="h-7 text-[11px]" data-testid="raw-edit-cancel">Cancel</Button>
+                <Button onClick={() => setRawEditOpen(false)} variant="outline" className="h-7 text-micro" data-testid="raw-edit-cancel">Cancel</Button>
                 <Button
                   data-testid="raw-edit-save"
                   disabled={savingRaw}
@@ -1550,7 +1556,7 @@ export default function SRSPanel({ projectId, conversationId, kbReady, model, on
                       toast.error("Save failed: " + (e?.response?.data?.detail || e.message));
                     } finally { setSavingRaw(false); }
                   }}
-                  className="h-7 text-[11px] bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-bold"
+                  className="h-7 text-micro bg-brand text-fg hover:bg-brand-hover font-bold"
                 >
                   {savingRaw ? <Loader2 className="w-3 h-3 animate-spin mr-1" /> : <Check className="w-3 h-3 mr-1" />} Save all sections
                 </Button>

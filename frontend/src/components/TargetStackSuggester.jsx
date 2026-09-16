@@ -99,16 +99,16 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
   if (!kbReady) {
     return (
       <div
-        className="mos-panel p-6 border-2 border-[#FFE600] bg-gradient-to-br from-[#FFFEF5] to-white shadow-sm mt-4"
+        className="mos-panel p-6 border-2 border-brand bg-gradient-to-br from-brand-tint to-white shadow-sm mt-4"
         data-testid="target-stack-card-locked"
       >
         <div className="flex items-center gap-2 mb-3">
-          <div className="w-8 h-8 rounded-sm bg-[#FFE600] flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-[#2E2E38]" />
+          <div className="w-8 h-8 rounded-sm bg-brand flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-fg" />
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] uppercase tracking-widest text-[#747480] font-bold">
+              <span className="text-micro uppercase tracking-widest text-fg-muted font-bold">
                 Suggested Target Stack
               </span>
               <HelpIcon
@@ -116,13 +116,13 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
                 testId="help-target-stack"
               />
             </div>
-            <div className="text-sm font-display font-semibold text-[#2E2E38] mt-0.5">
+            <div className="text-sm font-display font-semibold text-fg mt-0.5">
               Awaiting Knowledge Graph
             </div>
           </div>
         </div>
-        <div className="text-xs text-[#2E2E38] leading-relaxed bg-white/60 rounded-sm p-3 border border-[#FFE600]/30">
-          Run <span className="font-semibold bg-[#FFE600]/20 px-1 rounded">Build Knowledge Base</span> above
+        <div className="text-xs text-fg leading-relaxed bg-surface/60 rounded-sm p-3 border border-brand/30">
+          Run <span className="font-semibold bg-brand/20 px-1 rounded">Build Knowledge Base</span> above
           and the top-3 modern target stacks (e.g.{" "}
           <span className="font-mono font-semibold">Laravel · FastAPI · Spring Boot</span>)
           will be predicted from the detected legacy language, frameworks and
@@ -135,17 +135,17 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
 
   return (
     <div
-      className="mos-panel p-6 border-2 border-[#FFE600] bg-gradient-to-br from-[#FFFEF5] to-white shadow-sm mt-4"
+      className="mos-panel p-6 border-2 border-brand bg-gradient-to-br from-brand-tint to-white shadow-sm mt-4"
       data-testid="target-stack-card"
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-sm bg-[#FFE600] flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-[#2E2E38]" />
+          <div className="w-8 h-8 rounded-sm bg-brand flex items-center justify-center shrink-0">
+            <Sparkles className="w-4 h-4 text-fg" />
           </div>
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[11px] uppercase tracking-widest text-[#747480] font-bold">
+              <span className="text-micro uppercase tracking-widest text-fg-muted font-bold">
                 Suggested Target Stack
               </span>
               <HelpIcon
@@ -162,26 +162,26 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
           data-testid="refresh-target-stack"
           aria-label="Refresh stack suggestions"
           title="Refresh"
-          className="text-[#747480] hover:text-[#2E2E38] disabled:opacity-40 p-0.5"
+          className="text-fg-muted hover:text-fg disabled:opacity-40 p-0.5"
         >
           <RefreshCw className={`w-3 h-3 ${loading ? "animate-spin" : ""}`} />
         </button>
       </div>
 
       {data?.detected_tech?.summary && (
-        <div className="text-[10px] text-[#747480] mb-2 font-mono truncate" data-testid="detected-summary">
+        <div className="text-micro text-fg-muted mb-2 font-mono truncate" data-testid="detected-summary">
           Detected: {data.detected_tech.summary}
         </div>
       )}
 
       {loading && (
-        <div className="text-[10px] text-[#747480] flex items-center gap-1">
+        <div className="text-micro text-fg-muted flex items-center gap-1">
           <Loader2 className="w-3 h-3 animate-spin" /> Predicting…
         </div>
       )}
 
       {!loading && (data?.suggestions || []).length === 0 && (
-        <div className="text-[10px] text-[#747480]">
+        <div className="text-micro text-fg-muted">
           No automated suggestions for this project yet — use <b>Others</b> below to assemble a custom stack.
         </div>
       )}
@@ -195,8 +195,8 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
               data-testid={`stack-option-${idx}`}
               className={`block border rounded-sm p-2 cursor-pointer transition-colors ${
                 checked
-                  ? "border-[#2E2E38] bg-[#FFFCE0]"
-                  : "border-[#E6E6E6] bg-white hover:border-[#747480]"
+                  ? "border-fg bg-brand-tint"
+                  : "border-border bg-surface hover:border-fg-muted"
               }`}
             >
               <div className="flex items-start gap-2">
@@ -210,21 +210,21 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
                 />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[11px] font-semibold text-[#2E2E38]">{s.label}</span>
+                    <span className="text-micro font-semibold text-fg">{s.label}</span>
                     {s.current && (
                       <span
-                        className="inline-flex items-center text-[9px] uppercase tracking-wider px-1 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-sm"
+                        className="inline-flex items-center text-micro uppercase tracking-wider px-1 py-0.5 bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-sm"
                         data-testid={`stack-current-${idx}`}
                       >
                         <CheckCircle2 className="w-2.5 h-2.5 mr-0.5" />
                         Current
                       </span>
                     )}
-                    <span className="text-[9px] text-[#747480] uppercase tracking-wider">
+                    <span className="text-micro text-fg-muted uppercase tracking-wider">
                       {s.kind?.replace("-", " ")}
                     </span>
                   </div>
-                  <div className="text-[10px] text-[#747480] mt-0.5 line-clamp-2">
+                  <div className="text-micro text-fg-muted mt-0.5 line-clamp-2">
                     {s.rationale}
                   </div>
                 </div>
@@ -241,7 +241,7 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
             onClick={handleApply}
             disabled={!chosenId || applying}
             data-testid="apply-target-stack-btn"
-            className="flex-1 bg-[#2E2E38] text-white hover:bg-[#1A1A24] rounded-sm text-xs h-8 font-semibold disabled:opacity-40"
+            className="flex-1 bg-ink text-ink-fg hover:bg-ink-hover rounded-sm text-xs h-8 font-semibold disabled:opacity-40"
           >
             {applying ? (
               <span className="inline-flex items-center justify-center gap-1">
@@ -257,7 +257,7 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
             disabled={applying}
             data-testid="open-custom-stack-btn"
             title="Build your own target stack from a tech catalog"
-            className="bg-white border border-[#2E2E38] text-[#2E2E38] hover:bg-[#FFFCE6] rounded-sm text-xs h-8 px-3 font-semibold disabled:opacity-40 inline-flex items-center gap-1"
+            className="bg-surface border border-fg text-fg hover:bg-brand-tint rounded-sm text-xs h-8 px-3 font-semibold disabled:opacity-40 inline-flex items-center gap-1"
           >
             <Layers className="w-3 h-3" />
             Others
@@ -273,7 +273,7 @@ export default function TargetStackSuggester({ projectId, kbReady, onApplied }) 
           type="button"
           onClick={() => setCustomOpen(true)}
           data-testid="open-custom-stack-btn-fallback"
-          className="w-full mt-2 bg-white border border-[#2E2E38] text-[#2E2E38] hover:bg-[#FFFCE6] rounded-sm text-xs h-8 font-semibold inline-flex items-center justify-center gap-1"
+          className="w-full mt-2 bg-surface border border-fg text-fg hover:bg-brand-tint rounded-sm text-xs h-8 font-semibold inline-flex items-center justify-center gap-1"
         >
           <Layers className="w-3 h-3" />
           Build your own (Others)

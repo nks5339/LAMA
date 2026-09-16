@@ -95,14 +95,14 @@ function ResetModal({ open, onClose, onConfirm, title, warning }) {
   if (!open) return null;
   const enabled = typed === "RESET";
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" data-testid="codegen-reset-modal">
-      <div className="bg-white max-w-md w-full rounded-sm border-2 border-orange-500 p-5">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40" data-testid="codegen-reset-modal">
+      <div className="bg-surface max-w-md w-full rounded-sm border-2 border-orange-500 p-5">
         <h3 className="font-display font-bold text-lg text-orange-700 flex items-center gap-2"><RotateCcw className="w-4 h-4" /> {title}</h3>
-        <p className="text-xs text-[#2E2E38] mt-2 leading-snug">{warning}</p>
-        <p className="text-xs text-[#747480] mt-3">Type <code className="bg-[#F6F6FA] px-1">RESET</code> to confirm.</p>
-        <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} data-testid="codegen-reset-input" className="mt-1 w-full border border-[#E6E6E6] focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm" />
+        <p className="text-xs text-fg mt-2 leading-snug">{warning}</p>
+        <p className="text-xs text-fg-muted mt-3">Type <code className="bg-bg px-1">RESET</code> to confirm.</p>
+        <input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} data-testid="codegen-reset-input" className="mt-1 w-full border border-border focus:border-orange-500 outline-none px-2 py-1.5 text-sm rounded-sm" />
         <div className="mt-4 flex justify-end gap-2">
-          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-[#E6E6E6] rounded-sm">Cancel</button>
+          <button onClick={onClose} className="text-xs px-3 py-1.5 border border-border rounded-sm">Cancel</button>
           <button disabled={!enabled} onClick={onConfirm} data-testid="codegen-reset-confirm" className={`text-xs px-3 py-1.5 rounded-sm font-bold text-white ${enabled ? "bg-orange-600 hover:bg-orange-700" : "bg-orange-300 cursor-not-allowed"}`}>Reset Stage 4</button>
         </div>
       </div>
@@ -132,19 +132,19 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
     maxIter >= 1 && maxIter <= 10 &&
     maxFiles >= 1 && maxFiles <= 50;
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+    <div aria-hidden="true"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
       data-testid="auto-validate-modal"
       onClick={onClose}
     >
-      <div
-        className="bg-white max-w-md w-full rounded-sm border-2 border-emerald-500 p-5"
+      <div role="presentation"
+        className="bg-surface max-w-md w-full rounded-sm border-2 border-emerald-500 p-5"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="font-display font-bold text-base text-emerald-700 flex items-center gap-2">
           <span>🎯</span> Auto-Validate &amp; Improve
         </h3>
-        <p className="text-[11px] text-[#747480] mt-1 leading-snug">
+        <p className="text-micro text-fg-muted mt-1 leading-snug">
           Scores every generated source file across 6 axes, then runs
           gap-recovery on the worst files and re-scores — looping until
           confidence ≥ threshold (or max iterations is hit).
@@ -152,7 +152,7 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
 
         <div className="mt-4 space-y-3">
           <div>
-            <label className="text-[11px] font-bold text-[#2E2E38]" htmlFor="av-service">
+            <label className="text-micro font-bold text-fg" htmlFor="av-service">
               Service scope
             </label>
             <select
@@ -160,14 +160,14 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
               data-testid="av-service-select"
               value={service}
               onChange={(e) => setService(e.target.value)}
-              className="mt-1 w-full text-[12px] border border-[#E6E6E6] focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm bg-white"
+              className="mt-1 w-full text-[12px] border border-border focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm bg-surface"
             >
               <option value="">All services ({services.length})</option>
               {services.map((s) => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
-            <div className="text-[10px] text-[#747480] mt-0.5">
+            <div className="text-micro text-fg-muted mt-0.5">
               {service
                 ? `Only "${service}" will be scored & repaired. Other services untouched.`
                 : "Every service will be scored & repaired. Recommended for first run."}
@@ -176,7 +176,7 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
 
           <div className="grid grid-cols-3 gap-2">
             <div>
-              <label className="text-[11px] font-bold text-[#2E2E38]" htmlFor="av-threshold">
+              <label className="text-micro font-bold text-fg" htmlFor="av-threshold">
                 Threshold %
               </label>
               <input
@@ -188,11 +188,11 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
                 step={1}
                 value={threshold}
                 onChange={(e) => setThreshold(parseFloat(e.target.value) || 0)}
-                className="mt-1 w-full text-[12px] border border-[#E6E6E6] focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
+                className="mt-1 w-full text-[12px] border border-border focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-[#2E2E38]" htmlFor="av-max-iter">
+              <label className="text-micro font-bold text-fg" htmlFor="av-max-iter">
                 Max iter
               </label>
               <input
@@ -204,11 +204,11 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
                 step={1}
                 value={maxIter}
                 onChange={(e) => setMaxIter(parseInt(e.target.value, 10) || 0)}
-                className="mt-1 w-full text-[12px] border border-[#E6E6E6] focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
+                className="mt-1 w-full text-[12px] border border-border focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
               />
             </div>
             <div>
-              <label className="text-[11px] font-bold text-[#2E2E38]" htmlFor="av-max-files">
+              <label className="text-micro font-bold text-fg" htmlFor="av-max-files">
                 Files/iter
               </label>
               <input
@@ -220,11 +220,11 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
                 step={1}
                 value={maxFiles}
                 onChange={(e) => setMaxFiles(parseInt(e.target.value, 10) || 0)}
-                className="mt-1 w-full text-[12px] border border-[#E6E6E6] focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
+                className="mt-1 w-full text-[12px] border border-border focus:border-emerald-500 outline-none px-2 py-1.5 rounded-sm"
               />
             </div>
           </div>
-          <div className="text-[10px] text-[#747480]">
+          <div className="text-micro text-fg-muted">
             Threshold 50–100 · Max iterations 1–10 · Files/iter 1–50 ·
             Each in-flight recovery is an LLM call (Semaphore=2 concurrent).
           </div>
@@ -233,7 +233,7 @@ function AutoValidateModal({ open, onClose, onStart, services, defaultService })
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="text-xs px-3 py-1.5 border border-[#E6E6E6] rounded-sm"
+            className="text-xs px-3 py-1.5 border border-border rounded-sm"
           >
             Cancel
           </button>
@@ -373,7 +373,7 @@ function _latestIteration(report) {
 }
 
 function _scoreColor(score) {
-  if (score == null) return "bg-[#E6E6E6] text-[#2E2E38]";
+  if (score == null) return "bg-border text-fg";
   if (score >= 95) return "bg-emerald-100 text-emerald-800";
   if (score >= 80) return "bg-lime-100 text-lime-800";
   if (score >= 60) return "bg-amber-100 text-amber-800";
@@ -381,7 +381,7 @@ function _scoreColor(score) {
 }
 
 function _barColor(score) {
-  if (score == null) return "bg-[#E6E6E6]";
+  if (score == null) return "bg-border";
   if (score >= 95) return "bg-emerald-500";
   if (score >= 80) return "bg-lime-500";
   if (score >= 60) return "bg-amber-500";
@@ -411,19 +411,19 @@ function LiveLogTab({ lines, live, currentStep, inFlightCount }) {
   return (
     <div className="space-y-2">
       {live && currentStep && (
-        <div className="text-[11px] bg-emerald-50 border border-emerald-200 text-emerald-900 px-3 py-1.5 rounded-sm flex items-center gap-2">
+        <div className="text-micro bg-emerald-50 border border-emerald-200 text-emerald-900 px-3 py-1.5 rounded-sm flex items-center gap-2">
           <Loader2 className="w-3 h-3 animate-spin shrink-0" />
           <span className="font-bold">Now:</span>
           <span className="truncate flex-1">{currentStep}</span>
           {inFlightCount > 0 && (
-            <span className="text-[10px] bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-sm font-bold whitespace-nowrap">
+            <span className="text-micro bg-emerald-200 text-emerald-900 px-1.5 py-0.5 rounded-sm font-bold whitespace-nowrap">
               {inFlightCount} LLM call{inFlightCount === 1 ? "" : "s"} in-flight
             </span>
           )}
         </div>
       )}
       {!lines.length && (
-        <div className="text-[11px] text-[#747480]">
+        <div className="text-micro text-fg-muted">
           {live
             ? "Waiting for first log line from the orchestrator…"
             : "No log lines recorded for this run."}
@@ -434,15 +434,15 @@ function LiveLogTab({ lines, live, currentStep, inFlightCount }) {
           ref={preRef}
           onScroll={onScroll}
           data-testid="parity-live-log"
-          className="text-[11px] leading-[1.45] font-mono bg-[#0E1116] text-[#E6E6E6] p-3 rounded-sm overflow-y-auto max-h-[55vh] whitespace-pre-wrap"
+          className="text-micro leading-[1.45] font-mono bg-ink text-border p-3 rounded-sm overflow-y-auto max-h-[55vh] whitespace-pre-wrap"
         >
           {lines.map((l, i) => {
-            let cls = "text-[#E6E6E6]";
+            let cls = "text-border";
             if (l.startsWith("✓")) cls = "text-emerald-400";
             else if (l.startsWith("✗") || l.startsWith("⚠")) cls = "text-red-400";
             else if (l.startsWith("→")) cls = "text-sky-300";
-            else if (l.startsWith("━")) cls = "text-[#FFE600] font-bold";
-            else if (l.startsWith("   ")) cls = "text-[#A0A0AC]";
+            else if (l.startsWith("━")) cls = "text-brand font-bold";
+            else if (l.startsWith("   ")) cls = "text-fg-subtle";
             return (
               <div key={`${i}-${l.slice(0, 24)}`} className={cls}>
                 {l}
@@ -451,7 +451,7 @@ function LiveLogTab({ lines, live, currentStep, inFlightCount }) {
           })}
         </pre>
       )}
-      <div className="text-[10px] text-[#747480] flex items-center justify-between">
+      <div className="text-micro text-fg-muted flex items-center justify-between">
         <span>
           {lines.length} line(s) · keeps the last 200 from the orchestrator
           {live && " · refreshing every 1s"}
@@ -476,28 +476,28 @@ function ParityReportHeader({ report, live, onClose }) {
   const converged =
     report?.converged ?? (overall != null && overall >= threshold);
   return (
-    <div className="px-5 py-3 border-b border-[#E6E6E6] flex items-center gap-3 flex-wrap">
+    <div className="px-5 py-3 border-b border-border flex items-center gap-3 flex-wrap">
       <Target className="w-4 h-4 text-emerald-600 shrink-0" />
-      <h3 className="font-display font-bold text-base text-[#2E2E38] flex-1 min-w-0">
+      <h3 className="font-display font-bold text-base text-fg flex-1 min-w-0">
         Auto-Validate &amp; Improve — Live Confidence Dashboard
       </h3>
       <div
-        className="flex items-center gap-1.5 text-[11px]"
+        className="flex items-center gap-1.5 text-micro"
         data-testid="codegen-iteration-count"
       >
-        <span className="text-[#747480]">Iter</span>
-        <span className="font-bold text-[#2E2E38]" data-testid="parity-iter-count">
+        <span className="text-fg-muted">Iter</span>
+        <span className="font-bold text-fg" data-testid="parity-iter-count">
           {iters.length}
         </span>
-        <span className="text-[#747480]">/ {report?.max_iterations ?? "?"}</span>
+        <span className="text-fg-muted">/ {report?.max_iterations ?? "?"}</span>
       </div>
-      <div className="flex items-center gap-1.5 text-[11px]">
-        <span className="text-[#747480]">Threshold</span>
-        <span className="font-bold text-[#2E2E38]">{Number(threshold).toFixed(0)}%</span>
+      <div className="flex items-center gap-1.5 text-micro">
+        <span className="text-fg-muted">Threshold</span>
+        <span className="font-bold text-fg">{Number(threshold).toFixed(0)}%</span>
       </div>
       {overall != null && (
         <span
-          className={`text-[11px] px-2 py-0.5 rounded-sm font-bold ${_scoreColor(overall)}`}
+          className={`text-micro px-2 py-0.5 rounded-sm font-bold ${_scoreColor(overall)}`}
           data-testid="parity-report-score"
           data-codegen-testid="codegen-confidence-badge"
         >
@@ -530,7 +530,7 @@ function ParityReportHeader({ report, live, onClose }) {
       {/* iter-14.21 — inline history sparkline (score-per-iteration). */}
       {iters.length > 0 && (
         <div
-          className="flex items-center gap-0.5 text-[10px] text-[#747480]"
+          className="flex items-center gap-0.5 text-micro text-fg-muted"
           data-testid="codegen-confidence-history"
           title={iters
             .map((r, i) => `#${i + 1}: ${Number(r.overall_score || 0).toFixed(1)}%`)
@@ -549,10 +549,10 @@ function ParityReportHeader({ report, live, onClose }) {
       <button
         onClick={onClose}
         data-testid="parity-report-close"
-        className="ml-1 p-1 hover:bg-[#F6F6FA] rounded-sm"
+        className="ml-1 p-1 hover:bg-bg rounded-sm"
         title="Close"
       >
-        <X className="w-4 h-4 text-[#747480]" />
+        <X className="w-4 h-4 text-fg-muted" />
       </button>
     </div>
   );
@@ -564,12 +564,12 @@ function ParityReportTabs({ report, tab, onTabChange, logLineCount }) {
   const feCount = services.filter((s) => s.frontend).length;
   const beCount = services.length - feCount;
   return (
-    <div className="px-5 pt-2 border-b border-[#E6E6E6] flex items-center gap-1 text-[12px]">
+    <div className="px-5 pt-2 border-b border-border flex items-center gap-1 text-[12px]">
       {[
-        { key: "log", label: "Live Log", count: logLineCount || 0, color: "border-[#2E2E38] text-[#2E2E38]" },
+        { key: "log", label: "Live Log", count: logLineCount || 0, color: "border-fg text-fg" },
         { key: "backend", label: "Backend", count: beCount, color: "border-emerald-500 text-emerald-700" },
         { key: "frontend", label: "Frontend", count: feCount, color: "border-sky-500 text-sky-700" },
-        { key: "trajectory", label: "Trajectory", count: (report?.iterations || []).length, color: "border-[#FFE600] text-[#2E2E38]" },
+        { key: "trajectory", label: "Trajectory", count: (report?.iterations || []).length, color: "border-brand text-fg" },
       ].map((t) => {
         const active = tab === t.key;
         return (
@@ -578,11 +578,11 @@ function ParityReportTabs({ report, tab, onTabChange, logLineCount }) {
             data-testid={`parity-tab-${t.key}`}
             onClick={() => onTabChange(t.key)}
             className={`px-3 py-1.5 border-b-2 ${
-              active ? t.color : "border-transparent text-[#747480] hover:text-[#2E2E38]"
+              active ? t.color : "border-transparent text-fg-muted hover:text-fg"
             }`}
           >
             {t.label}{" "}
-            <span className="text-[10px] font-bold ml-1 bg-[#F6F6FA] px-1 rounded-sm">
+            <span className="text-micro font-bold ml-1 bg-bg px-1 rounded-sm">
               {t.count}
             </span>
           </button>
@@ -594,24 +594,24 @@ function ParityReportTabs({ report, tab, onTabChange, logLineCount }) {
 
 function AxisBar({ name, score, weight, detail }) {
   return (
-    <div className="text-[10px]">
+    <div className="text-micro">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-[#747480] capitalize">
+        <span className="text-fg-muted capitalize">
           {name}{" "}
-          <span className="text-[9px] text-[#A0A0AC]">
+          <span className="text-micro text-fg-subtle">
             ({Math.round((weight || 0) * 100)}%)
           </span>
         </span>
-        <span className="font-bold text-[#2E2E38]">{Number(score).toFixed(0)}%</span>
+        <span className="font-bold text-fg">{Number(score).toFixed(0)}%</span>
       </div>
-      <div className="h-1 bg-[#F6F6FA] rounded-sm overflow-hidden">
+      <div className="h-1 bg-bg rounded-sm overflow-hidden">
         <div
           className={`h-full ${_barColor(score)}`}
           style={{ width: `${Math.max(0, Math.min(100, score))}%` }}
         />
       </div>
       {detail && (
-        <div className="text-[9px] text-[#A0A0AC] truncate" title={detail}>
+        <div className="text-micro text-fg-subtle truncate" title={detail}>
           {detail}
         </div>
       )}
@@ -629,35 +629,35 @@ function ServiceCard({
   const files = svc.files || [];
   const wfMax = 6; // weights per file row
   return (
-    <div className="border border-[#E6E6E6] rounded-sm bg-white" data-testid={`parity-svc-${svc.service}`}>
+    <div className="border border-border rounded-sm bg-surface" data-testid={`parity-svc-${svc.service}`}>
       <button
         onClick={onToggle}
-        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-[#F6F6FA]"
+        className="w-full px-3 py-2 flex items-center gap-2 hover:bg-bg"
       >
         {expanded ? (
-          <ChevronDown className="w-3 h-3 text-[#747480]" />
+          <ChevronDown className="w-3 h-3 text-fg-muted" />
         ) : (
-          <ChevronRightIcon className="w-3 h-3 text-[#747480]" />
+          <ChevronRightIcon className="w-3 h-3 text-fg-muted" />
         )}
-        <span className="font-mono text-[12px] text-[#2E2E38] truncate flex-1 text-left">
+        <span className="font-mono text-[12px] text-fg truncate flex-1 text-left">
           {svc.service}
         </span>
-        <span className="text-[10px] text-[#747480]">{svc.file_count} files</span>
-        <span className="text-[10px] text-[#747480]">
+        <span className="text-micro text-fg-muted">{svc.file_count} files</span>
+        <span className="text-micro text-fg-muted">
           EP {Math.round(svc.endpoint_coverage_pct || 0)}% · TBL{" "}
           {Math.round(svc.table_coverage_pct || 0)}% · COL{" "}
           {Math.round(svc.column_coverage_pct || 0)}%
         </span>
         <span
-          className={`text-[11px] px-1.5 py-0.5 rounded-sm font-bold ${_scoreColor(svc.score)}`}
+          className={`text-micro px-1.5 py-0.5 rounded-sm font-bold ${_scoreColor(svc.score)}`}
         >
           {Number(svc.score).toFixed(1)}%
         </span>
       </button>
       {expanded && (
-        <div className="border-t border-[#F0F0F0] divide-y divide-[#F0F0F0]">
+        <div className="border-t border-surface-2 divide-y divide-surface-2">
           {files.length === 0 && (
-            <div className="px-3 py-2 text-[11px] text-[#747480]">
+            <div className="px-3 py-2 text-micro text-fg-muted">
               No scored files in this service.
             </div>
           )}
@@ -667,29 +667,29 @@ function ServiceCard({
               <div key={f.file_path} data-testid={`parity-file-${f.file_path}`}>
                 <button
                   onClick={() => onToggleFile(f.file_path)}
-                  className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-[#FBFBFE]"
+                  className="w-full px-3 py-1.5 flex items-center gap-2 hover:bg-surface-2"
                 >
                   {isOpen ? (
-                    <ChevronDown className="w-3 h-3 text-[#747480]" />
+                    <ChevronDown className="w-3 h-3 text-fg-muted" />
                   ) : (
-                    <ChevronRightIcon className="w-3 h-3 text-[#747480]" />
+                    <ChevronRightIcon className="w-3 h-3 text-fg-muted" />
                   )}
-                  <FileIcon className="w-3 h-3 text-[#747480]" />
-                  <span className="font-mono text-[11px] text-[#2E2E38] truncate flex-1 text-left">
+                  <FileIcon className="w-3 h-3 text-fg-muted" />
+                  <span className="font-mono text-micro text-fg truncate flex-1 text-left">
                     {f.file_path}
                   </span>
-                  <span className="text-[9px] uppercase text-[#A0A0AC]">{f.file_type}</span>
+                  <span className="text-micro uppercase text-fg-subtle">{f.file_type}</span>
                   {!f.recoverable && (
-                    <span className="text-[9px] text-[#A0A0AC] italic">non-recoverable</span>
+                    <span className="text-micro text-fg-subtle italic">non-recoverable</span>
                   )}
                   <span
-                    className={`text-[10px] px-1.5 py-0.5 rounded-sm font-bold ${_scoreColor(f.score)}`}
+                    className={`text-micro px-1.5 py-0.5 rounded-sm font-bold ${_scoreColor(f.score)}`}
                   >
                     {Number(f.score).toFixed(0)}%
                   </span>
                 </button>
                 {isOpen && (
-                  <div className="px-6 py-2 bg-[#FCFCFE] grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
+                  <div className="px-6 py-2 bg-surface-2 grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5">
                     {(f.components || []).slice(0, wfMax).map((c) => (
                       <AxisBar
                         key={c.name}
@@ -700,7 +700,7 @@ function ServiceCard({
                       />
                     ))}
                     {(f.issues || []).length > 0 && (
-                      <div className="col-span-full mt-1 text-[10px] text-red-700">
+                      <div className="col-span-full mt-1 text-micro text-red-700">
                         <div className="font-bold mb-0.5">Issues</div>
                         <ul className="list-disc pl-4 space-y-0.5">
                           {f.issues.map((i, idx) => (
@@ -766,7 +766,7 @@ function ParityReportBody({
 
   if (!report) {
     return (
-      <div className="text-xs text-[#747480] flex items-center gap-2 py-4">
+      <div className="text-xs text-fg-muted flex items-center gap-2 py-4">
         <Loader2 className="w-3 h-3 animate-spin" /> Loading run…
       </div>
     );
@@ -778,16 +778,16 @@ function ParityReportBody({
     const iters = report.iterations || [];
     if (!iters.length) {
       return (
-        <div className="text-xs text-[#747480] py-4">
+        <div className="text-xs text-fg-muted py-4">
           No iterations recorded yet — the run is initialising.
         </div>
       );
     }
     return (
       <div className="space-y-2">
-        <table className="w-full text-[11px]">
+        <table className="w-full text-micro">
           <thead>
-            <tr className="text-left text-[#747480] border-b border-[#E6E6E6]">
+            <tr className="text-left text-fg-muted border-b border-border">
               <th className="py-1.5 pr-2">#</th>
               <th className="py-1.5 pr-2">Score</th>
               <th className="py-1.5 pr-2">Files &lt; threshold</th>
@@ -797,7 +797,7 @@ function ParityReportBody({
           </thead>
           <tbody>
             {iters.map((it) => (
-              <tr key={it.iteration} className="border-b border-[#F0F0F0]">
+              <tr key={it.iteration} className="border-b border-surface-2">
                 <td className="py-1 pr-2 font-bold">{it.iteration}</td>
                 <td className="py-1 pr-2">
                   <span className={`px-1.5 py-0.5 rounded-sm font-bold ${_scoreColor(it.overall_score)}`}>
@@ -805,18 +805,18 @@ function ParityReportBody({
                   </span>
                 </td>
                 <td className="py-1 pr-2">{it.files_below_threshold}</td>
-                <td className="py-1 pr-2 text-[#747480]">
+                <td className="py-1 pr-2 text-fg-muted">
                   {it.recovery
                     ? `${it.recovery.applied}/${it.recovery.targets} applied`
                     : "—"}
                 </td>
-                <td className="py-1 text-[#747480] truncate max-w-md">{it.summary}</td>
+                <td className="py-1 text-fg-muted truncate max-w-md">{it.summary}</td>
               </tr>
             ))}
           </tbody>
         </table>
         {report.error && (
-          <div className="text-[11px] text-red-700 bg-red-50 border border-red-200 p-2 rounded-sm">
+          <div className="text-micro text-red-700 bg-red-50 border border-red-200 p-2 rounded-sm">
             Error: {report.error}
           </div>
         )}
@@ -833,7 +833,7 @@ function ParityReportBody({
 
   if (!services.length) {
     return (
-      <div className="text-xs text-[#747480] py-4">
+      <div className="text-xs text-fg-muted py-4">
         {live
           ? "Awaiting first score… the dashboard will populate as soon as iteration 1 completes."
           : `No ${tab} services in this run.`}
@@ -899,7 +899,10 @@ export default function CodeGenPage() {
     } catch (_) { return "quick"; }
   });
   useEffect(() => {
-    try { window.localStorage.setItem("lama:codegen:mode", codegenMode); } catch (_) {}
+    try { window.localStorage.setItem("lama:codegen:mode", codegenMode); } catch (_) {
+    // localStorage/CustomEvent may be unavailable (private mode,
+    // blocked site data). The feature degrades; it never fails.
+    }
   }, [codegenMode]);
 
   // iter-13.120 — Multi-select for code-generation scope. The user
@@ -1705,9 +1708,9 @@ export default function CodeGenPage() {
     const isStopping = ctrl === "stopping";
     const terminal = job.status === "complete" || job.status === "error" || job.status === "stopped";
     return (
-      <div className="text-[10px]" data-testid={testId}>
+      <div className="text-micro" data-testid={testId}>
         <div className="flex items-center justify-between gap-2">
-          <span className="text-[#747480] truncate flex-1">
+          <span className="text-fg-muted truncate flex-1">
             {label}: {job.step}
           </span>
           {/* Only show controls for the currently-active job (the one
@@ -1720,7 +1723,7 @@ export default function CodeGenPage() {
                   data-testid="btn-cg-resume"
                   onClick={onResume}
                   title="Resume the paused job"
-                  className="flex items-center gap-0.5 px-1.5 h-5 text-[10px] bg-emerald-600 text-white rounded-sm hover:bg-emerald-700"
+                  className="flex items-center gap-0.5 px-1.5 h-5 text-micro bg-emerald-600 text-white rounded-sm hover:bg-emerald-700"
                 >
                   <Play className="w-2.5 h-2.5" /> Resume
                 </button>
@@ -1730,7 +1733,7 @@ export default function CodeGenPage() {
                   onClick={onPause}
                   disabled={isStopping}
                   title="Pause after the current LLM call(s) finish"
-                  className="flex items-center gap-0.5 px-1.5 h-5 text-[10px] border border-[#E6E6E6] rounded-sm hover:bg-[#F6F6FA] disabled:opacity-50"
+                  className="flex items-center gap-0.5 px-1.5 h-5 text-micro border border-border rounded-sm hover:bg-bg disabled:opacity-50"
                 >
                   <Pause className="w-2.5 h-2.5" /> Pause
                 </button>
@@ -1740,15 +1743,15 @@ export default function CodeGenPage() {
                 onClick={onStop}
                 disabled={isStopping}
                 title="Stop after the current LLM call(s) finish — already-generated files are kept"
-                className="flex items-center gap-0.5 px-1.5 h-5 text-[10px] bg-red-600 text-white rounded-sm hover:bg-red-700 disabled:opacity-50"
+                className="flex items-center gap-0.5 px-1.5 h-5 text-micro bg-red-600 text-white rounded-sm hover:bg-red-700 disabled:opacity-50"
               >
                 <Square className="w-2.5 h-2.5" /> {isStopping ? "Stopping…" : "Stop"}
               </button>
             </div>
           )}
-          <span className="text-[#2E2E38] font-semibold shrink-0">{job.pct || 0}%</span>
+          <span className="text-fg font-semibold shrink-0">{job.pct || 0}%</span>
         </div>
-        <div className="h-1 bg-[#F6F6FA] rounded-sm overflow-hidden">
+        <div className="h-1 bg-bg rounded-sm overflow-hidden">
           <div
             className={`h-full ${isPaused ? "bg-amber-400" : barColor}`}
             style={{ width: `${job.pct || 0}%` }}
@@ -1767,7 +1770,7 @@ export default function CodeGenPage() {
         <button
           type="button"
           onClick={() => navigate("/")}
-          className="text-xs px-3 py-1.5 bg-[#FFE600] text-[#2E2E38] rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-[#2E2E38]"
+          className="text-xs px-3 py-1.5 bg-brand text-fg rounded-sm hover:bg-yellow-300 font-semibold focus:outline-none focus:ring-2 focus:ring-fg"
           data-testid="empty-goto-discovery"
         >
           Go to Discovery →
@@ -1778,17 +1781,17 @@ export default function CodeGenPage() {
 
   if (isLocked) {
     return (
-      <div className="flex-1 flex flex-col bg-[#F6F6FA]" data-testid="codegen-locked">
-        <header className="bg-white border-b-2 border-[#FFE600] px-6 py-3">
-          <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 4 of 5</div>
-          <h1 className="font-display text-lg font-bold tracking-tight text-[#2E2E38]">Code Generation</h1>
+      <div className="flex-1 flex flex-col bg-bg" data-testid="codegen-locked">
+        <header className="bg-surface border-b-2 border-brand px-6 py-3">
+          <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 4 of 5</div>
+          <h1 className="font-display text-lg font-bold tracking-tight text-fg">Code Generation</h1>
         </header>
         <div className="flex-1 flex items-center justify-center p-8">
-          <div className="max-w-md bg-white border border-[#E6E6E6] rounded-sm p-6 text-center">
-            <Lock className="w-8 h-8 mx-auto text-[#747480] mb-3" />
-            <h2 className="font-display font-bold text-[#2E2E38]">Locked — Architecture not frozen</h2>
-            <p className="text-xs text-[#747480] mt-2">Click <span className="font-bold">Approve &amp; Freeze</span> on the Service Map in Stage 3 to unlock CodeGen. HLD / LLD / Sequence / API Contracts are optional and can be generated before or after CodeGen.</p>
-            <button onClick={() => navigate("/architecture")} className="mt-4 text-xs px-3 py-1.5 bg-[#2E2E38] text-white rounded-sm">Open Architecture →</button>
+          <div className="max-w-md bg-surface border border-border rounded-sm p-6 text-center">
+            <Lock className="w-8 h-8 mx-auto text-fg-muted mb-3" />
+            <h2 className="font-display font-bold text-fg">Locked — Architecture not frozen</h2>
+            <p className="text-xs text-fg-muted mt-2">Click <span className="font-bold">Approve &amp; Freeze</span> on the Service Map in Stage 3 to unlock CodeGen. HLD / LLD / Sequence / API Contracts are optional and can be generated before or after CodeGen.</p>
+            <button onClick={() => navigate("/architecture")} className="mt-4 text-xs px-3 py-1.5 bg-ink text-ink-fg rounded-sm">Open Architecture →</button>
           </div>
         </div>
       </div>
@@ -1796,33 +1799,33 @@ export default function CodeGenPage() {
   }
 
   return (
-    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-[#F6F6FA]" data-testid="codegen-page">
+    <div className="flex-1 flex flex-col min-w-0 min-h-0 bg-bg" data-testid="codegen-page">
       {/* ────────────────────────────────────────────────────────────────────
           iter-13.140 — Compact single-row header with kebab overflow menu.
           Only essential actions visible; rest in kebab dropdown.
           ──────────────────────────────────────────────────────────────────── */}
-      <header className="bg-white border-b-2 border-[#FFE600] px-4 sm:px-6 py-2.5 relative z-20">
+      <header className="bg-surface border-b-2 border-brand px-4 sm:px-6 py-2.5 relative z-20">
         <div className="flex items-center gap-2 flex-wrap">
           {/* Title */}
           <div className="shrink-0">
-            <div className="text-[10px] uppercase tracking-widest text-[#747480]">Stage 4 of 5</div>
-            <h1 className="font-display text-base font-bold tracking-tight text-[#2E2E38]">Code Generation</h1>
+            <div className="text-micro uppercase tracking-widest text-fg-muted">Stage 4 of 5</div>
+            <h1 className="font-display text-base font-bold tracking-tight text-fg">Code Generation</h1>
           </div>
 
           {/* Stats + Pattern */}
           <div className="flex items-center gap-1.5 shrink-0 ml-2">
-            <span className="text-[10px] px-1.5 py-0.5 bg-[#F6F6FA] border border-[#E6E6E6] rounded-sm text-[#747480]">
+            <span className="text-micro px-1.5 py-0.5 bg-bg border border-border rounded-sm text-fg-muted">
               {totalFiles} files · {services.length} svc
             </span>
             {archPattern && (
               <span
                 data-testid="pattern-badge"
-                className="text-[9px] uppercase font-semibold bg-[#F6F6FA] text-[#2E2E38] border border-[#E6E6E6] px-1.5 py-0.5 rounded-sm"
+                className="text-micro uppercase font-semibold bg-bg text-fg border border-border px-1.5 py-0.5 rounded-sm"
               >
                 {archPattern.replace("_", " ")}
               </span>
             )}
-            {isFrozen && <span className="text-[9px] uppercase font-bold bg-[#FFE600] text-[#2E2E38] px-1.5 py-0.5 rounded-sm">Frozen</span>}
+            {isFrozen && <span className="text-micro uppercase font-bold bg-brand text-fg px-1.5 py-0.5 rounded-sm">Frozen</span>}
           </div>
 
           {/* iter-17 — Mode toggle: [Quick Generate | Multi-Agent Pipeline].
@@ -1830,7 +1833,7 @@ export default function CodeGenPage() {
               existing single-shot flow is never disrupted. */}
           <div
             data-testid="codegen-mode-toggle"
-            className="flex items-center border border-[#E6E6E6] rounded-sm bg-white shrink-0 ml-1"
+            className="flex items-center border border-border rounded-sm bg-surface shrink-0 ml-1"
             role="tablist"
             aria-label="CodeGen mode"
           >
@@ -1841,10 +1844,10 @@ export default function CodeGenPage() {
               data-testid="codegen-mode-quick"
               onClick={() => setCodegenMode("quick")}
               className={
-                "h-7 text-[11px] px-2.5 font-semibold rounded-l-sm " +
+                "h-7 text-micro px-2.5 font-semibold rounded-l-sm " +
                 (codegenMode === "quick"
-                  ? "bg-[#2E2E38] text-white"
-                  : "text-[#2E2E38] hover:bg-[#F6F6FA]")
+                  ? "bg-ink text-ink-fg"
+                  : "text-fg hover:bg-bg")
               }
               title="Single-shot generate — the classic Stage 4 flow"
             >
@@ -1857,10 +1860,10 @@ export default function CodeGenPage() {
               data-testid="codegen-mode-multiagent"
               onClick={() => setCodegenMode("multi-agent")}
               className={
-                "h-7 text-[11px] px-2.5 font-semibold rounded-r-sm border-l border-[#E6E6E6] " +
+                "h-7 text-micro px-2.5 font-semibold rounded-r-sm border-l border-border " +
                 (codegenMode === "multi-agent"
-                  ? "bg-[#2E2E38] text-white"
-                  : "text-[#2E2E38] hover:bg-[#F6F6FA]")
+                  ? "bg-ink text-ink-fg"
+                  : "text-fg hover:bg-bg")
               }
               title="Context Manager → Planner → Coder/Verifier/Reviewer/Tester → Traceability Gate → Finalizer"
             >
@@ -1878,7 +1881,7 @@ export default function CodeGenPage() {
               data-testid="btn-select-services"
               onClick={() => setGsPopoverOpen((v) => !v)}
               disabled={archServices.length === 0}
-              className="h-7 text-[11px] px-2 border border-[#E6E6E6] rounded-sm bg-white text-[#2E2E38] hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-1"
+              className="h-7 text-micro px-2 border border-border rounded-sm bg-surface text-fg hover:bg-bg disabled:opacity-50 flex items-center gap-1"
               title="Choose services to (re)generate"
             >
               <Folder className="w-3 h-3" />
@@ -1888,9 +1891,9 @@ export default function CodeGenPage() {
             {gsPopoverOpen && archServices.length > 0 && (
               <div
                 data-testid="gen-services-popover"
-                className="absolute right-0 top-8 z-30 w-72 max-h-80 overflow-y-auto bg-white border border-[#E6E6E6] rounded-sm shadow-lg text-[11px]"
+                className="absolute right-0 top-8 z-30 w-72 max-h-80 overflow-y-auto bg-surface border border-border rounded-sm shadow-lg text-micro"
               >
-                <div className="px-2 py-1.5 border-b border-[#E6E6E6] flex items-center gap-2 sticky top-0 bg-white">
+                <div className="px-2 py-1.5 border-b border-border flex items-center gap-2 sticky top-0 bg-surface">
                   <input
                     type="checkbox"
                     data-testid="gen-svc-checkbox-all"
@@ -1898,7 +1901,7 @@ export default function CodeGenPage() {
                     ref={(el) => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < archServices.length; }}
                     onChange={(e) => toggleAllGenServices(e.target.checked)}
                   />
-                  <span className="font-semibold text-[#2E2E38]">
+                  <span className="font-semibold text-fg">
                     {selectedCount === archServices.length ? "All selected" : `${selectedCount} of ${archServices.length}`}
                   </span>
                 </div>
@@ -1908,7 +1911,7 @@ export default function CodeGenPage() {
                   return (
                     <label
                       key={s.name}
-                      className="flex items-center gap-2 px-2 py-1.5 hover:bg-[#F6F6FA] cursor-pointer border-b border-[#F6F6FA] last:border-b-0"
+                      className="flex items-center gap-2 px-2 py-1.5 hover:bg-bg cursor-pointer border-b border-surface-2 last:border-b-0"
                     >
                       <input
                         type="checkbox"
@@ -1919,7 +1922,7 @@ export default function CodeGenPage() {
                       <span className="truncate flex-1" title={s.display_name || s.name}>{s.name}</span>
                       <span
                         className={
-                          "text-[9px] uppercase font-bold px-1 py-0.5 rounded-sm " +
+                          "text-micro uppercase font-bold px-1 py-0.5 rounded-sm " +
                           (s.frontend
                             ? "bg-sky-100 text-sky-700"
                             : s.kind === "utility"
@@ -1930,7 +1933,7 @@ export default function CodeGenPage() {
                         {s.frontend ? "FE" : s.kind === "utility" ? "UTL" : "BE"}
                       </span>
                       {cnt > 0 && (
-                        <span className="text-[9px] text-[#747480]">{cnt}f</span>
+                        <span className="text-micro text-fg-muted">{cnt}f</span>
                       )}
                     </label>
                   );
@@ -1940,7 +1943,7 @@ export default function CodeGenPage() {
           </div>
 
           {/* Generate */}
-          <Button data-testid="btn-generate" onClick={onGenerate} disabled={genJob.running} className="h-7 text-[11px] px-3 bg-[#FFE600] text-[#2E2E38] hover:bg-[#FFD500] font-semibold shrink-0">
+          <Button data-testid="btn-generate" onClick={onGenerate} disabled={genJob.running} className="h-7 text-micro px-3 bg-brand text-fg hover:bg-brand-hover font-semibold shrink-0">
             {genJob.running
               ? (_activeCgControl === "paused"
                   ? <Pause className="w-3 h-3" />
@@ -1954,7 +1957,7 @@ export default function CodeGenPage() {
             data-testid="btn-auto-validate"
             onClick={onAutoValidate}
             disabled={autoValidateJob.running || totalFiles === 0}
-            className="h-7 text-[11px] px-3 bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
+            className="h-7 text-micro px-3 bg-emerald-600 text-white hover:bg-emerald-700 shrink-0"
             title="Score every file, regenerate the worst, loop until confidence ≥ 95%"
           >
             {autoValidateJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Target className="w-3 h-3" />}
@@ -1968,7 +1971,7 @@ export default function CodeGenPage() {
 
           {/* Freeze */}
           {!isFrozen && (
-            <Button data-testid="btn-freeze-codegen" onClick={onFreeze} disabled={totalFiles === 0} className="h-7 text-[11px] px-3 bg-[#2E2E38] text-white hover:bg-[#1E1E28] shrink-0">
+            <Button data-testid="btn-freeze-codegen" onClick={onFreeze} disabled={totalFiles === 0} className="h-7 text-micro px-3 bg-ink text-ink-fg hover:bg-ink shrink-0">
               <PackageCheck className="w-3 h-3" /> Freeze
             </Button>
           )}
@@ -1978,7 +1981,7 @@ export default function CodeGenPage() {
             <button
               data-testid="btn-kebab-menu"
               onClick={() => setKebabOpen((v) => !v)}
-              className="h-7 w-7 flex items-center justify-center border border-[#E6E6E6] rounded-sm bg-white text-[#2E2E38] hover:bg-[#F6F6FA]"
+              className="h-7 w-7 flex items-center justify-center border border-border rounded-sm bg-surface text-fg hover:bg-bg"
               title="More actions"
             >
               <MoreVertical className="w-4 h-4" />
@@ -1986,15 +1989,15 @@ export default function CodeGenPage() {
             {kebabOpen && (
               <div
                 data-testid="kebab-dropdown"
-                className="absolute right-0 top-full mt-1 z-[9999] w-52 bg-white border border-[#E6E6E6] rounded-sm shadow-xl text-[11px] py-1"
+                className="absolute right-0 top-full mt-1 z-[9999] w-52 bg-surface border border-border rounded-sm shadow-xl text-micro py-1"
               >
                 {/* Regenerate section */}
-                <div className="px-3 py-1 text-[9px] uppercase tracking-wide text-[#747480] font-semibold">Regenerate</div>
+                <div className="px-3 py-1 text-micro uppercase tracking-wide text-fg-muted font-semibold">Regenerate</div>
                 <button
                   data-testid="btn-regen-backend"
                   onClick={() => { setKebabOpen(false); onRegenBackend(); }}
                   disabled={gapBackJob.running || totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   {gapBackJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <ShieldCheck className="w-3 h-3 text-emerald-600" />} Backend (Gap Recovery)
                 </button>
@@ -2002,31 +2005,31 @@ export default function CodeGenPage() {
                   data-testid="btn-regen-frontend"
                   onClick={() => { setKebabOpen(false); onRegenFrontend(); }}
                   disabled={gapFrontJob.running || totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   {gapFrontJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Monitor className="w-3 h-3 text-sky-600" />} Frontend (Gap Recovery)
                 </button>
-                <div className="border-t border-[#E6E6E6] my-1" />
+                <div className="border-t border-border my-1" />
 
                 {/* Reports */}
-                <div className="px-3 py-1 text-[9px] uppercase tracking-wide text-[#747480] font-semibold">Reports</div>
+                <div className="px-3 py-1 text-micro uppercase tracking-wide text-fg-muted font-semibold">Reports</div>
                 <button
                   data-testid="btn-parity-report"
                   onClick={() => { setKebabOpen(false); onShowParityReport(); }}
                   disabled={totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   <FileText className="w-3 h-3 text-emerald-600" /> Parity Report
                 </button>
-                <div className="border-t border-[#E6E6E6] my-1" />
+                <div className="border-t border-border my-1" />
 
                 {/* Export */}
-                <div className="px-3 py-1 text-[9px] uppercase tracking-wide text-[#747480] font-semibold">Export</div>
+                <div className="px-3 py-1 text-micro uppercase tracking-wide text-fg-muted font-semibold">Export</div>
                 <button
                   data-testid="btn-export-disk"
                   onClick={() => { setKebabOpen(false); onExportToDisk(); }}
                   disabled={exportBusy || totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   {exportBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <FolderOpen className="w-3 h-3" />} Export to Disk
                 </button>
@@ -2034,7 +2037,7 @@ export default function CodeGenPage() {
                   data-testid="btn-push"
                   onClick={() => { setKebabOpen(false); onPush(); }}
                   disabled={pushJob.running || totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   {pushJob.running ? <Loader2 className="w-3 h-3 animate-spin" /> : <Github className="w-3 h-3" />} Push to GitHub
                 </button>
@@ -2042,11 +2045,11 @@ export default function CodeGenPage() {
                   data-testid="btn-zip"
                   onClick={() => { setKebabOpen(false); onDownloadZip(); }}
                   disabled={zipBusy || totalFiles === 0}
-                  className="w-full px-3 py-1.5 text-left hover:bg-[#F6F6FA] disabled:opacity-50 flex items-center gap-2"
+                  className="w-full px-3 py-1.5 text-left hover:bg-bg disabled:opacity-50 flex items-center gap-2"
                 >
                   {zipBusy ? <Loader2 className="w-3 h-3 animate-spin" /> : <Download className="w-3 h-3" />} Download ZIP
                 </button>
-                <div className="border-t border-[#E6E6E6] my-1" />
+                <div className="border-t border-border my-1" />
 
                 {/* Reset */}
                 <button
@@ -2069,7 +2072,7 @@ export default function CodeGenPage() {
       {archServices.length > 0 && !hasFrontendService && (
         <div
           data-testid="no-frontend-warning"
-          className="bg-amber-50 border-b border-amber-200 px-4 py-1.5 text-[11px] text-amber-900 flex items-center gap-2"
+          className="bg-amber-50 border-b border-amber-200 px-4 py-1.5 text-micro text-amber-900 flex items-center gap-2"
         >
           <span>⚠</span>
           <span>
@@ -2092,14 +2095,14 @@ export default function CodeGenPage() {
       {archServices.length > 0 && (
         <div
           data-testid="gen-plan-preview"
-          className="bg-white border-b border-[#E6E6E6] px-4 py-1 text-[10px] text-[#747480] flex items-center gap-3"
+          className="bg-surface border-b border-border px-4 py-1 text-micro text-fg-muted flex items-center gap-3"
         >
-          <span className="font-semibold text-[#2E2E38]">Will generate:</span>
+          <span className="font-semibold text-fg">Will generate:</span>
           <span>
             {selectedCount} service{selectedCount === 1 ? "" : "s"}
             {" "}({selectedBackendCount} backend, {selectedFrontendCount} frontend)
           </span>
-          <span className="text-[#B0B0B8]">·</span>
+          <span className="text-fg-subtle">·</span>
           <span>
             {selectedPlannedFileCount > 0
               ? `~${selectedPlannedFileCount} files planned (based on last run)`
@@ -2121,24 +2124,24 @@ export default function CodeGenPage() {
       {apiMapping && Array.isArray(apiMapping.services) && apiMapping.services.length > 0 && (
         <div
           data-testid="api-mapping-preview"
-          className="bg-white border-b border-[#E6E6E6]"
+          className="bg-surface border-b border-border"
         >
           <button
             type="button"
             onClick={() => setApiMappingOpen((v) => !v)}
             data-testid="api-mapping-toggle"
-            className="w-full flex items-center gap-2 px-4 py-1.5 text-[11px] text-[#2E2E38] hover:bg-[#F6F6FA]"
+            className="w-full flex items-center gap-2 px-4 py-1.5 text-micro text-fg hover:bg-bg"
           >
             {apiMappingOpen
               ? <ChevronDown className="w-3 h-3" />
               : <ChevronRightIcon className="w-3 h-3" />}
             <span className="font-semibold">Legacy → New API Mapping</span>
-            <span className="text-[10px] text-[#747480]">
+            <span className="text-micro text-fg-muted">
               {apiMapping.totals?.services || 0} service(s) ·{" "}
               {apiMapping.totals?.legacy_total || 0} legacy routes →{" "}
               {apiMapping.totals?.new_total || 0} new endpoints
             </span>
-            <span className="ml-auto text-[10px] text-[#747480]">
+            <span className="ml-auto text-micro text-fg-muted">
               {apiMappingOpen ? "Hide" : "Show"} — validate before Generate
             </span>
           </button>
@@ -2149,7 +2152,7 @@ export default function CodeGenPage() {
                   data-testid="api-mapping-filter"
                   value={apiMappingSvc}
                   onChange={(e) => setApiMappingSvc(e.target.value)}
-                  className="text-[10px] border border-[#E6E6E6] rounded-sm px-1 py-0.5"
+                  className="text-micro border border-border rounded-sm px-1 py-0.5"
                 >
                   <option value="">All services ({apiMapping.services.length})</option>
                   {apiMapping.services.map((s) => (
@@ -2158,7 +2161,7 @@ export default function CodeGenPage() {
                     </option>
                   ))}
                 </select>
-                <span className="text-[10px] text-[#747480]">
+                <span className="text-micro text-fg-muted">
                   Legacy routes come from the KB (Stage 1). New endpoints come from Architecture (Stage 3).
                 </span>
               </div>
@@ -2168,14 +2171,14 @@ export default function CodeGenPage() {
                   <div
                     key={s.name}
                     data-testid={`api-mapping-service-${s.name}`}
-                    className="mb-2 border border-[#E6E6E6] rounded-sm bg-[#FAFAFC]"
+                    className="mb-2 border border-border rounded-sm bg-surface-2"
                   >
-                    <div className="px-2 py-1 border-b border-[#E6E6E6] flex items-center gap-2 text-[11px]">
-                      <span className="font-semibold text-[#2E2E38]">{s.display_name || s.name}</span>
-                      <span className="text-[9px] text-[#747480]">({s.name})</span>
+                    <div className="px-2 py-1 border-b border-border flex items-center gap-2 text-micro">
+                      <span className="font-semibold text-fg">{s.display_name || s.name}</span>
+                      <span className="text-micro text-fg-muted">({s.name})</span>
                       <span
                         className={
-                          "text-[9px] uppercase font-bold px-1 py-0.5 rounded-sm " +
+                          "text-micro uppercase font-bold px-1 py-0.5 rounded-sm " +
                           (s.frontend
                             ? "bg-sky-100 text-sky-700"
                             : s.kind === "utility"
@@ -2187,13 +2190,13 @@ export default function CodeGenPage() {
                       </span>
                       {s.merged_from && s.merged_from.length > 0 && (
                         <span
-                          className="text-[9px] uppercase font-bold px-1 py-0.5 rounded-sm bg-amber-100 text-amber-800"
+                          className="text-micro uppercase font-bold px-1 py-0.5 rounded-sm bg-amber-100 text-amber-800"
                           title={"Merged from: " + s.merged_from.join(", ")}
                         >
                           MERGED × {s.merged_from.length}
                         </span>
                       )}
-                      <span className="ml-auto text-[10px] text-[#747480]">
+                      <span className="ml-auto text-micro text-fg-muted">
                         {s.legacy_count} legacy → {s.new_count} new
                         {s.legacy_count > 0 && s.new_count === 0 && (
                           <span className="text-red-600 font-semibold ml-1">⚠ uncovered</span>
@@ -2201,29 +2204,29 @@ export default function CodeGenPage() {
                       </span>
                     </div>
                     {s.frontend ? (
-                      <div className="px-2 py-1 text-[10px] text-[#747480]">
+                      <div className="px-2 py-1 text-micro text-fg-muted">
                         React frontend — consumes the mapped backend endpoints above.
                         No 1:1 route mapping.
                       </div>
                     ) : (
-                      <div className="grid grid-cols-2 gap-0 text-[10px]">
-                        <div className="border-r border-[#E6E6E6]">
-                          <div className="px-2 py-0.5 bg-[#F6F6FA] font-semibold text-[#747480] uppercase tracking-wide text-[9px]">
+                      <div className="grid grid-cols-2 gap-0 text-micro">
+                        <div className="border-r border-border">
+                          <div className="px-2 py-0.5 bg-bg font-semibold text-fg-muted uppercase tracking-wide text-micro">
                             Legacy ({s.legacy_count})
                           </div>
                           <div className="max-h-40 overflow-y-auto mos-scroll">
                             {(s.legacy_routes || []).length === 0 && (
-                              <div className="px-2 py-1 text-[#B0B0B8] italic">
+                              <div className="px-2 py-1 text-fg-subtle italic">
                                 No legacy routes attributed to this service.
                               </div>
                             )}
                             {(s.legacy_routes || []).map((r, i) => (
                               <div
                                 key={`l:${i}`}
-                                className="px-2 py-0.5 border-b border-[#F6F6FA] font-mono truncate flex items-center gap-1"
+                                className="px-2 py-0.5 border-b border-surface-2 font-mono truncate flex items-center gap-1"
                                 title={`${r.class || ""} · ${r.module || ""}`}
                               >
-                                <span className="inline-block w-10 text-[9px] font-bold text-[#2E2E38]">
+                                <span className="inline-block w-10 text-micro font-bold text-fg">
                                   {r.verb}
                                 </span>
                                 <span className="truncate">{r.path}</span>
@@ -2232,7 +2235,7 @@ export default function CodeGenPage() {
                           </div>
                         </div>
                         <div>
-                          <div className="px-2 py-0.5 bg-[#F6F6FA] font-semibold text-[#747480] uppercase tracking-wide text-[9px]">
+                          <div className="px-2 py-0.5 bg-bg font-semibold text-fg-muted uppercase tracking-wide text-micro">
                             New ({s.new_count})
                           </div>
                           <div className="max-h-40 overflow-y-auto mos-scroll">
@@ -2244,9 +2247,9 @@ export default function CodeGenPage() {
                             {(s.new_endpoints || []).map((r, i) => (
                               <div
                                 key={`n:${i}`}
-                                className="px-2 py-0.5 border-b border-[#F6F6FA] font-mono truncate flex items-center gap-1"
+                                className="px-2 py-0.5 border-b border-surface-2 font-mono truncate flex items-center gap-1"
                               >
-                                <span className="inline-block w-10 text-[9px] font-bold text-emerald-700">
+                                <span className="inline-block w-10 text-micro font-bold text-emerald-700">
                                   {r.verb}
                                 </span>
                                 <span className="truncate">{r.path}</span>
@@ -2265,7 +2268,7 @@ export default function CodeGenPage() {
 
       {/* Job progress strip */}
       {(genJob.job || pushJob.job || gapBackJob.job || gapFrontJob.job || autoValidateJob.job) && (
-        <div className="bg-white border-b border-[#E6E6E6] px-4 py-1.5 space-y-1">
+        <div className="bg-surface border-b border-border px-4 py-1.5 space-y-1">
           {/*
             iter-13.55 — Compact, inline Pause / Resume / Stop controls
             rendered right next to the job they belong to (instead of in
@@ -2275,7 +2278,7 @@ export default function CodeGenPage() {
           */}
           {renderJobBar({
             job: genJob.job, label: "codegen", testId: "codegen-job-bar",
-            barColor: "bg-[#FFE600]",
+            barColor: "bg-brand",
             onPause: onPauseCg, onResume: onResumeCg, onStop: onStopCg,
             isActive: _activeCgJob?.j?.id === genJob.job?.id,
           })}
@@ -2299,12 +2302,12 @@ export default function CodeGenPage() {
             isActive: _activeCgJob?.j?.id === autoValidateJob.job?.id,
           })}
           {pushJob.job && (
-            <div className="text-[10px]" data-testid="push-job-bar">
+            <div className="text-micro" data-testid="push-job-bar">
               <div className="flex items-center justify-between">
-                <span className="text-[#747480] truncate">github push: {pushJob.job.step}</span>
-                <span className="text-[#2E2E38] font-semibold">{pushJob.job.pct || 0}%</span>
+                <span className="text-fg-muted truncate">github push: {pushJob.job.step}</span>
+                <span className="text-fg font-semibold">{pushJob.job.pct || 0}%</span>
               </div>
-              <div className="h-1 bg-[#F6F6FA] rounded-sm overflow-hidden"><div className="h-full bg-[#2E2E38]" style={{ width: `${pushJob.job.pct || 0}%` }} /></div>
+              <div className="h-1 bg-bg rounded-sm overflow-hidden"><div className="h-full bg-ink" style={{ width: `${pushJob.job.pct || 0}%` }} /></div>
             </div>
           )}
         </div>
@@ -2323,27 +2326,27 @@ export default function CodeGenPage() {
         >
           {/* LEFT: file tree */}
           <Panel defaultSize={20} minSize={14}>
-            <div className="h-full bg-white border-r border-[#E6E6E6] flex flex-col">
-              <div className="px-2 py-1.5 border-b border-[#E6E6E6] flex items-center gap-1">
-                <select data-testid="service-filter" value={filterService} onChange={(e) => setFilterService(e.target.value)} className="text-[11px] border border-[#E6E6E6] rounded-sm px-1 py-0.5 flex-1">
+            <div className="h-full bg-surface border-r border-border flex flex-col">
+              <div className="px-2 py-1.5 border-b border-border flex items-center gap-1">
+                <select data-testid="service-filter" value={filterService} onChange={(e) => setFilterService(e.target.value)} className="text-micro border border-border rounded-sm px-1 py-0.5 flex-1">
                   <option value="">All services</option>
                   {services.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
                 {filterService && (
-                  <button onClick={onGenerateOne} title="Regenerate this service" data-testid="btn-regen-service" className="text-[10px] px-1.5 py-0.5 bg-[#FFE600] text-[#2E2E38] rounded-sm font-bold">↻</button>
+                  <button onClick={onGenerateOne} title="Regenerate this service" data-testid="btn-regen-service" className="text-micro px-1.5 py-0.5 bg-brand text-fg rounded-sm font-bold">↻</button>
                 )}
               </div>
               <div className="flex-1 overflow-y-auto mos-scroll py-1" data-testid="file-tree">
                 {flatFiles.length === 0 && (
-                  <div className="text-[11px] text-[#747480] p-3">No files yet. Click <strong>Generate All</strong>.</div>
+                  <div className="text-micro text-fg-muted p-3">No files yet. Click <strong>Generate All</strong>.</div>
                 )}
                 {treeRows.map((r) => {
                   if (r.kind === "dir") {
                     return (
-                      <button key={`d:${r.key}`} onClick={() => toggle(r.key)} onContextMenu={(e) => openCtxMenu(e, { kind: "dir", dirKey: r.key, name: r.name })} data-testid={`dir-${r.key}`} className="w-full flex items-center gap-1 text-[11px] py-0.5 hover:bg-[#F6F6FA]" style={{ paddingLeft: 8 + r.depth * 10 }}>
-                        {r.isOpen ? <ChevronDown className="w-3 h-3 text-[#747480]" /> : <ChevronRightIcon className="w-3 h-3 text-[#747480]" />}
-                        {r.isOpen ? <FolderOpen className="w-3 h-3 text-[#FFE600]" /> : <Folder className="w-3 h-3 text-[#FFE600]" />}
-                        <span className="text-[#2E2E38] truncate">{r.name}</span>
+                      <button key={`d:${r.key}`} onClick={() => toggle(r.key)} onContextMenu={(e) => openCtxMenu(e, { kind: "dir", dirKey: r.key, name: r.name })} data-testid={`dir-${r.key}`} className="w-full flex items-center gap-1 text-micro py-0.5 hover:bg-bg" style={{ paddingLeft: 8 + r.depth * 10 }}>
+                        {r.isOpen ? <ChevronDown className="w-3 h-3 text-fg-muted" /> : <ChevronRightIcon className="w-3 h-3 text-fg-muted" />}
+                        {r.isOpen ? <FolderOpen className="w-3 h-3 text-brand" /> : <Folder className="w-3 h-3 text-brand" />}
+                        <span className="text-fg truncate">{r.name}</span>
                       </button>
                     );
                   }
@@ -2360,10 +2363,10 @@ export default function CodeGenPage() {
                       onClick={() => onSelectFile(f)}
                       onContextMenu={(e) => openCtxMenu(e, { kind: "file", file: f })}
                       data-testid={`file-${f.path}`}
-                      className={`w-full flex items-center gap-1 text-[11px] py-0.5 ${isSel ? "bg-[#FFFCE6] text-[#2E2E38] font-semibold" : "hover:bg-[#F6F6FA] text-[#2E2E38]"}`}
+                      className={`w-full flex items-center gap-1 text-micro py-0.5 ${isSel ? "bg-brand-tint text-fg font-semibold" : "hover:bg-bg text-fg"}`}
                       style={{ paddingLeft: 8 + r.depth * 10 }}
                     >
-                      <FileIcon className="w-3 h-3 text-[#747480]" />
+                      <FileIcon className="w-3 h-3 text-fg-muted" />
                       <span className="truncate">{f.basename}</span>
                       {showRibbon && (
                         <span
@@ -2373,17 +2376,17 @@ export default function CodeGenPage() {
                               ? "KB has field evidence for this file — gaps are auto-fixable via Gap Recovery"
                               : "Evidence genuinely missing in KB"
                           }
-                          className={`ml-auto shrink-0 text-[8px] px-1 rounded-sm font-bold ${
+                          className={`ml-auto shrink-0 text-micro px-1 rounded-sm font-bold ${
                             autoFixable
                               ? "bg-red-100 text-red-700 border border-red-300"
-                              : "bg-[#F0F0F4] text-[#747480] border border-[#E6E6E6]"
+                              : "bg-surface-2 text-fg-muted border border-border"
                           }`}
                         >
                           {gapCount} gap{gapCount === 1 ? "" : "s"} · {riskCount} risk{riskCount === 1 ? "" : "s"}
                         </span>
                       )}
-                      {f.edited && !showRibbon && <span className="text-[9px] text-orange-500 ml-auto">●</span>}
-                      {f.edited && showRibbon && <span className="text-[9px] text-orange-500 ml-1">●</span>}
+                      {f.edited && !showRibbon && <span className="text-micro text-orange-500 ml-auto">●</span>}
+                      {f.edited && showRibbon && <span className="text-micro text-orange-500 ml-1">●</span>}
                     </button>
                   );
                 })}
@@ -2391,36 +2394,36 @@ export default function CodeGenPage() {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-[#E6E6E6] hover:bg-[#FFE600]" />
+          <PanelResizeHandle className="w-1 bg-border hover:bg-brand" />
 
           {/* CENTER: editor */}
           <Panel defaultSize={50}>
-            <div className="h-full flex flex-col bg-white">
-              <div className="px-3 py-1.5 border-b border-[#E6E6E6] flex items-center gap-2">
+            <div className="h-full flex flex-col bg-surface">
+              <div className="px-3 py-1.5 border-b border-border flex items-center gap-2">
                 {selectedFile ? (
                   <>
-                    <FileText className="w-3 h-3 text-[#747480]" />
-                    <span className="text-[12px] font-mono text-[#2E2E38] truncate flex-1" data-testid="selected-file-path">{selectedFile.path}</span>
-                    <span className="text-[9px] uppercase bg-[#F6F6FA] px-1 rounded-sm">v{selectedFile.version}</span>
+                    <FileText className="w-3 h-3 text-fg-muted" />
+                    <span className="text-[12px] font-mono text-fg truncate flex-1" data-testid="selected-file-path">{selectedFile.path}</span>
+                    <span className="text-micro uppercase bg-bg px-1 rounded-sm">v{selectedFile.version}</span>
                     {!editing && (
-                      <button onClick={() => { setEditBuf(fileContent); setEditing(true); }} data-testid="edit-file-btn" className="text-[11px] px-2 py-1 border border-[#E6E6E6] hover:bg-[#F6F6FA] rounded-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>
+                      <button onClick={() => { setEditBuf(fileContent); setEditing(true); }} data-testid="edit-file-btn" className="text-micro px-2 py-1 border border-border hover:bg-bg rounded-sm flex items-center gap-1"><Pencil className="w-3 h-3" /> Edit</button>
                     )}
                     {editing && (
                       <>
-                        <button onClick={() => setEditing(false)} className="text-[11px] px-2 py-1 border border-[#E6E6E6] rounded-sm">Cancel</button>
-                        <button onClick={onSaveFile} data-testid="save-file-btn" className="text-[11px] px-2 py-1 bg-[#2E2E38] text-white rounded-sm flex items-center gap-1"><Check className="w-3 h-3" /> Save</button>
+                        <button onClick={() => setEditing(false)} className="text-micro px-2 py-1 border border-border rounded-sm">Cancel</button>
+                        <button onClick={onSaveFile} data-testid="save-file-btn" className="text-micro px-2 py-1 bg-ink text-ink-fg rounded-sm flex items-center gap-1"><Check className="w-3 h-3" /> Save</button>
                       </>
                     )}
                   </>
                 ) : (
-                  <span className="text-[11px] text-[#747480]">No file selected</span>
+                  <span className="text-micro text-fg-muted">No file selected</span>
                 )}
               </div>
               <div className="flex-1 min-h-0">
                 {!selectedFile && (
-                  <div className="h-full flex items-center justify-center text-[#747480]">
+                  <div className="h-full flex items-center justify-center text-fg-muted">
                     <div className="text-center">
-                      <Sparkles className="w-8 h-8 mx-auto mb-2 text-[#FFE600]" />
+                      <Sparkles className="w-8 h-8 mx-auto mb-2 text-brand" />
                       <div className="text-sm">Select a file from the tree to view or edit it.</div>
                     </div>
                   </div>
@@ -2446,41 +2449,41 @@ export default function CodeGenPage() {
             </div>
           </Panel>
 
-          <PanelResizeHandle className="w-1 bg-[#E6E6E6] hover:bg-[#FFE600]" />
+          <PanelResizeHandle className="w-1 bg-border hover:bg-brand" />
 
           {/* RIGHT: chat */}
           <Panel defaultSize={30} minSize={20}>
-            <div className="h-full bg-white flex flex-col">
-              <div className="px-3 py-2 border-b border-[#E6E6E6] flex items-center gap-1">
+            <div className="h-full bg-surface flex flex-col">
+              <div className="px-3 py-2 border-b border-border flex items-center gap-1">
                 <Code2 className="w-3 h-3" />
-                <span className="text-[11px] font-semibold">Code Chat</span>
-                <span className="text-[10px] text-[#747480] ml-auto truncate">
+                <span className="text-micro font-semibold">Code Chat</span>
+                <span className="text-micro text-fg-muted ml-auto truncate">
                   {selectedFile ? `→ ${selectedFile.basename || selectedFile.path.split("/").pop()}` : "no file"}
                 </span>
               </div>
               <div className="flex-1 overflow-y-auto mos-scroll p-3 space-y-2" data-testid="codegen-chat-log">
                 {chatMessages.length === 0 && (
-                  <div className="text-[11px] text-[#747480]">Ask the codegen-LLM to refactor, fix, or add tests. The LLM may emit one or more <code>[FILE_CHANGE:path/to/file]…[/FILE_CHANGE]</code> blocks — review and click Apply.</div>
+                  <div className="text-micro text-fg-muted">Ask the codegen-LLM to refactor, fix, or add tests. The LLM may emit one or more <code>[FILE_CHANGE:path/to/file]…[/FILE_CHANGE]</code> blocks — review and click Apply.</div>
                 )}
                 {chatMessages.map((m, i) => (
-                  <div key={i} className={`text-[12px] p-2 rounded-sm ${m.role === "user" ? "bg-[#FFFCE6] border border-[#FFE600]" : "bg-[#F6F6FA] border border-[#E6E6E6]"}`}>
-                    <div className="text-[9px] uppercase font-bold text-[#747480] mb-1">{m.role}</div>
-                    <pre className="whitespace-pre-wrap text-[12px] leading-snug text-[#2E2E38]">{m.content}</pre>
+                  <div key={i} className={`text-[12px] p-2 rounded-sm ${m.role === "user" ? "bg-brand-tint border border-brand" : "bg-bg border border-border"}`}>
+                    <div className="text-micro uppercase font-bold text-fg-muted mb-1">{m.role}</div>
+                    <pre className="whitespace-pre-wrap text-[12px] leading-snug text-fg">{m.content}</pre>
                     {m.file_changes?.length > 0 && (
                       <div className="mt-1.5 space-y-1">
                         {m.file_changes.map((fc, j) => (
-                          <div key={j} className="text-[10px] flex items-center gap-1">
+                          <div key={j} className="text-micro flex items-center gap-1">
                             <span className="font-mono truncate flex-1">{fc.file_path}</span>
-                            <button onClick={() => onApplyFileChange(fc, m.message_id)} data-testid={`apply-fc-${i}-${j}`} className="px-2 py-0.5 bg-[#2E2E38] text-white rounded-sm">Apply</button>
+                            <button onClick={() => onApplyFileChange(fc, m.message_id)} data-testid={`apply-fc-${i}-${j}`} className="px-2 py-0.5 bg-ink text-ink-fg rounded-sm">Apply</button>
                           </div>
                         ))}
                       </div>
                     )}
                   </div>
                 ))}
-                {chatBusy && <div className="text-[11px] text-[#747480] flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Thinking…</div>}
+                {chatBusy && <div className="text-micro text-fg-muted flex items-center gap-1"><Loader2 className="w-3 h-3 animate-spin" /> Thinking…</div>}
               </div>
-              <div className="border-t border-[#E6E6E6] p-2 flex gap-1">
+              <div className="border-t border-border p-2 flex gap-1">
                 <textarea
                   rows={2}
                   value={chatInput}
@@ -2488,9 +2491,9 @@ export default function CodeGenPage() {
                   onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSendChat(); } }}
                   placeholder="Ask about the code…"
                   data-testid="codegen-chat-input"
-                  className="flex-1 text-[12px] border border-[#E6E6E6] focus:border-[#2E2E38] outline-none rounded-sm px-2 py-1.5 resize-none"
+                  className="flex-1 text-[12px] border border-border focus:border-fg outline-none rounded-sm px-2 py-1.5 resize-none"
                 />
-                <Button data-testid="codegen-chat-send" onClick={onSendChat} disabled={chatBusy} className="h-auto bg-[#2E2E38] text-white px-3"><Send className="w-3 h-3" /></Button>
+                <Button data-testid="codegen-chat-send" onClick={onSendChat} disabled={chatBusy} className="h-auto bg-ink text-ink-fg px-3"><Send className="w-3 h-3" /></Button>
               </div>
             </div>
           </Panel>
@@ -2523,13 +2526,13 @@ export default function CodeGenPage() {
             • per-file → axis bars (structural/parity/coverage/schema/
                          evidence/requirement) + issues list */}
       {parityReportOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        <div aria-hidden="true"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4"
           data-testid="parity-report-modal"
           onClick={() => setParityReportOpen(false)}
         >
-          <div
-            className="bg-white max-w-5xl w-full max-h-[90vh] rounded-sm border-2 border-emerald-500 flex flex-col"
+          <div role="presentation"
+            className="bg-surface max-w-5xl w-full max-h-[90vh] rounded-sm border-2 border-emerald-500 flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* ── Header ─────────────────────────────────────────── */}
@@ -2567,7 +2570,7 @@ export default function CodeGenPage() {
             </div>
 
             {/* ── Footer ─────────────────────────────────────────── */}
-            <div className="px-5 py-2 border-t border-[#E6E6E6] flex items-center justify-between text-[10px] text-[#747480]">
+            <div className="px-5 py-2 border-t border-border flex items-center justify-between text-micro text-fg-muted">
               <span>
                 Started: {parityReport?.started_at || "—"} · Ended:{" "}
                 {parityReport?.ended_at || "—"}
@@ -2576,7 +2579,7 @@ export default function CodeGenPage() {
                 {parityReport?.report_path && (
                   <>
                     Report saved to{" "}
-                    <code className="bg-[#F6F6FA] px-1">
+                    <code className="bg-bg px-1">
                       {parityReport.report_path}
                     </code>
                   </>
@@ -2595,14 +2598,14 @@ export default function CodeGenPage() {
       {/* iter-13.56 — right-click context menu over the file tree.
           Positioned at click coords; dismissed by any click / scroll / Escape. */}
       {ctxMenu && (
-        <div
+        <div role="presentation"
           data-testid="codegen-tree-ctxmenu"
           onClick={(e) => e.stopPropagation()}
           onContextMenu={(e) => e.preventDefault()}
-          className="fixed z-50 bg-white border border-[#E6E6E6] rounded-sm shadow-lg py-1 text-[12px] min-w-[180px]"
+          className="fixed z-50 bg-surface border border-border rounded-sm shadow-lg py-1 text-[12px] min-w-[180px]"
           style={{ left: ctxMenu.x, top: ctxMenu.y }}
         >
-          <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-[#747480] border-b border-[#F0F0F0] truncate">
+          <div className="px-3 py-1 text-micro uppercase tracking-wider text-fg-muted border-b border-surface-2 truncate">
             {ctxMenu.kind === "file" ? ctxMenu.file?.path : ctxMenu.dirKey}
           </div>
           {ctxMenu.kind === "file" && (

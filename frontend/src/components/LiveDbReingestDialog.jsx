@@ -164,21 +164,21 @@ function SourceRow({ src, onReingested }) {
             className="flex items-center gap-2 text-sm font-medium min-w-0"
             title={fullDsn}
           >
-            <Database className="w-4 h-4 text-slate-500 shrink-0" />
+            <Database className="w-4 h-4 text-fg-subtle shrink-0" />
             <span className="truncate">
-              <span className="uppercase text-xs text-slate-500 mr-1">
+              <span className="uppercase text-xs text-fg-subtle mr-1">
                 {dbType}
               </span>
               {shortHost}
               {port ? `:${port}` : ""} / <b>{database}</b>
             </span>
           </div>
-          <div className="text-xs text-slate-500 mt-0.5 truncate">
-            Username: <code className="text-slate-700">{username || "—"}</code>
+          <div className="text-xs text-fg-subtle mt-0.5 truncate">
+            Username: <code className="text-fg-muted">{username || "—"}</code>
             {prevTables > 0 && (
               <>
                 {" · Last ingest: "}
-                <span className="text-slate-700">
+                <span className="text-fg-muted">
                   {prevTables} tables · {prevFks} FKs
                 </span>
               </>
@@ -297,7 +297,7 @@ export default function LiveDbReingestDialog({
       >
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Database className="w-4 h-4 text-slate-500" />
+            <Database className="w-4 h-4 text-fg-subtle" />
             Re-ingest Live Database
           </DialogTitle>
           <DialogDescription>
@@ -319,13 +319,13 @@ export default function LiveDbReingestDialog({
         </Alert>
 
         {loading && (
-          <div className="text-sm text-slate-500 py-6 text-center">
+          <div className="text-sm text-fg-subtle py-6 text-center">
             Loading registered data sources…
           </div>
         )}
 
         {!loading && sources.length === 0 && (
-          <div className="text-sm text-slate-500 py-6 text-center">
+          <div className="text-sm text-fg-subtle py-6 text-center">
             No live database is registered for this project. Open{" "}
             <b>Discovery → Data Sources</b> to register one, or upload a
             <code className="mx-1">.sql</code> DDL dump.
