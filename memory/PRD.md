@@ -12502,3 +12502,142 @@ invoked by the `with` protocol at line 559, not by name.
 clean; 312 routes; live boot 0 tracebacks / 0 ERRORs; 663 functions
 observed executing; 31 + 54 live GET routes with 0 responses >= 500;
 Test Connection ok:true on gpt-5.1; yarn lint 0 errors; yarn build ok.
+
+---
+
+## iter-20 — Migration fidelity, Azure-first economics, a loop that converges
+
+**Reported.** A Helidon → Spring Boot migration of `negotiation-service`
+produced "Spring Boot" code still carrying Helidon packages; the DevOps
+agent "failed to build that in just two try"; and **"the llm azure gpt 5.1
+was never seen in the picture"**. The operator's working fallback was to
+hand the generated folder to a chat model with a senior-developer brief —
+convert it properly, implement Swagger, don't alter business logic, don't
+finish with broken code — which fixed it. So the gap was in LAMA's
+prompting and control flow, not in the models.
+
+### 1. The residue gate had never run
+
+`_structural_check` has carried a "source-stack signature residue" rule
+since iter-15.57. Its only caller queried
+
+    transformations.find_one({"transform_id": transform_id}, ...)
+
+while the collection is keyed on `_id` — every other one of the 20+
+`find_one` calls in the file uses it, and `transform_id` is not a field on
+the document. A wrong-key `find_one` returns `None` **silently**, so the
+gate received `{}` for both stacks and rules 4 and 5 iterated over nothing.
+Nothing at runtime revealed it: the gate reported `ok` and the Verifier
+attached an ACCEPT. The projected field was wrong too — the detected stack
+is stored as `source_stack`; the same wrong name was read in
+`_run_compile_fix_loop` and `_run_devops_remediation_loop`.
+
+Even repaired it would have caught nothing: `_SOURCE_STACK_SIGNATURES` had
+no entry for **helidon, jaxrs, ejb, oracle, jquery or struts-1** — the
+source side of five of the six advertised transformations.
+
+Two things were needed before it could safely be armed:
+
+- **Target subtraction.** `jakarta.ws.rs` is residue for a Spring Boot
+  target and correct for Quarkus. Without subtracting the target's own
+  vocabulary, arming the gate would have rejected legitimate output.
+- **Comment stripping** (`_strip_comments_for_scan`, quote-aware). The
+  Coder prompt asks for `// MIGRATION:` notes naming what was replaced, so
+  a correctly-migrated file routinely mentions the old construct in prose.
+  Scanning raw text rejected exactly the files that documented themselves
+  best, and flagged commented-out dependencies that are not build problems.
+  String literals ARE still scanned, deliberately: embedded SQL and
+  `Class.forName("oracle.jdbc.OracleDriver")` live nowhere else.
+
+**Measured against the operator's real run:** the armed gate rejects **7 of
+150** generated files for genuine residue — `io.helidon` still in
+`logback.xml` and `logging.properties`, `jakarta.json`/`javax.json` in five
+entity classes. All previously shipped with ACCEPT. (Their generated pom
+was in fact clean of Helidon coordinates; its only mention is a comment,
+which the new stripping correctly ignores. It had **zero springdoc** —
+the Swagger they asked for was never added.)
+
+### 2. gpt-5.1 was unreachable, and the account was abandoned early
+
+`tools.transformer.coder` sat at tier `high`; this account's routing maps
+`high → gpt-5`, `critical → gpt-5.1`. The flagship was only ever reachable
+as a 429 rotation target. Coder / Verifier / Planner and
+`codegen.coder_be/_fe` now start at `critical`
+(`migrate_heavy_agent_tiers_20`, guarded on the iter-19 seed value so
+Console overrides survive). Light agents deliberately stay cheap.
+
+`tier_siblings` rotates WITHIN a tier; once exhausted the call slept and
+then left the provider for local Ollama. On a paid account that is
+backwards. **`exhaustion_ladder`** adds the account-wide descent between
+them: `gpt-5.1 → gpt-5 → gpt-4.1 → gpt-4o → minis`, starting strictly
+below the current rung and skipping already-tried siblings.
+
+**Provider park** kills the 429 storm: when every deployment is cooling,
+one record means subsequent calls skip the provider with **zero HTTP**.
+Length = the provider's own `Retry-After`, floored 60s, doubling per
+consecutive park, capped 900s. First call after the window is the probe;
+success clears park and streak. It never pins (that was the iter-19 bug
+that demoted `codegen.verifier` to a 4B model) and never takes a
+single-provider install offline — with nothing else left the parked
+primary is tried anyway.
+
+### 3. The Coder was working blind
+
+- **The manifest task had `source_path: ""`** — the target pom was authored
+  having never seen the source pom, so it could neither carry real
+  third-party dependencies across nor knowingly drop the framework's. It
+  now carries the source manifest. The *other* route mattered more: when
+  the source ships its own manifest the synthetic task is SKIPPED and the
+  pom goes through the ordinary per-file transform, where "transform this"
+  reads as "translate what is here". Both routes now carry an explicit
+  KEEP/REMOVE contract with a coordinate-filtered forbidden list.
+- **`source_content[:10000]`**, silently, under a prompt saying "Preserve
+  ALL business logic". Now 60 K on cloud (10 K kept for local engines,
+  which size `num_ctx` from the prompt), and truncation is **stated** in
+  the prompt when it happens.
+- **`MIGRATION_PLAYBOOKS`** — the operator's brief as data, for 11 targets,
+  naming the idioms that actually drift ("@RestController, never JAX-RS
+  @Path") and requiring Swagger by name. Keyed on ids already used by
+  `SUPPORTED_TRANSFORMATIONS`, so a new language is one dict entry.
+
+### 4. Two rungs became four; nothing ships until it builds
+
+`coder → devops_expert → stop` was the whole ladder. Rungs now differ in
+what the agent SEES and may CHANGE, because swapping personas over an
+identical view is why the second attempt reproduced the first:
+
+  0 `coder` · 1 `devops_expert` · 2 `devops_expert` **+ the raw build log**
+  · 3 `regenerator` — the legacy original, rewritten from scratch.
+
+Rung 2 closes a real gap: **nothing in this loop ever put raw build output
+in front of any agent**, only the Planner's summary. Rung 3 is the
+operator's own fallback, made part of the loop — a new registered agent
+(`tools.transformer.regenerator`, critical tier, prompt + Console row +
+`AGENT_PROMPT_KEYS` entry so it cannot repeat the Validator's iter-16 fate
+of being seeded but unreachable). `LAMA_COMPILE_FIX_MAX_ITER` defaults to 5.
+
+**Export is gated** on `compile_green AND production_ready` — it was
+previously ungated entirely. Per the operator's instruction the buttons do
+not render until then; the menu says why instead. Same gate on GitHub push.
+`LAMA_ALLOW_UNVERIFIED_DOWNLOAD=1` is the one escape hatch, off by default
+and not in the UI, so an environmental build failure cannot strand a user's
+own code. Also closed a bypass in the manual `/compile` rerun, which set
+`final_status` from `compile_green` alone and could launder a
+manifest-blocked job back to green.
+
+### Caught late, worth recording
+
+- The `/status` projection omitted `compile_green` and `build_tools`, so
+  the shared gate helper saw an incomplete document and answered "not
+  blocked" for a job the download endpoint was correctly 409-ing. The UI
+  would have shown a button that fails when clicked. Found by checking the
+  live endpoint against the real job, not by a unit test.
+- `get_transformation_file` passed `file_id` to `ObjectId()` unguarded →
+  500 on a malformed id. Pre-existing; found by sweeping all 113 GET
+  routes. Its own test caught itself: a bare `"get_transformation_file"`
+  anchor prefix-matches the sibling LISTING route and passes vacuously.
+
+**Deep test:** 1172 passed / 129 skipped (baseline 1055); ruff clean; 285
+routes; live boot 0 tracebacks / 0 ERRORs; **113 GET routes, 0 responses
+>= 500**; Test Connection `ok:true` on gpt-5.1; the Regenerator answers
+live on gpt-5.1; yarn lint 0 errors; yarn build ok.

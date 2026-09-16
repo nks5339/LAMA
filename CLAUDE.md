@@ -3,12 +3,13 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
 > Project memory for **Claude Code** working on the LAMA repository.
-> **Reflects the tree as of iter-17.18.** `memory/PRD.md` is append-only and
+> **Reflects the tree as of iter-20.** `memory/PRD.md` is append-only and
 > always newer than this file — when the two disagree, PRD.md wins.
-> Auto-discovered (root-level `CLAUDE.md`). Keep this file under ~350 lines
-> (raised from 250 at iter-17 — multi-tenancy, the Factory modes and the
-> Tools track are all load-bearing and none of them are discoverable by
-> skimming the tree).
+> Auto-discovered (root-level `CLAUDE.md`). Keep this file under ~430 lines
+> (250 → 350 at iter-17 for multi-tenancy / Factory modes / the Tools
+> track; → 430 at iter-20 for the Transformer's export gate and escalation
+> ladder. All are load-bearing and none are discoverable by skimming the
+> tree).
 > For exhaustive operational rules see `AGENTS.md`; for iteration history
 > see `memory/PRD.md`; for deep architecture see `docs/ARCHITECTURE.md`.
 
@@ -46,6 +47,15 @@ through the 5 stages:
   has its own freeze/unfreeze + export) and **Transformer**
   (`/api/tools/transformer/*`), a standalone code-transform super-agent.
   Neither requires a frozen upstream stage.
+  **iter-20, two load-bearing contracts:** (a) the compile-fix loop
+  escalates through FOUR rungs — `coder → devops_expert → devops_expert
+  +raw build log → regenerator` (`_ESCALATION_LADDER`), capped at 5
+  iterations; (b) **export is gated** — `download_transformed_code` and
+  `push_transformation_to_github` return 409 unless `compile_green AND
+  production_ready` (`_build_readiness_gate`, also surfaced to the FE as
+  `download_blocked_reason` so the button and the 409 cannot disagree).
+  Target-stack idioms live in `MIGRATION_PLAYBOOKS` — adding a language is
+  one dict entry, not code.
 - **Multi-Agent CodeGen** (iter-17, `/api/codegen/{pid}/multi-agent/*`) — an
   agentic alternative to single-shot Stage-4 that DOES require frozen
   Architecture. Agents: `context_manager → planner → coder_be | coder_fe →
@@ -61,7 +71,7 @@ through the 5 stages:
 | Layer | Tech |
 |-------|------|
 | Backend | Python 3.11, FastAPI 0.110, Motor 3.3, Pydantic 2.13, httpx 0.28, PyYAML 6.0, PyGithub 2.9 |
-| LLM    | OpenRouter / Anthropic / OpenAI / Azure / Gemini / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. **iter-19:** six tiers — `trivial / low / medium / high / critical / reasoning` (`TIER_ORDER`). `resolve_tier_model` walks `TIER_FALLBACK_CHAIN` when a row lacks a tier, so pre-iter-19 rows (low/medium/high only) keep routing. `reasoning` is a sideways step for diagnosis (o-series), not a rung above `critical`. |
+| LLM    | OpenRouter / Anthropic / OpenAI / Azure / Gemini / Groq / Ollama via `backend/fabric/model_fabric.py`. **iter-13.30:** NO hard-coded vendor defaults at call sites — `AGENT_COMPLEXITY[agent_key]` + Console's `provider.routing[tier]` resolve the model for every call. **iter-19:** six tiers — `trivial / low / medium / high / critical / reasoning` (`TIER_ORDER`). `resolve_tier_model` walks `TIER_FALLBACK_CHAIN` when a row lacks a tier, so pre-iter-19 rows (low/medium/high only) keep routing. `reasoning` is a sideways step for diagnosis (o-series), not a rung above `critical`. **iter-20:** a paid account is spent top-down before any local model — `exhaustion_ladder` descends every deployment on the provider (Azure: gpt-5.1 → gpt-5 → gpt-4.1 → gpt-4o → minis) after in-tier `tier_siblings` rotation and BEFORE leaving it; when all are cooling the provider is **parked** (`mark_provider_parked`) so later calls skip it with zero HTTP until a probe succeeds. The agents that write and judge code (`tools.transformer.coder/.verifier/.planner`, `codegen.coder_be/_fe`, `.regenerator`) run at `critical`. |
 | Vector DB | Qdrant — the collection is auto-created on Build KB, but the whole subsystem is **inert** unless `QDRANT_URL` **or** `QDRANT_PATH` is set (`kb/vector_store.py:44-48`); callers then degrade to TOON-only. `QDRANT_PATH` selects the embedded on-disk engine — no server needed. |
 | Mongo   | MongoDB 7 — system of record for LAMA itself (PostgreSQL is the migration *target*, not the store) |
 | Frontend| React 19, react-router-dom 7, Tailwind 3.4, Radix UI (9 packages — 22 unused ones removed 2026-09), D3 7.9, Mermaid 11, Monaco, `react-resizable-panels@2.1.7` *(pinned — do not upgrade)* |
@@ -312,6 +322,19 @@ LAMA_CONFIDENCE_ENGINE=                     # langgraph | fabric | unset(=auto).
                                             #   connected. See
                                             #   confidence_langgraph.py::
                                             #   resolve_confidence_engine.
+
+# Transformer build loop / export gate (iter-20)
+LAMA_COMPILE_FIX_MAX_ITER=5                 # rungs: coder → devops_expert →
+                                            #   devops_expert+raw log → regenerator
+LAMA_DEVOPS_REPLAN_MAX_ROUNDS=2             # manifest re-plan rounds after the audit
+LAMA_CODER_SOURCE_CHARS=                    # source shown to the Coder; default 60k
+                                            #   cloud / 10k local. Truncation is
+                                            #   STATED in the prompt when it happens.
+LAMA_CODER_KB_CHARS=                        # KB slice; default 24k cloud / 12k local
+LAMA_ALLOW_UNVERIFIED_DOWNLOAD=             # "1" lifts the export gate. OFF by
+                                            #   default and NOT in the UI — it exists
+                                            #   so an environmental build failure
+                                            #   cannot strand a user's own code.
 
 MONGO_URL=mongodb://127.0.0.1:27017         # bundled mongod in single-image deploy
 DB_NAME=lama
