@@ -32,6 +32,7 @@ from routes.admin import router as admin_router  # noqa: E402  (iter-13.68 — s
 from routes.context import router as context_router  # noqa: E402  (iter-13.91.16 — host-anchored context bundler)
 from routes.sessions import router as sessions_router  # noqa: E402  (iter-13.100 — rolling-memory agent sessions)
 from routes.tools import router as tools_router  # noqa: E402  (Tools — Gap Analyzer + Transformer)
+from routes.dcte import router as dcte_router  # noqa: E402  (Tools — Direct Transform / DCTE)
 from seed import run_seed  # noqa: E402
 from log_tail import install_log_tail_handler  # noqa: E402  (iter-14.17 — live log tail)
 
@@ -115,6 +116,7 @@ api_router.include_router(admin_router)       # iter-13.68 — super-admin tenan
 api_router.include_router(context_router)     # iter-13.91.16 — host-anchored context bundle preview
 api_router.include_router(sessions_router)    # iter-13.100 — rolling-memory agent sessions
 api_router.include_router(tools_router)       # Tools — Gap Analyzer + Transformer (bypass pipeline)
+api_router.include_router(dcte_router)        # Tools — Direct Transform / DCTE (bypass pipeline)
 
 app.include_router(api_router)
 
