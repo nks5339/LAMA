@@ -187,6 +187,28 @@ services:
       LAMA_FACTORY_CLI_DUMP_PROMPT:     ${LAMA_FACTORY_CLI_DUMP_PROMPT:-}
       LAMA_FACTORY_CLI_TIMEOUT_SEC:     ${LAMA_FACTORY_CLI_TIMEOUT_SEC:-}
 
+      # ---- Direct Transform / DCTE (iter-18) ----
+      # All optional; every one has a code default, so an operator who sets
+      # none of them gets a working Direct Transform. Listed here because
+      # the two that matter most in a container deploy are invisible
+      # otherwise:
+      #  * LAMA_DCTE_WORKSPACE — base for relative source/destination paths
+      #    and the folder the server-side picker opens on. Defaults to
+      #    $HOME. Point it at a bind-mounted host directory or the picker
+      #    only ever sees the image's own filesystem.
+      #  * LAMA_DCTE_TESTER_BOOT_SMOKE — the Tester agent boots the migrated
+      #    Spring app and probes /actuator/health. Set 0 on hosts with no
+      #    JDK/maven, where it can only ever report "not runnable".
+      LAMA_DCTE_WORKSPACE:              ${LAMA_DCTE_WORKSPACE:-}
+      LAMA_DCTE_TRANSFORMER_CONCURRENCY: ${LAMA_DCTE_TRANSFORMER_CONCURRENCY:-}
+      LAMA_DCTE_FIXUP_MAX_ROUNDS:       ${LAMA_DCTE_FIXUP_MAX_ROUNDS:-}
+      LAMA_DCTE_STALL_SECONDS:          ${LAMA_DCTE_STALL_SECONDS:-}
+      LAMA_DCTE_TESTER_BOOT_SMOKE:      ${LAMA_DCTE_TESTER_BOOT_SMOKE:-}
+      LAMA_DCTE_BOOT_SMOKE_TIMEOUT_S:   ${LAMA_DCTE_BOOT_SMOKE_TIMEOUT_S:-}
+      LAMA_DCTE_DROID_AGENT_DEFAULT:    ${LAMA_DCTE_DROID_AGENT_DEFAULT:-}
+      LAMA_DCTE_DROID_AGENT_AUTO:       ${LAMA_DCTE_DROID_AGENT_AUTO:-}
+      LAMA_DCTE_DROID_AGENT_TIMEOUT_SEC: ${LAMA_DCTE_DROID_AGENT_TIMEOUT_SEC:-}
+
       # ---- LLM provider (required for the pipeline) ----
       OPENROUTER_API_KEY: ${OPENROUTER_API_KEY:-}
       OPENROUTER_BASE_URL: ${OPENROUTER_BASE_URL:-https://openrouter.ai/api/v1}

@@ -21,13 +21,15 @@ Design
 ------
 * Runs AFTER ``build_agent.build_and_fix`` — its job is to close
   *runtime* gaps that a green compile doesn't guarantee.
-* Deterministic first: many gaps have a canonical shape and can be
-  patched without calling the LLM.  Only novel / ambiguous gaps are
-  delegated to the LLM under ``agent_key="dcte.devops"`` (medium tier).
+* Fully deterministic today: every gap it handles has a canonical
+  shape and is patched by template, with no LLM call. The design
+  anticipates delegating novel / ambiguous gaps to the fabric under
+  ``agent_key="dcte.devops"``, and that key is registered and tiered
+  ready for it, but no such call site exists yet -- so this module
+  makes no network request at all. See HUMAN_INTERVENTION.md DT-3.
 * Non-blocking: any gap it can't patch is emitted as a diagnostic
   event and passed to the Tester agent's report; the job continues.
-* Runs INSIDE the LAMA container — no external tools required for
-  the deterministic path; the LLM path uses the standard fabric.
+* Runs INSIDE the LAMA container — no external tools required.
 """
 from __future__ import annotations
 
@@ -41,8 +43,10 @@ logger = logging.getLogger("lama.dcte.devops_agent")
 
 
 # ── Config ──────────────────────────────────────────────────────────
-_DEFAULT_MAX_LLM_CALLS = 4
-_MAX_CHARS_PER_FILE = 12000
+# _DEFAULT_MAX_LLM_CALLS / _MAX_CHARS_PER_FILE were declared here for the
+# LLM path described above and never read by anything, so they are gone
+# rather than landing as dead weight. They belong with that call site
+# whenever it is written.
 
 _SPRING_APP_MAIN_TEMPLATE = """package {package};
 

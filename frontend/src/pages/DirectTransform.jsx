@@ -151,9 +151,18 @@ export default function DirectTransformPage() {
   const [detection, setDetection] = useState({});
   const [busy, setBusy] = useState(false);
   const [picker, setPicker] = useState(null); // { serviceIdx, field }
+  // Without the plugin list there is no stack pair to pick and the job
+  // cannot be created, so a failed load has to be visible rather than
+  // rendering an empty <select> the user can't act on.
+  const [pluginsError, setPluginsError] = useState(false);
 
   useEffect(() => {
-    dcteListPlugins().then((d) => setPlugins(d.plugins || [])).catch(() => {});
+    dcteListPlugins()
+      .then((d) => { setPlugins(d.plugins || []); setPluginsError(false); })
+      .catch(() => {
+        setPluginsError(true);
+        toast.error("Could not load transformation plugins");
+      });
     refreshJobs();
   }, []);
 
@@ -191,7 +200,9 @@ export default function DirectTransformPage() {
   }, [activeJobId]);
 
   const refreshJobs = () =>
-    dcteListJobs().then((d) => setJobs(d.jobs || [])).catch(() => {});
+    dcteListJobs()
+      .then((d) => setJobs(d.jobs || []))
+      .catch(() => toast.error("Could not load Direct Transform jobs"));
 
   const onDetect = async (idx) => {
     const svc = services[idx];
@@ -406,6 +417,11 @@ export default function DirectTransformPage() {
                           }}
                           data-testid={`dcte-select-stack-${i}`}
                           className="border border-border rounded-sm px-2 py-1 text-micro">
+                    {plugins.length === 0 && (
+                      <option value="">
+                        {pluginsError ? "Plugins unavailable — retry" : "Loading plugins…"}
+                      </option>
+                    )}
                     {plugins.map((p) => (
                       <option key={p.id} value={`${p.source_stack}→${p.target_stack}`}>
                         {p.display_name}

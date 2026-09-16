@@ -178,6 +178,25 @@ describe("Direct Transform page", () => {
     expect(mockApi.dcteStartJob).toHaveBeenCalledWith("dcte_abc123");
   });
 
+  it("says so when the plugin list cannot be loaded, instead of an empty picker", async () => {
+    mockApi.dcteListPlugins.mockRejectedValue(new Error("network down"));
+    renderPage();
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Could not load transformation plugins"),
+    );
+    const picker = await screen.findByTestId("dcte-select-stack-0");
+    expect(within(picker).getByRole("option")).toHaveTextContent("Plugins unavailable");
+  });
+
+  it("says so when the job list cannot be loaded", async () => {
+    mockApi.dcteListJobs.mockRejectedValue(new Error("network down"));
+    renderPage();
+    await waitFor(() =>
+      expect(mockToastError).toHaveBeenCalledWith("Could not load Direct Transform jobs"),
+    );
+    expect(screen.getByTestId("dcte-page")).toBeInTheDocument();
+  });
+
   it("surfaces a backend failure as a toast, not an unhandled rejection", async () => {
     const user = userEvent.setup();
     mockApi.dcteCreateJob.mockRejectedValue(new Error("boom"));

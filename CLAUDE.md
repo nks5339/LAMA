@@ -43,10 +43,16 @@ that is the only sanctioned bypass.)
 **Two tracks exist besides the pipeline** — don't assume all work flows
 through the 5 stages:
 
-- **Tools** (`routes/tools.py`) — **Gap Analyzer** (`/api/tools/gap-analyzer/*`,
-  has its own freeze/unfreeze + export) and **Transformer**
-  (`/api/tools/transformer/*`), a standalone code-transform super-agent.
-  Neither requires a frozen upstream stage.
+- **Tools** — three standalone utilities, none of which requires a frozen
+  upstream stage. **Gap Analyzer** (`/api/tools/gap-analyzer/*`, has its own
+  freeze/unfreeze + export) and **Transformer** (`/api/tools/transformer/*`,
+  a code-transform super-agent) both live in `routes/tools.py`.
+  **Direct Transform / DCTE** (iter-18, `routes/dcte.py`, `/api/dcte/*`) is a
+  *third* track with its own module and its own four collections: it is
+  folder-path driven, takes no `project_id` at all, and runs a deterministic
+  plugin layer (Helidon MP → Spring Boot 3, Oracle → PostgreSQL) with an
+  optional AI pass on top. Do **not** fold it into `routes/tools.py` — it
+  shares no state with either of the other two.
   **iter-20, two load-bearing contracts:** (a) the compile-fix loop
   escalates through FOUR rungs — `coder → devops_expert → devops_expert
   +raw build log → regenerator` (`_ESCALATION_LADDER`), capped at 5
@@ -141,9 +147,9 @@ bars are currently clean: 0 ruff findings, 0 eslint errors.
 
 ```
 backend/                     # FastAPI app
-  server.py                  # 21 router mounts from 20 route modules
+  server.py                  # 22 router mounts from 21 route modules
                              #   (datamodel.py exports router AND factory_router)
-  db.py                      # Motor + all 59 collection accessors — SINGLE SOURCE OF TRUTH
+  db.py                      # Motor + all 63 collection accessors — SINGLE SOURCE OF TRUTH
   pipeline.py                # Inter-stage handoff (get/require/save_stage_context)
   llm.py                     # fabric_call() — the ONLY LLM entry point (3 modes, contract #4)
   seed.py                    # Idempotent startup seed: PMIS pilot + prompts + agent_configs
@@ -157,13 +163,18 @@ backend/                     # FastAPI app
   kb/                        # Discovery engine: parsers, tech_detector, owl_extractor,
                              #   owl_export (YAML), toon, business_ontology, vector_store
   codegen/                   # Stage-4 helpers: file_templates, zip_builder, parity_loop
+  dcte/                      # Direct Transform engine: plugin registry + two
+                             #   plugins, project_detector, and the ai_refactor /
+                             #   build / devops / tester / droid / narrator agents
   datamodel/                 # Stage-2 generators: oltp, olap, bus_matrix, migration
   integrations/              # Catalog + templates (audit_logger, dpg_india)
   routes/                    # One file per concern — see the inventory above
 frontend/src/
   lib/api.js                 # ALL backend calls — keep in sync with routes/*
   state/ProjectContext.jsx   # The one active project within the signed-in tenant
-  pages/                     # DiscoveryV2 (NOT Discovery.jsx) + the pages listed above
+  pages/                     # DiscoveryV2 (NOT Discovery.jsx) + the pages listed above.
+                             #   Tools pages, in sidebar order: Console, Integrations,
+                             #   PromptLibrary, DirectTransform
 memory/PRD.md                # Append-only iteration log — the "why" behind every contract
 AGENTS.md                    # Exhaustive operational rules (this file is the summary)
 ```
@@ -336,6 +347,21 @@ LAMA_ALLOW_UNVERIFIED_DOWNLOAD=             # "1" lifts the export gate. OFF by
                                             #   so an environmental build failure
                                             #   cannot strand a user's own code.
 
+# Direct Transform / DCTE (iter-18) — all optional, all have code defaults
+LAMA_DCTE_WORKSPACE=                        # base for relative paths + where the
+                                            #   server-side folder picker opens.
+                                            #   Default $HOME (never CWD: that is
+                                            #   backend/ locally and /app/backend in
+                                            #   the image, i.e. two different places).
+LAMA_DCTE_TRANSFORMER_CONCURRENCY=3         # parallel AI-transform batches
+LAMA_DCTE_FIXUP_MAX_ROUNDS=                 # residue fix-up passes after the sweep
+LAMA_DCTE_STALL_SECONDS=900                 # no engine event for this long -> FAILED
+LAMA_DCTE_TESTER_BOOT_SMOKE=1               # 0 to skip the /actuator/health probe
+LAMA_DCTE_BOOT_SMOKE_TIMEOUT_S=180
+LAMA_DCTE_DROID_AGENT_DEFAULT=              # "1" -> autonomous droid mode ON by default
+LAMA_DCTE_DROID_AGENT_AUTO=                 # droid --auto level
+LAMA_DCTE_DROID_AGENT_TIMEOUT_SEC=1800
+
 MONGO_URL=mongodb://127.0.0.1:27017         # bundled mongod in single-image deploy
 DB_NAME=lama
 CORS_ORIGINS=*                              # comma-separated
@@ -396,11 +422,13 @@ build time so production env comes from `-e` flags / compose `environment:`.
 | Add a new model to the dropdown | `backend/llm.py::AVAILABLE_MODELS` + the relevant preset's `model_catalogue` |
 | Add a new SRS section | `routes/srs.py::SECTION_CONFIGS` (currently 12) |
 | Wire a new frontend page | `App.js` route → `pages/` → `lib/api.js` helpers |
-| Find which collection stores X | `backend/db.py` — **59 collections**, single source of truth |
+| Find which collection stores X | `backend/db.py` — **63 collections**, single source of truth |
 | Add auth/tenant scoping to a route | `backend/auth.py::get_current_user` / `require_super_admin` |
 | Gather context for a stage prompt | `backend/context_bundler.py::build_stage_context` |
 | Debug "which model actually ran" | `llm.py::fabric_call` → `llm_traces` collection + `token_usage_log` |
 | Work on the agentic CodeGen flow | `routes/codegen.py` multi-agent section + iter-17 PRD entry |
+| Work on Direct Transform | `routes/dcte.py` + `backend/dcte/` + `docs/direct-transform/` |
+| Add a Direct Transform stack pair | new plugin under `backend/dcte/plugins/`, registered in `plugin_registry.get_registry()` |
 | See latest known-working state | `test_reports/iteration_<N>.json` |
 | Understand container boot order | `docker/supervisord.conf` + `docker/entrypoint.sh` |
 

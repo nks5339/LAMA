@@ -27,7 +27,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import logging
 import re
 import shutil
 from dataclasses import dataclass, field
@@ -35,9 +34,6 @@ from pathlib import Path
 from typing import Any, Callable
 
 from .ai_refactor import _safe_apply, _strip_json_fence, _extract_json_array
-
-logger = logging.getLogger("lama.dcte.build_agent")
-
 
 # ── Config ──────────────────────────────────────────────────────────
 _DEFAULT_MAX_ATTEMPTS = 5
