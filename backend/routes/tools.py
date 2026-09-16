@@ -3812,6 +3812,14 @@ async def get_transformation_status(transform_id: str):
             # iter-19 — DevOps gate verdict + its remediation trail.
             "dependency_audit": 1,
             "production_ready": 1,
+            # iter-20 — the three fields `_build_readiness_gate` reads.
+            # `compile_green` was persisted but never projected, and
+            # `build_tools` decides whether there is a build to gate on at
+            # all — without them the gate saw an incomplete document and
+            # answered "not blocked" for a job whose download the endpoint
+            # itself was correctly refusing with a 409.
+            "compile_green": 1,
+            "build_tools": 1,
         },
     )
     if not doc:

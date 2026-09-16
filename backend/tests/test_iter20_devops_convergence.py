@@ -281,3 +281,26 @@ def test_the_reason_tells_the_operator_what_to_do_next():
 ])
 def test_every_pre_terminal_status_is_blocked(status):
     assert T._build_readiness_gate(dict(GREEN, status=status))
+
+
+def test_the_status_projection_fetches_every_field_the_gate_reads():
+    """Caught live, not by a unit test.
+
+    `/status` computes `download_blocked_reason` with the same helper the
+    download endpoint enforces, but it feeds that helper a PROJECTED
+    document. The projection omitted `compile_green` and `build_tools`, so
+    the gate saw a doc with no build tool, concluded "nothing to gate on"
+    and reported None — while the download endpoint, reading the full
+    document, was correctly refusing the same job with a 409.
+
+    The UI would have shown a download button that 409s when clicked.
+    """
+    src = (Path(T.__file__)).read_text()
+    start = src.index("async def get_transformation_status")
+    projection = src[start:start + 2500]
+    for field in ("compile_green", "build_tools", "dependency_audit",
+                  "production_ready", "status"):
+        assert f'"{field}": 1' in projection, (
+            f"_build_readiness_gate reads {field!r}; the /status projection "
+            f"must fetch it or the button and the 409 will disagree"
+        )
