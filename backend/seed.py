@@ -6713,6 +6713,56 @@ three_pass_model:
     - Remove dead imports and commented-out source framework code
     - Add "// MIGRATION:" comment only where a non-obvious change was made
 
+jdk_packages_never_become_jakarta: |
+  iter-21 — the single most expensive mistake this agent has made.
+
+  Migrating to Spring Boot 3 / Jakarta EE 9+ requires renaming `javax.*`
+  to `jakarta.*` — but ONLY for the packages that actually moved. These
+  are Java SE and stay `javax.` forever:
+
+    javax.crypto        javax.net           javax.sql
+    javax.naming        javax.management    javax.script
+    javax.security.auth (JAAS — including javax.security.auth.x500)
+    javax.security.cert javax.security.sasl javax.imageio
+    javax.sound         javax.swing         javax.print
+    javax.tools         javax.lang.model    javax.smartcardio
+    javax.transaction.xa (NOTE: javax.transaction itself DID move)
+    javax.xml.parsers   javax.xml.transform javax.xml.stream
+    javax.xml.datatype  javax.xml.namespace javax.xml.validation
+    javax.xml.xpath     javax.xml.crypto
+
+  These DID move and must be renamed:
+
+    javax.servlet  javax.persistence  javax.validation  javax.ws.rs
+    javax.annotation  javax.inject  javax.ejb  javax.json  javax.jms
+    javax.mail  javax.transaction  javax.xml.bind  javax.enterprise
+    javax.websocket  javax.el  javax.faces  javax.interceptor
+
+  `jakarta.security.auth.x500.X500Principal` does not exist in any
+  artifact and never will. Renaming by prefix produces exactly that, the
+  compiler reports it as "package does not exist", and it then looks like
+  a missing dependency for the rest of the build — which is unfixable,
+  because no dependency provides it. If in doubt, LEAVE IT AS javax.
+
+imports_and_dependencies: |
+  iter-21 — write the imports the code actually needs and do not trim
+  them to match a manifest you cannot see.
+
+  The build manifest is completed automatically from your imports (the
+  same thing an IDE does when it offers to add a dependency). So:
+
+  - Import what the code genuinely uses. Do not drop an import because
+    you are unsure the dependency is declared — a missing declaration is
+    repaired for you; a missing import is a compile error.
+  - Do NOT swap a library for a different one because you think it is
+    more likely to be present. Preserving behaviour beats guessing at the
+    classpath, and substituting (say) iText for PDFBox silently changes
+    output.
+  - Keep the SAME major API family as the source. If the legacy code uses
+    `com.itextpdf.text.*` that is iText 5; do not rewrite it to iText 7's
+    `com.itextpdf.kernel.*` — the dependency resolver will fetch iText 5
+    and the two APIs are not interchangeable.
+
 rules:
   - NEVER change business logic — migration is behavior-preserving
   - NEVER rename methods, fields, or classes unless required by framework
@@ -6875,6 +6925,45 @@ approach: |
      than the first.
   4. Preserve all business logic, API paths, DB schema, and unrelated
      configuration. You are fixing THE BUILD, not refactoring the app.
+
+dependency_resolution_first: |
+  iter-21 — HARD RULE, stated because getting this backwards has cost
+  this pipeline several whole repair rounds.
+
+  A compile error caused by an UNRESOLVED DEPENDENCY is not a source-code
+  defect. Before you conclude that any Java file is wrong, satisfy
+  yourself that dependency resolution actually succeeded:
+
+    - `package X does not exist` almost never means the import is wrong.
+      It usually means the artifact providing X is absent from the
+      manifest. The fix is in the pom, not the file.
+    - A wall of `cannot find symbol` under one `package ... does not
+      exist` is ONE fault, not fifty. Fix the missing artifact and the
+      symbols resolve together. Do not "fix" the symbols.
+    - Repository unreachable, parent POM unresolved, a plugin that failed
+      to download, an authentication failure against a private registry —
+      all of these are ENVIRONMENT faults. Say so plainly and name the
+      artifact; do not rewrite working source to route around them.
+
+  TWO EXCEPTIONS, both of which no dependency can fix:
+
+    1. A `jakarta.*` import whose `javax.*` original is part of the JDK —
+       `javax.security.auth.*`, `javax.crypto.*`, `javax.net.*`,
+       `javax.sql.*`, `javax.naming.*`, `javax.xml.parsers.*` and their
+       siblings. These never moved to the Jakarta namespace. A rename
+       that produced `jakarta.security.auth.x500.X500Principal` is the
+       bug; revert that import to `javax.` and change nothing else.
+    2. A method that does not exist on a class in THIS project (a call
+       whose signature does not match any declaration). That is a real
+       source mismatch. Fix the call or add the method.
+
+  When you report a build failure, say which of these it is:
+
+    Build Status:              [SUCCESS | FAILED]
+    Dependency Resolution:     [RESOLVED | UNRESOLVED]
+    Missing Dependencies:      <groupId:artifactId, ...>
+    Root Cause:                <dependency | environment | source>
+    Recommended Action:        <the single next step>
 
 output_format: |
   Return ONLY the complete, corrected file content — no prose, no

@@ -12703,3 +12703,129 @@ and `/status` no longer carries `download_blocked_reason` while still
 reporting `compile_green: false`. Backend 1,243 passed / 129 skipped, ruff
 clean, 0 boot tracebacks; frontend 239 passed / 14 suites, typecheck 0,
 lint 0 errors, build succeeds.
+
+---
+
+## iter-21 — The manifest is derived from the imports
+
+**Reported.** A migrated service failed with 43 Maven errors. The operator
+diagnosed it themselves, correctly, and their analysis named three faults
+that all *look* identical to javac (`package ... does not exist`):
+
+1. `com.itextpdf.text.*` — a genuinely missing dependency.
+2. `jakarta.validation.constraints` — same.
+3. `jakarta.security.auth.x500.X500Principal` — **not a dependency fault at
+   all.**
+
+Their instruction: *"make it import the packages easily like every IDE like
+vscode or claude does … so that pom.xml or requirements.txt is easily
+builded by the devops agent."*
+
+### Root cause 1 — the source pom was thrown away
+
+`dcte/dependency_migrator.py` read the source pom for its
+groupId/artifactId/version and **discarded everything else**, emitting a
+fixed Spring Boot template. Every third-party dependency the project had —
+iText, BouncyCastle, jsoup, Jasper, internal artifacts — vanished, while
+the migrated source still imported them. That is the 43 errors: perhaps
+four real faults, the rest cascading `cannot find symbol` under them.
+
+Now the source's own dependencies are carried across, minus the ones the
+target replaces (Helidon, MicroProfile, Jersey, Weld, SmallRye, and the
+Oracle driver since the target is PostgreSQL). A `${property}` version is
+dropped rather than carried: the property lived in the old pom's parent and
+would resolve to nothing under the Spring parent — an unresolvable `${...}`
+is a hard failure, strictly worse than letting the version float.
+
+### Root cause 2 — a javax→jakarta rename applied by prefix
+
+`javax.security.auth` is JAAS: Java SE since 1.4, never Java EE, and it did
+**not** move to the Jakarta namespace. A prefix rename produced
+`jakarta.security.auth.x500.X500Principal`, which exists in no artifact
+anywhere. javac reports it as "package does not exist", so it reads as a
+missing dependency — which is why it survived several repair rounds with
+agents hunting for one. **No dependency can fix it.**
+
+`dependency_resolver.JDK_PACKAGE_ROOTS` now lists the 25+ `javax.*` roots
+that are Java SE, and the split is subtle enough to need longest-prefix
+matching: `javax.transaction` moved, `javax.transaction.xa` did not.
+`invalid_jakarta_imports` detects the residue, `_structural_check` makes it
+a **critical** reject, and both the Coder and DevOps prompts now carry the
+two lists explicitly.
+
+### The IDE behaviour, in three layers
+
+`backend/dependency_resolver.py` answers "which artifact provides this
+import?" the way an IDE does:
+
+1. **JDK check** — some packages need no dependency. Getting this wrong is
+   worse than missing one.
+2. **Curated table** — ~60 libraries that actually appear in enterprise
+   Java migrations. Deterministic, offline, correct for the common case.
+3. **Live Maven Central** — `fc:` full-class search for everything else.
+
+Layer 3 needed real work, and the reason is worth recording. A bare
+`fc:"org.apache.commons.text.WordUtils"` returns **23,881** matches in no
+useful order; the canonical `org.apache.commons:commons-text` is not in the
+first twenty, which are shaded repackages. So the query is first scoped to
+a groupId that prefixes the package, longest first — that returns 16
+matches, all of them the right artifact. Two other traps the ranking
+avoids: Maven Central answers `javax.security.auth.x500.X500Principal` with
+a **Scala Native stub JAR**, and `org.bouncycastle.cert.jcajce` with
+`org.italiangrid:bcmail`.
+
+Versions come from `maven-metadata.xml`, newest **stable** (prereleases
+excluded: an `-M1` resolves fine and then fails at runtime looking like a
+migration defect). Anything the Spring BOM manages gets **no** version —
+the first cut pinned `spring-boot-autoconfigure:4.1.1` against a 3.3.4
+parent, which is a harder failure to diagnose than the missing import was.
+
+### The safety catch that matters most
+
+The sweep will happily resolve a leftover `jakarta.ws.rs` or `io.helidon`
+import to a real artifact. Doing so would turn a RED build GREEN while the
+service still runs the framework the migration was supposed to remove —
+**worse than the failure, because the failure is honest.** Packages under
+`SOURCE_STACK_ROOTS` are never satisfied; they are reported as
+`unmigrated_imports` manual intervention instead.
+
+### Build discipline
+
+Maven now runs with `-U`, per the operator's instruction. It matters
+specifically here: Maven caches a *failed* resolution as a negative entry
+for 24h, so after the pom is repaired the very next build can still report
+the artifact missing — and the fix loop spends rounds re-fixing a pom that
+was already correct.
+
+The DevOps prompt gained a `dependency_resolution_first` block: a compile
+error caused by an unresolved dependency is **not** a source-code defect; a
+wall of `cannot find symbol` under one `package does not exist` is ONE
+fault, not fifty; repository/parent-POM/plugin failures are environment
+faults. Two exceptions no dependency can fix are named — the JDK rename
+above, and a call whose signature matches no declaration in the project
+(the operator's `signPdfBase64V3` case).
+
+### Verified with a real build
+
+An end-to-end reproduction — Helidon source with iText declared, a class
+importing iText **and** commons-text (never declared, the transitive case a
+pom cannot reveal) **and** a JDK `javax.security.auth.x500` import:
+
+* carried over: `com.itextpdf:itextpdf`
+* auto-resolved from imports: `org.apache.commons:commons-text:1.15.0`,
+  `org.springframework.boot:spring-boot-starter` (unpinned)
+* `mvn -B -U clean compile` → **BUILD SUCCESS**, javac release 21
+
+And the negative case, side by side. With the bad rename reintroduced,
+javac says `package jakarta.security.auth.x500 does not exist` plus
+`cannot find symbol` — the message that misled every previous round. Our
+check, before the build runs, says: *"Invalid jakarta rename … the javax
+original is a JDK package … No dependency provides this; revert the import
+to javax.*"*
+
+1,303 backend passed / 129 skipped, ruff clean; frontend 239 passed / 14
+suites, lint 0 errors, build succeeds.
+
+**Not yet proven:** the operator's own service end to end. This is verified
+on a constructed reproduction of their failure modes, not on
+`negotiation-service` or `dsc-service`.

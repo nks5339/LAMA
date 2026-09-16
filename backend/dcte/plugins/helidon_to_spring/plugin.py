@@ -212,6 +212,55 @@ class HelidonToSpringPlugin(TransformationPlugin):
         except Exception:
             pass
 
+        # 8) iter-21 — complete the manifest from what the code imports.
+        #
+        # Runs LAST, after every .java file is on disk, because that is the
+        # only point where the full import set exists. This is the step the
+        # operator asked for: "make it import the packages easily like every
+        # IDE like vscode or claude does". Carrying the source pom across
+        # (step 3) handles direct dependencies; this catches the two cases
+        # it cannot see — something the source got transitively through a
+        # Helidon bundle we dropped, and anything the AI pass introduced.
+        try:
+            from ...dependency_migrator import complete_pom_from_sources_sync
+            dep_sweep = complete_pom_from_sources_sync(dest, own_group=base_pkg)
+            result.dependency_changes = {
+                **(result.dependency_changes or {}),
+                "auto_added": dep_sweep.get("added", []),
+                "auto_added_for": dep_sweep.get("added_for", {}),
+            }
+            if dep_sweep.get("added"):
+                ctx.emit("info", "transform",
+                         f"Resolved {len(dep_sweep['added'])} missing dependenc"
+                         f"{'y' if len(dep_sweep['added']) == 1 else 'ies'} from imports: "
+                         + ", ".join(dep_sweep["added"][:6]))
+            # A `jakarta.*` import whose javax original is a JDK package is
+            # a rename that went too far. No dependency can fix it, so it is
+            # surfaced as manual intervention rather than left to the build.
+            # An import still pointing at the OLD framework means the code
+            # migration missed a file. Reported, never silently satisfied.
+            for left in dep_sweep.get("unmigrated_imports", []):
+                result.manual_intervention.append({
+                    "level": "error", "kind": "unmigrated_import",
+                    "detail": left,
+                    "fix": f"`{left}` belongs to the source stack. A dependency "
+                           f"for it was deliberately NOT added — adding one "
+                           f"would make the build pass while the service still "
+                           f"runs on the old framework. Migrate the file.",
+                })
+                ctx.emit("warn", "transform", f"unmigrated import left behind: {left}")
+            for bad in dep_sweep.get("bad_jakarta", []):
+                result.manual_intervention.append({
+                    "level": "error", "kind": "invalid_jakarta_rename",
+                    "detail": bad,
+                    "fix": "This javax package is part of the JDK and did not "
+                           "move to the jakarta namespace. Revert the import "
+                           "to javax.*",
+                })
+                ctx.emit("warn", "transform", f"invalid jakarta rename: {bad}")
+        except Exception as e:  # noqa: BLE001
+            ctx.emit("warn", "transform", f"dependency sweep skipped: {e}")
+
         # 6) Manual-intervention hints from JWT/OIDC finding.
         for f in analysis.findings:
             if f.get("level") == "warn":

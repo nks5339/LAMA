@@ -6519,12 +6519,39 @@ def _structural_check(
         if after_last_brace and not after_last_brace.startswith("//"):
             issues.append(f"Trailing prose after final closing brace: {after_last_brace[:60]!r}")
 
+        # 5b. iter-21 — a javax -> jakarta rename that went too far.
+        #
+        # Found in the operator's build: `import
+        # jakarta.security.auth.x500.X500Principal`. `javax.security.auth`
+        # is JAAS — Java SE since 1.4, never Java EE — so it did not move
+        # to the jakarta namespace and no artifact anywhere provides the
+        # renamed form. javac reports it as "package ... does not exist",
+        # which reads like a missing dependency, which is why it survived
+        # several repair rounds: no dependency can fix it and every agent
+        # looking for one was looking in the wrong place.
+        #
+        # Deterministic, so it belongs here rather than in a prompt.
+        try:
+            from dependency_resolver import invalid_jakarta_imports
+            for bad in invalid_jakarta_imports(stripped):
+                issues.append(
+                    f"Invalid jakarta rename: `{bad}` — the javax original is a "
+                    f"JDK package and did not move to the jakarta namespace. "
+                    f"No dependency provides this; revert the import to javax.*"
+                )
+        except Exception:  # noqa: BLE001 — never let a check break the gate
+            pass
+
     if not issues:
         return {"ok": True, "severity": "ok", "issues": []}
 
     # Critical: prose bleed / fence / empty / unbalanced / source remnants /
     # typographic-punctuation corruption.
-    critical_markers = ("Unbalanced ", "empty", "prose", "fence", "remnant", "stub", "Trailing prose", "Typographic/smart-quote")
+    critical_markers = ("Unbalanced ", "empty", "prose", "fence", "remnant", "stub",
+                        "Trailing prose", "Typographic/smart-quote",
+                        # iter-21 — unfixable by any dependency, so shipping it
+                        # guarantees a failed build.
+                        "Invalid jakarta rename")
     severity = "critical" if any(any(m in i for m in critical_markers) for i in issues) else "warn"
     return {"ok": False, "severity": severity, "issues": issues}
 
@@ -6739,7 +6766,15 @@ NATIVE_BUILD_COMMANDS: Dict[str, Dict[str, Any]] = {
     # user sees when they download the ZIP and build it themselves. Gradle
     # mirrors this with `clean build` (compile + test) instead of `assemble`
     # (compile-only, which was silently hiding test failures).
-    "maven":  {"manifest": "pom.xml",       "binary": "mvn",    "argv": ["mvn", "-B", "-Dstyle.color=never", "clean", "install"],                        "label": "mvn clean install"},
+    # iter-21 — `-U` added on the operator's instruction ("Execute a full
+    # build with dependency refresh: mvn clean install -U -DskipTests").
+    # It matters for a migrated project specifically: Maven caches a FAILED
+    # resolution as a negative entry for 24h, so after the pom is repaired
+    # the very next build can still report the artifact as missing. Several
+    # rounds of the fix loop were spent re-fixing a pom that was already
+    # correct. `-U` forces the re-check and makes each round's result mean
+    # what it says.
+    "maven":  {"manifest": "pom.xml",       "binary": "mvn",    "argv": ["mvn", "-B", "-U", "-Dstyle.color=never", "clean", "install"],                  "label": "mvn clean install -U"},
     "gradle": {"manifest": "build.gradle",  "binary": "gradle", "argv": ["gradle", "--no-daemon", "clean", "build"],              "label": "gradle clean build"},
     "npm":    {"manifest": "package.json",  "binary": "npm",    "argv": ["npm", "run", "build", "--if-present"],                 "label": "npm run build"},
     "yarn":   {"manifest": "package.json",  "binary": "yarn",   "argv": ["yarn", "--silent", "build"],                            "label": "yarn build"},
