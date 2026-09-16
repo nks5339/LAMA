@@ -6,7 +6,12 @@ Deterministic, regex-driven. Handles:
     * @Inject → @Autowired
     * @PathParam / @QueryParam / @HeaderParam rewrites
     * @Produces / @Consumes → produces/consumes on the mapping
-    * Removes JAX-RS imports, adds Spring ones (via ImportRewriter)
+    * @ConfigProperty(name=…, defaultValue=…) → @Value("${key:default}")
+    * Rewrites every legacy import namespace the mapping table covers —
+      jakarta.ws.rs, jakarta.inject / enterprise.context / annotation,
+      org.eclipse.microprofile.*, io.helidon.* — and injects the Spring
+      imports for annotations it synthesised (@RestController, the verb
+      mappings, @Autowired, @Value, @PreAuthorize)
 """
 from __future__ import annotations
 import re
@@ -36,12 +41,46 @@ _PATH_PARAM_RE = re.compile(r'@PathParam\("([^"]+)"\)\s+(\w[\w<>,\s]*)\s+(\w+)')
 _QUERY_PARAM_RE = re.compile(r'@QueryParam\("([^"]+)"\)\s+(\w[\w<>,\s]*)\s+(\w+)')
 _HEADER_PARAM_RE = re.compile(r'@HeaderParam\("([^"]+)"\)\s+(\w[\w<>,\s]*)\s+(\w+)')
 
-_JAXRS_IMPORT_RE = re.compile(r'^\s*import\s+(jakarta\.ws\.rs\.[^;]+);\s*$', re.MULTILINE)
-_CDI_IMPORT_RE = re.compile(
-    r'^\s*import\s+(jakarta\.(inject|enterprise\.context)\.[^;]+);\s*$', re.MULTILINE,
+# iter-20 — @ConfigProperty carries its key and default as ATTRIBUTES;
+# Spring's @Value carries them inside one placeholder string. A blind token
+# swap produced `@Value(name = "k", defaultValue = "d")`, which does not
+# compile. Three accepted source forms, in order of specificity.
+_CONFIG_PROP_FULL_RE = re.compile(
+    r'@ConfigProperty\(\s*name\s*=\s*"([^"]+)"\s*,'
+    r'\s*defaultValue\s*=\s*"([^"]*)"\s*\)'
 )
-_MP_CONFIG_IMPORT_RE = re.compile(
-    r'^\s*import\s+(org\.eclipse\.microprofile\.config[^;]+);\s*$', re.MULTILINE,
+_CONFIG_PROP_NAME_RE = re.compile(r'@ConfigProperty\(\s*name\s*=\s*"([^"]+)"\s*\)')
+_CONFIG_PROP_BARE_RE = re.compile(r'@ConfigProperty\(\s*"([^"]+)"\s*\)')
+
+# `@Inject @ConfigProperty` is the MicroProfile idiom for a config field. On
+# Spring, @Value injects on its own; a stacked @Autowired makes the container
+# look for a bean of the field's type (often `int`) and fail at startup. Drop
+# the @Inject line only when the very next annotation is the config one.
+_INJECT_ABOVE_CONFIG_RE = re.compile(
+    r'^[ \t]*@Inject[ \t]*\n(?=[ \t]*@(?:ConfigProperty|Value)\b)',
+    re.MULTILINE,
+)
+
+# iter-20 — ONE regex over every namespace the migration touches.
+#
+# This was three regexes -- jakarta.ws.rs, jakarta.inject/enterprise.context,
+# and org.eclipse.microprofile.CONFIG -- which between them could not match
+# 11 of the 32 rows in IMPORT_REPLACEMENTS. Those rows were silent no-ops:
+# MicroProfile Health / Metrics / OpenAPI and, most visibly,
+# `io.helidon.security.annotations.*`, whose import survived into the output
+# while the annotation above it had already been rewritten to @PreAuthorize.
+# The result looked migrated, carried io.helidon residue, and did not compile.
+#
+# Keep the alternation anchored to the namespaces we have mappings for:
+# a blanket `import [^;]+` would also rewrite the project's own imports.
+_LEGACY_IMPORT_RE = re.compile(
+    r'^[ \t]*import[ \t]+('
+    r'jakarta\.ws\.rs\.[^;]+'
+    r'|jakarta\.(?:inject|enterprise\.context|annotation)\.[^;]+'
+    r'|org\.eclipse\.microprofile\.[^;]+'
+    r'|io\.helidon\.[^;]+'
+    r');[ \t]*$',
+    re.MULTILINE,
 )
 
 
@@ -95,6 +134,14 @@ class EndpointTransformer:
         s, n3 = _HEADER_PARAM_RE.subn(r'@RequestHeader("\1") \2 \3', s)
         meta["params"] += n1 + n2 + n3
 
+        # 4b) @ConfigProperty → @Value, translating the ATTRIBUTES into
+        # Spring placeholder syntax. Must run before the token pass below,
+        # which would otherwise leave `@Value(name = …, defaultValue = …)`.
+        s = _INJECT_ABOVE_CONFIG_RE.sub("", s)
+        s = _CONFIG_PROP_FULL_RE.sub(lambda m: f'@Value("${{{m.group(1)}:{m.group(2)}}}")', s)
+        s = _CONFIG_PROP_NAME_RE.sub(lambda m: f'@Value("${{{m.group(1)}}}")', s)
+        s = _CONFIG_PROP_BARE_RE.sub(lambda m: f'@Value("${{{m.group(1)}}}")', s)
+
         # 5) plain token annotations
         for old, new in ANNOTATION_TOKEN_REPLACEMENTS:
             s = s.replace(old, new)
@@ -118,9 +165,7 @@ class EndpointTransformer:
             seen_new.add(new_fqcn)
             return f"import {new_fqcn};"
 
-        s = _JAXRS_IMPORT_RE.sub(_repl, src)
-        s = _CDI_IMPORT_RE.sub(_repl, s)
-        s = _MP_CONFIG_IMPORT_RE.sub(_repl, s)
+        s = _LEGACY_IMPORT_RE.sub(_repl, src)
 
         # Ensure @RestController / @RequestMapping imports exist if we
         # emitted them.
@@ -137,6 +182,10 @@ class EndpointTransformer:
             s = self._inject_import(s, "org.springframework.beans.factory.annotation.Autowired")
         if "@Value" in s and "org.springframework.beans.factory.annotation.Value" not in s:
             s = self._inject_import(s, "org.springframework.beans.factory.annotation.Value")
+        # @PreAuthorize is synthesised from @Authenticated / @Authorized, so
+        # unlike the others it can appear with no legacy import to rewrite.
+        if "@PreAuthorize" in s and "org.springframework.security.access.prepost.PreAuthorize" not in s:
+            s = self._inject_import(s, "org.springframework.security.access.prepost.PreAuthorize")
         return s
 
     def _inject_import(self, src: str, fqcn: str) -> str:

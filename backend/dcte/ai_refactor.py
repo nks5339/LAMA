@@ -194,26 +194,73 @@ _SQL_RESIDUE_MARKERS: tuple[str, ...] = (
 )
 
 
+# iter-20 — Blank out comments before the residue scan so it reads CODE,
+# not prose.
+#
+# Without this, DCTE flagged its OWN output: bootstrap_writer emits an
+# Application.java whose Javadoc explains what happened to the original
+# entrypoint ("Original entrypoint (io.helidon.microprofile.server.Main)
+# does not survive the migration"), and the plugin leaves `// TODO(dcte):`
+# markers quoting the JAX-RS annotation they replaced. Both are correct,
+# useful output; a raw substring scan called them residue. The cost was
+# not cosmetic: every fix-up round re-sent those files to the model to
+# "fix" a sentence, and the job reported needs_manual on a clean migration.
+#
+# Scoped to the two suffixes scan_residual actually walks. routes/tools.py
+# has a general multi-language version (`_strip_comments_for_scan`) for the
+# Transformer; it is deliberately NOT shared, because the suite that pins it
+# reads tools.py's AST and requires those symbols to be defined there.
+#
+# Comments become spaces rather than vanishing, so any offset arithmetic
+# downstream still lines up. Quote-aware, so a `"http://x"` literal or an
+# SQL string containing `--` is not mistaken for a comment opener.
+def _blank_comments(body: str, suffix: str) -> str:
+    line_marker = "--" if suffix == ".sql" else "//"
+    out: list[str] = []
+    i, n = 0, len(body)
+    quote = ""
+    while i < n:
+        ch = body[i]
+        if quote:
+            out.append(ch)
+            if ch == "\\" and i + 1 < n:          # escaped char inside a literal
+                out.append(body[i + 1]); i += 2; continue
+            if ch == quote:
+                quote = ""
+            i += 1
+            continue
+        if ch in "\"'":
+            quote = ch; out.append(ch); i += 1; continue
+        if body.startswith("/*", i):
+            end = body.find("*/", i + 2)
+            end = n if end == -1 else end + 2
+            out.append("".join(" " if c != "\n" else "\n" for c in body[i:end]))
+            i = end; continue
+        if body.startswith(line_marker, i):
+            end = body.find("\n", i)
+            end = n if end == -1 else end
+            out.append(" " * (end - i))
+            i = end; continue
+        out.append(ch); i += 1
+    return "".join(out)
+
+
 def _scan_residue_in_file(path: Path) -> list[str]:
     """iter-18.15 — Return the list of legacy markers still present in
     ``path`` after the AI sweep.  Empty list = clean.  Silent on I/O
     error (returns empty).
+
+    iter-20 — scans with comments blanked; see :func:`_blank_comments`.
     """
     try:
         body = path.read_text(encoding="utf-8", errors="ignore")
     except Exception:
         return []
-    hits: list[str] = []
-    if path.suffix == ".java":
-        for m in _JAVA_RESIDUE_MARKERS:
-            if m in body:
-                hits.append(m)
-    elif path.suffix == ".sql":
-        upper = body  # markers list already covers case variants for DUAL
-        for m in _SQL_RESIDUE_MARKERS:
-            if m in upper:
-                hits.append(m)
-    return hits
+    if path.suffix not in (".java", ".sql"):
+        return []
+    body = _blank_comments(body, path.suffix)
+    markers = _JAVA_RESIDUE_MARKERS if path.suffix == ".java" else _SQL_RESIDUE_MARKERS
+    return [m for m in markers if m in body]
 
 
 def scan_residual(root: Path, *, suffixes: tuple[str, ...] = (".java", ".sql")) -> list[dict[str, Any]]:
