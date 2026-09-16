@@ -36,6 +36,11 @@ import re
 from pathlib import Path
 from typing import Any, Callable, Iterable
 
+from .prompt_builder import (
+    build_transformer_brief,
+    build_fixup_directive,
+)
+
 logger = logging.getLogger("lama.dcte.ai_refactor")
 
 
@@ -43,45 +48,17 @@ logger = logging.getLogger("lama.dcte.ai_refactor")
 # Role, task, and strict rules mirror the exact spec that was proven to
 # work in the reference "factory-ai" conversion. Do NOT weaken these
 # without rev-bumping and re-verifying on the PMIS pilot.
-_SYSTEM = """You are a Senior Backend Developer and Legacy-to-Modernization expert.
-
-TASK
-  1. Convert the given project files from Helidon (MicroProfile / SE) to Spring Boot 3.x on Java 21, and any Oracle SQL/PLSQL to PostgreSQL.
-  2. Implement Swagger (springdoc-openapi) — annotate REST endpoints and DTOs with OpenAPI annotations, add @Tag / @Operation where useful.
-  3. Ensure the emitted code is build-error free. Every rewritten file MUST compile as-is under Spring Boot 3.3+ / Java 21 with the standard starters (spring-boot-starter-web, spring-boot-starter-data-jpa, spring-boot-starter-security, spring-boot-starter-actuator, springdoc-openapi-starter-webmvc-ui, postgresql, flyway-core, micrometer-core).
-
-STRICT RULES
-  1. Do NOT alter any business logic — variable names, branch semantics, DB column names, request/response shapes, HTTP verbs, and URL paths must be preserved unless the source annotation forces a change.
-  2. Do NOT conclude with broken code. Every `content` you return MUST be self-consistent: imports match usages, class name matches file name, no half-migrated symbols like `@Inject`, `@ApplicationScoped`, `@ConfigProperty`, `jakarta.ws.rs.*` in a Spring file.
-  3. Do NOT truncate. Emit the FULL rewritten file from `package` line through the final closing brace. Never end with `...` or "rest of file omitted" — the tool has no way to merge a partial rewrite and will discard truncated output.
-  4. Token efficiency with 100% accuracy — if a file is already correct Spring Boot + Java 21 + swagger-ready, return `"action":"leave"` with an empty `content` and a short `changes` array. Do not re-emit unchanged files.
-
-MIGRATION MAP (non-exhaustive; apply consistently)
-  Helidon → Spring
-    @Path,@ApplicationPath    → @RestController + @RequestMapping
-    @GET/@POST/@PUT/@DELETE   → @GetMapping/@PostMapping/@PutMapping/@DeleteMapping
-    @Produces/@Consumes       → produces=/consumes= on the mapping
-    @PathParam/@QueryParam    → @PathVariable/@RequestParam
-    @Inject                   → @Autowired (constructor injection preferred)
-    @ApplicationScoped/@Singleton → @Service / @Component
-    @ConfigProperty(name=X)   → @Value("${X}")
-    Helidon Config            → @ConfigurationProperties or application.properties
-    Helidon Security          → Spring Security config bean
-    Helidon Health checks     → Spring Boot Actuator (/actuator/health) + custom HealthIndicator
-    Helidon Metrics           → Micrometer (@Timed / MeterRegistry)
-    Helidon Filters           → Spring HandlerInterceptor + WebMvcConfigurer
-    Helidon OpenAPI           → springdoc-openapi + @Operation/@Tag
-
-  Oracle → PostgreSQL (in .sql files)
-    VARCHAR2                  → VARCHAR
-    NUMBER, NUMBER(p,s)       → NUMERIC(p,s) or BIGINT / INT as appropriate
-    DATE                      → TIMESTAMP
-    SYSDATE                   → CURRENT_TIMESTAMP
-    NVL(a,b)                  → COALESCE(a,b)
-    DECODE(x,a,b,c,d,e)       → CASE WHEN x=a THEN b WHEN x=c THEN d ELSE e END
-    DUAL                      → drop (Postgres does not need it)
-    CREATE SEQUENCE ...       → keep, adjust syntax if needed
-    triggers/packages         → convert to CREATE OR REPLACE FUNCTION + TRIGGER
+# iter-21 — The stack-specific half of this prompt is now BUILT per job from
+# the selected (source, target) pair; see dcte/prompt_builder.py. What stays
+# here is the part that is true for every pair: the JSON the parser below
+# has to read, and the speed clause.
+#
+# It used to be one hardcoded essay that opened "Convert the given project
+# files from Helidon (MicroProfile / SE) to Spring Boot 3.x". Every job got
+# it, so a JSP -> React job was instructed to migrate Helidon and to
+# eradicate @ApplicationScoped. That is not a prompt with a bug in it; it is
+# a prompt for a different job.
+_RESPONSE_CONTRACT = """
 
 RESPONSE FORMAT — STRICT JSON, no prose, no code fences around the outer array.
 Emit exactly one JSON array. Each element:
@@ -96,11 +73,23 @@ SPEED (iter-18.13 — added at user request)
   do NOT run shell commands, do NOT read other files, do NOT ask
   clarifying questions, and do NOT emit any preamble, chain-of-thought,
   planning notes, or "I will now…" narration. Treat each file in
-  isolation: read its content from the FILE block, apply the migration
-  map above, and emit the JSON array in one shot. Every extra
-  round-trip / tool call costs the user real wall-clock time, so keep
-  the response terse: only the JSON array, nothing else.
+  isolation: read its content from the FILE block, apply the conventions
+  above, and emit the JSON array in one shot. Every extra round-trip /
+  tool call costs the user real wall-clock time, so keep the response
+  terse: only the JSON array, nothing else.
 """
+
+
+def _system_prompt(source_stack: str, target_stack: str) -> str:
+    """Migration brief for this pair + the JSON contract the parser needs."""
+    return build_transformer_brief(source_stack, target_stack) + _RESPONSE_CONTRACT
+
+
+def _fixup_prompt(source_stack: str, target_stack: str) -> str:
+    """Stricter variant for a second pass over a file that still has residue."""
+    return (build_transformer_brief(source_stack, target_stack)
+            + build_fixup_directive(source_stack, target_stack)
+            + _RESPONSE_CONTRACT)
 
 
 # ── Guardrails against mangled rewrites ─────────────────────────────
@@ -282,31 +271,6 @@ def scan_residual(root: Path, *, suffixes: tuple[str, ...] = (".java", ".sql")) 
     return out
 
 
-# iter-18.15 — Stricter prompt for the fix-up pass.  The primary system
-# prompt is intentionally general ("do the migration"); this one adds a
-# no-escape clause because the primary already had a chance and either
-# returned ``action=leave`` on a dirty file, produced non-JSON, or
-# rewrote with residue still in it.
-_FIXUP_SYSTEM = _SYSTEM + """
-
-FIX-UP DIRECTIVE (iter-18.15 — RESIDUE REMEDIATION)
-  You are being called for a SECOND time on this file because the first
-  pass left legacy markers behind. The user block below lists the exact
-  markers (e.g. ``io.helidon.``, ``@ApplicationScoped``, ``VARCHAR2``)
-  that are still present.
-
-  HARD RULES for this pass:
-    1. ``action`` MUST be ``rewrite``.  ``leave`` is FORBIDDEN.
-    2. Every listed marker MUST be gone from the returned ``content``.
-    3. Do NOT invent or hallucinate business logic to justify the
-       rewrite — only convert the legacy construct to its Spring Boot 3.x /
-       PostgreSQL equivalent per the MIGRATION MAP above.
-    4. If a marker legitimately cannot be replaced (e.g. it appears
-       inside a comment or a string literal that names the legacy
-       framework), delete the offending line or convert the comment to
-       refer to the Spring equivalent.  A leftover mention of Helidon
-       in a comment is still a bug.
-"""
 
 
 def _strip_json_fence(text: str) -> str:
@@ -387,6 +351,8 @@ def _safe_apply(path: Path, original: str, new_content: str) -> tuple[bool, str]
 async def transform_files(
     files: Iterable[Path],
     *,
+    source_stack: str = "",
+    target_stack: str = "",
     agent_key: str = "dcte.transformer",
     max_files_per_batch: int = _MAX_BATCH_FILES,
     max_chars_per_file: int = _MAX_CHARS_PER_FILE,
@@ -498,12 +464,13 @@ async def transform_files(
         """Run one batch through the LLM.
 
         ``fixup_hints`` — when non-empty, activates fix-up mode: the
-        stricter :data:`_FIXUP_SYSTEM` prompt is used and each file's
+        stricter fix-up brief is used and each file's
         residual markers are enumerated in the user block so the model
         knows exactly what to eradicate.
         """
         is_fixup = bool(fixup_hints)
-        system_prompt = _FIXUP_SYSTEM if is_fixup else _SYSTEM
+        system_prompt = (_fixup_prompt(source_stack, target_stack) if is_fixup
+                         else _system_prompt(source_stack, target_stack))
         async with sem:
             await _emit(batch_i, batch, "start" if not is_fixup else "fixup-start")
             originals: dict[str, tuple[Path, str]] = {}

@@ -29,84 +29,20 @@ import time
 from pathlib import Path
 from typing import Any, Iterable
 
+from .prompt_builder import BRIEF_REV, build_migration_brief
+
 logger = logging.getLogger("lama.dcte.droid_agent")
 
 
 # ── Agentic brief ─────────────────────────────────────────────────────
-# Deliberately mirrors the exact spec that the user's manual `droid exec`
-# run used ("factory-ai parity"). Rev-bump this string when tightening.
-_AGENTIC_BRIEF_REV = 1
-_AGENTIC_BRIEF = """You are a Senior Backend Developer and Legacy-to-Modernization expert.
-
-You have full shell + file access inside the current working directory
-(--cwd). Treat that directory as the ROOT of a single microservice that
-must be migrated in place.
-
-TASK
-  1. Convert this project from Helidon (MicroProfile / SE) to Spring Boot 3.x
-     on Java 17-21, and any Oracle SQL/PLSQL to PostgreSQL.
-  2. Implement Swagger/OpenAPI via springdoc-openapi (annotate REST endpoints
-     and DTOs, add @Tag / @Operation where useful, expose /swagger-ui.html).
-  3. Ensure the project builds error-free. Run `mvn -q -DskipTests compile`
-     yourself and iterate until it succeeds. If a `pom.xml` is not present,
-     generate a Spring Boot 3.x pom targeting Java 21 with the standard
-     starters (web, data-jpa, security, actuator, springdoc-openapi-starter-
-     webmvc-ui, postgresql, flyway-core, micrometer-core, lombok).
-
-STRICT RULES
-  1. Do NOT alter business logic — variable names, branch semantics, DB
-     column names, request/response shapes, HTTP verbs, and URL paths
-     must be preserved.
-  2. Do NOT conclude with broken code. `mvn -q -DskipTests compile` MUST
-     exit 0 before you stop. If after 5 build attempts you cannot make it
-     green, stop and print `DROID_AGENT_INCOMPLETE:` followed by the exact
-     compile errors so the operator can take over.
-  3. Ensure token efficiency with 100% accuracy — do not re-emit files that
-     are already correct Spring Boot 3.x / Java 21 / PostgreSQL / Swagger-
-     ready. Prefer targeted edits over full rewrites.
-  4. No Helidon / MicroProfile residue anywhere in .java files: no
-     `jakarta.ws.rs.*`, no `io.helidon.*`, no `@ApplicationScoped`,
-     no `@ConfigProperty`, no `org.eclipse.microprofile.*`.
-  5. No Oracle-only SQL in .sql files: no `VARCHAR2`, `NVL(`, `SYSDATE`,
-     `DECODE(`, `FROM DUAL`, `.NEXTVAL`, `TO_DATE(`, `TO_CHAR(`, `MINUS`,
-     `PRAGMA`, `CREATE OR REPLACE PACKAGE`, `IS TABLE OF`.
-
-MIGRATION MAP (apply consistently)
-  Helidon → Spring
-    @Path,@ApplicationPath    -> @RestController + @RequestMapping
-    @GET/@POST/@PUT/@DELETE   -> @GetMapping/@PostMapping/@PutMapping/@DeleteMapping
-    @Produces/@Consumes       -> produces=/consumes= on the mapping
-    @PathParam/@QueryParam    -> @PathVariable/@RequestParam
-    @Inject                   -> constructor injection with @Autowired optional
-    @ApplicationScoped        -> @Service / @Component
-    @ConfigProperty(name=X)   -> @Value("${X}")
-    Helidon Config            -> @ConfigurationProperties / application.properties
-    Helidon Security          -> Spring Security config bean
-    Helidon Health            -> Spring Boot Actuator + HealthIndicator
-    Helidon Metrics           -> Micrometer (@Timed / MeterRegistry)
-    Helidon Filters           -> Spring HandlerInterceptor + WebMvcConfigurer
-    Helidon OpenAPI           -> springdoc-openapi + @Operation/@Tag
-
-  Oracle -> PostgreSQL
-    VARCHAR2                  -> VARCHAR
-    NUMBER, NUMBER(p,s)       -> NUMERIC(p,s) or BIGINT / INT
-    DATE                      -> TIMESTAMP
-    SYSDATE                   -> CURRENT_TIMESTAMP
-    NVL(a,b)                  -> COALESCE(a,b)
-    DECODE(x,a,b,c,d,e)       -> CASE WHEN x=a THEN b WHEN x=c THEN d ELSE e END
-    FROM DUAL                 -> drop
-    sequences .NEXTVAL        -> nextval('seq_name')
-    triggers / packages       -> CREATE OR REPLACE FUNCTION + TRIGGER (PL/pgSQL)
-
-WORKFLOW
-  1. Read the source tree in --cwd. Do not read anything outside it.
-  2. Apply the migration map above across every .java, .sql, .properties,
-     .yml and pom.xml that needs it.
-  3. Run `mvn -q -DskipTests compile`. Read the errors. Fix them. Loop.
-  4. When compile is green, print `DROID_AGENT_OK` on its own line and stop.
-
-Begin.
-"""
+# iter-21 — BUILT per job from the selected (source, target) pair; see
+# dcte/prompt_builder.py.
+#
+# This was a hardcoded Helidon -> Spring Boot essay, handed to droid on every
+# job whatever the user picked. A JSP -> React run was told to "Convert this
+# project from Helidon (MicroProfile / SE) to Spring Boot 3.x" and to purge
+# @ApplicationScoped, so droid either followed a brief for a different job or
+# ignored it. `BRIEF_REV` lives with the builder and is recorded on every run.
 
 
 # Files we consider "owned" by DCTE and eligible for the diff snapshot.
@@ -170,6 +106,8 @@ async def run_droid_agent(
     dest_root: Path,
     service_id: str,
     model: str | None,
+    source_stack: str = "",
+    target_stack: str = "",
     *,
     prompt_override: str | None = None,
 ) -> dict[str, Any]:
@@ -200,7 +138,7 @@ async def run_droid_agent(
         "elapsed_ms":    0,
         "auto_level":    _resolve_auto_level(),
         "timeout_s":     _resolve_timeout(),
-        "brief_rev":     _AGENTIC_BRIEF_REV,
+        "brief_rev":     BRIEF_REV,
         "added_files":   [],
         "changed_files": [],
         "removed_files": [],
@@ -229,7 +167,7 @@ async def run_droid_agent(
         return result
 
     before = _snapshot(dest)
-    prompt = prompt_override or _AGENTIC_BRIEF
+    prompt = prompt_override or build_migration_brief(source_stack, target_stack)
     session_tag = f"lama-dcte-agent-{service_id}"
 
     try:

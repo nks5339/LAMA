@@ -80,7 +80,14 @@ def test_registry_resolves_helidon_and_oracle():
     assert "oracle-to-postgres" in ids
     assert reg.resolve("helidon-mp", "spring-boot-3") is not None
     assert reg.resolve("oracle", "postgres-15") is not None
-    assert reg.resolve("cobol", "rust") is None
+    # iter-21 — an unregistered pair no longer resolves to None. It used to,
+    # and the engine raises on None, so every stack added to the dropdown
+    # without a hand-written transformer would have been selectable and dead
+    # on start. `resolve` now falls back to the generic AI plugin; the
+    # question this line was really asking ("is there a DETERMINISTIC plugin
+    # for this pair?") is `resolve_exact`.
+    assert reg.resolve_exact("cobol", "rust") is None
+    assert reg.resolve("cobol", "rust").id == "generic-ai"
 
 
 # ---------------------------------------------------------------------------

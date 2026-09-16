@@ -8,6 +8,7 @@ page behind RequireAuth and lib/api.js attaches the bearer token.
 
 Endpoints (all under /api/dcte):
     GET    /plugins
+    GET    /stacks
     POST   /projects/detect
     GET    /fs/browse
     POST   /jobs
@@ -55,6 +56,7 @@ from dcte.models import (
 )
 from dcte.job_manager import JobManager
 from dcte.ai_refactor import transform_files
+from dcte.stacks import describe_catalogue
 
 logger = logging.getLogger("lama.dcte")
 router = APIRouter(prefix="/dcte", tags=["dcte"])
@@ -113,6 +115,25 @@ def _mgr() -> JobManager:
 async def list_plugins():
     reg = get_registry()
     return {"plugins": reg.describe_all()}
+
+
+# ---------------------------------------------------------------------------
+# Stack catalogue (iter-21) — what the source/target dropdowns render
+# ---------------------------------------------------------------------------
+@router.get("/stacks")
+async def list_stacks():
+    """Every selectable source and target technology.
+
+    Separate from `/plugins`: a plugin is a *pair* with a deterministic
+    transformer behind it, of which there are two. This is the catalogue of
+    individual stacks, and any pair drawn from it runs — the deterministic
+    plugin when one claims the pair, the generic AI plugin otherwise.
+
+    Which pairs have a deterministic transformer is NOT repeated here —
+    `/plugins` already returns exactly that, keyed by source/target, and two
+    endpoints answering the same question is how they drift apart.
+    """
+    return describe_catalogue()
 
 
 # ---------------------------------------------------------------------------
@@ -545,7 +566,9 @@ async def _run_job_background(job_id: str) -> None:
             _persist_status(status, p, error), loop,
         )
 
-    def _ai_refactor_wrapper(files):
+    def _ai_refactor_wrapper(files, source_stack="", target_stack=""):
+        # iter-21 — the engine passes the service's selected pair so the
+        # brief is built for it (dcte/prompt_builder.py).
         if not job.ai_refactor:
             return []
         # iter-18.8 — scale timeout to file count. Previous fixed 180 s
@@ -634,7 +657,9 @@ async def _run_job_background(job_id: str) -> None:
 
         try:
             result = asyncio.run_coroutine_threadsafe(
-                transform_files(files, progress_cb=_pcb, model=(job.model or None)), loop,
+                transform_files(files, progress_cb=_pcb, model=(job.model or None),
+                                source_stack=source_stack,
+                                target_stack=target_stack), loop,
             ).result(timeout=timeout_s)
             suggestions: list = []
             for r in result.get("rewritten", []):
@@ -885,7 +910,9 @@ async def _run_job_background(job_id: str) -> None:
                                                     "healthy": False}}
 
     def _droid_agent_wrapper(dest_root: Path, service_id: str,
-                              model: str | None) -> dict[str, Any]:
+                              model: str | None,
+                              source_stack: str = "",
+                              target_stack: str = "") -> dict[str, Any]:
         """iter-19 — Sync bridge for the async ``run_droid_agent``.
         The engine runs on a worker thread (``asyncio.to_thread``); we
         schedule the coroutine back onto the main event loop and block
@@ -898,7 +925,8 @@ async def _run_job_background(job_id: str) -> None:
         except Exception as e:  # noqa: BLE001
             return {"success": False, "error": f"droid_agent import failed: {e}"}
         try:
-            coro = run_droid_agent(Path(dest_root), service_id, model)
+            coro = run_droid_agent(Path(dest_root), service_id, model,
+                                   source_stack, target_stack)
             fut = asyncio.run_coroutine_threadsafe(coro, loop)
             # Timeout envelope = agent timeout + 60s cleanup margin.
             import os as _os
