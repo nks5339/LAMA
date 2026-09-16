@@ -190,7 +190,8 @@ def test_engine_droid_takes_over_and_skips_legacy_chain(tmp_path):
     build_calls: list[Any] = []
     devops_calls: list[Any] = []
 
-    def _fake_droid(dest: Path, svc_id: str, model: str | None) -> dict:
+    def _fake_droid(dest: Path, svc_id: str, model: str | None,
+                    source_stack: str = "", target_stack: str = "") -> dict:
         # Simulate droid writing two files inside dest.
         Path(dest).mkdir(parents=True, exist_ok=True)
         (Path(dest) / "Agentic.java").write_text("class Agentic {}", encoding="utf-8")
@@ -211,7 +212,7 @@ def test_engine_droid_takes_over_and_skips_legacy_chain(tmp_path):
         job,
         record_sink=sinks.r, event_sink=sinks.e, report_sink=sinks.rp,
         status_sink=sinks.s,
-        ai_refactor_fn=lambda files: (ai_calls.append(files) or []),
+        ai_refactor_fn=lambda files, src="", tgt="": (ai_calls.append((files, src, tgt)) or []),
         build_fix_fn=lambda dest, sid: (build_calls.append(sid) or {"skipped": True}),
         devops_fn=lambda dest, sid, br: (devops_calls.append(sid) or {}),
         tester_fn=None,
@@ -239,7 +240,8 @@ def test_engine_droid_failure_falls_back_to_legacy_chain(tmp_path):
     ai_calls: list[Any] = []
     build_calls: list[Any] = []
 
-    def _fake_droid(dest: Path, svc_id: str, model: str | None) -> dict:
+    def _fake_droid(dest: Path, svc_id: str, model: str | None,
+                    source_stack: str = "", target_stack: str = "") -> dict:
         return {
             "success": False,
             "elapsed_ms": 42,
@@ -256,7 +258,7 @@ def test_engine_droid_failure_falls_back_to_legacy_chain(tmp_path):
         job,
         record_sink=sinks.r, event_sink=sinks.e, report_sink=sinks.rp,
         status_sink=sinks.s,
-        ai_refactor_fn=lambda files: (ai_calls.append(files) or []),
+        ai_refactor_fn=lambda files, src="", tgt="": (ai_calls.append((files, src, tgt)) or []),
         build_fix_fn=lambda dest, sid: (build_calls.append(sid) or {"skipped": True}),
         devops_fn=lambda dest, sid, br: {},
         tester_fn=None,
@@ -290,7 +292,7 @@ def test_engine_skips_droid_when_flag_is_off(tmp_path):
         job,
         record_sink=sinks.r, event_sink=sinks.e, report_sink=sinks.rp,
         status_sink=sinks.s,
-        ai_refactor_fn=lambda files: (ai_calls.append(files) or []),
+        ai_refactor_fn=lambda files, src="", tgt="": (ai_calls.append((files, src, tgt)) or []),
         build_fix_fn=lambda dest, sid: {"skipped": True},
         devops_fn=lambda dest, sid, br: {},
         tester_fn=None,

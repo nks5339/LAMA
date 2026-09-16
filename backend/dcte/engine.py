@@ -38,7 +38,10 @@ class TransformationEngine:
         event_sink: Callable[[DcteEvent], None] | None = None,
         report_sink: Callable[[DcteReportDoc], None] | None = None,
         status_sink: Callable[[str, float, str | None], None] | None = None,
-        ai_refactor_fn: Callable[[list[Path]], list[dict[str, Any]]] | None = None,
+        # iter-21 — takes the service's (source_stack, target_stack) so the
+        # brief is built for the pair the user actually selected, instead of
+        # the Helidon -> Spring essay every job used to receive.
+        ai_refactor_fn: Callable[[list[Path], str, str], list[dict[str, Any]]] | None = None,
         build_fix_fn: Callable[[Path, str], dict[str, Any]] | None = None,
         devops_fn: Callable[[Path, str, dict[str, Any] | None], dict[str, Any]] | None = None,
         tester_fn: Callable[[Path, str, str | None], dict[str, Any]] | None = None,
@@ -47,7 +50,7 @@ class TransformationEngine:
         # Only invoked when ``job.use_droid_agent`` is True. On success we
         # SKIP the ai_refactor + build_fix + devops chain for that service
         # (droid did the whole thing itself). On failure we fall through.
-        droid_agent_fn: Callable[[Path, str, str | None], dict[str, Any]] | None = None,
+        droid_agent_fn: Callable[..., dict[str, Any]] | None = None,
     ) -> DcteJob:
         record_sink = record_sink or (lambda *_: None)
         event_sink = event_sink or (lambda *_: None)
@@ -147,7 +150,9 @@ class TransformationEngine:
                          "Autonomous droid mode engaged — agent taking over service",
                          service_id=svc.id)
                     try:
-                        da = droid_agent_fn(Path(ctx.destination_path), svc.id, job.model) or {}
+                        da = droid_agent_fn(
+                            Path(ctx.destination_path), svc.id, job.model,
+                            svc.source_stack, svc.target_stack) or {}
                     except Exception as e:  # noqa: BLE001
                         emit("warn", "droid_agent",
                              f"Droid agent errored: {e} — falling back to legacy chain",
@@ -236,7 +241,8 @@ class TransformationEngine:
                             if k not in seen:
                                 seen.add(k)
                                 deduped.append(p)
-                        suggestions = ai_refactor_fn(deduped)
+                        suggestions = ai_refactor_fn(
+                            deduped, svc.source_stack, svc.target_stack)
                         rewritten_ct = sum(1 for s in suggestions if s.get("category") == "rewrite")
                         skipped_ct   = sum(1 for s in suggestions if s.get("category") == "guardrail")
                         diag_ct      = sum(1 for s in suggestions if s.get("category") == "diagnostic")
@@ -294,7 +300,7 @@ class TransformationEngine:
                     try:
                         emit("info", "build",
                              "Compile-and-fix agent starting", service_id=svc.id)
-                        br = build_fix_fn(ctx.dest_root, svc.id) or {}
+                        br = build_fix_fn(Path(ctx.destination_path), svc.id) or {}
                         if br.get("skipped"):
                             emit("warn", "build",
                                  f"Build skipped: {'; '.join(br.get('notes', [])[-2:])}",
@@ -329,7 +335,7 @@ class TransformationEngine:
                         emit("info", "devops",
                              "DevOps agent scanning for structural gaps",
                              service_id=svc.id)
-                        dv = devops_fn(ctx.dest_root, svc.id,
+                        dv = devops_fn(Path(ctx.destination_path), svc.id,
                                        br if build_fix_fn is not None else None) or {}
                         emit("info", "devops",
                              f"DevOps: {dv.get('fixes_applied', 0)} gap(s) fixed, "
@@ -356,7 +362,7 @@ class TransformationEngine:
                             svc.source_root if hasattr(svc, "source_root")
                             else job.source_root
                         )
-                        tv = tester_fn(ctx.dest_root, svc.id, src_root_str) or {}
+                        tv = tester_fn(Path(ctx.destination_path), svc.id, src_root_str) or {}
                         emit(
                             "info" if tv.get("verdict") == "PASS" else "warn",
                             "test",
@@ -485,7 +491,10 @@ class TransformationEngine:
             output_root=output_root,
             source_stack=svc.source_stack,
             target_stack=svc.target_stack,
-            options=svc.options,
+            # iter-21 — job-level flags a plugin may need to reason about.
+            # The generic AI plugin warns when ai_refactor is OFF, because
+            # without it that plugin only copies the tree.
+            options={**(svc.options or {}), "ai_refactor": job.ai_refactor},
             emit=lambda level, phase, msg, **kw: emit(
                 level, phase, msg, service_id=svc.id, **kw
             ),

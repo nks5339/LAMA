@@ -139,6 +139,32 @@ def client(monkeypatch):
     # ai_refactor=False it is never reached, but keep it deterministic.
     monkeypatch.setattr("db.model_providers", FakeCollection(), raising=False)
 
+    # iter-21 — the build / DevOps / Tester agents shell out: `mvn compile`,
+    # and a JVM boot probed on /actuator/health. Until iter-21 they raised
+    # AttributeError on `ctx.dest_root` and were silently skipped, so this
+    # suite never paid for them. With that fixed they really run, which took
+    # the whole backend suite from 37s to 219s and timed this test out.
+    # Stub them: what belongs here is the REST layer, the engine and the
+    # deterministic plugin. A real Maven run is an integration concern —
+    # test_iter20_dcte_migration_fidelity.py compiles the output for real.
+    async def _no_build(*_a, **_kw):
+        return {"skipped": True, "success": True, "attempted": False, "notes": [],
+                "attempts": 0, "fixes_applied": 0, "errors": [], "tool": None,
+                "final_output_tail": ""}
+
+    async def _no_devops(*_a, **_kw):
+        return {"attempted": False, "fixes_applied": 0, "gaps_found": [],
+                "fixes": [], "unresolved": [], "notes": ["stubbed in tests"]}
+
+    async def _no_tester(*_a, **_kw):
+        return {"verdict": "PASS", "notes": ["stubbed in tests"],
+                "parity_endpoints": {}, "parity_config": {}, "residual": [],
+                "boot_smoke": {"runnable": False, "reason": "stubbed", "healthy": False}}
+
+    monkeypatch.setattr("dcte.build_agent.build_and_fix", _no_build)
+    monkeypatch.setattr("dcte.devops_agent.run_devops", _no_devops)
+    monkeypatch.setattr("dcte.tester_agent.run_tester", _no_tester)
+
     app = FastAPI()
     app.include_router(dcte_mod.router, prefix="/api")
     # The context-manager form matters here. Without it Starlette spins up a
