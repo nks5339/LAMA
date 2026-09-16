@@ -127,6 +127,30 @@ PROVIDER_PRESETS: Dict[str, Dict] = {
             "critical": ["gpt-5"],
             "reasoning": ["o3-mini", "o3"],
         },
+        # iter-20 — Account-wide descent order, strongest first.
+        #
+        # `tier_siblings` rotates WITHIN a tier. That is the right first
+        # move (an equal-capability deployment with its own quota bucket),
+        # but when every sibling is throttled the old code slept, and then
+        # eventually let the call leave Azure entirely for a local Ollama
+        # model. On a PAID account that is backwards: a degraded Azure
+        # deployment beats a 4B local model on every axis that matters for
+        # code generation, and the operator is paying for the quota either
+        # way.
+        #
+        # So once the tier is exhausted we walk DOWN this list instead,
+        # and only leave the provider when every chat deployment on the
+        # account is cooling. Ordered by capability rather than by tier so
+        # a `critical` agent degrades gpt-5.1 -> gpt-5 -> gpt-4.1 rather
+        # than dropping straight to a mini.
+        #
+        # Intersected with the provider row's own `models` catalogue at
+        # use time (see `exhaustion_ladder()`), so an account that has not
+        # deployed gpt-5.1 never rotates onto a 404.
+        "exhaustion_ladder": [
+            "gpt-5.1", "gpt-5", "gpt-4.1", "gpt-4o",
+            "gpt-5-mini", "gpt-4.1-mini", "gpt-4o-mini",
+        ],
         # Cost is billed per-deployment at rates that depend on the
         # operator's agreement, so zeros here are honest rather than a
         # guess. The token counts in token_usage_log stay accurate; only
@@ -386,6 +410,39 @@ def tier_siblings(
     return [s for s in sibs if s in catalogue]
 
 
+def exhaustion_ladder(
+    provider_type: str,
+    available_models: Optional[List[Dict]] = None,
+) -> List[str]:
+    """Account-wide descent order for this provider, strongest first.
+
+    iter-20 — the step AFTER `tier_siblings`. Siblings are equals within a
+    tier; this is the whole account ordered by capability, walked only
+    once the tier's own siblings are all throttled.
+
+    The point is to exhaust a PAID account before falling back to a local
+    engine. Previously a fully-throttled tier slept and then let the call
+    leave the provider, which on this operator's setup meant a 4B local
+    model served work the Azure account still had headroom for on a
+    slightly weaker deployment.
+
+    Intersected with the provider row's own catalogue for the same reason
+    `tier_siblings` is: the preset lists what the vendor CAN deploy, not
+    what this operator HAS, and rotating onto a deployment they lack turns
+    a recoverable throttle into a `DeploymentNotFound`. An empty catalogue
+    means "unknown", not "nothing", so the preset list stands.
+    """
+    preset = PROVIDER_PRESETS.get((provider_type or "").lower(), {})
+    ladder = [m for m in (preset.get("exhaustion_ladder") or []) if m]
+    if not ladder:
+        return []
+    catalogue = {(m or {}).get("id", "") for m in (available_models or [])}
+    catalogue.discard("")
+    if not catalogue:
+        return ladder
+    return [m for m in ladder if m in catalogue]
+
+
 # ── Complexity map for all agent keys ────────────────────────────────
 # iter-13.76 — Split first-pass GENERATION (Sonnet / medium) from
 # REGENERATION (Opus / high) on the user's two highest-cost stages
@@ -468,12 +525,26 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     # gate before an operator is told the build is production-ready, and
     # its re-plan round is the pipeline's one chance to repair a manifest
     # the Coder already failed to fix.
-    "tools.transformer.coder":           "high",
+    #
+    # iter-20 — Coder / Verifier / Planner promoted high -> critical.
+    #
+    # On this operator's Azure account `high` resolves to gpt-5 and
+    # `critical` to gpt-5.1, so the strongest deployment they pay for was
+    # never reached by the agents doing the migration itself — it was only
+    # ever touched as a 429 rotation target. Since the account is a paid
+    # key that should be spent top-down (and now degrades DOWN the whole
+    # account before any local model is used — see `exhaustion_ladder`),
+    # the agents that write and judge the migrated code start at the top.
+    #
+    # Light agents below are deliberately NOT promoted: starting a
+    # classification or gate call on the flagship drains the same quota
+    # the Coder needs, and brings the exhaustion point forward.
+    "tools.transformer.coder":           "critical",
     "tools.transformer.pattern":         "high",
     "tools.transformer.devops_expert":   "critical",
     "tools.transformer.devops_audit":    "critical",
-    "tools.transformer.verifier":        "high",
-    "tools.transformer.planner":         "high",
+    "tools.transformer.verifier":        "critical",
+    "tools.transformer.planner":         "critical",
     "tools.transformer.context_manager": "medium",
     "tools.transformer.validator":       "medium",
     "tools.transformer.super_agent":     "low",
@@ -492,8 +563,10 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     "codegen.super_agent":          "high",
     "codegen.context_manager":      "high",
     "codegen.planner":              "high",
-    "codegen.coder_be":             "high",
-    "codegen.coder_fe":             "high",
+    # iter-20 — the two agents that actually write source, promoted to
+    # `critical` for the same reason as their tools.transformer twins.
+    "codegen.coder_be":             "critical",
+    "codegen.coder_fe":             "critical",
     "codegen.verifier":             "medium",
     "codegen.reviewer":             "medium",
     "codegen.tester":               "medium",
@@ -1223,6 +1296,11 @@ async def resolve_model(
         "tier_siblings": tier_siblings(
             ptype, complexity, model_id, provider.get("models"),
         ),
+        # iter-20 — the account-wide descent order, resolved here so the
+        # 429 path does not have to re-read the provider row mid-call.
+        # Confined to this operator's own catalogue for the same reason
+        # `tier_siblings` is.
+        "exhaustion_ladder": exhaustion_ladder(ptype, provider.get("models")),
         "provider_id": provider.get("id", ""),
     }
 
@@ -1465,6 +1543,19 @@ async def fabric_chat(
             _remaining_siblings = list(_siblings)
             _sleeps_used = 0
             _roomier_tried = False
+            # iter-20 — the account-wide descent, tried after the tier's
+            # own siblings and before any sleep. Starts below the current
+            # model so a `critical` agent degrades 5.1 -> 5 -> 4.1 rather
+            # than re-trying rungs it has already passed, and excludes the
+            # siblings so the two remedies do not duplicate each other.
+            # An explicit model_override names one specific model, so
+            # descending would silently substitute a different one — the
+            # same reason tier rotation is disabled for an override.
+            _ladder = [] if model_override else list(_meta.get("exhaustion_ladder") or [])
+            _remaining_ladder = _ladder_below(_ladder, model_id, _siblings)
+            # The longest Retry-After the provider quoted during this
+            # call, used as the park length if the whole account runs out.
+            _max_wait_seen = 0.0
             while True:
                 resp = await client.post(
                     f"{base_url}/chat/completions",
@@ -1531,6 +1622,44 @@ async def fabric_chat(
                     payload = apply_temperature(payload, _next, temperature)
                     continue
 
+                # iter-20 — the tier is spent. Before sleeping, DESCEND the
+                # account: a weaker Azure deployment with free quota beats
+                # both a 52-second stall and the local-Ollama fallback that
+                # waiting eventually leads to. The operator is paying for
+                # this account either way, so it should be drained before
+                # anything leaves it.
+                _max_used = max(_max_wait_seen, _wait)
+                _rung = ""
+                while _remaining_ladder:
+                    _cand = _remaining_ladder.pop(0)
+                    if _cand == model_id:
+                        continue
+                    if deployment_cooldown_remaining(_provider_row_id, _cand) <= 0:
+                        _rung = _cand
+                        break
+                if _rung:
+                    _max_wait_seen = _max_used
+                    logging.getLogger("lama.fabric").warning(
+                        "429 from %s for agent=%s — tier exhausted on %s, "
+                        "descending the account ladder to %s rather than "
+                        "waiting or leaving the provider",
+                        ptype or "provider", agent_key, model_id, _rung,
+                    )
+                    base_url = _swap_azure_deployment(base_url, model_id, _rung)
+                    model_id = _rung
+                    payload["model"] = _rung
+                    payload = apply_token_limit(payload, _rung, effective_max)
+                    payload = apply_temperature(payload, _rung, temperature)
+                    continue
+
+                # Every deployment we know about on this account is
+                # throttled. Park the whole provider so the NEXT call skips
+                # it without a round-trip, instead of every coroutine
+                # rediscovering the same thing — that rediscovery is what
+                # made the 429 storm.
+                if _ladder:
+                    mark_provider_parked(_provider_row_id, _max_used)
+
                 if _sleeps_used >= _RATE_LIMIT_MAX_RETRIES:
                     break
                 _sleeps_used += 1
@@ -1545,6 +1674,10 @@ async def fabric_chat(
                 call_status = "error"
                 error_msg = f"HTTP {resp.status_code}: {resp.text[:300]}"
                 raise RuntimeError(error_msg)
+            # iter-20 — the account answered. If it was parked, this call
+            # was the probe: clear the park so ALL traffic returns to the
+            # paid provider immediately rather than draining the park.
+            clear_provider_park(_provider_row_id)
             data = resp.json()
             choice = data["choices"][0]
             content = choice["message"]["content"] or ""
@@ -1798,6 +1931,96 @@ def deployment_cooldown_remaining(provider_id: str, model_id: str) -> float:
     return max(0.0, until - time.time())
 
 
+# ──────────────────────────────────────────────────────────────────────
+# iter-20 — Provider-level park (circuit breaker).
+#
+# `_DEPLOYMENT_COOLDOWN` is per-deployment: it routes around ONE throttled
+# model. When an entire account is rate-limited, every call still paid a
+# full round-trip to rediscover that — which is what produced the 429
+# storm in the operator's logs, hundreds of them, each costing a request
+# and a `Retry-After` wait before the failover even began.
+#
+# A park records "this whole provider is out for N seconds" so subsequent
+# calls skip it with ZERO HTTP traffic and go straight to the next
+# provider (locally, Ollama). The first call after the window is a PROBE:
+# if it succeeds the park clears and all traffic returns to the paid
+# account, which is the operator's stated preference; if it 429s again the
+# park is re-armed at double the length, capped.
+#
+# Deliberately in-process and not persisted, for the same reason the
+# deployment cooldown is not: it describes THIS worker's traffic, and a
+# stale park surviving a restart would strand an account that had since
+# recovered.
+# ──────────────────────────────────────────────────────────────────────
+_PROVIDER_PARK: Dict[str, float] = {}
+_PROVIDER_PARK_STREAK: Dict[str, int] = {}
+
+# A park shorter than this is not worth the bookkeeping — the deployment
+# cooldown already covers brief throttles.
+_PROVIDER_PARK_FLOOR_SEC = 60.0
+_PROVIDER_PARK_CAP_SEC = 900.0
+
+
+def mark_provider_parked(provider_id: str, seconds: float = 0.0) -> float:
+    """Park a whole provider; returns the park length actually applied.
+
+    `seconds` is normally the longest `Retry-After` the provider itself
+    quoted, so the wait is the provider's own stated remedy rather than a
+    number we invented. It is floored (a 5s park saves nothing the
+    deployment cooldown does not already) and doubled on each consecutive
+    park, so an account that keeps refusing is probed with decreasing
+    frequency instead of being hammered.
+    """
+    key = provider_id or "__default__"
+    streak = _PROVIDER_PARK_STREAK.get(key, 0)
+    base = max(float(seconds or 0.0), _PROVIDER_PARK_FLOOR_SEC)
+    park = min(base * (2 ** streak), _PROVIDER_PARK_CAP_SEC)
+    _PROVIDER_PARK[key] = time.time() + park
+    _PROVIDER_PARK_STREAK[key] = streak + 1
+    logging.getLogger("lama.fabric").warning(
+        "iter-20: every deployment on provider=%s is throttled — parking it "
+        "for %.0fs (consecutive park #%d); traffic falls back to the next "
+        "provider until then",
+        key, park, streak + 1,
+    )
+    return park
+
+
+def provider_park_remaining(provider_id: str) -> float:
+    """Seconds left on this provider's park; 0.0 when it is available."""
+    key = provider_id or "__default__"
+    until = _PROVIDER_PARK.get(key, 0.0)
+    left = max(0.0, until - time.time())
+    if left <= 0.0 and key in _PROVIDER_PARK:
+        # Expired. Drop the row but KEEP the streak: the next call is a
+        # probe, and if it fails the park must resume at the longer
+        # interval rather than restarting at the floor.
+        _PROVIDER_PARK.pop(key, None)
+    return left
+
+
+def clear_provider_park(provider_id: str) -> None:
+    """A call succeeded — the account has recovered. Reset everything.
+
+    Resetting the streak too is what lets the next incident start again at
+    the short floor instead of inheriting an old escalation.
+    """
+    key = provider_id or "__default__"
+    had = _PROVIDER_PARK.pop(key, None) is not None or _PROVIDER_PARK_STREAK.pop(key, 0) > 0
+    if had:
+        logging.getLogger("lama.fabric").info(
+            "iter-20: provider=%s answered again — park cleared, traffic returns",
+            key,
+        )
+    _PROVIDER_PARK_STREAK.pop(key, None)
+
+
+def reset_provider_parks() -> None:
+    """Test hook — clear all park state."""
+    _PROVIDER_PARK.clear()
+    _PROVIDER_PARK_STREAK.clear()
+
+
 def _context_window(provider_type: str, model_id: str) -> int:
     """Published context window for a model, from its preset catalogue.
 
@@ -1828,6 +2051,31 @@ def _roomiest_sibling(provider_type: str, current: str, candidates: List[str]) -
         if ctx > best_ctx:
             best, best_ctx = c, ctx
     return best
+
+
+def _ladder_below(ladder: List[str], current: str, exclude: List[str]) -> List[str]:
+    """The ladder entries strictly WEAKER than `current`, in descent order.
+
+    iter-20 — starting the descent below the current rung matters: an
+    agent already running on gpt-5 must not "descend" to gpt-5.1, which
+    it either just came from or was never entitled to. When `current` is
+    not on the ladder at all (a deployment the operator named themselves)
+    the whole ladder is offered, since we have no position to descend
+    from and any free deployment beats leaving the account.
+
+    `exclude` drops the tier siblings, which the caller has already tried
+    — rotation and descent are separate remedies and should not spend
+    each other's budget.
+    """
+    if not ladder:
+        return []
+    skip = {s for s in (exclude or []) if s}
+    skip.add(current)
+    try:
+        start = ladder.index(current) + 1
+    except ValueError:
+        start = 0
+    return [m for m in ladder[start:] if m not in skip]
 
 
 def _swap_azure_deployment(base_url: str, old_model: str, new_model: str) -> str:
@@ -1914,50 +2162,80 @@ async def fabric_chat_with_failover(
     pre_agent = await ac_col.find_one({"key": agent_key}, {"_id": 0})
     pinned_id = (pre_agent or {}).get("provider_id", "") or ""
 
+    # iter-20 — if the primary provider is PARKED (every deployment on the
+    # account throttled within the last window), skip it entirely rather
+    # than spending a round-trip to rediscover that. This is the fix for
+    # the 429 storm: previously each of hundreds of in-flight calls paid
+    # its own request and Retry-After wait before failing over.
+    #
+    # The park expires on its own, and `provider_park_remaining` reports 0
+    # once it has — so the first call after the window goes to Azure as
+    # normal and acts as the probe.
+    _primary_row = await mp_col.find_one(
+        {"id": pinned_id, "is_active": True}, {"_id": 0},
+    ) if pinned_id else None
+    if _primary_row is None:
+        _primary_row = await mp_col.find_one(
+            {"is_default": True, "is_active": True}, {"_id": 0},
+        )
+    _parked = provider_park_remaining((_primary_row or {}).get("id", ""))
+
     # First attempt — whatever resolve_model picks (pinned provider_id first,
     # else the default provider).
     attempts: List[Dict[str, str]] = []
     _first_error_was_rate_limit = False
-    try:
-        return await fabric_chat(
-            messages=messages, agent_key=agent_key, project_id=project_id,
-            model_override=model_override, max_tokens=max_tokens,
-            temperature=temperature, timeout=timeout,
-            response_format=response_format,
+    first_provider = None
+
+    if _parked:
+        logging.getLogger("lama.fabric").info(
+            "iter-20: primary provider %s is parked for another %.0fs — routing "
+            "agent=%s to the next provider with no round-trip",
+            (_primary_row or {}).get("name") or "?", _parked, agent_key,
         )
-    except Exception as exc:
-        msg = str(exc)
-        # Only failover for *recoverable* errors. Bugs, 5xx and timeouts get
-        # re-raised so they're not silently masked.
-        #
-        # A rate limit is recoverable too, but differently: `fabric_chat` has
-        # already waited and retried it a bounded number of times before the
-        # error reaches here, so by now the provider is persistently throttled.
-        # Falling over lets the wave finish; the pin is released afterwards on
-        # the success path so the operator's primary stays primary.
-        # iter-18.3 — context/output overflow joins the recoverable set.
-        # It cannot clear by waiting, but a different provider (or the
-        # local Ollama fallback) may have the headroom to serve it.
-        if not (_is_billing_error(msg) or _is_auth_error(msg)
-                or _is_rate_limit_error(msg) or _is_context_error(msg)):
-            raise
-        # Record which provider failed first so the user sees the chain.
-        if pinned_id:
-            first_provider = await mp_col.find_one(
-                {"id": pinned_id, "is_active": True}, {"_id": 0}
-            ) or await mp_col.find_one(
-                {"is_default": True, "is_active": True}, {"_id": 0}
-            )
-        else:
-            first_provider = await mp_col.find_one(
-                {"is_default": True, "is_active": True}, {"_id": 0}
-            )
+        first_provider = _primary_row
         attempts.append({
-            "provider": (first_provider or {}).get("name") or "default",
-            "type":     (first_provider or {}).get("provider_type", "openrouter"),
-            "error":    msg,
+            "provider": (_primary_row or {}).get("name") or "default",
+            "type":     (_primary_row or {}).get("provider_type", ""),
+            "error":    (
+                f"skipped — every deployment on this account was throttled; "
+                f"parked for another {_parked:.0f}s"
+            ),
         })
-        _first_error_was_rate_limit = _is_rate_limit_error(msg)
+        # A park is a throttle, so no pin is written on the way out — the
+        # next call after the window returns to the primary on its own.
+        _first_error_was_rate_limit = True
+    else:
+        try:
+            return await fabric_chat(
+                messages=messages, agent_key=agent_key, project_id=project_id,
+                model_override=model_override, max_tokens=max_tokens,
+                temperature=temperature, timeout=timeout,
+                response_format=response_format,
+            )
+        except Exception as exc:
+            msg = str(exc)
+            # Only failover for *recoverable* errors. Bugs, 5xx and timeouts get
+            # re-raised so they're not silently masked.
+            #
+            # A rate limit is recoverable too, but differently: `fabric_chat` has
+            # already waited and retried it a bounded number of times before the
+            # error reaches here, so by now the provider is persistently throttled.
+            # Falling over lets the wave finish; the pin is released afterwards on
+            # the success path so the operator's primary stays primary.
+            # iter-18.3 — context/output overflow joins the recoverable set.
+            # It cannot clear by waiting, but a different provider (or the
+            # local Ollama fallback) may have the headroom to serve it.
+            if not (_is_billing_error(msg) or _is_auth_error(msg)
+                    or _is_rate_limit_error(msg) or _is_context_error(msg)):
+                raise
+            # Record which provider failed first so the user sees the chain.
+            first_provider = _primary_row
+            attempts.append({
+                "provider": (first_provider or {}).get("name") or "default",
+                "type":     (first_provider or {}).get("provider_type", "openrouter"),
+                "error":    msg,
+            })
+            _first_error_was_rate_limit = _is_rate_limit_error(msg)
 
     # Walk every other active provider, skipping ANY id we already tried
     # (both the default AND the pre-existing pin — otherwise a pinned-but-
@@ -2033,6 +2311,34 @@ async def fabric_chat_with_failover(
                 # erased a DELIBERATE operator pin whenever a call happened
                 # to fail, which was never the intent.
                 raise
+
+    # iter-20 — We skipped the primary because it was parked, and no other
+    # provider could serve the call. On a single-provider install that is
+    # EVERY provider, so honouring the park here would take the account
+    # offline for the whole window rather than merely deprioritising it.
+    #
+    # A park is an optimisation — avoid a round-trip we expect to fail —
+    # not a policy. When there is nothing else left, a likely 429 is
+    # strictly better than a certain CreditError, so try it anyway.
+    if _parked:
+        logging.getLogger("lama.fabric").warning(
+            "iter-20: provider %s is parked but no other provider could serve "
+            "agent=%s — trying the parked primary rather than failing outright",
+            (_primary_row or {}).get("name") or "?", agent_key,
+        )
+        try:
+            return await fabric_chat(
+                messages=messages, agent_key=agent_key, project_id=project_id,
+                model_override=model_override, max_tokens=max_tokens,
+                temperature=temperature, timeout=timeout,
+                response_format=response_format,
+            )
+        except Exception as exc:
+            attempts.append({
+                "provider": (_primary_row or {}).get("name") or "default",
+                "type":     (_primary_row or {}).get("provider_type", ""),
+                "error":    str(exc),
+            })
 
     # Every provider exhausted.
     raise CreditError(attempts)

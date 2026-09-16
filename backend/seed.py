@@ -8822,6 +8822,27 @@ TRANSFORMER_TIER_MIGRATION_19: List[Dict[str, Any]] = [
     {"key": "tools.transformer.tester",          "old_c": "medium", "new_c": "low"},
 ]
 
+# iter-20 — Promote the agents that WRITE and JUDGE migrated code to the
+# top of the ladder.
+#
+# On the operator's Azure account `high` resolves to gpt-5 and `critical`
+# to gpt-5.1, so the flagship deployment they pay for was never reached by
+# the Coder at all — only ever as a 429 rotation target. Their instruction
+# was to spend the paid key top-down, and iter-20 also makes the account
+# degrade DOWN its own deployments before any local model is used, so
+# starting high no longer risks stranding work on Ollama.
+#
+# Guarded on the iter-19 value (`high`) for the same reason every tier
+# migration here is: it rewrites a SEED DEFAULT, never an operator's
+# deliberate Console choice.
+HEAVY_AGENT_TIER_MIGRATION_20: List[Dict[str, Any]] = [
+    {"key": "tools.transformer.coder",    "old_c": "high", "new_c": "critical"},
+    {"key": "tools.transformer.verifier", "old_c": "high", "new_c": "critical"},
+    {"key": "tools.transformer.planner",  "old_c": "high", "new_c": "critical"},
+    {"key": "codegen.coder_be",           "old_c": "high", "new_c": "critical"},
+    {"key": "codegen.coder_fe",           "old_c": "high", "new_c": "critical"},
+]
+
 # The api-version stored on an existing Azure provider row predates the
 # gpt-5.x / o-series deployments and `response_format: json_object`, so a
 # correctly-routed critical-tier call still failed at the api-version gate.
@@ -8881,14 +8902,18 @@ async def prune_retired_prompts_19():
     return removed
 
 
-async def migrate_transformer_tiers_19():
-    """Reconcile `agent_configs.complexity` with AGENT_COMPLEXITY for the
-    transformer agents, preserving operator overrides."""
+async def _apply_tier_migration(specs: List[Dict[str, Any]], label: str):
+    """Reconcile `agent_configs.complexity` with AGENT_COMPLEXITY.
+
+    Only rewrites a row that still holds the OLD SEED DEFAULT, so an
+    operator's deliberate Console choice is never overwritten — the same
+    guard `migrate_srs_codegen_tiers_13_76` uses.
+    """
     from db import agent_configs as ac_col
     from datetime import datetime, timezone
     now = datetime.now(timezone.utc).isoformat()
     applied: List[Dict[str, Any]] = []
-    for spec in TRANSFORMER_TIER_MIGRATION_19:
+    for spec in specs:
         row = await ac_col.find_one({"key": spec["key"]}, {"_id": 0})
         if not row:
             continue  # seed_agents inserts it with the new default already
@@ -8900,10 +8925,33 @@ async def migrate_transformer_tiers_19():
             applied.append({"key": spec["key"], "complexity": spec["new_c"]})
     if applied:
         try:
-            print(f"[seed] iter-19 — reconciled transformer tiers: {applied}")
+            print(f"[seed] {label}: {applied}")
         except Exception:
             pass
     return applied
+
+
+async def migrate_transformer_tiers_19():
+    """Reconcile `agent_configs.complexity` with AGENT_COMPLEXITY for the
+    transformer agents, preserving operator overrides."""
+    return await _apply_tier_migration(
+        TRANSFORMER_TIER_MIGRATION_19,
+        "iter-19 — reconciled transformer tiers",
+    )
+
+
+async def migrate_heavy_agent_tiers_20():
+    """Promote the agents that write and judge migrated code to `critical`.
+
+    Without this an existing database keeps the iter-19 `high` rows, and
+    `resolve_model` reads the ROW before AGENT_COMPLEXITY — so the code
+    change alone would have no effect on the operator's live install, which
+    is exactly the install that reported gpt-5.1 never being used.
+    """
+    return await _apply_tier_migration(
+        HEAVY_AGENT_TIER_MIGRATION_20,
+        "iter-20 — promoted code-writing agents to critical",
+    )
 
 
 async def migrate_azure_api_version_19():
@@ -9008,6 +9056,10 @@ async def run_seed():
     await migrate_arch_agent_tiers()
     await migrate_srs_codegen_tiers_13_76()
     await migrate_transformer_tiers_19()
+    # iter-20 — must run AFTER the iter-19 reconcile: it is guarded on the
+    # `high` value that migration writes, so running it first would find
+    # nothing to promote on a database still carrying pre-iter-19 rows.
+    await migrate_heavy_agent_tiers_20()
     # iter-13.68 — Multi-tenant baseline. Idempotent. Backfills any
     # legacy projects without `tenant_id` to the default tenant.
     await seed_tenancy()

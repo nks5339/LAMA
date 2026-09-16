@@ -68,11 +68,15 @@ select = ["E9", "F", "ARG"]
 # per-language branches share.
 "routes/codegen.py" = ["ARG001"]
 
-# _structural_check(..., target_stack) — the checks that consult the target
-# stack are selected by `detected_stack`; the parameter keeps the signature
-# aligned with the sibling verifier entry points.
 # _run_multi_agent_transformation(..., resume) is dispatched through
 # BackgroundTasks.add_task, which supplies it positionally.
+#
+# iter-20 — `_structural_check(..., target_stack)` was listed here as an
+# unused parameter kept "for signature symmetry". That is no longer true:
+# the residue rule now SUBTRACTS the target's own vocabulary before
+# flagging, so `jakarta.ws.rs` is residue for a Spring Boot target and
+# legitimate for a Quarkus one. It was only ever unread because the
+# caller's find_one used the wrong key and passed {}.
 "routes/tools.py" = ["ARG001"]
 
 # _ensure_bus_matrix(project_id, proj) — `proj` is the already-fetched
