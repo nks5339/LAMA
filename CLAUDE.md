@@ -57,6 +57,20 @@ through the 5 stages:
   `coder → devops_expert → devops_expert +raw build log → regenerator`
   (`_ESCALATION_LADDER`), capped at 5 iterations. Target-stack idioms live
   in `MIGRATION_PLAYBOOKS` — adding a language is one dict entry, not code.
+  **iter-21:** the target manifest is derived from the migrated code's
+  IMPORTS (`backend/dependency_resolver.py`), the way an IDE resolves an
+  unresolved import — JDK check, then a curated table, then Maven
+  Central's `fc:` search scoped by groupId prefix (a bare `fc:` query is
+  useless for popular classes: 23k matches, canonical artifact not in the
+  first 20). Two rules are load-bearing. `JDK_PACKAGE_ROOTS` lists the
+  `javax.*` packages that are Java SE and must **never** be renamed to
+  `jakarta.*` — `javax.security.auth.x500` broke a real build and no
+  dependency can fix it; note `javax.transaction` moved but
+  `javax.transaction.xa` did not, so matching is longest-prefix. And an
+  import under `SOURCE_STACK_ROOTS` is **never** satisfied with a
+  dependency: doing so turns a red build green while the old framework is
+  still in use. `mvn` runs with `-U` (a cached negative resolution
+  otherwise survives the pom repair for 24h).
   **iter-20.1: export is NOT gated.** iter-20 made
   `download_transformed_code` / `push_transformation_to_github` return 409
   unless the build was green; that was reverted on the operator's
