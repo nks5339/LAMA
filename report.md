@@ -1,14 +1,14 @@
 # LAMA — Function Status Report
 
-**Generated** 2026-09-16 · branch `refactor/zero-waste` · commit `391a1e2`+
-**Scope** the whole application — **1,552 backend functions** and **365
+**Generated** 2026-09-16 · branch `feat/direct-transform` · commit `dcf7ad0`+
+**Scope** the whole application — **1,724 backend functions** and **352
 frontend exports**, measured separately and then against each other.
 
-This issue supersedes the previous one. It re-measures everything after
-iter-20 (the migration-fidelity, Azure-ladder and export-gate work), and it
-covers the **frontend at function level** for the first time — earlier
-issues reported frontend *suites* but never asked whether every exported
-symbol is actually reachable. That question found real dead code.
+This issue supersedes the previous one. It re-measures everything after the
+**Direct Transform** integration (the fourth Tools section, `routes/dcte.py`
++ `backend/dcte/`), and it adds a class of evidence the earlier issues never
+had: the migration output is **compiled with a real JDK and Maven**, not just
+inspected. That found four defects the unit suites could not see.
 
 ---
 
@@ -23,13 +23,13 @@ Every status below comes from something I ran, not from reading the code:
 
 | Evidence | Method | Result |
 |---|---|---|
-| **Backend execution trace** | `sys.setprofile` over the full suite, recording every backend frame that really ran | 1,172 passed / 129 skipped · **692 frames observed** |
-| **Frontend unit + contract suite** | Jest 27 + React Testing Library 16, `yarn test:ci` | **229 passed / 13 suites** · 0 failed |
-| **Live HTTP sweep** | Real app + real Mongo, every `GET` I could address | **113 routes · 0 responses ≥ 500** |
-| **Reference analysis (backend)** | AST over `Name` / `Attribute` / `ImportFrom` / string constants, including test files and framework decorators | **0 orphans of 1,552** |
-| **Reference analysis (frontend)** | Every exported symbol vs. every reference across `src/` | **0 unreferenced of 365** |
-| **API contract** | Every URL `lib/api.js` calls, matched against the live OpenAPI schema | **194 URLs · 0 mismatches** |
-| **Live model round-trips** | Real calls to your Azure account | gpt-5.1 serving, detailed below |
+| **Backend execution trace** | `sys.setprofile` over the full suite, recording every backend frame that really ran | 1,250 passed / 129 skipped · **907 frames observed** |
+| **Frontend unit + contract suite** | Jest 27 + React Testing Library 16, `yarn test:ci` | **245 passed / 15 suites** · 0 failed |
+| **Live HTTP sweep** | Real app + real Mongo, authenticated, every `GET` I could address | **102 routes · 0 responses ≥ 500** |
+| **Live pipeline run** | A real Direct Transform job over HTTP, both plugins | completed 100%, output **compiled by `mvn`** |
+| **Reference analysis (backend)** | AST over `Name` / `Attribute` / `ImportFrom` / string constants, plus decorator registration and frontend text | **0 orphans of 1,724** |
+| **Reference analysis (frontend)** | Every exported symbol vs. every reference across `src/` | **0 unreferenced of 352** |
+| **API contract** | Every URL `lib/api.js` calls, matched against the live OpenAPI schema | **231 URLs · 0 mismatches** |
 
 ### Status vocabulary
 
@@ -49,115 +49,134 @@ Every status below comes from something I ran, not from reading the code:
 
 | | Count | Share |
 |---|---:|---:|
-| ✅ Executed — proven working | **514** | 33.1% |
-| 🟡 Reachable — no fault found | 754 | 48.6% |
-| ⏸️ Mutating — not exercised | 167 | 10.8% |
-| ⚪ GET, no fixture | 117 | 7.5% |
+| ✅ Executed — proven working | **627** | 36.4% |
+| 🟡 Reachable — no fault found | 814 | 47.2% |
+| ⏸️ Mutating — not exercised | 166 | 9.6% |
+| ⚪ GET, no fixture | 117 | 6.8% |
 | ❌ Orphan | **0** | 0.0% |
-| **Total** | **1,552** | |
+| **Total** | **1,724** | |
 
-> **The basis changed since the last issue** and these counts are not
-> comparable to it. This inventory includes **nested functions and class
-> methods**, which the previous one did not — hence 1,552 where the last
-> issue said 1,524, and a lower `EXECUTED` share against a larger
-> denominator. Nothing regressed: raw frames observed went **up**,
-> 663 → 692.
+Executed is up from 514 to 627 (+113) and the proportion from 33.1% to
+36.4%. The whole gain is Direct Transform: its 174 functions arrived with
+three unit suites and an E2E suite that drives the REST layer, so they
+landed already traced rather than inferred.
 
-**Nothing is marked "not working."** Across 113 live HTTP routes and 1,172
-tests, no function raised, no endpoint returned 5xx, and the backend boots
-with zero tracebacks and zero ERROR lines.
+> **The basis is the same as the previous issue** — nested functions and
+> class methods are counted, so these numbers are comparable to it. The
+> total rose 1,552 → 1,724 (+172) from the new subsystem.
 
 ## By subsystem
 
 | Subsystem | Total | ✅ Executed | 🟡 Reachable | ⏸️ Mutating | ⚪ GET-unhit | ❌ Orphan |
 |---|---:|---:|---:|---:|---:|---:|
-| `routes/` | 867 | 246 | 340 | 167 | 114 | **0** |
-| core (top-level) | 261 | 113 | 145 | 0 | 3 | **0** |
-| `kb/` | 231 | 85 | 146 | 0 | 0 | **0** |
-| `codegen/` | 60 | 17 | 43 | 0 | 0 | **0** |
-| `fabric/` | 58 | 43 | 15 | 0 | 0 | **0** |
+| `routes/` | 918 | 274 | 364 | 166 | 114 | **0** |
+| `core (top-level)` | 259 | 107 | 149 | 0 | 3 | **0** |
+| `kb/` | 234 | 84 | 150 | 0 | 0 | **0** |
+| **`dcte/`** | **131** | **104** | 27 | 0 | 0 | **0** |
+| `codegen/` | 62 | 16 | 46 | 0 | 0 | **0** |
+| `fabric/` | 58 | 41 | 17 | 0 | 0 | **0** |
 | `datamodel/` | 39 | 0 | 39 | 0 | 0 | **0** |
-| `integrations/` | 23 | 2 | 21 | 0 | 0 | **0** |
+| `integrations/` | 23 | 1 | 22 | 0 | 0 | **0** |
 
-`datamodel/` shows 0 executed because its generators are reached only
-through Stage-2 route handlers, which are all `POST` — they are
-**⏸️ Mutating**, not broken. `fabric/` is the best-covered subsystem at 74%
-executed, which is what you want from the module every LLM call passes
-through.
+**`dcte/` is now the best-covered subsystem at 79.4% executed**, ahead of
+`fabric/` at 70.7%. That is a property of how it was built, not of how
+important it is: the engine is sink-driven and takes no Mongo handle, so a
+test can run a whole migration in-process. `datamodel/` still shows 0
+executed because its generators are reached only through Stage-2 `POST`
+handlers — **⏸️ Mutating**, not broken.
 
 ## Largest modules
 
 | Module | Fns | ✅ | 🟡 | ⏸️ | ⚪ | ❌ |
 |---|---:|---:|---:|---:|---:|---:|
 | `routes/tools.py` | 185 | 94 | 53 | 21 | 17 | **0** |
-| `routes/codegen.py` | 178 | 67 | 74 | 25 | 12 | **0** |
-| `routes/architecture.py` | 99 | 3 | 74 | 16 | 6 | **0** |
-| `routes/srs.py` | 86 | 52 | 21 | 10 | 3 | **0** |
-| `routes/kb.py` | 82 | 4 | 30 | 20 | 28 | **0** |
+| `routes/codegen.py` | 178 | 65 | 76 | 25 | 12 | **0** |
+| `routes/architecture.py` | 99 | 2 | 75 | 16 | 6 | **0** |
+| `routes/srs.py` | 86 | 51 | 22 | 10 | 3 | **0** |
+| `routes/kb.py` | 82 | 3 | 31 | 20 | 28 | **0** |
 | `routes/living.py` | 59 | 0 | 41 | 12 | 6 | **0** |
-| `factory_orchestrator.py` | 51 | 16 | 35 | 0 | 0 | **0** |
-| `fabric/model_fabric.py` | 41 | 37 | 4 | 0 | 0 | **0** |
-| `routes/datamodel.py` | 40 | 4 | 15 | 16 | 5 | **0** |
-| `llm.py` | 34 | 20 | 14 | 0 | 0 | **0** |
+| `factory_orchestrator.py` | 51 | 13 | 38 | 0 | 0 | **0** |
+| **`routes/dcte.py`** | **43** | **31** | 12 | 0 | 0 | **0** |
+| `fabric/model_fabric.py` | 41 | 35 | 6 | 0 | 0 | **0** |
+| `routes/datamodel.py` | 40 | 0 | 20 | 15 | 5 | **0** |
+| `llm.py` | 34 | 19 | 15 | 0 | 0 | **0** |
 | `routes/console.py` | 34 | 2 | 4 | 17 | 11 | **0** |
-| `arch_deterministic.py` | 29 | 1 | 28 | 0 | 0 | **0** |
+| `kb/journey_materializer.py` | 29 | 24 | 5 | 0 | 0 | **0** |
+| `arch_deterministic.py` | 29 | 0 | 29 | 0 | 0 | **0** |
+| `routes/pipeline.py` | 29 | 10 | 9 | 7 | 3 | **0** |
+| `kb/owl_extractor.py` | 27 | 22 | 5 | 0 | 0 | **0** |
 
-`routes/tools.py` is the most-exercised large module (94 of 185 traced) —
-it holds the Transformer, which iter-20 rebuilt. **`routes/living.py` shows
-0 executed**: Stage 5 has no unit suite and every entry point is a `POST`.
-It is the least-verified subsystem in the backend and the honest place to
-look first if something misbehaves.
+`routes/dcte.py` is the only route module with **zero** ⏸️ and **zero** ⚪:
+its E2E suite drives the mutating handlers with FakeCollection, so `POST
+/jobs`, `/start`, `/pause`, `/cicd` and `DELETE /jobs/{id}` are observed
+rather than assumed. Every other route module's `POST` handlers remain
+deliberately unexercised.
+
+**`routes/living.py` still shows 0 executed.** Stage 5 has no unit suite and
+every entry point is a `POST`. It is the least-verified subsystem in the
+backend and the honest place to look first if something misbehaves.
 
 ## Routes
 
 | | Count |
 |---|---:|
-| Distinct paths | **285** |
-| Path + method operations | **309** |
-| `GET` | 128 |
-| `POST` | 147 |
-| `PUT` / `PATCH` / `DELETE` | 15 / 7 / 12 |
+| Distinct paths | **300** |
+| Path + method operations | **326** |
+| `GET` | 137 |
+| `POST` | 154 |
+| `PUT` / `PATCH` / `DELETE` | 15 / 7 / 13 |
+
+Direct Transform contributed 15 paths / 17 operations. 285 → 300.
 
 | Sweep | Routes | ≥ 500 |
 |---|---:|---:|
-| Parameterless `GET` | 31 | **0** |
-| Project-scoped `GET` (`{project_id}`) | 54 | **0** |
-| All addressable `GET` (incl. `{transform_id}`) | **113** | **0** |
+| Addressable `GET`, authenticated | **102** | **0** |
+| Unaddressable (no fixture for a path param) | 35 | — |
+
+Status distribution across the 102: **87 × 200**, 10 × 404, 3 × 400,
+2 × 422 — every non-200 a deliberate, typed refusal (unknown id, bad
+argument), none an unhandled failure. The sweep authenticates as the seeded
+super-admin; the previous issue's run was anonymous, which is why it could
+address 113 routes on a smaller schema but got 401s on the project-scoped
+ones.
+
+## App boot
+
+Booted `uvicorn server:app` against real Mongo three times during this pass
+(before the fix, after each fix). Every boot: **0 tracebacks, 0 `ERROR`
+lines**, `GET /api/health` → 200.
 
 ---
 
 # Part 2 — Frontend
 
-Measured at function level for the first time. Earlier issues reported the
-suite count but never asked whether every exported symbol is reachable —
-the frontend equivalent of the backend orphan scan.
-
 ## Inventory
 
 | | Count |
 |---|---:|
-| Source files (`.js/.jsx/.ts/.tsx`) | 78 |
-| Test files | 13 |
-| **Exported symbols** | **365** |
-| Exports referenced by a test | 56 |
+| Source files (`.js/.jsx/.ts/.tsx`) | 80 |
+| Test files | 15 |
+| **Exported symbols** | **352** |
+| Exports referenced by a test | 74 |
 | **Exports referenced nowhere** | **0** |
-| Pages | 17 |
-| Components | 51 |
-| Distinct `data-testid` | **547** |
+| Pages | 18 |
+| Components | 45 |
+| Distinct `data-testid` | **751** |
 
 | Directory | Exports | Tested | ❌ Unreferenced |
 |---|---:|---:|---:|
-| `lib/` | 239 | 8 | **0** |
-| `components/` | 90 | 31 | **0** |
-| `pages/` | 17 | 1 | **0** |
-| `hooks/` | 14 | 14 | **0** |
+| `lib/` | 255 | 25 | **0** |
+| `components/` | 55 | 31 | **0** |
+| `hooks/` | 19 | 16 | **0** |
+| `pages/` | 18 | 1 | **0** |
 | `state/` | 4 | 1 | **0** |
-| `App.js` | 1 | 1 | **0** |
+| `App.js` | 1 | 0 | **0** |
 
-`hooks/` is fully covered — 14 of 14 exports have a test. `lib/` shows 8 of
-239 because the bulk of it is `api.js`: 239 thin axios wrappers, verified
-structurally instead by the API-contract check in Part 3, which is the
-right shape of evidence for a one-line wrapper.
+`lib/` grew 239 → 255 (the 14 `dcte*` helpers plus their siblings) and
+`pages/` 17 → 18. The export count fell 365 → 352 because `api.d.ts` is now
+excluded from the inventory: it *declares* `api.js`'s exports rather than
+adding new symbols, so counting both double-counted the API surface. That is
+a correction to the previous issue's method, not a removal of code.
 
 ## Suites
 
@@ -175,40 +194,43 @@ right shape of evidence for a one-line wrapper.
 | `pages/__tests__/DiscoveryV2.test.jsx` | 14 | The P0-1 regression guard |
 | `hooks/__tests__/useAutoSaveTracker.test.jsx` | 12 | The hook extracted to get recharts off the critical path |
 | `lib/__tests__/routes.test.js` | 11 | Route-chunk registry, prefetch idempotence, `cn()` merge order |
-| **`__tests__/export-gate.test.js`** | **6** | **New (iter-20)** — every export affordance sits behind the build gate |
-| **Total** | **229** | |
+| **`pages/__tests__/DirectTransform.test.jsx`** | **8** | **New** — the fourth Tools page's primary flow and its failure states |
+| **`__tests__/tools-nav-registration.test.js`** | **8** | **New** — Tools nav symmetry across all five registries |
+| `__tests__/export-gate.test.js` | 6 | Every export affordance sits behind the build gate |
+| **Total** | **245** | |
 
-### The new export-gate suite
+### The two new suites
 
-iter-20 stopped the UI offering a download the backend now refuses with a
-409. Six assertions pin it, on **source** rather than on a render:
-`Transformer.jsx` is ~5,900 lines with a large mock surface, and the
-invariant is structural. A render test proves one case; this proves there
-is no second case.
+**`DirectTransform.test.jsx`** covers the page's own behaviour: plugins load
+into the stack picker, detect fills the stacks from the fingerprint,
+create-and-start posts a well-formed job with the roots derived from service
+1, and each of three failure paths lands as a toast rather than a blank
+screen — a rejected create, a plugin list that will not load, and a job list
+that will not load. The last two exist because the page originally swallowed
+both with `.catch(() => {})`.
 
-- The page reads the backend's verdict (`download_blocked_reason`) rather
-  than recomputing it from `status` strings, so the button and the 409
-  cannot disagree.
-- The verdict is assigned with `?? null` on **every** poll, so the export
-  unblocks the moment the build goes green instead of keeping a stale
-  reason on screen.
-- All three ZIP links **and** GitHub push sit inside the gated branch.
-- The second export site (the Tester tab's "Tests ZIP") is gated too —
-  gating the kebab menu alone would have left a hole in the same gate.
-- A blocked state **explains itself** rather than showing nothing, because
-  an export that silently disappears reads as a bug.
-- Exactly **4** export call sites exist. A fifth fails the suite, so a new
-  download affordance has to be gated deliberately.
+**`tools-nav-registration.test.js`** pins registration *symmetry* rather than
+rendering. A Tools section is not wired up because its page renders; it is
+wired up when it appears in the same registries its siblings appear in. The
+suite asserts all four tools are present in the sidebar accordion in order
+(Direct Transform last), in `App.js` routes, in the `ROUTE_CHUNKS` prefetch
+registry, in the breadcrumb map and in the command palette — and that Direct
+Transform is **absent** from the collapsed rail, where Integrations is absent
+too, so that omission cannot be "fixed" into an asymmetry later.
 
 ## Static gates
 
 | Gate | Result |
 |---|---|
-| `yarn test:ci` | ✅ **229 passed** / 13 suites |
+| `yarn test:ci` | ✅ **245 passed** / 15 suites |
 | `yarn typecheck` (`tsc --noEmit`) | ✅ 0 errors |
-| `yarn lint` | ✅ **0 errors** (19 warnings, all `react-hooks/exhaustive-deps`) |
-| `yarn build` | ✅ succeeds · main bundle 322.3 kB |
-| Unreferenced export scan | ✅ **0 of 365** |
+| `yarn lint` | ✅ **0 errors** (19 warnings, all `react-hooks/exhaustive-deps`, all pre-existing) |
+| `yarn build` | ✅ succeeds · main bundle **322.87 kB** |
+| Unreferenced export scan | ✅ **0 of 352** |
+
+The main bundle grew 322.3 → 322.87 kB (**+0.57 kB**) despite adding a
+722-line page, because the route is lazy: Direct Transform ships as its own
+**24 kB** chunk, fetched on navigation.
 
 ---
 
@@ -218,92 +240,85 @@ Both halves are verified in isolation above. This is the only check that
 crosses the boundary — the one that would catch a frontend calling a route
 the backend does not serve.
 
-**Method.** Extract every URL `lib/api.js` issues — both the axios-instance
-form (`api.post("/srs/freeze", …)`, resolved against its `/api` baseURL) and
-absolute literals (`` `${API}/…` ``) — then match each against the **live**
-OpenAPI schema, checking the HTTP method too.
+**Method.** Extract every URL `lib/api.js` issues — the axios-instance form
+(`api.post("/srs/freeze", …)`, resolved against its `/api` baseURL), absolute
+literals (`` `${API}/…` ``), and the `XMLHttpRequest`/`fetch` upload paths —
+then match each against the **live** OpenAPI schema, checking the method too.
 
 | | Count |
 |---|---:|
-| URLs extracted from `lib/api.js` | **194** |
-| Backend routes available | 285 |
+| URLs extracted from `lib/api.js` | **231** |
+| Backend routes available | 300 |
 | **Mismatches** | **0** |
+| of which Direct Transform | 14 |
 
-Every URL the frontend calls resolves to a real backend route that accepts
-that method. Routes with no frontend caller are operator/script surface —
-`/api/kb/{pid}/owl-export` is the documented example, which CLAUDE.md
-records as deliberately kept with no UI button.
+All 14 `dcte*` helpers resolve to a real `/api/dcte/*` route that accepts
+their method. Routes with no frontend caller are operator/script surface —
+`/api/kb/{pid}/owl-export` is the documented example, and Direct Transform
+adds two more (`/jobs/{id}/artifact`, `/debug/env`), recorded as decision
+DT-3 in `HUMAN_INTERVENTION.md`.
 
 ---
 
 # Part 4 — Defects found and fixed in this pass
 
-Four dead frontend exports, found by the reference scan and **verified by
-hand before removal** — a scanner saying "unused" is a claim, not a finding.
+Four, all in Direct Transform, all found by **running a real job through the
+live API and compiling what came out**. None was visible to the unit suites,
+because every one of them produced output that *looked* migrated.
 
-| # | Symbol | Why it was really dead | Action |
+The proof is a real compiler. Before the fixes, `mvn -B -q -DskipTests
+compile` on the generated service exited **1**. After, it exits **0** and
+emits five class files.
+
+| # | Defect | Root cause | Fix |
 |---|---|---|---|
-| 1 | `components/ux/Cards.jsx::ActionPanel` | A sticky bottom action bar, 12 lines of JSX. No callers, no test. Its three siblings in the same file (`MetricCard`, `StepCard`, `EmptyState`) are all used and tested — it is the odd one out, not part of a symmetric family. | **Removed** |
-| 2 | `hooks/useBreakpoint.ts::useIsSmall` | I mapped the whole family before deciding: `useMediaQuery` (1 use), `useIsMobile` (10), `usePrefersReducedMotion` (2) and `useBreakpoint` (8) are all used **and** tested. `useIsSmall` had **0 uses and 0 tests**. Its module docstring advertised it, so that line went too — leaving it would have made the docstring false. | **Removed** |
-| 3 | `lib/queryClient.ts::jobPollInterval` | A React Query `refetchInterval` helper. **Nothing in the app issues a React Query query at all** — `useQuery` appears only inside `queryClient.ts`. `usePolling` is the live polling solution. This was written for a migration that was started (the provider is mounted in `App.js`) and never carried through. | **Removed** |
-| 4 | `lib/queryClient.ts::TERMINAL` | **Cascade from #3** — `jobPollInterval` was its only consumer, and `hooks/usePolling.ts` already declares an identical set. Removing #3 without this would have left a fresh orphan behind. | **Removed** |
+| 1 | `import io.helidon.security.annotations.Authenticated;` survived into the output — leaving `io.helidon` residue **and** no import for the `@PreAuthorize` the annotation above it had already become. | `_rewrite_imports` ran three regexes covering `jakarta.ws.rs`, `jakarta.inject`/`enterprise.context` and `org.eclipse.microprofile.`**config**. **11 of the 32 rows in `IMPORT_REPLACEMENTS` fall outside all three** and could never match — MicroProfile Health, Metrics and OpenAPI, and both `io.helidon.security.*` rows. They were dead lookup rows that read as working mappings. | One regex over every namespace the table names; `@PreAuthorize` added to the import-injection list. |
+| 2 | `@Value(name = "pmis.default.page.size", defaultValue = "25")` — `javac`: *"annotation @Value is missing a default value for the element 'value'"*. | `@ConfigProperty` → `@Value` was a blind token swap. MicroProfile carries the key and default as **attributes**; Spring carries them inside one placeholder string. | Translate the attributes: `@Value("${key:default}")`. Three source forms handled (`name=`+`defaultValue=`, `name=` alone, positional). |
+| 3 | `@Autowired` left stacked on the config field. Spring would look for an `int` bean and fail at startup. | `@Inject @ConfigProperty` is the MicroProfile idiom for a config field; rewritten pairwise it becomes `@Autowired @Value`. | Drop `@Inject` only when the next annotation is the config one. Plain `@Inject` still becomes `@Autowired` — pinned by its own test. |
+| 4 | A clean migration reported *"1 file still carries legacy markers"* and flagged it `needs_manual`. | The residue scan was a raw substring match. It flagged DCTE's **own** generated `Application.java`, whose Javadoc explains what happened to the Helidon entrypoint, and the `// TODO(dcte):` markers the plugin deliberately leaves. Not cosmetic: with `ai_refactor` on, every fix-up round re-sent a correct file to the model to "fix" a sentence. | Blank comments before scanning, quote-aware so a `"http://x"` literal is not mistaken for a comment opener. |
 
-> **Left in place deliberately:** the `QueryClientProvider` in `App.js`. It
-> wraps the tree with zero queries behind it, which is waste by the letter
-> of the bar — but it is a mounted foundation for a migration someone
-> intended, and removing it is a design decision, not a defect fix.
-> Recorded here so the next person inherits the knowledge rather than
-> rediscovering it.
+**Evidence, end to end.** After the fixes, a live job against the shipped
+Helidon sample: `completed` at 100%, no error; DCTE's own `scan_residual`
+reports **0 files flagged**; `mvn compile` **exit 0**. The Oracle →
+PostgreSQL plugin, same run: `completed` 100%, residue **clean**.
 
-Also fixed during the backend sweep:
+Sixteen tests pin all four in `test_iter20_dcte_migration_fidelity.py`,
+including the two that stop a fix from over-reaching: real residue in *code*
+is still caught, and ordinary `@Inject` dependency injection still becomes
+`@Autowired`.
 
-| Symbol | Defect | Action |
-|---|---|---|
-| `routes/tools.py::get_transformation_file` | Passed `file_id` straight to `ObjectId()`, which raises `bson.errors.InvalidId` on a malformed id → **HTTP 500**. Its sibling `regenerate_transformation_file` has guarded this since iter-15.10; this route was simply missed. | **Fixed** — now 400 |
-| `routes/tools.py::get_transformation_status` | Computed `download_blocked_reason` from a **projected** document that omitted `compile_green` and `build_tools`, so the gate reported "not blocked" for a job the download endpoint was correctly 409-ing. The UI would have shown a button that fails when clicked. | **Fixed** |
+### Defect 4's blast radius, stated plainly
 
-**Verified after every removal:** 229 frontend tests pass, typecheck clean,
-lint 0 errors, build succeeds, re-scan reports **0 unreferenced of 365**;
-backend 1,172 tests pass, ruff clean, **113 GET routes with 0 responses
-≥ 500**.
+Fix 4 changes what the DCTE Tester agent scores and what the AI transformer
+re-sends. It makes the gate **less** noisy, not less strict — a marker in
+executable code is still residue. The one behavioural consequence worth
+naming: files that were previously flagged and re-sent for fix-up rounds now
+pass first time, so a job with `ai_refactor=True` will make fewer LLM calls.
 
 ---
 
-# Part 5 — Live model verification
+# Part 5 — Direct Transform, verified live
 
-Real calls to your Azure account, not mocks.
+The feature integrated in this branch, exercised against the running app
+rather than described.
 
 | Check | Result |
 |---|---|
-| Test Connection | ✅ `ok: true` · **gpt-5.1** · 5,104 ms |
-| Endpoint | `…/eyq/as/api/openai/deployments/gpt-5.1` |
-| `tools.transformer.coder` resolves to | ✅ **gpt-5.1** (tier `critical`) — was gpt-5 |
-| `.verifier` / `.planner` / `.devops_expert` | ✅ **gpt-5.1** each |
-| `tools.transformer.regenerator` (new) | ✅ **gpt-5.1**, answers correctly |
-| `tools.transformer.tester` (light agent) | ✅ gpt-4.1-mini — correctly **not** promoted |
-| Exhaustion ladder, resolved from your catalogue | ✅ `gpt-5.1 → gpt-5 → gpt-4.1 → gpt-4o → gpt-5-mini → gpt-4.1-mini → gpt-4o-mini` |
-| Tier migration | ✅ applied, and idempotent on a second run |
+| Registered in the route table | ✅ 15 paths / 17 operations under `/api/dcte` |
+| Auth posture matches its three siblings | ✅ 0 route-level auth deps — same as `tools` (50/0), `console` (28/0), `integrations` (5/0), `prompts` (5/0); `admin` is 9/9 |
+| CORS | ✅ one shared `CORSMiddleware` for the whole app |
+| All four Tools sections answer | ✅ console/providers (2), integrations/catalog (23), prompts (58), dcte/plugins (2) |
+| Plugin registry | ✅ `helidon-mp-to-spring-boot-3`, `oracle-to-postgres` |
+| Detect, on the shipped sample | ✅ `helidon-mp` @ 0.92 → `spring-boot-3` |
+| **Helidon → Spring job, live** | ✅ completed 100%, 9 files, residue clean, **`mvn compile` exit 0** |
+| **Oracle → PostgreSQL job, live** | ✅ completed 100%, residue clean |
+| Function coverage | ✅ **135 of 174 executed (77.6%)** |
+| Model routing | ✅ 5 `dcte.*` agent keys, all tier-resolved; **no vendor or model string anywhere in the feature** outside a test fixture |
 
-**The residue gate, run against your real output.** The single most
-valuable measurement here: the now-armed source-stack gate was run over all
-150 generated files of your `negotiation-service` job.
-
-| | |
-|---|---|
-| Files scanned | 150 |
-| **Rejected for source-stack residue** | **7** |
-| `logback.xml`, `logging.properties` | still reference `io.helidon` |
-| 5 entity/model classes | still import `jakarta.json` / `javax.json` |
-
-All seven previously shipped with an ACCEPT verdict attached, because the
-gate that should have caught them was never executing.
-
-**A correction to the original complaint:** the generated `pom.xml` was in
-fact **clean of Helidon coordinates** — its only mention is a comment, which
-the new comment-aware scanning correctly ignores. Its real defect was
-different and nobody had named it: **zero `springdoc`**, so the Swagger you
-asked for was never added at all. The per-target playbook now requires it
-by name.
+Pipelines unaffected: stage pipeline 10 routes, Multi-Agent CodeGen 39,
+Transformer 37, Gap Analyzer 10 — and `routes/codegen.py`, `routes/tools.py`,
+`pipeline.py`, `confidence.py` and `llm.py` have **0 lines changed** on this
+branch.
 
 ---
 
@@ -311,22 +326,22 @@ by name.
 
 | Gate | Result |
 |---|---|
-| `pytest backend/tests/` | ✅ **1,172 passed** / 129 skipped |
+| `pytest backend/tests/` | ✅ **1,250 passed** / 129 skipped |
 | `ruff check backend` | ✅ clean |
-| Backend execution trace | ✅ **692 frames** observed |
-| Backend orphan scan (AST) | ✅ **0 of 1,552** |
+| Backend execution trace | ✅ **907 frames** observed |
+| Backend orphan scan (AST) | ✅ **0 of 1,724** |
 | Live boot | ✅ 0 tracebacks, 0 ERROR lines |
-| Routes registered | ✅ 285 paths / 309 operations |
-| 113 live `GET` routes | ✅ **0 responses ≥ 500** |
-| `yarn test:ci` | ✅ **229 passed** / 13 suites |
+| Routes registered | ✅ 300 paths / 326 operations |
+| 102 live `GET` routes | ✅ **0 responses ≥ 500** |
+| Live migration, compiled | ✅ **`mvn compile` exit 0** |
+| `yarn test:ci` | ✅ **245 passed** / 15 suites |
 | `yarn typecheck` | ✅ 0 errors |
 | `yarn lint` | ✅ 0 errors |
-| `yarn build` | ✅ succeeds |
-| Frontend orphan scan | ✅ **0 of 365** |
-| API contract (194 URLs) | ✅ **0 mismatches** |
-| Test Connection | ✅ `ok:true` on gpt-5.1 |
+| `yarn build` | ✅ succeeds · 322.87 kB |
+| Frontend orphan scan | ✅ **0 of 352** |
+| API contract (231 URLs) | ✅ **0 mismatches** |
 
-**Combined: 1,401 automated tests across both halves, all passing.**
+**Combined: 1,495 automated tests across both halves, all passing.**
 
 ---
 
@@ -334,69 +349,60 @@ by name.
 
 Stated plainly so the numbers are not read as more than they are:
 
-1. **The 167 mutating handlers are unverified here.** Proving them means
+1. **The 166 mutating handlers are unverified here.** Proving them means
    running a real migration — creating a project, scanning a legacy tree,
    freezing five stages, generating code. That is a pipeline run, not an
-   audit, and it writes to your live database.
-2. **🟡 REACHABLE is inference, not proof.** It means "called from code
-   that runs and nothing contradicts it", not "I watched it work". At 754
-   functions it is the largest bucket in this report.
-3. **Execution ≠ correctness.** A traced function ran without raising. For
-   the LLM agents I checked output *shape* against the real parsers; I did
-   not grade answer quality.
-4. **`routes/living.py` has 0 executed functions.** Stage 5 has no unit
-   suite and every entry point is a `POST`. Least-verified subsystem here.
-5. **Frontend coverage is structural for most of the application.** 56 of
-   365 exports have a direct test; the rest are covered by lint, typecheck,
-   build, the source-contract suites and the API-contract check — weaker
-   than execution. `Transformer.jsx` (~5,900 lines) and `GapAnalyzer.jsx`
-   (~2,200) remain the largest surfaces without a render test, which is
-   exactly why the export gate was pinned on source.
-6. **No end-to-end test exists.** Nothing drives a browser through a real
-   migration. The seam is verified by the API-contract check, which proves
-   the *addresses* line up — not that the payloads do.
-7. **iter-20 has not been proven on a full live migration.** The residue
-   gate, the model ladder and the export gate are each verified in
-   isolation and against your existing artifacts. Re-running
-   `negotiation-service` end to end is the test that would settle it, and
-   it has not been run.
-
-**One-line summary: nothing in this application is known to be broken, 514
-backend functions and 229 frontend tests are proven to run, both halves
-have zero dead code, and all 194 frontend API calls resolve to real backend
-routes.**
+   audit, and it writes to your live database. Direct Transform is the
+   exception: its mutating handlers *are* exercised, because it has no
+   upstream stage to freeze and its engine takes no Mongo handle.
+2. **`routes/living.py` has no coverage at all.** 0 of 59 functions
+   executed. Stage 5 is the honest blind spot.
+3. **The compile proof covers one service.** `mvn compile` was run on the
+   migrated Helidon sample — a three-class fixture, not a 150-file
+   production tree. It proves the four defects are fixed; it does not prove
+   every Helidon construct migrates cleanly.
+4. **`mvn compile` is not `mvn test`, and neither is a boot.** The service
+   compiles; nothing here started it and probed `/actuator/health`. The
+   Tester agent does that, and it was not run in this pass.
+5. **No LLM path was exercised.** Every measurement here ran with
+   `ai_refactor=False` so the deterministic layer was the only thing
+   touching disk. The AI transformer, build fixer, devops and narrator
+   agents are ⏸️/🟡, not ✅.
+6. **🟡 Reachable is an inference.** It means "called from code that
+   executes and I found no fault", not "tested".
 
 ---
 
 # Corrections — this issue's own errors
 
-This report claims accuracy, so the mistakes I made *producing it* belong
-in it. All were in my measurement scripts, and each would have shipped a
-false finding.
+This report claims accuracy, so the mistakes I made *producing it* belong in
+it. All were in my measurement scripts, and each would have shipped a false
+finding.
 
 | # | The script said | Actually | Cause |
 |---|---|---|---|
-| 1 | **286 backend orphans** | **0** | I subtracted definition sites from the reference count — but `ast.FunctionDef` stores its name as a plain **string attribute**, not a `Name` node, so a definition never contributed to that count in the first place. Subtracting it double-penalised every function in the codebase. |
-| 2 | 2 orphans (`server.py::on_startup`, `on_shutdown`) | **0** | Both are `@app.on_event` handlers, invoked by FastAPI rather than by name — the same class of false positive as `__enter__`/`__exit__`. The boot log proves `on_startup` runs: it prints the seed banner. |
-| 3 | **5 API-contract mismatches** | **0** | `routes.find()` returns the *first* regex match, so the wildcard route `/api/srs/{project_id}` swallowed the literal `/api/srs/freeze` and reported a working `POST` endpoint as "GET only". Fixed by ranking candidates by fewest wildcard segments. |
+| 1 | **298 backend orphans** | **0** | The scan counted a function as referenced only if its *name* appeared elsewhere. FastAPI route handlers, pytest fixtures, `@property` and `@app.on_event` handlers are registered **by their decorator** and are never called by name, so all 333 decorated functions read as dead. Fixed by treating a decorator as registration. |
+| 2 | **5 API-contract mismatches**, incl. `POST /api/srs/freeze` "route exists but methods=['get']" | **0** | My path matcher let a route's `{param}` wildcard match a *literal* frontend segment, so `/api/srs/{project_id}` swallowed the literal `/api/srs/freeze`, and `.../envelopes/{envelope_id}` swallowed `.../envelopes/confirm`. |
+| 3 | **7 mismatches** after fixing #2 | **0** | Over-corrected: I then scored a frontend `${expr}` against a route *literal* as highly as against a route `{param}`, so `/api/srs/${projectId}` matched `/api/srs/generate`. Fixed by ranking literal==literal > route-param > FE-interpolated-literal. |
+| 4 | `jakarta.annotation.PostConstruct` is an unreachable mapping row | Reachable | A flaw in the **test**, not the code: that row maps the class to *itself*, so "the old import is still present" is equally true whether the row fired or never matched. Re-asserted against the regex directly. |
 
-A fourth was caught before it produced a number: the first API-contract
-script escaped regex metacharacters **after** substituting the `[^/]+`
-wildcard, escaping the wildcard itself and matching almost nothing (3 of
-12).
+The pattern in all four is the one the previous issues also recorded: a
+scanner's output is a **claim**, not a finding. #1 and #2 would each have
+reported a large, alarming, entirely false number.
 
-The pattern in all four is the one the previous issue also recorded: a
-scanner's output is a **claim**, not a finding. Every removal in Part 4 was
-confirmed by hand — reading the symbol, checking its siblings, and in the
-`useIsSmall` case mapping the whole hook family — before anything was
-deleted. #1 and #3 are exactly what happens when that step is skipped.
+The four *product* defects in Part 4 went the other way — they were invisible
+to every static check and to 1,234 passing tests, and only a real compiler
+found them. Both halves of that lesson are worth keeping: do not trust a
+scanner's finding without checking it by hand, and do not trust a green suite
+as proof that generated output is correct.
 
-## Corrections carried forward from the previous issue
+## Corrections carried forward from earlier issues
 
-Kept because they remain the honest record of how that issue was wrong:
+Kept because they remain the honest record of how those issues were wrong:
 
 | # | It said | Actually |
 |---|---|---|
 | 1 | "**14 orphans**", in five places | **15** at that point — the headline disagreed with its own table. |
 | 2 | The orphan list was complete | It **missed three**. `ast.walk` descended into nested functions and diluted the reference counts; restricting it to top-level defs surfaced `_safe_llm_call`, `_should_abort_for_transport` and `hf_confidence::preload`. True total **18**. |
 | 3 | `Core (top-level)` had 6 orphans | **7** — `pipeline.py` (5) + `factory_orchestrator.py` (2). |
+| 4 | **286 backend orphans** (previous issue) | **0** — definition sites were subtracted from the reference count, but `ast.FunctionDef` stores its name as a string attribute, not a `Name` node, so definitions never contributed to that count in the first place. |
