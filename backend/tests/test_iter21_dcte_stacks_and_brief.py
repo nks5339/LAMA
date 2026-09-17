@@ -442,3 +442,86 @@ def test_build_devops_tester_receive_the_destination_path(tmp_path):
     errs = [e.message for e in events if "dest_root" in (e.message or "")]
     assert errs == [], errs
     assert out_job.status.value in ("completed", "reporting")
+
+
+# ---------------------------------------------------------------------------
+# 5 — iter-22: Direct Transform is a PROJECT TYPE, and its jobs are scoped
+# ---------------------------------------------------------------------------
+# It shipped in the Tools sidebar, which was the wrong shelf: it owns a source
+# tree, a stack pair and a run history. Two Direct Transform projects have to
+# keep their runs apart, and a global Tools page cannot do that.
+def test_project_create_gives_direct_transform_its_own_stages():
+    """Input -> Transform -> Output. No KnowledgeBase: it builds no KB, so
+    that stage could never become active.
+
+    Asserted against the parsed `stage_status` dict, not the source text —
+    the first version of this test matched the word "KnowledgeBase" inside
+    its own explanatory comment, which is the same code-vs-prose mistake the
+    residue scanner made in iter-20.
+    """
+    import ast
+    tree = ast.parse((BACKEND / "routes" / "projects.py").read_text())
+
+    found = None
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.If):
+            continue
+        test = node.test
+        if (isinstance(test, ast.Compare)
+                and isinstance(test.comparators[0], ast.Constant)
+                and test.comparators[0].value == "direct_transform"):
+            for stmt in node.body:
+                if (isinstance(stmt, ast.Assign)
+                        and isinstance(stmt.targets[0], ast.Attribute)
+                        and stmt.targets[0].attr == "stage_status"):
+                    found = ast.literal_eval(stmt.value)
+    assert found is not None, "routes/projects.py has no direct_transform branch"
+    assert found == {"Input": "active", "Transform": "locked", "Output": "locked"}
+
+
+def test_job_carries_the_project_it_was_created_from():
+    from dcte.models import DcteJob, CreateJobRequest, ServiceConfig
+    svc = ServiceConfig(name="s", source_path="/a", destination_path="/b",
+                        source_stack="jsp", target_stack="react-19")
+    assert DcteJob(name="n", source_root="/a", output_root="/b",
+                   services=[svc]).project_id == ""
+    assert DcteJob(name="n", source_root="/a", output_root="/b",
+                   services=[svc], project_id="p1").project_id == "p1"
+    assert CreateJobRequest(name="n", services=[svc]).project_id == ""
+
+
+def test_job_manager_filters_by_project(tmp_path):
+    """The whole reason this is a project type rather than a Tools page."""
+    import asyncio
+    from dcte.job_manager import JobManager
+
+    class _Cursor:
+        def __init__(self, rows): self.rows = list(rows)
+        def sort(self, *_a, **_kw): return self
+        def __aiter__(self):
+            async def gen():
+                for r in self.rows:
+                    yield dict(r)
+            return gen()
+
+    class _Col:
+        def __init__(self, rows): self.rows = rows
+        def find(self, q=None, *_a, **_kw):
+            q = q or {}
+            return _Cursor([r for r in self.rows
+                            if all(r.get(k) == v for k, v in q.items())])
+
+    base = {"name": "n", "source_root": "/a", "output_root": "/b", "services": []}
+    jobs = _Col([
+        {**base, "id": "j1", "project_id": "p1"},
+        {**base, "id": "j2", "project_id": "p2"},
+        {**base, "id": "j3", "project_id": ""},     # pre-iter-22, unscoped
+    ])
+    mgr = JobManager(jobs, None, None, None)
+
+    p1 = asyncio.run(mgr.list(project_id="p1"))
+    assert [j.id for j in p1] == ["j1"]
+
+    # No filter is the operator/script view: everything, including the
+    # unscoped rows an older build created.
+    assert {j.id for j in asyncio.run(mgr.list())} == {"j1", "j2", "j3"}

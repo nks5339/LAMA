@@ -20,7 +20,12 @@ class ProjectCreate(BaseModel):
     # 5-stage pipeline from the single-purpose tool project types (Gap
     # Analyzer, Technology Transformer). Determines stage_status layout
     # and the sidebar pipeline rendered for the project.
-    # Values: "legacy_migration" | "gap_analysis" | "tech_transformer".
+    # iter-22 — "direct_transform" joined them: Direct Transform used to be a
+    # fourth entry in the Tools sidebar, which was wrong. It owns a source
+    # tree, a target stack and a run history, which is a project, not a
+    # utility you visit.
+    # Values: "legacy_migration" | "gap_analysis" | "tech_transformer"
+    #       | "direct_transform".
     project_type: Optional[str] = "legacy_migration"
     # iter-13.58 — `source_tech` is auto-detected by `routes/kb.py` during
     # Build KB (see tech_detector). Optional at create time so the UI form
@@ -52,9 +57,10 @@ class Project(BaseModel):
     description: str = ""
     github_repo: str = ""
     # iter-14.93 — project_type: "legacy_migration" (classical 5-stage
-    # pipeline), "gap_analysis" (3-stage tool project), or
-    # "tech_transformer" (3-stage tool project). The Sidebar renders the
-    # pipeline layout based on this field.
+    # pipeline), "gap_analysis" (3-stage tool project),
+    # "tech_transformer" (3-stage tool project), or iter-22
+    # "direct_transform" (3-stage: Input -> Transform -> Output). The
+    # Sidebar renders the pipeline layout based on this field.
     project_type: str = "legacy_migration"
     stage: str = "Discovery"  # Discovery, DataModel, Architecture, CodeGen, Living
     stage_status: Dict[str, str] = Field(default_factory=lambda: {

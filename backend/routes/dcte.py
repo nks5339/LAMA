@@ -217,6 +217,8 @@ async def create_job(req: CreateJobRequest):
         raise HTTPException(400, "services[0] must set source_path and destination_path (or provide source_root/output_root).")
     job = DcteJob(
         name=req.name,
+        # iter-22 — the Direct Transform project this job belongs to.
+        project_id=(req.project_id or ""),
         source_root=src_root,
         output_root=out_root,
         services=req.services,
@@ -242,6 +244,7 @@ async def create_job(req: CreateJobRequest):
         "details": {
             "services": len(job.services),
             "use_droid_agent": job.use_droid_agent,
+            "project_id": job.project_id,
         },
         "at": job.created_at,
     })
@@ -249,8 +252,15 @@ async def create_job(req: CreateJobRequest):
 
 
 @router.get("/jobs")
-async def list_jobs(tenant_id: str | None = Query(default=None)):
-    jobs = await _mgr().list(tenant_id=tenant_id)
+async def list_jobs(tenant_id: str | None = Query(default=None),
+                    project_id: str | None = Query(default=None)):
+    """Jobs, newest first.
+
+    iter-22 — `project_id` scopes the list to one Direct Transform project.
+    The page always sends it; omitting it lists every job, which is the
+    operator/script view.
+    """
+    jobs = await _mgr().list(tenant_id=tenant_id, project_id=project_id)
     return {"jobs": [j.model_dump() for j in jobs]}
 
 

@@ -26,10 +26,20 @@ class JobManager:
         doc.pop("_id", None)
         return DcteJob(**doc)
 
-    async def list(self, tenant_id: str | None = None) -> list[DcteJob]:
+    async def list(self, tenant_id: str | None = None,
+                   project_id: str | None = None) -> list[DcteJob]:
+        """Jobs, newest first.
+
+        iter-22 — `project_id` scopes the list to one Direct Transform
+        project. Without it every project would show every other project's
+        jobs, which is exactly the confusion that made this a project type
+        rather than a global Tools page.
+        """
         q: dict[str, Any] = {}
         if tenant_id:
             q["tenant_id"] = tenant_id
+        if project_id:
+            q["project_id"] = project_id
         out: list[DcteJob] = []
         async for doc in self.jobs.find(q).sort("created_at", -1):
             doc.pop("_id", None)

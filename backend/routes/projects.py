@@ -76,6 +76,17 @@ async def create_project(
             "KnowledgeBase": "locked",
             "Output": "locked",
         }
+    elif ptype == "direct_transform":
+        # iter-22 — Direct Transform. No KnowledgeBase stage: it is folder-path
+        # driven and builds no KB, so offering one would be a stage that can
+        # never become active.
+        proj.project_type = "direct_transform"
+        proj.stage = "Input"
+        proj.stage_status = {
+            "Input": "active",
+            "Transform": "locked",
+            "Output": "locked",
+        }
     else:
         proj.project_type = "legacy_migration"
 

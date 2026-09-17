@@ -62,6 +62,12 @@ class DcteJob(BaseModel):
     id: str = Field(default_factory=lambda: _new_id("dcte"))
     name: str
     tenant_id: str = "tenant_default"
+    # iter-22 — Direct Transform is a PROJECT TYPE, not a Tools page, so a
+    # job belongs to the project it was created from. Optional because jobs
+    # created before iter-22 have none, and because the endpoints stay usable
+    # from a script that has no project. An empty value means "unscoped" and
+    # such a job is only visible when listing without a project filter.
+    project_id: str = ""
     created_by: str | None = None
 
     source_root: str
@@ -153,6 +159,9 @@ class DetectResponse(BaseModel):
 
 class CreateJobRequest(BaseModel):
     name: str
+    # iter-22 — the project this job belongs to. The page sends the active
+    # project's id; a script may omit it.
+    project_id: str = ""
     source_root: str | None = None
     output_root: str | None = None
     services: list[ServiceConfig]
