@@ -411,10 +411,27 @@ def _group_prefixes(pkg: str) -> List[str]:
 
 
 async def _query(client, q: str, rows: int = 20) -> List[dict]:
-    resp = await client.get(_SEARCH_URL, params={"q": q, "rows": rows, "wt": "json"})
-    if resp.status_code != 200:
+    """One search. Returns [] for "this query produced nothing", whatever
+    the reason — a non-200, a timeout, a malformed body.
+
+    iter-22 — the transport error used to propagate to
+    `search_artifact_for_class`'s single outer `try`, which abandoned the
+    whole resolution. It is not a whole-resolution failure: the prefix
+    ladder exists precisely so that one query missing is survivable, and
+    the narrowest prefix is both the most expensive query server-side and
+    the most likely to time out. Reproduced live: `g:"org.apache.commons
+    .text" AND fc:"…WordUtils"` read-timed out while `g:"org.apache
+    .commons"` answered 10 docs in under a second — the answer was one
+    cheap query away and we were returning None.
+    """
+    try:
+        resp = await client.get(_SEARCH_URL, params={"q": q, "rows": rows, "wt": "json"})
+        if resp.status_code != 200:
+            return []
+        return (resp.json().get("response") or {}).get("docs") or []
+    except Exception as e:  # noqa: BLE001
+        logger.debug("maven query failed (%s): %s", q, e)
         return []
-    return (resp.json().get("response") or {}).get("docs") or []
 
 
 async def search_artifact_for_class(fqcn: str, timeout: float = 8.0) -> Optional[Tuple[str, str]]:
@@ -437,12 +454,24 @@ async def search_artifact_for_class(fqcn: str, timeout: float = 8.0) -> Optional
     Best-effort throughout: returns None on any failure so the caller
     falls back to the curated table or reports the gap honestly rather
     than inventing a coordinate.
+
+    iter-22 — "every prefix misses" now genuinely means every prefix was
+    TRIED. A single slow query used to abort the ladder and the broad
+    fallback with it (see `_query`), so a resolvable package came back
+    unresolved and the operator got a missing dependency blamed on the
+    migration. Only the client setup can still short-circuit, because
+    without a client there is no question to ask.
     """
     pkg = fqcn.rsplit(".", 1)[0]
     try:
         import httpx
         from llm import _http_verify
-        async with httpx.AsyncClient(timeout=timeout, verify=_http_verify()) as client:
+        client_cm = httpx.AsyncClient(timeout=timeout, verify=_http_verify())
+    except Exception as e:  # noqa: BLE001
+        logger.warning("maven search unavailable for %s: %s", fqcn, e)
+        return None
+    try:
+        async with client_cm as client:
             for prefix in _group_prefixes(pkg):
                 docs = await _query(client, f'g:"{prefix}" AND fc:"{fqcn}"', rows=10)
                 ranked = _rank_candidates(pkg, docs)
@@ -453,6 +482,8 @@ async def search_artifact_for_class(fqcn: str, timeout: float = 8.0) -> Optional
         logger.warning("maven search failed for %s: %s", fqcn, e)
         return None
     ranked = _rank_candidates(pkg, docs)
+    if not ranked:
+        logger.info("maven search found no artifact for %s (all prefixes tried)", fqcn)
     return ranked[0] if ranked else None
 
 

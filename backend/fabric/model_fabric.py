@@ -605,6 +605,48 @@ AGENT_COMPLEXITY: Dict[str, str] = {
     "dcte.devops":       "medium",
     "dcte.tester":       "low",
     "dcte.narrator":     "low",
+    # ── iter-22 — keys that live call sites were already passing ──────
+    #
+    # `resolve_model` reads `agent_configs.complexity` first and falls back
+    # to THIS map, defaulting to "medium" on a miss. Every key below was
+    # being passed to `fabric_call` by real code and was absent here, so it
+    # silently routed at "medium" no matter what the job needed. The guard
+    # that was supposed to catch this (`test_no_agent_tier_survives_without_
+    # a_call_site`) only checked the opposite direction, and did so against a
+    # haystack that included this file — see the mirror test added in
+    # test_iter22_agent_key_contract.py.
+    #
+    # The Gap Analyzer is the expensive one: it reads a whole codebase plus
+    # the requirement docs and authors the test-case matrix in one 24k-token
+    # call. `tools.gap_analyzer` has declared `high` since iter-16 and the
+    # call site passed the bare string `gap_analyzer`, so the tier it
+    # declares had never once been applied. The call site is renamed to the
+    # declared key rather than adding a second alias.
+    "legacy.deep_analyzer": "high",     # forensic pass over the whole legacy tree
+    "kb.deep_analysis":     "high",     # second deep-analysis variant, KB-wide
+    "confidence.evaluator": "high",     # the multi-model vote behind every freeze badge
+    "drift.detector":       "high",     # seeded as an agent_configs row; mirror it here
+    "diff.srs":             "medium",   # ditto — the call site uses this, not `srs.diff`
+    "datamodel.scripts":    "medium",   # the three migration-script generators
+    "datamodel.generate":   "high",     # pinned via set_current_agent_key
+    "datamodel.regenerate": "high",     # …and its regenerate twin
+    "arch.regenerate":      "high",     # pinned by every Architecture sub-stage
+    "tools.transformer.chat": "medium",  # plan-panel assistant, structural
+    "agent_memory.rollover":  "low",     # compresses old turns into a summary
+    "onboarding.factory":     "medium",  # bypasses fabric_call today, tiered for when it does not
+    # The per-stage chat keys. `routes/chat.py` builds them as
+    # `f"{stage}.chat"` from the LOWERCASED stage name, so the keys it
+    # actually emits are discovery/datamodel/architecture/codegen/living —
+    # of which only two were ever declared. `arch.chat` stays because the
+    # frame-walk in `fabric_call` produces that spelling for the
+    # Architecture routes; the two are the same agent reached two ways.
+    # `srs.chat` is the default `AgentSession.agent_key` (models.py) and has
+    # a rolling-memory policy in `agent_memory.AGENT_MEMORY`, so a session
+    # created without an explicit key lands on it.
+    "srs.chat":           "medium",
+    "discovery.chat":     "medium",
+    "architecture.chat":  "medium",
+    "living.chat":        "medium",
 }
 
 

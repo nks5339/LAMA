@@ -420,9 +420,19 @@ async def run_deep_analysis(
                 {"role": "user", "content": user_prompt},
             ],
             model=model or "",
-            agent_key="kb_deep_analysis",
+            agent_key="kb.deep_analysis",
+            response_format={"type": "json_object"},
         )
-        raw_text = (response or "").strip()
+        # `chat_completion` is `llm.fabric_call`, which returns a dict.
+        # This used to be `(response or "").strip()` — `.strip()` on a dict
+        # raises AttributeError, the `except` below caught it, and the agent
+        # returned `{"error": ...}` on EVERY run. It had never once
+        # succeeded. Keep the str branch: the fake used in tests and the
+        # Ollama fallback path both hand back a bare string.
+        raw_text = (
+            (response.get("content") or "") if isinstance(response, dict)
+            else str(response or "")
+        ).strip()
     except Exception as exc:
         logger.error("Deep analysis LLM call failed: %s", exc)
         return {"error": str(exc), "cached": False}

@@ -28,7 +28,7 @@ from db import (
 from llm import fabric_call as chat_completion
 from llm import fabric_call_with_session  # iter-13.100 — rolling-memory sessions
 from llm import set_current_project_id  # iter-13.38 — Factory.ai context propagation
-from llm import set_current_agent_key   # iter-13.81.3 — per-pipeline-step Factory bucket override
+from llm import set_current_agent_key, get_current_agent_key   # iter-13.81.3 — per-pipeline-step Factory bucket override
 from llm import active_default_provider_is_local  # fan-out sizing for local engines
 from kb.vector_store import (
     search as qdrant_search,
@@ -3571,6 +3571,16 @@ async def _gen_one_file(project_id: str, svc: dict, file_def: dict, model: str, 
     # "regenerate" / gap-recovery through Opus (high). Falls back to the
     # service key for any new prompt slot not covered here.
     _codegen_agent_key = "codegen.frontend" if svc.get("frontend") else "codegen.service"
+    # iter-22 — honour the route's `set_current_agent_key("codegen.regenerate")`
+    # pin. `fabric_call` consults the contextvar only when `agent_key` is
+    # falsy (llm.py), and this call site has always passed an explicit key —
+    # so the pin set at the `generate_code` route was dead, `codegen.regenerate`
+    # (tier `high`) was never reached, and `resolve_model`'s `is_regeneration`
+    # branch never fired on a re-run. A regenerate therefore ran on the
+    # first-pass tier, which is the opposite of what iter-13.76 intended.
+    # Same `get_current_agent_key() or <default>` idiom routes/srs.py already
+    # uses for its own regenerate bucket.
+    _codegen_agent_key = get_current_agent_key() or _codegen_agent_key
     # iter-13.81.15 — Prompt-size telemetry up front. Real cause of empty
     # responses is usually a prompt that exceeds the model's effective
     # input limit (Factory's session cap; Sonnet's per-turn cap; etc.).
@@ -10229,6 +10239,75 @@ def _sanitize_llm_file(content: str, language: str) -> str:
     return text.rstrip() + "\n"
 
 
+def _blank_string_literals(text: str) -> str:
+    """Replace the CONTENTS of string literals with spaces, keeping comments.
+
+    iter-22 — used by `_looks_like_placeholder`, which rejects a file
+    outright (the caller never persists it). A legacy domain whose status
+    enum is literally `"TODO"` was losing every file that mentioned it.
+
+    Comments are tracked but NOT blanked, because `// TODO: implement this`
+    is the signal the guard exists for. Tracking them matters anyway: an
+    apostrophe in `// don't` would otherwise open a string and blank the
+    rest of the file — the same defect `dcte/ai_refactor._blank_comments`
+    documents for SQL.
+
+    Length is preserved (blanks, not deletions) and newlines survive, so
+    the line-count heuristics below still measure the same file.
+    """
+    out: list[str] = []
+    i, n = 0, len(text)
+    quote = ""          # active string delimiter, "" when not in a string
+    comment = ""        # "line" | "block" | ""
+    while i < n:
+        ch = text[i]
+        if comment == "line":
+            out.append(ch)
+            if ch == "\n":
+                comment = ""
+            i += 1
+            continue
+        if comment == "block":
+            out.append(ch)
+            if text.startswith("*/", i):
+                out.append("/")
+                i += 2
+                comment = ""
+                continue
+            i += 1
+            continue
+        if quote:
+            if ch == "\\" and i + 1 < n:
+                out.append("  " if text[i + 1] != "\n" else " \n")
+                i += 2
+                continue
+            if ch == quote:
+                out.append(ch)
+                quote = ""
+            else:
+                out.append("\n" if ch == "\n" else " ")
+            i += 1
+            continue
+        if text.startswith("//", i) or text.startswith("#", i):
+            comment = "line"
+            out.append(ch)
+            i += 1
+            continue
+        if text.startswith("/*", i):
+            comment = "block"
+            out.append(ch)
+            i += 1
+            continue
+        if ch in "\"'`":
+            quote = ch
+            out.append(ch)
+            i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _looks_like_placeholder(content: str, language: str, layer: str) -> Tuple[bool, str]:
     """iter-17.15 — Post-sanitiser production-grade guard. Rejects the
     empty-shell files the small Coder models keep emitting (e.g. a JPA
@@ -10249,18 +10328,39 @@ def _looks_like_placeholder(content: str, language: str, layer: str) -> Tuple[bo
     body_lines = [l for l in body.splitlines() if l.strip()]
     n_lines = len(body_lines)
 
-    # Universal forbidden markers (case-sensitive on purpose — legit
-    # docstrings shouldn't contain "TODO" in production code).
-    forbidden = [
-        "TODO", "FIXME", "XXX: ", "HACK: ",
-        "NotImplementedError", "UnsupportedOperationException",
-        'throw new Error("not implemented")',
-        "raise NotImplementedError",
-        "<div>TODO</div>", "<div>Placeholder</div>",
-    ]
-    for marker in forbidden:
-        if marker in text:
-            return True, f"forbidden placeholder marker: {marker!r}"
+    # Universal forbidden markers.
+    #
+    # iter-22 — these used to be plain `marker in text` substring tests over
+    # the whole file, and the caller DISCARDS the file (not just flags it),
+    # so every false positive silently lost a generated file and marked its
+    # task BLOCKED. Two shapes were wrong:
+    #
+    #   1. A legacy domain that genuinely has a "TODO" status — the enterprise
+    #      apps LAMA migrates do — emits `STATUS_TODO = "TODO"` and was
+    #      rejected. String LITERAL contents are now blanked before the scan
+    #      (comments are deliberately kept: `// TODO: implement` is exactly
+    #      the signal this guard is for).
+    #   2. `catch (UnsupportedOperationException e)` and
+    #      `except NotImplementedError:` are correct code that HANDLES the
+    #      exception. Only actually raising it is a stub, so those two are
+    #      matched as throw-expressions instead of bare names.
+    #   3. `STATUS_TODO` is an identifier, not a marker, so the comment
+    #      markers match on word boundaries — `\bTODO\b` does not fire
+    #      inside `STATUS_TODO` (`_` is a word character) but does fire on
+    #      `// TODO:` and `<div>TODO</div>`.
+    scan = _blank_string_literals(text)
+    _marker = re.search(r"\b(TODO|FIXME|XXX:|HACK:)\b|Placeholder</", scan)
+    if _marker:
+        return True, f"forbidden placeholder marker: {_marker.group(0)!r}"
+    _stub_throw = re.search(
+        r"\b(?:raise\s+NotImplementedError"
+        r"|throw\s+new\s+UnsupportedOperationException"
+        r"|throw\s+new\s+NotImplementedException"
+        r"|throw\s+new\s+Error\s*\(\s*[\"'`]not implemented)",
+        scan, re.IGNORECASE,
+    )
+    if _stub_throw:
+        return True, f"forbidden placeholder marker: {_stub_throw.group(0).strip()!r}"
 
     lang = (language or "").lower()
     lyr = (layer or "").lower()

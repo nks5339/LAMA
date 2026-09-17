@@ -29,7 +29,7 @@ import logging
 import re as _re
 from datetime import datetime, timezone
 
-from db import kb_toon, kb_entities, projects, audit_log, legacy_analysis
+from db import kb_toon, kb_entities, projects, audit_log, legacy_analysis, prompts
 from llm import fabric_call as chat_completion
 from kb.vector_store import search as qdrant_search
 
@@ -380,6 +380,21 @@ async def run_legacy_analysis(
     evidence = await _gather_evidence(project_id)
     system_prompt = _build_prompt(proj, evidence)
 
+    # The seeded `legacy.deep_analyzer` row says of itself: "This template is
+    # APPENDED to whatever the legacy_analyzer module composes at runtime …
+    # Edit this file to tighten the rules WITHOUT touching
+    # legacy_analyzer.py." That append had never been written, so the row sat
+    # in Prompt Library editable and inert — an operator tightening it
+    # changed nothing. Appended (not prepended) so the module's own STRICT
+    # JSON clause still reads last.
+    try:
+        _row = await prompts.find_one({"key": "legacy.deep_analyzer"}, {"_id": 0})
+        _tpl = ((_row or {}).get("template") or "").strip()
+        if _tpl:
+            system_prompt = f"{system_prompt}\n\n{_tpl}"
+    except Exception:  # noqa: BLE001 — a Mongo blip must not kill the analysis
+        logger.warning("legacy.deep_analyzer prompt row unavailable; using module prompt only")
+
     try:
         result = await chat_completion(
             messages=[
@@ -387,9 +402,15 @@ async def run_legacy_analysis(
                 {"role": "user", "content": "Produce the JSON analysis now."},
             ],
             model=model,
+            # Previously omitted, so the frame-walk in `fabric_call` fell
+            # through to "unknown" -> the default `medium` tier. This is the
+            # heaviest read in Discovery and its own docstring asks for the
+            # strong tier; name the key that the seeded prompt already uses.
+            agent_key="legacy.deep_analyzer",
             temperature=0.2,
             max_tokens=14000,
             timeout=240.0,
+            response_format={"type": "json_object"},
         )
     except Exception as exc:  # noqa: BLE001
         logger.exception("Deep legacy analysis LLM call failed: %s", exc)

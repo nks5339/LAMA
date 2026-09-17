@@ -267,6 +267,12 @@ AGENT_PROMPT_KEYS = {
     # EDIT a file that may be past saving; this one rewrites it from the
     # legacy original against the target playbook. See _ESCALATION_LADDER.
     "regenerator": "tools.transformer.regenerator",
+    # iter-22 — reads a wall of raw build output and works out what actually
+    # broke. It had an AGENT_COMPLEXITY tier (`reasoning`) since iter-19 but
+    # no prompt and no entry here, so it borrowed the Planner's wave-ordering
+    # plan rubric for a diagnosis job — as that call site's own comment said,
+    # "it kept the Planner's key only because there was no better one".
+    "diagnostician": "tools.transformer.diagnostician",
 }
 # super_agent is pure orchestration today (it logs a completed run but
 # never calls an LLM), so an edited prompt/model has no runtime effect
@@ -283,6 +289,7 @@ AGENT_LLM_BACKED = {
     "validator": True,
     "devops_audit": True,
     "regenerator": True,
+    "diagnostician": True,
 }
 AGENT_LABELS = {
     "super_agent": "Super Agent",
@@ -295,6 +302,7 @@ AGENT_LABELS = {
     "validator": "Validator",
     "devops_audit": "DevOps Expert (dependency audit)",
     "regenerator": "Regenerator (full rewrite)",
+    "diagnostician": "Diagnostician (build-failure triage)",
 }
 
 
@@ -1739,7 +1747,11 @@ TEST-CASE AUTHORING — ACT AS A SENIOR TEST ANALYST:
         llm_response = await fabric_call(
             messages=[{"role": "user", "content": final_prompt}],
             model=model,
-            agent_key="gap_analyzer",
+            # iter-22 — was the bare string `gap_analyzer`, which is in no
+            # tier map, so this call resolved to the default `medium`.
+            # `tools.gap_analyzer` has declared `high` since iter-16 and is
+            # also the Prompt Library key loaded above, so the two now agree.
+            agent_key="tools.gap_analyzer",
             temperature=0.1,
             # iter-15.8 — bump from 16k to give the LLM room to author dense,
             # UC-organised test cases with steps + test_data + notes per row.
@@ -4445,7 +4457,7 @@ MIGRATION_PLAYBOOKS: Dict[str, Dict[str, Any]] = {
         "api_docs": "Add drf-spectacular and expose /api/schema/swagger-ui/.",
     },
     "express": {
-        "language": "Node 20+",
+        "language": "Node 26 LTS",
         "idioms": [
             "express.Router() per resource",
             "async handlers with a central error middleware",
@@ -4456,20 +4468,22 @@ MIGRATION_PLAYBOOKS: Dict[str, Dict[str, Any]] = {
         "api_docs": "Add swagger-ui-express + an OpenAPI document; serve it at /api-docs.",
     },
     "nestjs": {
-        "language": "Node 20+ / TypeScript",
+        "language": "Node 26 LTS / TypeScript",
         "idioms": ["@Controller/@Injectable with constructor injection",
                    "DTO classes with class-validator decorators"],
         "manifest": ["@nestjs/core, @nestjs/common, reflect-metadata, rxjs"],
         "api_docs": "Use @nestjs/swagger and SwaggerModule.setup().",
     },
     "dotnet": {
-        "language": "C# / .NET 8",
+        "language": "C# / .NET 10 LTS",
         "idioms": [
             "minimal APIs or [ApiController] controllers",
             "constructor injection via the built-in DI container",
             "EF Core for persistence",
+            "nullable reference types enabled",
+            "async/await end to end; Task<IResult>/Task<ActionResult<T>> returns",
         ],
-        "manifest": ["<TargetFramework>net8.0</TargetFramework>",
+        "manifest": ["<TargetFramework>net10.0</TargetFramework> with <Nullable>enable</Nullable>",
                      "Microsoft.EntityFrameworkCore, Npgsql for PostgreSQL"],
         "api_docs": "Add Swashbuckle.AspNetCore and call AddSwaggerGen/UseSwaggerUI.",
     },
@@ -4480,14 +4494,55 @@ MIGRATION_PLAYBOOKS: Dict[str, Dict[str, Any]] = {
         "manifest": ["go.mod with an explicit go directive and pinned requires"],
         "api_docs": "Generate OpenAPI with swaggo/swag annotations.",
     },
+    # Version policy for this table (iter-22): a key that PINS a version
+    # (`react-18`) describes that version — an operator who selected it must
+    # not be told to emit a different one. A key that does NOT
+    # (`dotnet`, `express`, `go`) tracks the current release, because there
+    # the id carries no promise and a retired version is worse than none.
     "react-18": {
         "language": "TypeScript/JavaScript, React 18",
         "idioms": [
             "function components with hooks (never class components)",
             "no direct DOM manipulation — no jQuery, no document.getElementById",
             "state via useState/useReducer; server data via fetch in useEffect or a query library",
+            "typed props via TypeScript interfaces",
+            "controlled inputs for anything the source posted as a form",
         ],
-        "manifest": ["react@18, react-dom@18, and a build script"],
+        "manifest": ["react@18, react-dom@18, and a build script",
+                     "typescript + @types/react + @types/react-dom"],
+        "api_docs": "",
+    },
+    # Angular and Vue used to ALIAS to the React playbook. `_playbook_for`
+    # renders whatever it resolves as "authoritative for idiom choices" and
+    # tells the Coder the playbook wins any conflict — so an Angular target
+    # was instructed, with authority, to write React function components and
+    # a react@18 package.json. That is not a weak prompt; it is a prompt for
+    # a different framework. Each now has its own entry. A target with no
+    # entry degrades to no playbook at all, which `_playbook_for` already
+    # handles and which is strictly better than another framework's rules.
+    "angular-17": {
+        "language": "TypeScript / Angular",
+        "idioms": [
+            "standalone components (never NgModule scaffolding for new code)",
+            "signals for component state; typed reactive forms for input",
+            "HttpClient in an injectable service, never in the component",
+            "the Angular Router for navigation where the source had page routing",
+            "strict template type-checking enabled",
+        ],
+        "manifest": ["package.json with @angular/core and the matching @angular/cli",
+                     "angular.json with a production build target"],
+        "api_docs": "",
+    },
+    "vue-3": {
+        "language": "TypeScript / Vue 3",
+        "idioms": [
+            "<script setup> single-file components (never the Options API for new code)",
+            "ref/reactive for state; computed for derived values",
+            "Pinia for cross-component state where the source had a shared session",
+            "vue-router for navigation where the source had page routing",
+        ],
+        "manifest": ["package.json with vue@^3 and a bundler build script",
+                     "typescript + vue-tsc"],
         "api_docs": "",
     },
     "postgresql": {
@@ -4511,8 +4566,14 @@ _PLAYBOOK_ALIASES: Dict[str, str] = {
     "spring-beans": "spring-boot-3",
     "spring-webflux": "spring-boot-3",
     "micronaut": "quarkus",       # both are JAX-RS-shaped, DI-first Java
-    "angular-17": "react-18",
-    "vue-3": "react-18",
+    # iter-22 — `angular-17` and `vue-3` used to alias to `react-18`. An
+    # alias is only safe when the two stacks share idioms (spring-boot-2 → 3,
+    # micronaut → quarkus); Angular and Vue share none of React's. Both are
+    # now first-class entries above, so the aliases are gone. What remains
+    # here are forward aliases for the newer ids `dcte/stacks.py` uses, since
+    # `_playbook_for` takes a free-form target id off the job document.
+    "angular-22": "angular-17",
+    "react-19": "react-18",
     "mysql": "postgresql",
 }
 
@@ -7173,13 +7234,26 @@ async def _run_compiler(
 
         total_meaningful = passed + failed
         overall_score = int(round(100 * passed / max(total_meaningful, 1))) if total_meaningful else 0
-        compilation_ready = failed == 0 and (passed > 0 or skipped > 0)
+        # A SKIPPED component is not a passing one. The old expression was
+        # `failed == 0 and (passed > 0 or skipped > 0)`, so a run where every
+        # component skipped — no manifest emitted by the Coder, or a tool
+        # outside NATIVE_BUILD_COMMANDS — reported "COMPILATION READY ✔"
+        # with overall_score 0, which then set `compile_green=True` in
+        # `_run_multi_agent_transformation` and let
+        # `_run_devops_dependency_check` report `production_ready=True`.
+        # Nothing had been compiled. Green now requires evidence: at least
+        # one component actually built, and none failed.
+        compilation_ready = failed == 0 and passed > 0
 
         summary_bits = []
         if passed:  summary_bits.append(f"{passed} passed")
         if failed:  summary_bits.append(f"{failed} failed")
         if skipped: summary_bits.append(f"{skipped} skipped")
         summary = " · ".join(summary_bits) or "No build components configured"
+        # "1 skipped" alone reads like a pass. Say plainly that nothing ran,
+        # because that is now the difference between green and not-green.
+        if skipped and not passed and not failed:
+            summary += " — nothing was compiled"
 
         result = {
             "compilation_ready": compilation_ready,
@@ -7924,15 +7998,24 @@ async def _llm_diagnose_generic_failure(
         }
 
     try:
-        # iter-19 — the PROMPT is still the Planner's (the task is unchanged:
-        # read the failure, name the files to edit), but the MODEL is no
-        # longer the Planner's. Inheriting a per-transformation Planner
-        # override here would pin diagnosis to a generative model and
-        # defeat the `reasoning` tier this call now routes through.
-        prompt_template = await _get_effective_prompt(transform_id, "planner")
+        # iter-19 routed this call at the `reasoning` tier but left it on the
+        # Planner's PROMPT, with the comment "it kept the Planner's key only
+        # because there was no better one". iter-22 wrote one: the Planner's
+        # 9.5 KB template is a wave-ordering plan rubric, and this job is
+        # diagnosis — read a wall of build output, find the FIRST real fault,
+        # collapse the cascade beneath it, and classify it as source /
+        # dependency / toolchain / config. Falls back to the Planner prompt
+        # so an unseeded database behaves as it did before.
+        #
+        # The MODEL is deliberately not the Planner's: inheriting a
+        # per-transformation Planner override would pin diagnosis to a
+        # generative model and defeat the `reasoning` tier.
+        prompt_template = await _get_effective_prompt(transform_id, "diagnostician")
+        if not prompt_template:
+            prompt_template = await _get_effective_prompt(transform_id, "planner")
         eff_model = model
         if not prompt_template:
-            return {"blocked": False, "root_cause": "no Planner prompt configured", "error_groups": []}
+            return {"blocked": False, "root_cause": "no diagnostician prompt configured", "error_groups": []}
 
         user_prompt = f"""COMPILE-FIX DIAGNOSIS — iteration {iteration}.
 
@@ -9319,26 +9402,51 @@ def _test_path_for_envelope(
     return f"tests/{tier}/{slug}.txt"
 
 
+# Used when the seeded `tools.transformer.tester` row is missing or Mongo is
+# unreachable. Deliberately terse: it is a floor, not the real prompt.
+_TESTER_FILE_PROMPT_FALLBACK = (
+    "You are a senior test engineer generating executable tests for "
+    "migrated code. Tests must exercise the migrated behaviour, not assert "
+    "that a method exists."
+)
+
+
 async def _generate_one_test_file(
     transform_id: str,
     tier: str,
     target_stack: Dict[str, Any],
     envelope: Dict[str, Any],
     model: str,
+    base_prompt: str = "",
 ) -> Optional[Dict[str, str]]:
     """Ask fabric_call for a single test file's contents. Returns
     {path, content, envelope_id, tier} on success, None on
     empty/blank LLM output. Never raises — errors are swallowed to
     the log so one bad envelope doesn't kill the whole test-gen
-    phase."""
+    phase.
+
+    ``base_prompt`` is the seeded `tools.transformer.tester` template,
+    resolved once per run by :func:`_run_test_generator`."""
     try:
         framework_hint = _target_framework_for_tests(target_stack, tier)
+        # iter-22 — this used to be five inline lines while the seeded
+        # `tools.transformer.tester` template (4.4 KB, and the one the
+        # operator can edit in Prompt Library) sat unread. The other tester
+        # call site at `_run_tester` already loads it. Same agent, same key,
+        # so it must read the same prompt.
+        #
+        # `base_prompt` is resolved ONCE by the caller and passed down: this
+        # function runs per envelope per tier, and a Mongo round-trip per
+        # generated file buys nothing. The per-call half (framework hint,
+        # emit-one-file contract) is appended here because it varies by tier.
         system_prompt = (
-            f"You are a senior test engineer. Emit ONE COMPLETE, "
-            f"COMPILABLE test file only — no prose, no fences, no "
-            f"placeholder TODOs. Use {framework_hint}. Cover both the "
-            f"happy path AND at least one negative/edge case. "
-            f"Output ONLY the file contents."
+            f"{base_prompt or _TESTER_FILE_PROMPT_FALLBACK}\n\n"
+            "===== THIS CALL =====\n"
+            f"Emit ONE COMPLETE, COMPILABLE test file only — no prose, no "
+            f"fences, no placeholder TODOs. Use {framework_hint}. Cover both "
+            f"the happy path AND at least one negative/edge case. "
+            f"Output ONLY the file contents. The FIRST character of your "
+            f"response must be a valid source token for the target language."
         )
         user_prompt = (
             f"Generate a {tier.upper()} test for this endpoint.\n\n"
@@ -9402,6 +9510,18 @@ async def _run_test_generator(
     t0 = datetime.now(timezone.utc)
     tiers = list(tiers or TEST_TIER_ORDER)
     model = await _get_effective_model(transform_id, "tester", model)
+    # iter-22 — resolve the seeded Tester prompt ONCE for the whole run and
+    # pass it into every `_generate_one_test_file`. Doing it per file would
+    # be one Mongo round-trip per generated test for a value that cannot
+    # change mid-run. A lookup failure falls back rather than killing the
+    # phase: this agent's contract is that one bad envelope never stops
+    # test generation, and that has to hold for the prompt lookup too.
+    try:
+        _tester_base_prompt = await _get_effective_prompt(transform_id, "tester")
+    except Exception:  # noqa: BLE001
+        _tester_base_prompt = ""
+    if not _tester_base_prompt:
+        _tester_base_prompt = _TESTER_FILE_PROMPT_FALLBACK
 
     # Purge any previous auto-generated tests so re-runs don't leave
     # stale files in the ZIP.
@@ -9487,6 +9607,7 @@ async def _run_test_generator(
             try:
                 row = await _generate_one_test_file(
                     transform_id, tier, target_stack, env, model,
+                    base_prompt=_tester_base_prompt,
                 )
             finally:
                 async with tester_progress_lock:
@@ -10453,7 +10574,13 @@ async def _run_devops_dependency_check(
                     "Return ONLY the JSON described in your system prompt."},
             ],
             model=model,
-            agent_key="tools.transformer.devops_expert",
+            # iter-22 — was `devops_expert`. The prompt loaded three lines
+            # above is `devops_audit`, and AGENT_PROMPT_KEYS / AGENT_LABELS
+            # describe the two as distinct personas (escalation rung vs
+            # proactive manifest audit). Sending the audit prompt under the
+            # escalation key meant the audit could not be tiered, traced or
+            # re-pointed at a different model on its own.
+            agent_key="tools.transformer.devops_audit",
             project_id=await _project_id_for_transform(transform_id),
             temperature=0.1,
             max_tokens=6000,

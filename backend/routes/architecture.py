@@ -36,7 +36,7 @@ from db import (
 )
 from llm import fabric_call as chat_completion
 from llm import fabric_call_with_session  # iter-13.100 — rolling-memory sessions
-from llm import set_current_project_id, set_current_agent_key  # iter-13.38 / iter-13.81.3 — Factory.ai context propagation
+from llm import set_current_project_id, set_current_agent_key, get_current_agent_key  # iter-13.38 / iter-13.81.3 — Factory.ai context propagation
 from llm import TransportError  # iter-13.50 — abort jobs cleanly on DNS / connect failure
 from fabric.model_fabric import _is_billing_error, _is_auth_error  # iter-13.51 — abort on 402/401 too
 from kb.vector_store import search as qdrant_search
@@ -2592,7 +2592,11 @@ async def _run_recommend_job(jid: str, project_id: str, model: str, override_mes
                 model=model, temperature=0.2, max_tokens=_rec_max_tokens, timeout=240.0,
                 # iter-13.45 — explicit agent_key + project_id so the fabric
                 # routes to the right tier and Factory.ai session.
-                agent_key="arch.recommend",
+                # iter-22 — the route pins `arch.regenerate` on a re-run, but
+                # `fabric_call` reads that contextvar only when `agent_key` is
+                # falsy, so the explicit key below silently discarded it and
+                # every regenerate ran on the first-pass bucket.
+                agent_key=(get_current_agent_key() or "arch.recommend"),
                 project_id=project_id,
             )
 
@@ -4157,7 +4161,10 @@ async def _run_seq_job(jid: str, project_id: str, model: str):
                         messages=[{"role": "system", "content": sp},
                                   {"role": "user", "content": "Generate the mermaid sequenceDiagram now."}],
                         model=model, temperature=0.2, max_tokens=4000, timeout=180.0,
-                        agent_key="arch.sequence", project_id=project_id,
+                        # iter-22 — honour the route's `arch.regenerate` pin;
+                        # see the note on the Recommend call above.
+                        agent_key=(get_current_agent_key() or "arch.sequence"),
+                        project_id=project_id,
                     )
                     content = (r.get("content", "") or "").strip()
                 except Exception as e:
