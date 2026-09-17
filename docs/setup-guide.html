@@ -2,484 +2,3122 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>LAMA — Setup &amp; Run Guide</title>
+<title>LAMA — Prerequisites &amp; User Guide</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* LAMA design tokens — mirrored from frontend/src/index.css */
 :root{
-  --bg:#f8fafc; --surface:#ffffff; --primary:#0a2540; --primary-hover:#1A1A24;
-  --text:#0f172a; --muted:#64748b; --border:#cbd5e1; --border-strong:#94a3b8;
-  --success:#15803d; --warning:#b45309; --error:#b91c1c; --info:#0369a1;
-  --tint:#e2e8f0;
-  --sans:"IBM Plex Sans",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
-  --display:"Chivo",var(--sans);
-  --mono:"IBM Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  /* Surfaces */
+  --bg:#f6f6fa; --surface:#ffffff; --surface-2:#f2f2f7; --surface-3:#e9e9f0;
+  --border:#e6e6e6; --border-strong:#c9c9d2;
+  /* Text */
+  --fg:#2e2e38; --fg-muted:#4a4a57; --fg-subtle:#5e5e6b;
+  --fg-onDark:#f4f4f7; --fg-onDark-muted:#b8b8c4; --fg-onDark-subtle:#8a8a99;
+  /* Brand — FILL and ACCENT BAR only, never text on a light surface */
+  --brand:#ffe600; --brand-hover:#f0d900; --brand-fg:#2e2e38;
+  --brand-tint:#fffce6; --brand-edge:#d4c000;
+  /* Ink */
+  --ink:#2e2e38; --ink-hover:#1a1a24; --ink-fg:#ffffff;
+  /* Status */
+  --ok:#0f6b4f; --ok-bg:#e4f2ec; --ok-edge:#7cbfa6;
+  --warn:#8a5a00; --warn-bg:#fbf2df; --warn-edge:#d4ac55;
+  --crit:#b3200e; --crit-bg:#fbeae7; --crit-edge:#d98577;
+  --info:#1f4f87; --info-bg:#e7eef7; --info-edge:#86aad4;
+  /* Radii — 4 / 6 / 10 */
+  --radius-sm:4px; --radius:6px; --radius-lg:10px;
+  /* Type */
+  --sans:"IBM Plex Sans",system-ui,-apple-system,sans-serif;
+  --display:"Chivo","IBM Plex Sans",sans-serif;
+  --mono:"IBM Plex Mono",Menlo,monospace;
 }
 *{box-sizing:border-box;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-@page{size:A4;margin:16mm 14mm}
-/* Named page so the cover can bleed edge-to-edge with no margin. */
+@page{size:A4;margin:15mm 13mm 14mm}
 @page cover{size:A4;margin:0}
 .page-cover{page:cover}
 html,body{margin:0;padding:0}
-body{font-family:var(--sans);color:var(--text);background:var(--surface);
-     font-size:9.6pt;line-height:1.55;-webkit-font-smoothing:antialiased}
+body{font-family:var(--sans);color:var(--fg);background:var(--surface);
+     font-size:9.5pt;line-height:1.58;-webkit-font-smoothing:antialiased}
 
-.page{page-break-after:always}
-.page:last-child{page-break-after:auto}
-/* Never split an atomic block across a page boundary — without this a
-   two-column card row breaks mid-border and leaves an empty outline. */
-.grid2,.card,.note,.warn,.step,pre,.diagram,.runhdr{break-inside:avoid}
-tr,h3,h4{break-inside:avoid}
-h3,h4{break-after:avoid}
-h1,h2,h3,h4{font-family:var(--display);margin:0;letter-spacing:-.012em}
+/* Headings use Chivo with the app's negative tracking. */
+h1,h2,h3,h4,h5{font-family:var(--display);letter-spacing:-.01em;margin:0}
 
-/* ── Cover ───────────────────────────────────────────────────────────── */
-.cover{position:relative;height:297mm;background:var(--primary);color:#fff;
-       padding:30mm 20mm;overflow:hidden}
-.cover::after{content:"";position:absolute;right:-70mm;bottom:-90mm;
-       width:210mm;height:210mm;border-radius:50%;
-       background:rgba(255,255,255,.035)}
-.cover::before{content:"";position:absolute;right:-30mm;top:-60mm;
-       width:130mm;height:130mm;border-radius:50%;
-       background:rgba(255,255,255,.028)}
-.brand{display:flex;align-items:center;gap:11px}
-.brand .mark{width:34px;height:34px;border-radius:9px;background:#fff;
-       color:var(--primary);font-family:var(--display);font-weight:800;
-       font-size:16pt;display:flex;align-items:center;justify-content:center}
-.brand .wm{font-family:var(--display);font-weight:800;font-size:16pt;letter-spacing:.14em}
-.cover h1{font-size:41pt;font-weight:800;line-height:1.03;margin:46mm 0 0;max-width:150mm}
-.cover h1 em{font-style:normal;color:#8fb4d9}
-.cover .lede{font-size:12pt;color:#c3d4e6;max-width:128mm;margin-top:9mm;line-height:1.6}
-.cover .paths{display:flex;gap:7mm;margin-top:16mm}
-.pcard{flex:1;background:rgba(255,255,255,.075);border:1px solid rgba(255,255,255,.16);
-       border-radius:11px;padding:7mm 6mm;max-width:74mm}
-.pcard .k{font-family:var(--mono);font-size:7.6pt;color:#8fb4d9;letter-spacing:.13em}
-.pcard .t{font-family:var(--display);font-weight:700;font-size:13pt;margin-top:2.5mm}
-.pcard .d{font-size:8.8pt;color:#c3d4e6;margin-top:2mm;line-height:1.5}
-.cover .foot{position:absolute;left:20mm;right:20mm;bottom:20mm;display:flex;
+/* Keep atomic blocks whole across page boundaries. */
+pre,.callout,.cover-card,.toc-group,.kicker{break-inside:avoid}
+/* Long tables may split across pages - keeping them whole strands half a page.
+   Rows stay atomic and the header repeats on each continuation. */
+tr,h2,h3,h4{break-inside:avoid}
+thead{display:table-header-group}
+tbody{break-inside:auto}
+h2,h3,h4{break-after:avoid}
+
+/* ── Cover ─────────────────────────────────────────────────────────────── */
+.cover{position:relative;height:297mm;background:var(--ink);color:var(--fg-onDark);
+       padding:26mm 20mm;overflow:hidden}
+/* Yellow as a fill: a single wide accent bar, the way the app uses it. */
+.cover .accent{position:absolute;left:0;top:0;width:100%;height:9mm;background:var(--brand)}
+.brand{display:flex;align-items:center;gap:10px;margin-top:4mm}
+.brand .mark{width:13mm;height:13mm;border-radius:var(--radius-sm);background:var(--brand);
+       color:var(--brand-fg);font-family:var(--display);font-weight:700;font-size:20pt;
+       display:flex;align-items:center;justify-content:center;line-height:1}
+.brand .wm{font-family:var(--display);font-weight:700;font-size:21pt;
+       letter-spacing:-.02em;line-height:1;color:#fff}
+.brand .tag{font-size:6.8pt;letter-spacing:.18em;text-transform:uppercase;
+       color:var(--fg-onDark-muted);margin-top:2mm;line-height:1.35}
+.cover h1{font-size:38pt;font-weight:700;line-height:1.05;margin:44mm 0 0;
+       max-width:150mm;color:#fff}
+.cover .lede{font-size:11.5pt;color:var(--fg-onDark-muted);max-width:130mm;
+       margin-top:8mm;line-height:1.62}
+.cover-cards{display:flex;gap:5mm;margin-top:15mm}
+.cover-card{flex:1;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.14);
+       border-radius:var(--radius-lg);padding:6mm 5mm}
+.cover-card .k{font-family:var(--mono);font-size:7pt;letter-spacing:.14em;
+       color:var(--brand);text-transform:uppercase}
+.cover-card .t{font-family:var(--display);font-weight:700;font-size:12pt;
+       margin-top:2.5mm;color:#fff}
+.cover-card .d{font-size:8.4pt;color:var(--fg-onDark-muted);margin-top:1.5mm;line-height:1.5}
+.cover .strip{position:absolute;left:20mm;right:20mm;bottom:34mm;
+       display:flex;gap:0;align-items:stretch}
+.cover .strip .s{flex:1;border-top:2px solid rgba(255,255,255,.14);padding-top:3mm}
+.cover .strip .s:first-child{border-top-color:var(--brand)}
+.cover .strip .s .sn{font-family:var(--mono);font-size:6.6pt;color:var(--fg-onDark-subtle);
+       letter-spacing:.12em}
+.cover .strip .s .st{font-family:var(--display);font-weight:700;font-size:8.6pt;
+       color:var(--fg-onDark-muted);margin-top:1mm}
+.cover .foot{position:absolute;left:20mm;right:20mm;bottom:18mm;display:flex;
        justify-content:space-between;align-items:flex-end;
-       border-top:1px solid rgba(255,255,255,.2);padding-top:5mm;
-       font-family:var(--mono);font-size:8pt;color:#9fb8d0}
+       border-top:1px solid rgba(255,255,255,.16);padding-top:4.5mm;
+       font-family:var(--mono);font-size:7.6pt;color:var(--fg-onDark-subtle)}
 
-/* ── Structure ───────────────────────────────────────────────────────── */
-.sec{margin-bottom:9mm}
-.eyebrow{font-family:var(--mono);font-size:7.4pt;letter-spacing:.17em;
-       color:var(--muted);text-transform:uppercase;margin-bottom:2.5mm}
-h2{font-size:20pt;font-weight:800;color:var(--primary);margin-bottom:3mm}
-h2 .num{color:var(--border-strong);margin-right:3mm}
-h3{font-size:11.5pt;font-weight:700;color:var(--primary);margin:7mm 0 2.5mm}
-h4{font-size:9.6pt;font-weight:700;color:var(--text);margin:5mm 0 2mm}
+/* ── Part pages ────────────────────────────────────────────────────────── */
+.part{page-break-before:always}
+.part:first-of-type{page-break-before:avoid}
+.kicker{border-bottom:2px solid var(--border);padding-bottom:4mm;margin-bottom:7mm}
+.kicker .eyebrow{font-family:var(--mono);font-size:7pt;letter-spacing:.17em;
+       text-transform:uppercase;color:var(--fg-subtle);display:flex;
+       align-items:center;gap:3mm}
+/* Yellow accent bar — a fill, not text. */
+.kicker .eyebrow::before{content:"";width:9mm;height:3px;background:var(--brand);
+       border-radius:2px;display:inline-block}
+.kicker h1{font-size:25pt;font-weight:700;color:var(--fg);margin-top:3mm;line-height:1.12}
+
+h2{font-size:14pt;font-weight:700;color:var(--fg);margin:9mm 0 3mm}
+h3{font-size:10.6pt;font-weight:700;color:var(--fg);margin:6.5mm 0 2mm}
+h4{font-size:9.5pt;font-weight:700;color:var(--fg-muted);margin:5mm 0 1.5mm}
 p{margin:0 0 2.8mm}
-.rule{height:3px;width:20mm;background:var(--primary);border-radius:2px;margin-bottom:5mm}
 a{color:var(--info);text-decoration:none}
+strong{font-weight:600;color:var(--fg)}
+hr{border:0;border-top:1px solid var(--border);margin:7mm 0}
 
-/* ── Code ────────────────────────────────────────────────────────────── */
-pre{font-family:var(--mono);font-size:8.3pt;line-height:1.62;background:#0d1b2a;
-    color:#e7eef6;border-radius:9px;padding:4.5mm 5mm;margin:0 0 3.5mm;
-    overflow:hidden;white-space:pre-wrap;overflow-wrap:anywhere}
-pre .c{color:#7fa3c4}          /* comment */
-pre .p{color:#6fd0a8}          /* prompt  */
-pre .s{color:#e3b341}          /* string  */
-code{font-family:var(--mono);font-size:8.5pt;background:var(--tint);
-     color:var(--primary);padding:.8px 4px;border-radius:4px}
-pre code{background:none;color:inherit;padding:0}
+ul,ol{margin:0 0 3mm;padding-left:5.5mm}
+li{margin-bottom:1.4mm}
+li::marker{color:var(--fg-subtle)}
 
-/* ── Tables ──────────────────────────────────────────────────────────── */
-table{width:100%;border-collapse:collapse;margin:0 0 4mm;font-size:8.7pt}
-th{background:var(--primary);color:#fff;font-family:var(--display);font-weight:600;
-   text-align:left;padding:2.6mm 3mm;font-size:8.3pt;letter-spacing:.02em}
-td{padding:2.4mm 3mm;border-bottom:1px solid var(--border);vertical-align:top}
-tr:nth-child(even) td{background:var(--bg)}
-td code{font-size:8pt}
+/* ── Tables ────────────────────────────────────────────────────────────── */
+table{width:100%;border-collapse:collapse;margin:0 0 4mm;font-size:8.6pt}
+thead th{background:var(--surface-2);color:var(--fg);font-weight:600;text-align:left;
+       font-size:7.8pt;letter-spacing:.04em;text-transform:uppercase;
+       padding:2.2mm 2.6mm;border-bottom:1px solid var(--border-strong)}
+tbody td{padding:2.2mm 2.6mm;border-bottom:1px solid var(--border);
+       vertical-align:top;line-height:1.5}
+tbody tr:nth-child(even){background:var(--surface-2)}
+table code{font-size:7.9pt}
 
-/* ── Callouts ────────────────────────────────────────────────────────── */
-.note{border-left:3px solid var(--info);background:#f0f7fc;padding:3.2mm 4mm;
-      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
-.warn{border-left:3px solid var(--warning);background:#fdf6ec;padding:3.2mm 4mm;
-      border-radius:0 7px 7px 0;margin:0 0 3.5mm;font-size:8.8pt}
-.note b,.warn b{font-family:var(--display)}
-.note b{color:var(--info)} .warn b{color:var(--warning)}
+/* ── Code ──────────────────────────────────────────────────────────────── */
+pre{font-family:var(--mono);font-size:8pt;line-height:1.6;background:var(--ink);
+    color:var(--fg-onDark);border-radius:var(--radius);padding:4mm 4.5mm;
+    margin:0 0 3.5mm;white-space:pre-wrap;word-wrap:break-word;
+    border-left:3px solid var(--brand)}
+pre code{background:none;padding:0;color:inherit;font-size:inherit;border:0}
+code{font-family:var(--mono);font-size:8.3pt;background:var(--surface-2);
+     border:1px solid var(--border);border-radius:var(--radius-sm);
+     padding:.4mm 1.1mm;color:var(--fg)}
 
-/* ── Steps ───────────────────────────────────────────────────────────── */
-.step{display:flex;gap:4.5mm;margin-bottom:5mm;break-inside:avoid}
-.step .n{flex:0 0 8mm;height:8mm;border-radius:50%;background:var(--primary);
-   color:#fff;font-family:var(--display);font-weight:700;font-size:10pt;
-   display:flex;align-items:center;justify-content:center}
-.step .body{flex:1;min-width:0}
-.step .body h4{margin-top:1mm}
+/* ── Callouts (from blockquotes) ───────────────────────────────────────── */
+.callout{border-radius:var(--radius);padding:3.4mm 4mm;margin:0 0 3.5mm;
+     font-size:8.8pt;line-height:1.55;border:1px solid;border-left-width:3px}
+.callout p:last-child{margin-bottom:0}
+.callout .lbl{font-family:var(--mono);font-size:6.8pt;letter-spacing:.15em;
+     text-transform:uppercase;display:block;margin-bottom:1.4mm;font-weight:500}
+.callout code{background:rgba(255,255,255,.65)}
+.c-note{background:var(--info-bg);border-color:var(--info-edge);color:var(--fg)}
+.c-note .lbl{color:var(--info)}
+.c-warn{background:var(--warn-bg);border-color:var(--warn-edge);color:var(--fg)}
+.c-warn .lbl{color:var(--warn)}
+.c-crit{background:var(--crit-bg);border-color:var(--crit-edge);color:var(--fg)}
+.c-crit .lbl{color:var(--crit)}
 
-/* ── Misc ────────────────────────────────────────────────────────────── */
-.grid2{display:flex;gap:6mm}
-.grid2>*{flex:1;min-width:0}
-.card{background:var(--bg);border:1px solid var(--border);border-radius:9px;padding:4mm 4.5mm}
-.card h4{margin-top:0}
-.pill{display:inline-block;font-family:var(--mono);font-size:7.4pt;padding:1px 6px;
-      border-radius:20px;background:var(--tint);color:var(--primary);margin-left:4px}
-.ok{color:var(--success);font-weight:600}
-.diagram{font-family:var(--mono);font-size:7.9pt;line-height:1.5;background:var(--bg);
-      border:1px solid var(--border);border-radius:9px;padding:5mm;white-space:pre;
-      color:var(--primary);overflow:hidden}
-.runhdr{background:var(--primary);color:#fff;border-radius:9px 9px 0 0;
-      padding:2.4mm 4mm;font-family:var(--mono);font-size:7.8pt;letter-spacing:.05em}
-.runhdr+pre{border-radius:0 0 9px 9px;margin-top:0}
+/* Project-type identity block. Brand yellow used the way the app uses it:
+   a tint fill and an accent bar, never as text. */
+.typecard{background:var(--brand-tint);border:1px solid var(--brand-edge);
+     border-left:4px solid var(--brand);border-radius:var(--radius);
+     padding:3.4mm 4mm;margin:0 0 4mm}
+.typecard p{margin:0}
+.typecard .tl{font-family:var(--mono);font-size:8.4pt;color:var(--fg);
+     font-weight:500;letter-spacing:.01em}
+.typecard .ds{font-size:8.7pt;color:var(--fg-muted);margin-top:1.4mm;line-height:1.5}
+
+/* ── Contents page ─────────────────────────────────────────────────────── */
+.toc{page-break-after:always}
+.toc-group{margin-bottom:6mm}
+.toc-group .gh{font-family:var(--mono);font-size:7pt;letter-spacing:.16em;
+     text-transform:uppercase;color:var(--fg-subtle);margin-bottom:2.5mm;
+     display:flex;align-items:center;gap:3mm}
+.toc-group .gh::before{content:"";width:7mm;height:3px;background:var(--brand);
+     border-radius:2px;display:inline-block}
+.toc-row{display:flex;gap:4mm;padding:2.2mm 0;border-bottom:1px solid var(--border);
+     align-items:baseline}
+.toc-row .n{font-family:var(--mono);font-size:8.4pt;color:var(--fg-subtle);
+     min-width:7mm;font-weight:500}
+.toc-row .t{font-family:var(--display);font-weight:700;font-size:10pt;color:var(--fg)}
+.toc-row .d{font-size:8.2pt;color:var(--fg-muted);margin-left:auto;text-align:right;
+     max-width:82mm;line-height:1.45}
+details{margin:0 0 3mm}
+summary{font-weight:600;font-size:8.8pt;color:var(--fg-muted);margin-bottom:2mm}
 </style>
 </head>
 <body>
 
-<!-- ══════════════════ COVER ══════════════════ -->
-<div class="page page-cover">
+<section class="page-cover">
   <div class="cover">
-    <div class="brand"><div class="mark">L</div><div class="wm">LAMA</div></div>
-    <h1>Setup &amp;<br>Run <em>Guide</em></h1>
-    <div class="lede">Everything needed to take this repository from a fresh
-      clone to a running application — the local development path, and the
-      single-container Docker path.</div>
-    <div class="paths">
-      <div class="pcard">
-        <div class="k">PATH A</div>
-        <div class="t">Terminal</div>
-        <div class="d">Hot reload for day-to-day development. API on 8000, UI on 3000.</div>
-      </div>
-      <div class="pcard">
-        <div class="k">PATH B</div>
-        <div class="t">Docker</div>
-        <div class="d">One production-like container on 8382, MongoDB bundled in.</div>
+    <div class="accent"></div>
+    <div class="brand">
+      <div class="mark">L</div>
+      <div>
+        <div class="wm">LAMA</div>
+        <div class="tag">Legacy Application<br>Modernisation AI Studio</div>
       </div>
     </div>
-    <div class="foot">
-      <div>Legacy Application Modernization &amp; Alignment</div>
-      <div>docs/RUNNING.md</div>
+    <h1>Prerequisites &amp;<br>User Guide</h1>
+    <div class="lede">Everything needed to go from a bare machine to a working
+      migration — what to install, how to install it, and how to use the
+      product once it is running.</div>
+    <div class="cover-cards">
+      <div class="cover-card"><div class="k">Install</div><div class="t">Windows</div>
+        <div class="d">Docker or local terminal, with the WSL&nbsp;2, HOME and line-ending specifics.</div></div>
+      <div class="cover-card"><div class="k">Install</div><div class="t">macOS</div>
+        <div class="d">Docker or local terminal, including Apple Silicon.</div></div>
+      <div class="cover-card"><div class="k">Install</div><div class="t">Linux</div>
+        <div class="d">Docker Engine or local terminal, plus server hardening.</div></div>
     </div>
+    <div class="strip">
+      <div class="s"><div class="sn">01</div><div class="st">Discovery</div></div>
+      <div class="s"><div class="sn">02</div><div class="st">Data Model</div></div>
+      <div class="s"><div class="sn">03</div><div class="st">Architecture</div></div>
+      <div class="s"><div class="sn">04</div><div class="st">CodeGen</div></div>
+      <div class="s"><div class="sn">05</div><div class="st">Living</div></div>
+    </div>
+    <div class="foot"><span>Four project types · five stages · Windows · macOS · Linux</span>
+      <span>September 2026</span></div>
   </div>
-</div>
+</section>
 
-<!-- ══════════════════ 1. PREREQUISITES ══════════════════ -->
-<div class="page">
-  <div class="eyebrow">Before you begin</div>
-  <h2><span class="num">01</span>Prerequisites</h2>
-  <div class="rule"></div>
-
-  <p>LAMA is a FastAPI backend, a React 19 frontend, and MongoDB as its system
-  of record. Only MongoDB is strictly required to boot — everything else
-  unlocks a specific capability.</p>
-
-  <table>
-    <tr><th style="width:24%">Software</th><th style="width:36%">Needed for</th><th>Install</th></tr>
-    <tr><td><b>Python 3.11+</b><span class="pill">3.14 ok</span></td><td>Backend runtime</td><td><code>brew install python@3.14</code></td></tr>
-    <tr><td><b>MongoDB 7 / 8</b></td><td><b>Required</b> — system of record</td><td><code>brew tap mongodb/brew &amp;&amp; brew install mongodb-community</code></td></tr>
-    <tr><td><b>Node 20+</b><span class="pill">image uses 24 LTS</span></td><td>Frontend build &amp; dev server</td><td><code>brew install node</code></td></tr>
-    <tr><td><b>yarn 1.22</b></td><td>Frontend packages — never npm</td><td><code>corepack enable</code></td></tr>
-    <tr><td><b>LLM provider</b></td><td>All generation features</td><td>Ollama (below) or an OpenRouter key</td></tr>
-    <tr><td>Maven · Gradle<br>Go · .NET</td><td>CodeGen compile &amp; test agent</td><td><code>brew install maven gradle go dotnet</code></td></tr>
-    <tr><td>Poetry · pnpm</td><td>Additional build tools</td><td><code>brew install poetry</code> · <code>corepack enable pnpm</code></td></tr>
-    <tr><td>Docker Desktop</td><td>Path B only</td><td>docker.com/products/docker-desktop</td></tr>
-  </table>
-
-  <div class="warn"><b>A missing build tool is a hard failure, not a skip.</b>
-  The Tester/Compiler agent returns <code>status:"failed"</code> when a binary is
-  absent — deliberately, so a build can never report
-  <code>compilation_ready: true</code> without having really compiled. Install the
-  toolchains for the languages you actually generate.</div>
-
-</div>
-
-<!-- ══════════════════ 1b. LLM PROVIDER ══════════════════ -->
-<div class="page">
-  <div class="eyebrow">Before you begin · continued</div>
-  <h2><span class="num">02</span>Choosing an LLM provider</h2>
-  <div class="rule"></div>
-
-  <p>Without one the application still boots and serves every page, but each
-  generation request returns <i>“no generation provider is healthy”</i>. Pick
-  either option below — you do not need both.</p>
-
-  <div class="grid2">
-    <div class="card">
-      <h4>Ollama — local, free, offline</h4>
-      <p style="color:var(--muted);font-size:8.6pt">Also supplies embeddings, so you never
-      need to download PyTorch.</p>
-      <pre><span class="c"># install &amp; start</span>
-brew install ollama
-ollama serve        <span class="c"># :11434</span>
-
-<span class="c"># models</span>
-ollama pull qwen3:4b       <span class="c"># 262K</span>
-ollama pull qwen2.5-coder:7b  <span class="c"># code</span>
-ollama pull qwen3:0.6b        <span class="c"># fast</span>
-ollama pull nomic-embed-text  <span class="c"># vectors</span></pre>
-    </div>
-    <div class="card">
-      <h4>OpenRouter — cloud</h4>
-      <p style="color:var(--muted);font-size:8.6pt">One key unlocks many hosted models.
-      Add it to <code>backend/.env</code>.</p>
-      <pre>OPENROUTER_API_KEY=<span class="s">sk-or-…</span></pre>
-      <h4 style="margin-top:5mm">Register the provider</h4>
-      <p style="font-size:8.6pt">LAMA reads providers from the <b>database</b>, not
-      from environment variables. Add it once in the UI under
-      <b>Console → Models</b>, then set the <code>low</code> / <code>medium</code> /
-      <code>high</code> routing tiers.</p>
-    </div>
+<section class="toc">
+  <div class="kicker"><div class="eyebrow">Contents</div>
+    <h1>What is in this guide</h1></div>
+  <div class="toc-group"><div class="gh">Getting installed</div>
+    <div class="toc-row"><span class="n">1</span><span class="t">What LAMA is</span><span class="d">The problem it solves, its features, the four project types</span></div>
+    <div class="toc-row"><span class="n">2</span><span class="t">Prerequisites</span><span class="d">Docker vs local, versions, what to have ready</span></div>
+    <div class="toc-row"><span class="n">3</span><span class="t">Installation on Windows</span><span class="d">Both paths, plus Windows-specific troubleshooting</span></div>
+    <div class="toc-row"><span class="n">4</span><span class="t">Installation on macOS</span><span class="d">Both paths, plus Apple Silicon notes</span></div>
+    <div class="toc-row"><span class="n">5</span><span class="t">Installation on Linux</span><span class="d">Both paths, plus running it as a team server</span></div>
+    <div class="toc-row"><span class="n">6</span><span class="t">First boot and sign-in</span><span class="d">Including the LLM provider setup, which is mandatory</span></div>
   </div>
-
-  <h3>Verify the provider is live</h3>
-  <p>The API reports exactly which provider it chose, and why each alternative
-  was rejected — the fastest way to diagnose a silent generation failure.</p>
-  <pre><span class="p">$</span> curl -s http://127.0.0.1:8000/api/health/providers
-
-{
-  <span class="s">"generation"</span>: {
-    <span class="s">"chosen"</span>: <span class="s">"ollama"</span>,
-    <span class="s">"detail"</span>: <span class="s">"ollama ready (reachable at http://localhost:11434)"</span>,
-    <span class="s">"checks"</span>: [
-      { <span class="s">"provider"</span>: <span class="s">"factory"</span>, <span class="s">"healthy"</span>: false,
-        <span class="s">"reason"</span>: <span class="s">"droid binary not found in PATH"</span> },
-      { <span class="s">"provider"</span>: <span class="s">"ollama"</span>,  <span class="s">"healthy"</span>: true,
-        <span class="s">"reason"</span>: <span class="s">"reachable at http://localhost:11434"</span> }
-    ]
-  }
-}</pre>
-
-  <div class="note"><b>Thinking models need room.</b> The Qwen3 family spends
-  300–1600 tokens reasoning before emitting any content, so a small token budget
-  returns an empty response. Allow <b>2000+</b> tokens, or route short
-  latency-sensitive calls to <code>qwen2.5-coder:7b</code>, which does not think.</div>
+  <div class="toc-group"><div class="gh">Using the product</div>
+    <div class="toc-row"><span class="n">7</span><span class="t">Using LAMA</span><span class="d">The workspace, all five stages, the other project types, the admin pages</span></div>
+  </div>
+  <div class="toc-group"><div class="gh">Keeping it running</div>
+    <div class="toc-row"><span class="n">8</span><span class="t">Day-to-day operations</span><span class="d">Lifecycle, logs, backup, upgrade</span></div>
+    <div class="toc-row"><span class="n">9</span><span class="t">Troubleshooting</span><span class="d">General, plus a table per platform</span></div>
+    <div class="toc-row"><span class="n">10</span><span class="t">Reference</span><span class="d">Settings, ports, glossary, verification notes</span></div>
+  </div>
+  <p style="margin-top:7mm;color:var(--fg-muted);font-size:8.8pt">Each operating-system
+  section covers <strong>both</strong> installation paths — Docker and local terminal — and
+  ends with troubleshooting specific to that platform. Read only your own.</p>
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 1</div><h1>What LAMA is</h1></div>
+<h2>1.1 The problem it exists to solve</h2>
+<p>Most legacy systems cannot be described by anyone still working on them. The
+people who wrote them have gone, the documentation was never written or is
+years out of date, and the only authoritative statement of what the system
+does is the source code itself — hundreds of thousands of lines of PHP, JSP,
+Struts or classic .NET, with business rules buried in controllers, validation
+duplicated across screens, and a database whose constraints live in
+application code rather than in the schema.</p>
+<p>That makes modernisation genuinely risky. A rewrite has to reproduce
+behaviour nobody has written down. Teams typically spend months on manual
+discovery, produce a requirements document that is already incomplete, and
+then discover the gaps only after the new system is in production.</p>
+<p><strong>LAMA attacks the discovery problem first, and treats code generation as the
+last step rather than the first.</strong> It reads your legacy source, extracts what
+the system actually does into a reviewable knowledge base, turns that into a
+formal requirements specification you can correct, and only then designs the
+data model, the services and the code. At every step the evidence stays
+attached to the claim, so you can see <em>why</em> LAMA believes a requirement
+exists.</p>
+<h2>1.2 How it helps you, concretely</h2>
+<table>
+<thead>
+<tr>
+<th>The problem</th>
+<th>What LAMA does about it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>"Nobody knows what this system does any more."</td>
+<td>Parses the source into a <strong>Knowledge Base</strong> — files, entities, routes, tables, columns, roles, and the relationships between them — then generates a <strong>12-section IEEE-830 SRS</strong> grounded in that evidence.</td>
+</tr>
+<tr>
+<td>"The documentation we do have is fiction."</td>
+<td>Every generated claim is traceable to the source that produced it. Where the code does not support a claim, LAMA marks the section <strong><code>⚠ EVIDENCE GAP</code></strong> rather than inventing something plausible.</td>
+</tr>
+<tr>
+<td>"How do we know the spec is good enough to build on?"</td>
+<td>A <strong>confidence engine</strong> scores every section for how well the evidence supports it, flags contradictions, and tells you which sections to review — before you commit to them.</td>
+</tr>
+<tr>
+<td>"The rewrite drifted from the requirements."</td>
+<td>Stages are <strong>frozen</strong> and downstream work is generated from the frozen record, not from a moving target. <strong>Drift detection</strong> later compares the running system back against the frozen spec.</td>
+</tr>
+<tr>
+<td>"We can't tell what the new code is missing."</td>
+<td><strong>Gap analysis</strong> produces a coverage matrix of requirements against implementation, with a severity-ranked list of what is absent.</td>
+</tr>
+<tr>
+<td>"Migrating the database by hand will take months."</td>
+<td>Generates target <strong>OLTP DDL</strong>, an <strong>OLAP star schema</strong>, a bus matrix, and three migration scripts: legacy→OLTP, OLTP→OLAP, and a migration test.</td>
+</tr>
+<tr>
+<td>"Generated code never compiles."</td>
+<td>The compile-and-repair loop actually builds the output and escalates through four repair strategies. A missing toolchain <strong>fails the job</strong> rather than being skipped, so nothing can report success without having compiled.</td>
+</tr>
+<tr>
+<td>"We just need this one stack moved to another stack."</td>
+<td>Two dedicated transformation tools, one of which needs no requirements work at all.</td>
+</tr>
+</tbody>
+</table>
+<h2>1.3 Capabilities shared across the whole product</h2>
+<p>These apply whichever project type you choose.</p>
+<table>
+<thead>
+<tr>
+<th>Capability</th>
+<th>What it means for you</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Evidence-grounded generation</strong></td>
+<td>Prompts are built from the knowledge base, not from the model's general knowledge of "how PHP apps usually work".</td>
+</tr>
+<tr>
+<td><strong>Bring your own model</strong></td>
+<td>OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq, or a local Ollama. Nothing is hard-coded, and a fully local Ollama setup runs offline.</td>
+</tr>
+<tr>
+<td><strong>Per-agent model routing</strong></td>
+<td>Each internal agent declares a complexity tier, and you map tiers to models. Cheap models for chat, your best coding model for code generation — without configuring anything per-agent.</td>
+</tr>
+<tr>
+<td><strong>Token-spend visibility</strong></td>
+<td>Usage is reported by provider, model, stage and agent over a date window.</td>
+</tr>
+<tr>
+<td><strong>Human-in-the-loop everywhere</strong></td>
+<td>Every artifact can be read, hand-edited, regenerated section by section, downloaded, and versioned. LAMA is a drafting tool with gates, not a black box.</td>
+</tr>
+<tr>
+<td><strong>Typed-confirmation gates</strong></td>
+<td>Freezing and resetting require typing <code>FREEZE</code> or <code>RESET</code>. Destructive and load-bearing actions are deliberately hard to do by accident.</td>
+</tr>
+<tr>
+<td><strong>Live logs</strong></td>
+<td>A MiniConsole streams backend activity on every long-running page, with a Copy button.</td>
+</tr>
+<tr>
+<td><strong>Multi-tenancy and audit</strong></td>
+<td>Tenants, users and roles, with every state-changing action recorded in an audit log.</td>
+</tr>
+<tr>
+<td><strong>Export anywhere</strong></td>
+<td>ZIP download, export to a folder on disk, or push straight to GitHub.</td>
+</tr>
+</tbody>
+</table>
+<h2>1.4 The four project types</h2>
+<p>When you click <strong>New Project</strong>, LAMA asks you to <strong>Choose Project Type</strong>. The
+choice decides which stages appear in the sidebar and which engine runs. All
+four ship in the product.</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Type</th>
+<th>Tagline</th>
+<th>Stages</th>
+<th>Needs a Knowledge Base?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Legacy Modernization</strong></td>
+<td>PHP/JSP/.NET → FastAPI/Node/Spring</td>
+<td>5</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Gap Analyzer</strong></td>
+<td>SRS ↔ Source code coverage</td>
+<td>3</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Technology Transformer</strong></td>
+<td>Cross-stack transformation</td>
+<td>3</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Direct Transform</strong></td>
+<td>Folder → migrated tree, no KB</td>
+<td>3</td>
+<td><strong>No</strong></td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h3>1.4.1 Legacy Modernization</h3>
+<div class="typecard"><div class="tl">PHP/JSP/.NET → FastAPI/Node/Spring</div><div class="ds">Full 5-stage pipeline: Discovery → DataModel → Architecture → CodeGen → Living.</div></div>
+<p>The complete modernisation workflow, and the reason the rest of the product
+exists. Use it when you are rebuilding a legacy application as a new
+cloud-native system and need the requirements, the data model and the
+architecture to be defensible — not just the code.</p>
+<p>It is a <strong>strictly sequential five-stage pipeline</strong>. You do not jump from
+legacy source straight to generated code. Each stage must be reviewed and
+<strong>frozen</strong> before the next unlocks, and freezing writes a "Stage Context" that
+becomes the single source of truth downstream. That is what stops a code
+generator from inventing requirements out of half-read evidence.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Stage</th>
+<th>What you produce</th>
+<th>Freezing it unlocks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>Discovery</strong></td>
+<td>Knowledge Base, YAML/TOON context, business ontology, a 12-section IEEE-830 SRS</td>
+<td>Data Model</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Data Model</strong></td>
+<td>PostgreSQL OLTP DDL, OLAP star schema, Bus Matrix, 3 migration scripts</td>
+<td>Architecture</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Architecture</strong></td>
+<td>Service Map, HLD, LLD, OpenAPI 3.1 contracts, sequence diagrams</td>
+<td>Code Generation</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Code Generation</strong></td>
+<td>Per-service source tree, Dockerfiles, ZIP, disk export, GitHub push</td>
+<td>Living System</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Living System</strong></td>
+<td>Selenium tests, JMeter plans, SRS-drift report, accuracy report</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<pre><code>Discovery ──freeze──▶ Data Model ──freeze──▶ Architecture ──freeze──▶ CodeGen ──freeze──▶ Living
+   KB + SRS              OLTP/OLAP            Services + APIs          Source tree        Tests + drift
+</code></pre>
+<p><strong>Features</strong></p>
+<ul>
+<li>Four ways to import evidence: upload files or a ZIP, scan a folder on the server, clone a Git repository, or connect a live database and application URL.</li>
+<li>Language-agnostic extraction — PHP, JSP, .NET, Python, JavaScript and more.</li>
+<li>A business ontology and property graph built alongside the raw knowledge base.</li>
+<li>12 IEEE-830 SRS sections, generated in parallel, individually regenerable and editable, exportable to PDF.</li>
+<li>Confidence scoring per section, with contradiction detection and a hard stop.</li>
+<li>Chat grounded in the knowledge base, which can also apply edits straight into the SRS.</li>
+<li>Both operational and analytical schemas, plus the scripts to move the data.</li>
+<li>Service decomposition you approve, merge and split before any code is generated.</li>
+<li>Gap recovery and an auto-validate loop that scores generated files and repairs the worst.</li>
+<li>Selenium and JMeter generation, SRS diffing and drift detection after go-live.</li>
+</ul>
+<p><strong>Skipping.</strong> Data Model, Architecture and Living can be skipped from the
+sidebar menu when they do not apply — that records a skip and unlocks the next
+stage. Discovery and Code Generation cannot be skipped.</p>
+<hr />
+<h3>1.4.2 Gap Analyzer</h3>
+<div class="typecard"><div class="tl">SRS ↔ Source code coverage</div><div class="ds">KB-driven verification of requirements against code. Produces coverage matrix + gap report.</div></div>
+<p><strong>Not a migration tool — a verification tool.</strong> Use it when the code already
+exists and the question is whether it does what the specification says. That
+covers accepting a vendor delivery, auditing your own build against its
+requirements, and re-checking coverage before a release.</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. <strong>Input Files</strong></td>
+<td>Upload the source code <strong>and</strong> the SRS/FRS document to check it against.</td>
+</tr>
+<tr>
+<td>2. <strong>Knowledge Base</strong></td>
+<td>LAMA extracts UI → API → DB traceability and a structured requirement list.</td>
+</tr>
+<tr>
+<td>3. <strong>Gap Report</strong></td>
+<td>A coverage matrix plus a severity-ranked list of requirements the code does not implement.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Features</strong></p>
+<ul>
+<li>Requirements parsed out of your existing SRS/FRS — no need to re-author it in LAMA.</li>
+<li>End-to-end traceability: which screen calls which endpoint, which touches which table.</li>
+<li>Severity ranking, so you can tell a missing audit trail from a missing tooltip.</li>
+<li>Its own <strong>freeze / unfreeze</strong>, independent of the five-stage pipeline.</li>
+<li>Export the report for circulation.</li>
+</ul>
+<p><strong>It requires no frozen upstream stage.</strong> You can run it on day one.</p>
+<hr />
+<h3>1.4.3 Technology Transformer</h3>
+<div class="typecard"><div class="tl">Cross-stack transformation</div><div class="ds">KB-anchored per-file transformation between technology stacks with dependency preservation.</div></div>
+<p>Use it when the <strong>application design is fine</strong> and only the technology has to
+change — a stack upgrade or a platform move, where re-deriving requirements
+would be wasted effort, but you still want the transformation anchored in an
+understanding of the code rather than done file-by-file in isolation.</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. <strong>Input Files</strong></td>
+<td>Upload the source code and choose the target stack.</td>
+</tr>
+<tr>
+<td>2. <strong>Knowledge Base</strong></td>
+<td>Entities and a dependency graph are extracted.</td>
+</tr>
+<tr>
+<td>3. <strong>Transformed</strong></td>
+<td>The per-file transformed source tree, with downloads.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Features</strong></p>
+<ul>
+<li><strong>Dependency preservation</strong> — the dependency graph is built first, so transformation respects real relationships instead of treating each file as standalone.</li>
+<li>A <strong>multi-agent pipeline</strong>: planner, coder, verifier, reviewer and tester, with a visible agent timeline and a plan you confirm before it runs.</li>
+<li>A <strong>compile-and-repair loop</strong> that escalates through four strategies — coder, then a DevOps expert, then the same expert with the raw build log, then a full regenerator — capped at five iterations.</li>
+<li>The <strong>target manifest is derived from the migrated code's imports</strong>, the way an IDE resolves an unresolved import, rather than being guessed.</li>
+<li>Per-file <strong>regenerate</strong>, pause, resume and stop on a running job.</li>
+<li>Live log streaming, a traceability view, and an agent chat.</li>
+<li>ZIP download and direct GitHub push.</li>
+<li>Target-stack idioms are table-driven, so supporting another language is a configuration entry rather than new code.</li>
+</ul>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p><strong>The build state is a report, not a permission.</strong> <code>compile_green</code> and
+<code>production_ready</code> tell you where the build stands. They do <strong>not</strong> block
+download or push — you can always collect your own code, green or not.</p>
 </div>
+<hr />
+<h3>1.4.4 Direct Transform</h3>
+<div class="typecard"><div class="tl">Folder → migrated tree, no KB</div><div class="ds">Point it at a folder on the server: deterministic plugins first (Helidon → Spring Boot, Oracle → PostgreSQL), AI pass for every other stack pair.</div></div>
+<p>The <strong>fastest</strong> path, and the only one that builds no knowledge base at all.
+Use it when you know exactly what you have and exactly what you want, and you
+want the conversion rather than the analysis. It is folder-path driven: you
+point it at a directory on the machine running LAMA and it writes a migrated
+tree to another directory.</p>
+<table>
+<thead>
+<tr>
+<th>Stage</th>
+<th>What happens</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1. <strong>Configure</strong></td>
+<td>Pick the source folder, the source and target stacks, and the destination.</td>
+</tr>
+<tr>
+<td>2. <strong>Transform</strong></td>
+<td>Run the job and watch the engine and agent event stream.</td>
+</tr>
+<tr>
+<td>3. <strong>Output</strong></td>
+<td>Reports and the per-file transform record.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Source and target are chosen independently</strong> from one catalogue:</p>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Stacks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend</td>
+<td>Helidon MicroProfile, Helidon SE, Spring Boot 4.1 (Java 25 LTS), Spring Boot 3.x (Java 21), .NET 10 LTS, JSP / Jakarta Pages 4.0, Apache Struts, EJB 3.x</td>
+</tr>
+<tr>
+<td>Frontend</td>
+<td>React 19, Angular 22, jQuery</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Oracle (SQL / PL-SQL), PostgreSQL 18, PostgreSQL 15</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Features</strong></p>
+<ul>
+<li><strong>Deterministic plugins first.</strong> Certain pairs — Helidon MP → Spring Boot 3, Oracle → PostgreSQL — are converted by hand-written transformers that produce the same output every time. Every other pair falls back to an AI pass. The UI tells you which one your chosen pair will get <strong>before</strong> you start.</li>
+<li><strong>The catalogue drives the engine, not just the prompt.</strong> Each stack declares the file types it owns, the markers that must not survive migration, and its build command — so the engine sweeps the right files, detects half-migrated ones, and builds with the right toolchain.</li>
+<li><strong>Per-pair migration briefs.</strong> The instructions sent to the model are composed for your specific source→target pair.</li>
+<li><strong>A no-residue gate</strong> that detects files still carrying the source stack's constructs.</li>
+<li>Pause, resume and <strong>rollback</strong> on a running job.</li>
+<li>A boot smoke test that starts the migrated application and probes its health endpoint.</li>
+<li>CI/CD scaffolding and a downloadable artifact.</li>
+</ul>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p><strong>Because it has no knowledge base, it has no requirements view.</strong> Direct
+Transform converts what is in the folder. If you need to know whether the
+result still satisfies the specification, that is the Gap Analyzer's job.</p>
+</div>
+<h2>1.5 Which type should I choose?</h2>
+<table>
+<thead>
+<tr>
+<th>If your situation is…</th>
+<th>Choose</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Rebuilding a legacy system, and the requirements need to be recovered and defensible</td>
+<td><strong>Legacy Modernization</strong></td>
+</tr>
+<tr>
+<td>The code exists; you need to know what it does not implement</td>
+<td><strong>Gap Analyzer</strong></td>
+</tr>
+<tr>
+<td>The design is fine, the technology must change, and you want it anchored in the code's real structure</td>
+<td><strong>Technology Transformer</strong></td>
+</tr>
+<tr>
+<td>You know the source stack and the target stack, and just want the conversion</td>
+<td><strong>Direct Transform</strong></td>
+</tr>
+</tbody>
+</table>
+<p>They are not exclusive. A common sequence is <strong>Direct Transform</strong> or
+<strong>Technology Transformer</strong> to move the stack, then <strong>Gap Analyzer</strong> to prove
+the result still satisfies the specification.</p>
+<h2>1.6 What LAMA needs from the outside world</h2>
+<p>LAMA does not ship a model. Every generation call is routed to an <strong>LLM
+provider you configure</strong> — OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq,
+or a local Ollama. There are no hard-coded vendor defaults anywhere in the
+product: an install with no provider configured will raise an error rather
+than quietly guess a model. <strong>Configuring a provider is a mandatory
+installation step, not an optional one.</strong></p>
 
-<!-- ══════════════════ 2. PATH A ══════════════════ -->
-<div class="page">
-  <div class="eyebrow">Path A · local development</div>
-  <h2><span class="num">03</span>Run from the terminal</h2>
-  <div class="rule"></div>
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 2</div><h1>Prerequisites (all platforms)</h1></div>
+<h2>2.1 Choose your installation path</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th><strong>Path A — Docker</strong></th>
+<th><strong>Path B — Local terminal</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Best for</td>
+<td>Evaluating, demos, shared team servers, anyone who is not editing LAMA itself</td>
+<td>Developers changing LAMA, or machines where Docker is not allowed</td>
+</tr>
+<tr>
+<td>You must install</td>
+<td>Docker Desktop (or Docker Engine) — that's all</td>
+<td>Python, Node + yarn, MongoDB</td>
+</tr>
+<tr>
+<td>MongoDB</td>
+<td>Bundled inside the container</td>
+<td>You install and run it</td>
+</tr>
+<tr>
+<td>Where it runs</td>
+<td>Everything on <code>http://localhost:8382</code></td>
+<td>API on <code>:8000</code>, UI on <code>:3000</code></td>
+</tr>
+<tr>
+<td>After a code change</td>
+<td>Restart the container</td>
+<td>Hot reload, automatic</td>
+</tr>
+<tr>
+<td>Disk</td>
+<td>~6 GB (image + volumes)</td>
+<td>~4 GB (venv + node_modules)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>If you are unsure, choose Path A.</strong> Most of this guide's platform
+differences disappear when everything runs in one container.</p>
+<h2>2.2 Hardware and network</h2>
+<table>
+<thead>
+<tr>
+<th>Requirement</th>
+<th>Minimum</th>
+<th>Comfortable</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RAM available to LAMA</td>
+<td>4 GB</td>
+<td>8 GB</td>
+</tr>
+<tr>
+<td>Free disk</td>
+<td>10 GB</td>
+<td>25 GB</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>4 cores</td>
+<td>8 cores</td>
+</tr>
+<tr>
+<td>Free TCP port</td>
+<td><code>8382</code> (Docker) — or <code>8000</code> + <code>3000</code> (local)</td>
+<td></td>
+</tr>
+<tr>
+<td>Network</td>
+<td>Outbound HTTPS to your LLM provider</td>
+<td>Also to Docker Hub, PyPI, npm on first install</td>
+</tr>
+</tbody>
+</table>
+<p>If you run everything locally with Ollama, LAMA works <strong>fully offline</strong> after
+the first install. The vector store has an embedded on-disk mode that needs no
+server, and the confidence engine's models are cached to disk.</p>
+<h2>2.3 Software versions — do not substitute</h2>
+<p>These versions are not arbitrary. Where a version is pinned, an older one does
+not fail cleanly; it produces broken output that reads like a bad migration.</p>
+<table>
+<thead>
+<tr>
+<th>Software</th>
+<th>Version</th>
+<th>Needed for</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Docker</strong></td>
+<td>Any current release with Compose v2</td>
+<td>Path A</td>
+<td><code>docker compose version</code> must work — the space-separated form, not <code>docker-compose</code></td>
+</tr>
+<tr>
+<td><strong>Python</strong></td>
+<td>3.11+ (3.14 works locally)</td>
+<td>Path B backend</td>
+<td>The container runs 3.11</td>
+</tr>
+<tr>
+<td><strong>MongoDB</strong></td>
+<td>7 or 8</td>
+<td>Path B — the system of record</td>
+<td>Bundled in the Docker image</td>
+</tr>
+<tr>
+<td><strong>Node.js</strong></td>
+<td>20+ (image builds on 24 LTS)</td>
+<td>Path B frontend</td>
+<td></td>
+</tr>
+<tr>
+<td><strong>yarn</strong></td>
+<td>1.22 via <code>corepack enable</code></td>
+<td>Path B frontend</td>
+<td><strong>Never run <code>npm install</code></strong> in <code>frontend/</code> — the lockfile is yarn's</td>
+</tr>
+<tr>
+<td><strong>An LLM provider</strong></td>
+<td>—</td>
+<td>Everything</td>
+<td>Ollama locally, or an OpenRouter/Anthropic/OpenAI key</td>
+</tr>
+</tbody>
+</table>
+<h3>Optional build toolchains</h3>
+<p>Only the compile-and-verify agents in Code Generation, Transformer and Direct
+Transform use these. The pipeline itself runs without them.</p>
+<table>
+<thead>
+<tr>
+<th>Toolchain</th>
+<th>Needed when your <strong>target</strong> is</th>
+<th>Version that matters</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>JDK</td>
+<td>Spring Boot 4.1</td>
+<td><strong>Temurin/JDK 25</strong> — JDK 17 or 21 cannot compile what the <code>spring-boot-4</code> target emits</td>
+</tr>
+<tr>
+<td>.NET SDK</td>
+<td>.NET 10</td>
+<td><strong>SDK 10</strong> — SDK 8 cannot build <code>net10.0</code></td>
+</tr>
+<tr>
+<td>Maven / Gradle</td>
+<td>any JVM target</td>
+<td>current</td>
+</tr>
+<tr>
+<td>Node 20+</td>
+<td>React 19 / Angular 22 targets</td>
+<td></td>
+</tr>
+<tr>
+<td>Go</td>
+<td>Go targets</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>A missing toolchain is a hard failure, by design.</strong> The compile agent
+returns <code>failed</code> when a binary is absent rather than skipping the check — so
+a build can never report "compilation ready" without having really compiled.
+The Docker image ships <strong>Temurin 25</strong> and <strong>.NET SDK 10</strong> already.</p>
+</div>
+<h3>Optional services</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Gives you</th>
+<th>Without it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Qdrant</strong> (vector DB)</td>
+<td>Semantic KB search, RAG-grounded chat, SRS evidence retrieval</td>
+<td>LAMA degrades silently to plain-text context. Everything still works, retrieval is just less precise. Embedded on-disk mode needs no server.</td>
+</tr>
+<tr>
+<td><strong>Factory / <code>droid</code> CLI</strong></td>
+<td>Optional alternate execution path for agents</td>
+<td>Not needed; leave it off</td>
+</tr>
+</tbody>
+</table>
+<h2>2.4 What you need before you start</h2>
+<p>Have these ready:</p>
+<ol>
+<li><strong>An LLM API key</strong> — e.g. an OpenRouter key beginning <code>sk-or-…</code> — <em>or</em> Ollama installed locally.</li>
+<li><strong>A random string, 32+ characters</strong>, for <code>LAMA_JWT_SECRET</code>. This signs login tokens. Anything random will do; do not ship the placeholder.</li>
+<li><strong>A copy of the legacy application</strong> you intend to migrate, on disk.</li>
+<li>If your organisation intercepts TLS (Zscaler, Netskope, and similar): <strong>your corporate root CA in PEM form</strong>.</li>
+</ol>
 
-  <div class="step"><div class="n">1</div><div class="body">
-    <h4>Clone and create the virtual environment</h4>
-    <p>The virtual environment lives at the repository root and is named
-    <code>.venv</code>.</p>
-    <pre><span class="p">$</span> git clone &lt;your-repo-url&gt; lama
-<span class="p">$</span> cd lama
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 3</div><h1>Installation on Windows</h1></div>
+<p>Windows needs three things the other platforms do not: the WSL 2 backend, an
+explicit <code>HOME</code> variable, and LF line endings. Each is covered below.</p>
+<p>All commands in this section are <strong>PowerShell</strong>. Open it from Start →
+"Windows PowerShell".</p>
+<h2>3.1 Install the prerequisites</h2>
+<h3>Path A (Docker) — install one thing</h3>
+<ol>
+<li>Download <strong>Docker Desktop</strong> from <a href="https://docker.com/products/docker-desktop">https://docker.com/products/docker-desktop</a>.</li>
+<li>During install, keep <strong>"Use WSL 2 instead of Hyper-V"</strong> ticked.</li>
+<li>After install, open Docker Desktop → Settings → General and confirm
+   <strong>"Use the WSL 2 based engine"</strong> is on.</li>
+<li>Verify:</li>
+</ol>
+<pre><code class="language-powershell">docker version --format '{{.Server.Version}}'
+docker compose version
+</code></pre>
+<p>Both must print a version. If <code>docker compose version</code> fails but
+<code>docker-compose --version</code> works, you have the old v1 binary — update Docker
+Desktop.</p>
+<h3>Path B (local terminal) — install the stack</h3>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>Strong recommendation:</strong> on Windows, run Path B inside <strong>WSL 2 (Ubuntu)</strong>
+and follow <a href="#part-5--installation-on-linux">Part 5 — Linux</a> instead. LAMA's
+helper scripts (<code>setup.sh</code>, <code>doctor.sh</code>, <code>run-backend.sh</code>,
+<code>run-frontend.sh</code>) are bash scripts and do not run in PowerShell. Everything
+below is the manual equivalent if you must stay in native Windows.</p>
+</div>
+<p>Install, in order:</p>
+<pre><code class="language-powershell">winget install --id Python.Python.3.12 -e
+winget install --id OpenJS.NodeJS.LTS -e
+winget install --id MongoDB.Server -e
+winget install --id Git.Git -e
+</code></pre>
+<p>Then enable yarn and confirm each one:</p>
+<pre><code class="language-powershell">corepack enable
 
-<span class="p">$</span> python3 -m venv .venv
-<span class="p">$</span> ./.venv/bin/python -m pip install --upgrade pip
-<span class="p">$</span> ./.venv/bin/python -m pip install -r backend/requirements-dev-macos.txt</pre>
-  </div></div>
+python --version          # 3.11 or newer
+node --version            # 20 or newer
+yarn --version            # 1.22.x
+git --version
+</code></pre>
+<p>MongoDB installed via winget registers a Windows service. Start it and confirm
+it is listening:</p>
+<pre><code class="language-powershell">Start-Service MongoDB
+Test-NetConnection 127.0.0.1 -Port 27017     # TcpTestSucceeded : True
+</code></pre>
+<p>Optional toolchains, only if you will generate code for those targets:</p>
+<pre><code class="language-powershell">winget install --id EclipseAdoptium.Temurin.25.JDK -e
+winget install --id Microsoft.DotNet.SDK.10 -e
+winget install --id Apache.Maven -e
+</code></pre>
+<h2>3.2 Get the code, with LF line endings</h2>
+<p><strong>This matters and it is the most common Windows failure.</strong> Docker Compose
+bind-mounts a shell script into the container and runs it with <code>/bin/sh</code>. With
+Git's Windows default (<code>core.autocrlf=true</code>) that file arrives as CRLF, the
+shebang becomes <code>#!/bin/sh\r</code>, and the container dies with:</p>
+<pre><code>exec /entrypoint-with-wheels.sh: no such file or directory
+</code></pre>
+<p>— which names the script, not the carriage return, so it reads like a missing
+file. The repository ships a <code>.gitattributes</code> that forces LF, so a <strong>fresh
+clone is correct</strong>. Clone fresh:</p>
+<pre><code class="language-powershell">git clone &lt;your-repo-url&gt; lama
+cd lama
+</code></pre>
+<p>If you cloned <em>before</em> <code>.gitattributes</code> existed, renormalise instead:</p>
+<pre><code class="language-powershell">git rm --cached -r .
+git reset --hard
+</code></pre>
+<h2>3.3 Create the paths Compose expects</h2>
+<p>Compose bind-mounts four host paths that are not in a fresh clone. A
+bind-mount whose source is missing is created by Docker as a <strong>directory</strong>,
+even when a <em>file</em> was expected — so a missing certificate silently becomes a
+folder and Nginx serves an empty site. Create them first:</p>
+<pre><code class="language-powershell">New-Item -ItemType Directory -Force -Path certs, hf_cache, wheels, frontend\build | Out-Null
+New-Item -ItemType File -Force -Path certs\corp-ca.pem | Out-Null
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What it is</th>
+<th>If you do not use the feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend\build</code></td>
+<td>The compiled UI bundle Nginx serves</td>
+<td><strong>Must be built</strong> — see 3.4</td>
+</tr>
+<tr>
+<td><code>certs\corp-ca.pem</code></td>
+<td>Your corporate root CA</td>
+<td>An empty file is fine</td>
+</tr>
+<tr>
+<td><code>hf_cache</code></td>
+<td>Offline models for confidence scoring</td>
+<td>An empty folder is fine</td>
+</tr>
+<tr>
+<td><code>wheels</code></td>
+<td>Offline LangGraph wheels</td>
+<td>An empty folder is fine</td>
+</tr>
+</tbody>
+</table>
+<h2>3.4 Build the UI bundle — inside Docker, no Node needed</h2>
+<p><code>frontend/build/</code> is gitignored, so a fresh clone does not have it. Compose
+mounts your local copy <strong>over</strong> the one baked into the image, so if it is
+empty you get a <strong>blank page at :8382 with a perfectly healthy container</strong> —
+which looks like a broken app rather than a missing bundle.</p>
+<p>Build it in a throwaway container (no Node on your machine required):</p>
+<pre><code class="language-powershell">docker run --rm -v &quot;${PWD}/frontend:/app&quot; -w /app -e CI=true -e DISABLE_ESLINT_PLUGIN=true node:24-bookworm-slim sh -c 'corepack enable &amp;&amp; yarn install --frozen-lockfile &amp;&amp; yarn build'
+</code></pre>
+<p>Keep the inner command in <strong>single</strong> quotes — PowerShell then passes it
+through literally, which is what <code>sh -c</code> needs.</p>
+<p>First run takes a few minutes (yarn install); about 30 seconds thereafter,
+since <code>node_modules</code> persists in the mounted folder.</p>
+<p><em>(Alternatively, on Path B where you already have Node: <code>cd frontend; yarn install; yarn build; cd ..</code>)</em></p>
+<h2>3.5 Set <code>HOME</code> — Compose needs it, Windows does not have it</h2>
+<p><code>docker-compose.yml</code> mounts <code>${HOME}/.local/bin-linux/droid</code> and
+<code>${HOME}/.factory</code> for the optional Factory CLI. Windows sets <code>USERPROFILE</code>,
+not <code>HOME</code>, so Compose warns <em>"The HOME variable is not set. Defaulting to a
+blank string"</em> and resolves those mounts to <code>/.local/bin-linux/droid</code> — the
+root of your drive.</p>
+<p>Add to <code>.env</code> in the repository root:</p>
+<pre><code class="language-ini">HOME=C:/Users/&lt;your-username&gt;
+</code></pre>
+<p>Forward slashes, no trailing slash, no quotes.</p>
+<p>If you do not use Factory at all, pin the three paths somewhere harmless
+instead:</p>
+<pre><code class="language-ini">LAMA_DROID_BIN_HOST=./certs/corp-ca.pem
+LAMA_DROID_BIN_HOST_DIR=./certs
+LAMA_FACTORY_CONFIG_HOST=./certs
+</code></pre>
+<h2>3.6 Configure <code>.env</code></h2>
+<p>Open <code>.env</code> in the repository root and set, at minimum:</p>
+<pre><code class="language-ini">OPENROUTER_API_KEY=sk-or-...
+LAMA_JWT_SECRET=&lt;your own random 32+ character string&gt;
+LAMA_FACTORY_MODE=
+LAMA_DEFAULT_MODEL=
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LAMA_JWT_SECRET</code></td>
+<td>Signs login tokens. Setting it here is <strong>not enough for the container</strong> — see <a href="#64-securing-the-login">6.4 Securing the login</a>.</td>
+</tr>
+<tr>
+<td><code>LAMA_FACTORY_MODE=</code></td>
+<td>Blank. The committed default is <code>cli</code>, which requires the optional <code>droid</code> binary inside the container; without it, every LLM call fails.</td>
+</tr>
+<tr>
+<td><code>LAMA_DEFAULT_MODEL=</code></td>
+<td>Leave <strong>empty</strong>. Any value here overrides per-agent tier routing for <em>every</em> call, so the Console's routing stops working.</td>
+</tr>
+</tbody>
+</table>
+<p>Using Ollama on your Windows host instead of a cloud key? Leave
+<code>OPENROUTER_API_KEY</code> blank and add the provider from the UI after boot;
+Compose already maps <code>host.docker.internal</code>.</p>
+<h2>3.7 Start it</h2>
+<p>The committed <code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> with
+<code>LAMA_PULL_POLICY=never</code>, which means Compose expects an image <strong>you built</strong>.
+Pick one option:</p>
+<p><strong>Option A — pull the published image (fastest)</strong></p>
+<pre><code class="language-powershell">$env:LAMA_IMAGE=&quot;mishramesh/lama:latest&quot;
+$env:LAMA_PULL_POLICY=&quot;always&quot;
+docker compose up -d
+</code></pre>
+<p><strong>Option B — build locally</strong></p>
+<pre><code class="language-powershell">docker build -f Dockerfile.local -t lama:local .   # thin: adds git + dulwich
+docker build -t lama:local .                       # full build from source
+docker compose up -d
+</code></pre>
+<p>Windows hosts are <code>amd64</code>, so no <code>--platform</code> flag is needed.</p>
+<p>Then watch it come up:</p>
+<pre><code class="language-powershell">docker compose logs -f lama          # Ctrl-C stops following, not the container
+curl.exe http://127.0.0.1:8382/health
+Start-Process http://localhost:8382
+</code></pre>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p>Use <strong><code>curl.exe</code></strong>, not <code>curl</code> — in PowerShell, <code>curl</code> is an alias for
+<code>Invoke-WebRequest</code>, which takes completely different flags.</p>
+</div>
+<p>First boot takes roughly 40 seconds while it seeds MongoDB, the prompt library
+and the agent configuration.</p>
+<h2>3.8 Path B — running natively on Windows</h2>
+<p>If you are not using Docker, run the two processes in two PowerShell windows.
+There is no <code>setup.sh</code> equivalent, so do it by hand once:</p>
+<pre><code class="language-powershell"># one-time setup
+python -m venv .venv
+.\.venv\Scripts\python.exe -m pip install --upgrade pip
+.\.venv\Scripts\python.exe -m pip install -r backend\requirements.txt
 
-  <div class="step"><div class="n">2</div><div class="body">
-    <h4>Install frontend packages</h4>
-    <pre><span class="p">$</span> corepack enable          <span class="c"># provides yarn 1.22.22</span>
-<span class="p">$</span> cd frontend &amp;&amp; yarn install &amp;&amp; cd ..</pre>
-    <div class="note"><b>Shortcut.</b> <code>./scripts/setup.sh</code> performs steps 1
-    and 2 and writes a <code>backend/.env</code> with a freshly generated JWT secret.</div>
-  </div></div>
-
-  <div class="step"><div class="n">3</div><div class="body">
-    <h4>Configure <code>backend/.env</code></h4>
-    <p><code>server.py</code> loads <code>backend/.env</code> — not the repo-root
-    <code>.env</code>, which belongs to docker-compose. It is gitignored.</p>
-    <pre>MONGO_URL=mongodb://127.0.0.1:27017   <span class="c"># required</span>
-DB_NAME=lama                         <span class="c"># required</span>
-LAMA_JWT_SECRET=<span class="s">&lt;48+ random chars&gt;</span>
+corepack enable
+cd frontend; yarn install; cd ..
+</code></pre>
+<p>Create <code>backend\.env</code> (this is a <strong>different file</strong> from the repository-root
+<code>.env</code>, which belongs to Compose):</p>
+<pre><code class="language-ini">MONGO_URL=mongodb://127.0.0.1:27017
+DB_NAME=lama
+LAMA_JWT_SECRET=&lt;your own random 48+ character string&gt;
 
 LAMA_OLLAMA_BASE_URL=http://localhost:11434/v1
-LAMA_DEFAULT_MODEL=                  <span class="c"># keep EMPTY</span>
-LAMA_CONFIDENCE_ENGINE=fabric        <span class="c"># pin explicitly</span>
+LAMA_DEFAULT_MODEL=
+OPENROUTER_API_KEY=sk-or-...
 
-QDRANT_PATH=./.qdrant_local          <span class="c"># offline vectors</span>
+LAMA_CONFIDENCE_ENGINE=fabric
+
+QDRANT_PATH=./.qdrant_local
+QDRANT_URL=
 LAMA_EMBED_BACKEND=ollama
-LAMA_OLLAMA_EMBED_MODEL=nomic-embed-text</pre>
-    <div class="warn"><b>Two settings worth understanding.</b>
-    Any value in <code>LAMA_DEFAULT_MODEL</code> overrides per-agent tier routing for
-    <i>every</i> call, so Console routing silently stops working — leave it empty.
-    And in <code>auto</code> mode the confidence engine flips to LangGraph whenever the
-    <code>droid</code> CLI is unreachable <i>and</i> <code>langgraph</code> happens to be
-    importable, so merely installing a package changes how artifacts are scored.
-    Pin it.</div>
-  </div></div>
+LAMA_OLLAMA_EMBED_MODEL=nomic-embed-text
+</code></pre>
+<p>Then, in two windows:</p>
+<pre><code class="language-powershell"># window 1 — API
+cd backend
+..\.venv\Scripts\uvicorn.exe server:app --reload --port 8000
+</code></pre>
+<pre><code class="language-powershell"># window 2 — UI
+cd frontend
+yarn start
+</code></pre>
+<p>Open <a href="http://localhost:3000">http://localhost:3000</a>.</p>
+<h2>3.9 Windows-specific troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>exec /entrypoint-with-wheels.sh: no such file or directory</code></td>
+<td>CRLF line endings. See 3.2 — reclone, or <code>git rm --cached -r . ; git reset --hard</code>.</td>
+</tr>
+<tr>
+<td><code>The "HOME" variable is not set</code></td>
+<td>See 3.5 — set <code>HOME</code> in <code>.env</code>.</td>
+</tr>
+<tr>
+<td>Blank page at :8382, container healthy</td>
+<td><code>frontend\build</code> is empty. Build the bundle (3.4), then <code>docker compose restart lama</code>.</td>
+</tr>
+<tr>
+<td><code>curl : A parameter cannot be found that matches parameter name 'fsS'</code></td>
+<td>You used PowerShell's <code>curl</code> alias. Use <code>curl.exe</code>.</td>
+</tr>
+<tr>
+<td><code>pull access denied for lama</code></td>
+<td><code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> and you have not built it. Use Option A in 3.7.</td>
+</tr>
+<tr>
+<td><code>Start-Service MongoDB</code> → service not found</td>
+<td>MongoDB installed without the service option. Reinstall, or run <code>mongod.exe --dbpath C:\data\db</code> in its own window.</td>
+</tr>
+<tr>
+<td>Docker Desktop won't start / "WSL 2 is not installed"</td>
+<td>Run <code>wsl --install</code> in an elevated PowerShell, reboot, then start Docker Desktop.</td>
+</tr>
+<tr>
+<td>Very slow file access under <code>frontend/</code></td>
+<td>Bind-mounted Windows folders are slow through WSL. Clone the repository <strong>inside</strong> the WSL filesystem (e.g. <code>\\wsl$\Ubuntu\home\you\lama</code>) and work from there.</td>
+</tr>
+</tbody>
+</table>
 
-  <div class="step"><div class="n">4</div><div class="body">
-    <h4>Start MongoDB</h4>
-    <pre><span class="p">$</span> brew services start mongodb-community
-<span class="p">$</span> nc -z 127.0.0.1 27017 &amp;&amp; echo <span class="s">"Mongo up"</span></pre>
-  </div></div>
-
-  <div class="step"><div class="n">5</div><div class="body">
-    <h4>Run the two processes</h4>
-    <div class="runhdr">TERMINAL 1 — API</div>
-    <pre><span class="p">$</span> cd backend
-<span class="p">$</span> ../.venv/bin/uvicorn server:app --reload --port 8000</pre>
-    <div class="runhdr">TERMINAL 2 — UI</div>
-    <pre><span class="p">$</span> cd frontend
-<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8000 yarn start</pre>
-    <p style="margin-top:2mm">Or use <code>./scripts/run-backend.sh</code> and
-    <code>./scripts/run-frontend.sh</code>.</p>
-  </div></div>
-
-  <table>
-    <tr><th style="width:44%">URL</th><th>What you get</th></tr>
-    <tr><td><code>http://localhost:3000</code></td><td>The application</td></tr>
-    <tr><td><code>http://127.0.0.1:8000/api/health</code></td><td><span class="ok">{"ok":true}</span></td></tr>
-    <tr><td><code>http://127.0.0.1:8000/api/health/providers</code></td><td>Which LLM provider is live</td></tr>
-    <tr><td><code>http://127.0.0.1:8000/docs</code></td><td>Interactive API documentation</td></tr>
-  </table>
-
-  <div class="note"><b>Keep hostnames consistent.</b> Browsers treat
-  <code>localhost</code> and <code>127.0.0.1</code> as different origins. Mixing them
-  between the UI and <code>REACT_APP_BACKEND_URL</code> triggers a CORS preflight
-  failure that looks like a server bug.</div>
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 4</div><h1>Installation on macOS</h1></div>
+<p>The macOS-specific point is <strong>Apple Silicon</strong>: the LAMA image is
+<code>linux/amd64</code>, and while it runs perfectly well under emulation on M-series
+Macs, building it yourself requires an explicit platform flag.</p>
+<p>All commands in this section are for <strong>Terminal</strong> (zsh).</p>
+<h2>4.1 Install the prerequisites</h2>
+<h3>Path A (Docker) — install one thing</h3>
+<p>Download <strong>Docker Desktop</strong> from <a href="https://docker.com/products/docker-desktop">https://docker.com/products/docker-desktop</a>,
+choosing the Apple Silicon or Intel build to match your Mac. Then:</p>
+<pre><code class="language-bash">docker version --format '{{.Server.Version}}'
+docker compose version
+</code></pre>
+<p>That is the entire prerequisite list for Path A. No Python, no Node, no
+MongoDB.</p>
+<h3>Path B (local terminal) — install the stack</h3>
+<p>Using <a href="https://brew.sh">Homebrew</a>:</p>
+<pre><code class="language-bash">brew install python@3.12 node
+brew tap mongodb/brew &amp;&amp; brew install mongodb-community@8.0
+corepack enable                      # provides yarn 1.22.22
+</code></pre>
+<p>Verify:</p>
+<pre><code class="language-bash">python3 --version     # 3.11 or newer
+node --version        # 20 or newer
+yarn --version        # 1.22.x
+</code></pre>
+<p>Optional toolchains, only if you will generate code for those targets:</p>
+<pre><code class="language-bash">brew install --cask temurin@25        # JDK 25 — required by the spring-boot-4 target
+brew install --cask dotnet-sdk        # verify it is SDK 10
+brew install maven gradle go
+</code></pre>
+<h2>4.2 Get the code</h2>
+<pre><code class="language-bash">git clone &lt;your-repo-url&gt; lama
+cd lama
+</code></pre>
+<h2>4.3 Create the paths Compose expects (Path A)</h2>
+<p>Compose bind-mounts four host paths that a fresh clone does not contain. A
+bind-mount whose source is missing is created by Docker as a <strong>directory</strong>,
+even when a <em>file</em> was expected — so a missing certificate silently becomes a
+folder. Create them first:</p>
+<pre><code class="language-bash">mkdir -p certs hf_cache wheels frontend/build
+touch certs/corp-ca.pem
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What it is</th>
+<th>If you do not use the feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend/build</code></td>
+<td>The compiled UI bundle Nginx serves</td>
+<td><strong>Must be built</strong> — see 4.4</td>
+</tr>
+<tr>
+<td><code>certs/corp-ca.pem</code></td>
+<td>Your corporate root CA</td>
+<td>An empty file is fine</td>
+</tr>
+<tr>
+<td><code>hf_cache</code></td>
+<td>Offline models for confidence scoring</td>
+<td>An empty folder is fine</td>
+</tr>
+<tr>
+<td><code>wheels</code></td>
+<td>Offline LangGraph wheels</td>
+<td>An empty folder is fine</td>
+</tr>
+</tbody>
+</table>
+<h2>4.4 Build the UI bundle</h2>
+<p><code>frontend/build/</code> is gitignored, and Compose mounts your local copy <strong>over</strong>
+the one baked into the image. If it is empty you get a <strong>blank page at :8382
+with a healthy container</strong> — which looks like a broken app rather than a
+missing bundle.</p>
+<p><strong>Path A (no Node on your Mac):</strong> build it in a throwaway container.</p>
+<pre><code class="language-bash">docker run --rm \
+  -v &quot;$(pwd)/frontend:/app&quot; -w /app \
+  -e CI=true -e DISABLE_ESLINT_PLUGIN=true \
+  node:24-bookworm-slim \
+  sh -c 'corepack enable &amp;&amp; yarn install --frozen-lockfile &amp;&amp; yarn build'
+</code></pre>
+<p><strong>Path B (Node already installed):</strong></p>
+<pre><code class="language-bash">cd frontend &amp;&amp; yarn install &amp;&amp; yarn build &amp;&amp; cd ..
+</code></pre>
+<p>Either way, <code>frontend/build/</code> is written. First run takes a few minutes;
+about 30 seconds thereafter, since <code>node_modules</code> persists.</p>
+<h2>4.5 Configure <code>.env</code> (Path A)</h2>
+<p>Open <code>.env</code> in the repository root and set, at minimum:</p>
+<pre><code class="language-bash">OPENROUTER_API_KEY=sk-or-...
+LAMA_JWT_SECRET=&lt;your own random 32+ character string&gt;
+LAMA_FACTORY_MODE=
+LAMA_DEFAULT_MODEL=
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LAMA_JWT_SECRET</code></td>
+<td>Signs login tokens. Setting it here is <strong>not enough for the container</strong> — see <a href="#64-securing-the-login">6.4 Securing the login</a>.</td>
+</tr>
+<tr>
+<td><code>LAMA_FACTORY_MODE=</code></td>
+<td>Blank. The committed default is <code>cli</code>, which requires the optional <code>droid</code> binary inside the container; without it, every LLM call fails.</td>
+</tr>
+<tr>
+<td><code>LAMA_DEFAULT_MODEL=</code></td>
+<td>Leave <strong>empty</strong>. Any value here overrides per-agent tier routing for <em>every</em> call, so the Console's routing stops working.</td>
+</tr>
+</tbody>
+</table>
+<p>To reach an Ollama running on your Mac from inside the container:</p>
+<pre><code class="language-bash">LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+</code></pre>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>Back up <code>backend/.env</code> before your first Docker run.</strong> The container's
+entrypoint writes a runtime <code>.env</code> to <code>/app/backend/.env</code>, and Compose
+bind-mounts <code>./backend</code> there — so the write lands on your <strong>host</strong> file and
+replaces any local-dev settings you had:
+<code>bash
+cp backend/.env backend/.env.mine     # restore with: cp backend/.env.mine backend/.env</code>
+This only matters if you have also used Path B on the same clone.</p>
 </div>
-
-<!-- ══════════════════ 3. PATH B ══════════════════ -->
-<div class="page">
-  <div class="eyebrow">Path B · single container</div>
-  <h2><span class="num">04</span>Run with Docker</h2>
-  <div class="rule"></div>
-
-  <p>nginx, MongoDB and the API run together in one container on <b>:8382</b>.
-  MongoDB is bundled — no local installation needed.</p>
-
-  <div class="warn"><b>Docker overwrites <code>backend/.env</code>.</b>
-  <code>docker/entrypoint.sh</code> writes a runtime <code>.env</code> to
-  <code>/app/backend/.env</code>, and compose bind-mounts <code>./backend</code> there —
-  so the write lands on your <b>host</b> file and your local settings (JWT secret,
-  Qdrant, Ollama) are replaced with container defaults. Back it up first:
-  <code>cp backend/.env backend/.env.mine</code>.</div>
-
-  <div class="note"><b>Apple Silicon.</b> The published image is
-  <code>linux/amd64</code>, so it runs under emulation on M-series Macs. It works —
-  verified — but starts and runs more slowly than a native image would.</div>
-
-  <div class="step"><div class="n">1</div><div class="body">
-    <h4>Build the UI bundle first</h4>
-    <p>Compose bind-mounts <code>./frontend/build</code> into nginx read-only, so it
-    must exist <i>before</i> the container starts.</p>
-    <pre><span class="p">$</span> cd frontend &amp;&amp; yarn install &amp;&amp; yarn build &amp;&amp; cd ..</pre>
-  </div></div>
-
-  <div class="step"><div class="n">2</div><div class="body">
-    <h4>Choose the image</h4>
-    <p>The repo-root <code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> with
-    <code>LAMA_PULL_POLICY=never</code>, so compose will not pull. Pick one:</p>
-    <pre><span class="c"># Option 1 — build locally (adds git, dulwich, JDK + Maven)</span>
-<span class="p">$</span> docker build -f Dockerfile.local -t lama:local .
-
-<span class="c"># Option 2 — use the public image; comment out BOTH lines in ./.env</span>
-<span class="c">#   LAMA_IMAGE=lama:local</span>
-<span class="c">#   LAMA_PULL_POLICY=never</span>
-<span class="p">$</span> docker pull mishramesh/lama:latest</pre>
-  </div></div>
-
-  <div class="step"><div class="n">3</div><div class="body">
-    <h4>Point the container at an LLM provider</h4>
-    <p>The root <code>.env</code> defaults to <code>LAMA_FACTORY_MODE=cli</code>, which
-    needs the <code>droid</code> binary <i>inside</i> the container. Without it every
-    LLM call fails.</p>
-    <pre><span class="c"># repo-root .env</span>
-LAMA_FACTORY_MODE=                 <span class="c"># blank — disable droid mode</span>
-LAMA_DEFAULT_MODEL=                <span class="c"># blank — use Console routing</span>
-
-<span class="c"># reach an Ollama running on the HOST</span>
-LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1</pre>
-  </div></div>
-
-  <div class="step"><div class="n">4</div><div class="body">
-    <h4>Start it</h4>
-    <pre><span class="p">$</span> docker compose up -d
-<span class="p">$</span> docker compose logs -f lama
-<span class="p">$</span> curl http://127.0.0.1:8382/health     <span class="c"># {"ok":true}</span></pre>
-    <p>Then open <code>http://127.0.0.1:8382</code>.</p>
-  </div></div>
-
-  <h3>Everyday commands</h3>
-  <table>
-    <tr><th style="width:53%">Command</th><th>Effect</th></tr>
-    <tr><td><code>docker compose restart lama</code></td><td>Apply <code>backend/*.py</code> edits (bind-mounted)</td></tr>
-    <tr><td><code>(cd frontend &amp;&amp; yarn build) &amp;&amp; docker compose restart lama</code></td><td>Apply UI edits</td></tr>
-    <tr><td><code>docker compose down</code></td><td>Stop, <b>keep</b> data volumes</td></tr>
-    <tr><td><code>docker compose down -v</code></td><td>Stop and <b>delete</b> MongoDB data</td></tr>
-    <tr><td><code>docker compose ps</code></td><td>Status and health</td></tr>
-    <tr><td><code>docker compose exec lama bash</code></td><td>Shell inside the container</td></tr>
-  </table>
+<h2>4.6 Start it (Path A)</h2>
+<p>The committed <code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> with
+<code>LAMA_PULL_POLICY=never</code>, so Compose expects an image <strong>you built</strong>. Pick one:</p>
+<p><strong>Option A — pull the published image (fastest)</strong></p>
+<pre><code class="language-bash">LAMA_IMAGE=mishramesh/lama:latest LAMA_PULL_POLICY=always docker compose up -d
+</code></pre>
+<p><strong>Option B — build the thin local image</strong> (adds <code>git</code> + <code>dulwich</code> on the published base)</p>
+<pre><code class="language-bash">docker build --platform linux/amd64 -f Dockerfile.local -t lama:local .
+docker compose up -d
+</code></pre>
+<p><strong>Option C — build the full image from source</strong></p>
+<pre><code class="language-bash">docker build --platform linux/amd64 -t lama:local .
+docker compose up -d
+</code></pre>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong><code>--platform linux/amd64</code> is required on Apple Silicon.</strong> A native arm64
+build dies at the MongoDB layer with
+<code>E: Unable to locate package mongodb-org-server</code>, because MongoDB publishes
+no arm64 Debian packages on the <code>mongodb-org/7.0</code> channel. The error names
+the package, not the architecture, so it reads as a broken Dockerfile. Every
+other layer builds fine on arm64.</p>
 </div>
+<p>Then:</p>
+<pre><code class="language-bash">docker compose logs -f lama          # Ctrl-C stops following, not the container
+curl http://127.0.0.1:8382/health    # → {&quot;ok&quot;:true}
+open http://localhost:8382
+</code></pre>
+<p>First boot takes roughly 40 seconds while it seeds MongoDB, the prompt library
+and the agent configuration. The healthcheck allows for that.</p>
+<h2>4.7 Path B — running natively on macOS</h2>
+<h3>One-shot setup</h3>
+<pre><code class="language-bash">./scripts/setup.sh
+</code></pre>
+<p>That creates <code>.venv</code> at the repository root, installs backend and frontend
+dependencies, and writes a starter <code>backend/.env</code> with a freshly generated JWT
+secret. It is safe to re-run: it never overwrites an existing <code>backend/.env</code>.</p>
+<details>
+<summary>What it does, if you prefer to run the steps yourself</summary>
 
-<!-- ══════════════════ 4. REFERENCE ══════════════════ -->
-<div class="page">
-  <div class="eyebrow">Reference</div>
-  <h2><span class="num">05</span>Scripts, tests &amp; troubleshooting</h2>
-  <div class="rule"></div>
 
-  <h3>Scripts in this repository</h3>
-  <table>
-    <tr><th style="width:36%">Script</th><th>What it does</th></tr>
-    <tr><td><code>./scripts/setup.sh</code></td><td>Creates <code>.venv</code>, installs backend + frontend dependencies, writes <code>backend/.env</code></td></tr>
-    <tr><td><code>./scripts/doctor.sh</code></td><td>Checks MongoDB, Ollama, build toolchains, Qdrant, Docker — read-only</td></tr>
-    <tr><td><code>./scripts/run-backend.sh</code></td><td>Starts the API with hot reload</td></tr>
-    <tr><td><code>./scripts/run-frontend.sh</code></td><td>Starts the UI on :3000</td></tr>
-    <tr><td><code>./scripts/clear-caches.sh</code></td><td>Clears observability rows and build caches so a demo instance looks fresh. Dry-run by default; <code>--apply</code> to act. Never touches providers, projects or their artifacts.</td></tr>
-    <tr><td><code>./scripts/build-docs-pdf.sh</code></td><td>Re-renders this guide to <code>docs/LAMA-Setup-Guide.pdf</code></td></tr>
-  </table>
+<pre><code class="language-bash">python3 -m venv .venv
+./.venv/bin/python -m pip install --upgrade pip
+./.venv/bin/python -m pip install -r backend/requirements-dev-macos.txt
 
-  <h3>Tests</h3>
-  <pre><span class="p">$</span> ./.venv/bin/python -m pytest              <span class="c"># 837 passed, 129 gated</span>
-<span class="p">$</span> ./.venv/bin/python -m pytest backend/tests/test_lama_v4.py -k test_chat -x
+corepack enable
+cd frontend &amp;&amp; yarn install &amp;&amp; cd ..
+</code></pre>
 
-<span class="c"># the 8 live-server suites, against a running backend:</span>
-<span class="p">$</span> (cd backend &amp;&amp; ../.venv/bin/uvicorn server:app --port 8382 &amp;)
-<span class="p">$</span> REACT_APP_BACKEND_URL=http://127.0.0.1:8382 \
-    ./.venv/bin/python -m pytest --run-integration</pre>
+</details>
 
-  <div class="note"><b>A bare <code>pytest</code> run should be green.</b> Eight
-  suites drive the app over HTTP and are marked <code>integration</code>, so they
-  are skipped unless you pass <code>--run-integration</code>. They also predate
-  multi-tenant auth, so <code>conftest.py</code> logs in and attaches a bearer
-  token for you using <code>LAMA_SUPERADMIN_USER</code> /
-  <code>LAMA_SUPERADMIN_PASS</code> — you no longer have to expect
-  <code>401</code>s.</div>
-
-  <h3>Lint</h3>
-  <pre><span class="p">$</span> ruff check backend
-<span class="p">$</span> ./.venv/bin/vulture backend backend/.vulture-whitelist.py --min-confidence 80
-<span class="p">$</span> cd frontend &amp;&amp; yarn lint</pre>
-  <div class="note">Pass the vulture whitelist as an <b>input path</b>, not
-  <code>--exclude</code> — <code>--exclude</code> only stops vulture reading it, and
-  the bar then reports entries that are already whitelisted.</div>
-
-  <h3>Troubleshooting</h3>
-  <table>
-    <tr><th style="width:38%">Symptom</th><th>Cause &amp; fix</th></tr>
-    <tr><td><code>KeyError: 'MONGO_URL'</code></td><td><code>backend/.env</code> missing — it must sit beside <code>server.py</code></td></tr>
-    <tr><td>Starts, then hangs</td><td>MongoDB unreachable; the startup seed is waiting. Start Mongo.</td></tr>
-    <tr><td><i>no generation provider is healthy</i></td><td>No LLM configured. Check <code>/api/health/providers</code>.</td></tr>
-    <tr><td>LLM returns <b>empty</b> content</td><td>Thinking model exhausted its budget. Raise <code>max_tokens</code> to 2000+.</td></tr>
-    <tr><td><code>401 Unauthorized</code></td><td>Expected — log in. LAMA is multi-tenant with JWT auth.</td></tr>
-    <tr><td><code>toolchain missing on PATH</code></td><td>Install it; absence fails the job by design.</td></tr>
-    <tr><td>CORS / missing <code>Allow-Origin</code></td><td><code>localhost</code> vs <code>127.0.0.1</code> mismatch</td></tr>
-    <tr><td><code>library load disallowed by system policy</code></td><td>macOS quarantined a downloaded copy:<br><code>xattr -dr com.apple.quarantine .</code> then rebuild <code>.venv</code></td></tr>
-    <tr><td><code>pull access denied for lama:local</code></td><td>Image not built — see Path B, step 2</td></tr>
-    <tr><td>Semantic search returns nothing</td><td>Qdrant off. Set <code>QDRANT_PATH</code> or <code>QDRANT_URL</code>; it degrades silently by design.</td></tr>
-  </table>
-
-  <h3>How the pieces fit</h3>
-  <div class="diagram">        PATH A · development                 PATH B · docker
-        ─────────────────────                 ──────────────
-
-  Browser ──▶ localhost:3000                  127.0.0.1:8382
-                   │  CRA dev server                 │
-                   ▼                                nginx
-            127.0.0.1:8000                    ┌──────┴───────┐
-              FastAPI API  ◀───────────────▶  │  static UI   │
-                   │                          │  FastAPI     │
-       ┌───────────┼───────────┐              │  MongoDB     │
-       ▼           ▼           ▼              └──────────────┘
-   MongoDB      Ollama      Qdrant              one container
-    :27017      :11434    embedded/:6333
-  system of    LLM  +      semantic search
-   record     embeddings      (optional)</div>
-
-  <p style="margin-top:4mm">The five-stage pipeline — <b>Discovery → DataModel →
-  Architecture → CodeGen → Living</b> — is strictly sequential: each stage
-  refuses to run until the one before it has been frozen.</p>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>Why <code>requirements-dev-macos.txt</code>?</strong> <code>requirements.txt</code> targets the
+container — Linux on Python 3.11 — and carries the HuggingFace/torch stack
+(~3 GB) that local development does not need. The <code>-dev-macos</code> file installs
+the same application at the same versions wherever a newer Python allows,
+and documents each relaxed pin inline. <code>requirements.txt</code> remains the source
+of truth for the Docker image.</p>
 </div>
+<h3>Start MongoDB</h3>
+<pre><code class="language-bash">brew services start mongodb-community@8.0
+nc -z 127.0.0.1 27017 &amp;&amp; echo &quot;Mongo up&quot;
+</code></pre>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p>The Homebrew formula is <strong>versioned</strong>. <code>brew services start
+mongodb-community</code> fails with "Formula not installed", and
+<code>brew services stop mongodb-community</code> reports "not started" even while it
+is running. Always use the <code>@8.0</code> suffix.</p>
+</div>
+<h3>Check the environment</h3>
+<pre><code class="language-bash">./scripts/doctor.sh
+</code></pre>
+<p>Read-only. It reports what is present, what is missing, and whether each gap
+actually blocks you — including the <strong>versions</strong> of the JDK and .NET SDK, not
+just their presence.</p>
+<h3>Run it — two terminals</h3>
+<pre><code class="language-bash">./scripts/run-backend.sh      # API → http://127.0.0.1:8000/api/health
+</code></pre>
+<pre><code class="language-bash">./scripts/run-frontend.sh     # UI  → http://localhost:3000
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>What</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><a href="http://localhost:3000">http://localhost:3000</a></td>
+<td>the application</td>
+</tr>
+<tr>
+<td><a href="http://127.0.0.1:8000/api/health">http://127.0.0.1:8000/api/health</a></td>
+<td><code>{"ok":true}</code></td>
+</tr>
+<tr>
+<td><a href="http://127.0.0.1:8000/api/health/providers">http://127.0.0.1:8000/api/health/providers</a></td>
+<td>which LLM provider is live</td>
+</tr>
+<tr>
+<td><a href="http://127.0.0.1:8000/docs">http://127.0.0.1:8000/docs</a></td>
+<td>interactive API reference</td>
+</tr>
+</tbody>
+</table>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p>Be consistent about <code>localhost</code> vs <code>127.0.0.1</code> between the UI and
+<code>REACT_APP_BACKEND_URL</code>. Browsers treat them as <strong>different origins</strong>, and
+mixing them triggers CORS preflight failures that look like backend errors.</p>
+</div>
+<h2>4.8 macOS-specific troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>E: Unable to locate package mongodb-org-server</code> during a build</td>
+<td>Building natively on Apple Silicon. Add <code>--platform linux/amd64</code>.</td>
+</tr>
+<tr>
+<td>Container is slow on an M-series Mac</td>
+<td>Expected — the image is <code>linux/amd64</code> and runs under emulation. It works; it is just not native.</td>
+</tr>
+<tr>
+<td>Blank page at :8382, container healthy</td>
+<td><code>frontend/build</code> is empty. Build the bundle (4.4), then <code>docker compose restart lama</code>.</td>
+</tr>
+<tr>
+<td><code>brew services start mongodb-community</code> → "Formula not installed"</td>
+<td>Use the versioned name: <code>mongodb-community@8.0</code>.</td>
+</tr>
+<tr>
+<td><code>library load disallowed by system policy</code></td>
+<td>macOS quarantined a downloaded file. <code>xattr -dr com.apple.quarantine .</code> then rebuild <code>.venv</code>.</td>
+</tr>
+<tr>
+<td><code>pull access denied for lama:local</code></td>
+<td><code>.env</code> pins a local image you have not built. Use Option A in 4.6.</td>
+</tr>
+<tr>
+<td><code>KeyError: 'MONGO_URL'</code> at backend startup</td>
+<td><code>backend/.env</code> is missing or not next to <code>server.py</code>. Re-run <code>./scripts/setup.sh</code>.</td>
+</tr>
+</tbody>
+</table>
 
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 5</div><h1>Installation on Linux</h1></div>
+<p>Linux is the platform LAMA's container is actually built for — the image is
+<code>linux/amd64</code>, so there is no emulation and no platform flag. Two Linux
+specifics need attention: Docker's <strong>rootless/group setup</strong>, and the fact that
+<strong>Ollama binds to loopback by default</strong>, which makes it invisible to the
+container.</p>
+<p>Commands below use <code>apt</code> (Debian/Ubuntu). Translate package names for
+Fedora/RHEL (<code>dnf</code>) or Arch (<code>pacman</code>) as needed.</p>
+<h2>5.1 Install the prerequisites</h2>
+<h3>Path A (Docker)</h3>
+<p>Install Docker Engine plus the Compose plugin from Docker's own repository —
+distribution packages are frequently too old for <code>docker compose</code> (v2):</p>
+<pre><code class="language-bash">curl -fsSL https://get.docker.com | sh
+sudo usermod -aG docker &quot;$USER&quot;
+newgrp docker            # or log out and back in
+</code></pre>
+<p>Verify — <strong>without <code>sudo</code></strong>, which confirms the group took effect:</p>
+<pre><code class="language-bash">docker version --format '{{.Server.Version}}'
+docker compose version
+</code></pre>
+<h3>Path B (local terminal)</h3>
+<pre><code class="language-bash">sudo apt update
+sudo apt install -y python3 python3-venv python3-pip git curl netcat-openbsd
+</code></pre>
+<p><code>netcat-openbsd</code> is not optional decoration: <code>doctor.sh</code> and
+<code>run-backend.sh</code> use <code>nc -z</code> to check whether MongoDB is listening.</p>
+<p><strong>Node 20+</strong> — distribution packages are usually too old:</p>
+<pre><code class="language-bash">curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+sudo apt install -y nodejs
+sudo corepack enable            # provides yarn 1.22.22
+</code></pre>
+<p><strong>MongoDB 7/8</strong> — from MongoDB's own repository:</p>
+<pre><code class="language-bash">curl -fsSL https://www.mongodb.org/static/pgp/server-8.0.asc \
+  | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-8.0.gpg
+echo &quot;deb [signed-by=/usr/share/keyrings/mongodb-server-8.0.gpg] https://repo.mongodb.org/apt/ubuntu $(lsb_release -cs)/mongodb-org/8.0 multiverse&quot; \
+  | sudo tee /etc/apt/sources.list.d/mongodb-org-8.0.list
+sudo apt update &amp;&amp; sudo apt install -y mongodb-org
+sudo systemctl enable --now mongod
+</code></pre>
+<p>Verify everything:</p>
+<pre><code class="language-bash">python3 --version     # 3.11 or newer
+node --version        # 20 or newer
+yarn --version        # 1.22.x
+nc -z 127.0.0.1 27017 &amp;&amp; echo &quot;Mongo up&quot;
+</code></pre>
+<p>Optional toolchains, only if you will generate code for those targets:</p>
+<pre><code class="language-bash">sudo apt install -y maven gradle golang-go
+# JDK 25 (Temurin) and .NET SDK 10 come from their vendors' repositories —
+# distribution packages ship older majors that cannot compile what the
+# spring-boot-4 and dotnet-10 targets emit.
+</code></pre>
+<h2>5.2 Get the code and create the paths Compose expects</h2>
+<pre><code class="language-bash">git clone &lt;your-repo-url&gt; lama
+cd lama
+
+mkdir -p certs hf_cache wheels frontend/build
+touch certs/corp-ca.pem
+</code></pre>
+<p>A bind-mount whose source is missing is created by Docker as a <strong>directory</strong>,
+even when a <em>file</em> was expected — so a missing <code>corp-ca.pem</code> silently becomes
+a folder. Create them before the first <code>up</code>.</p>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>What it is</th>
+<th>If you do not use the feature</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>frontend/build</code></td>
+<td>The compiled UI bundle Nginx serves</td>
+<td><strong>Must be built</strong> — see 5.3</td>
+</tr>
+<tr>
+<td><code>certs/corp-ca.pem</code></td>
+<td>Your corporate root CA</td>
+<td>An empty file is fine</td>
+</tr>
+<tr>
+<td><code>hf_cache</code></td>
+<td>Offline models for confidence scoring</td>
+<td>An empty folder is fine</td>
+</tr>
+<tr>
+<td><code>wheels</code></td>
+<td>Offline LangGraph wheels</td>
+<td>An empty folder is fine</td>
+</tr>
+</tbody>
+</table>
+<h2>5.3 Build the UI bundle</h2>
+<p><code>frontend/build/</code> is gitignored, and Compose mounts your local copy <strong>over</strong>
+the one baked into the image. If it is empty you get a <strong>blank page at :8382
+with a healthy container</strong>.</p>
+<p><strong>Path A (no Node installed):</strong></p>
+<pre><code class="language-bash">docker run --rm \
+  -v &quot;$(pwd)/frontend:/app&quot; -w /app \
+  -e CI=true -e DISABLE_ESLINT_PLUGIN=true \
+  node:24-bookworm-slim \
+  sh -c 'corepack enable &amp;&amp; yarn install --frozen-lockfile &amp;&amp; yarn build'
+</code></pre>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p>If your Docker is <strong>rootless</strong>, the files land owned by your user already.
+On a rootful daemon the container writes as <code>root</code>, so afterwards run
+<code>sudo chown -R "$USER:$USER" frontend/node_modules frontend/build</code> if you
+also intend to work on the frontend natively.</p>
+</div>
+<p><strong>Path B (Node installed):</strong></p>
+<pre><code class="language-bash">cd frontend &amp;&amp; yarn install &amp;&amp; yarn build &amp;&amp; cd ..
+</code></pre>
+<h2>5.4 Configure <code>.env</code> (Path A)</h2>
+<pre><code class="language-bash">OPENROUTER_API_KEY=sk-or-...
+LAMA_JWT_SECRET=&lt;your own random 32+ character string&gt;
+LAMA_FACTORY_MODE=
+LAMA_DEFAULT_MODEL=
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Why</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LAMA_JWT_SECRET</code></td>
+<td>Signs login tokens. Setting it here is <strong>not enough for the container</strong> — see <a href="#64-securing-the-login">6.4 Securing the login</a>.</td>
+</tr>
+<tr>
+<td><code>LAMA_FACTORY_MODE=</code></td>
+<td>Blank. The committed default is <code>cli</code>, which requires the optional <code>droid</code> binary inside the container; without it, every LLM call fails.</td>
+</tr>
+<tr>
+<td><code>LAMA_DEFAULT_MODEL=</code></td>
+<td>Leave <strong>empty</strong>. Any value here overrides per-agent tier routing for <em>every</em> call.</td>
+</tr>
+</tbody>
+</table>
+<h3>Reaching a host Ollama from the container — the Linux gotcha</h3>
+<p>Docker Desktop on macOS and Windows provides <code>host.docker.internal</code>
+automatically. Plain Docker Engine on Linux does not, so
+<code>docker-compose.yml</code> maps it explicitly to the host gateway:</p>
+<pre><code class="language-yaml">extra_hosts:
+  - &quot;host.docker.internal:host-gateway&quot;
+</code></pre>
+<p>That half is already done for you. The <strong>other</strong> half is Ollama itself:
+by default it listens on <code>127.0.0.1</code> only, which the container cannot reach.
+Bind it to all interfaces:</p>
+<pre><code class="language-bash">sudo systemctl edit ollama
+</code></pre>
+<p>Add:</p>
+<pre><code class="language-ini">[Service]
+Environment=&quot;OLLAMA_HOST=0.0.0.0&quot;
+</code></pre>
+<p>Then:</p>
+<pre><code class="language-bash">sudo systemctl restart ollama
+curl http://$(hostname -I | awk '{print $1}'):11434/api/tags    # should answer
+</code></pre>
+<p>And in <code>.env</code>:</p>
+<pre><code class="language-bash">LAMA_OLLAMA_BASE_URL=http://host.docker.internal:11434/v1
+</code></pre>
+<div class="callout c-crit"><span class="lbl">Important</span>
+<p><strong>Do not expose port 11434 to the public internet.</strong> <code>OLLAMA_HOST=0.0.0.0</code>
+makes the daemon reachable from your whole network. If the machine is not
+behind a firewall, restrict it with <code>ufw</code> or bind Ollama to the Docker
+bridge address instead of <code>0.0.0.0</code>.</p>
+</div>
+<h2>5.5 Start it (Path A)</h2>
+<p>The committed <code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> with
+<code>LAMA_PULL_POLICY=never</code>, so Compose expects an image <strong>you built</strong>. Pick one:</p>
+<pre><code class="language-bash"># Option A — pull the published image (fastest)
+LAMA_IMAGE=mishramesh/lama:latest LAMA_PULL_POLICY=always docker compose up -d
+
+# Option B — thin local build (adds git + dulwich on the published base)
+docker build -f Dockerfile.local -t lama:local . &amp;&amp; docker compose up -d
+
+# Option C — full build from source
+docker build -t lama:local . &amp;&amp; docker compose up -d
+</code></pre>
+<p>On <code>x86_64</code> Linux no <code>--platform</code> flag is needed. On <strong>arm64 Linux</strong>
+(Graviton, Ampere, Raspberry Pi) you must still build with
+<code>--platform linux/amd64</code> and run under emulation — a native arm64 build fails
+at the MongoDB layer, which publishes no arm64 Debian packages on that
+channel.</p>
+<pre><code class="language-bash">docker compose logs -f lama
+curl http://127.0.0.1:8382/health     # → {&quot;ok&quot;:true}
+xdg-open http://localhost:8382
+</code></pre>
+<p>First boot takes roughly 40 seconds while it seeds MongoDB, the prompt library
+and the agent configuration.</p>
+<h2>5.6 Path B — running natively on Linux</h2>
+<pre><code class="language-bash">./scripts/setup.sh        # creates .venv, installs deps, writes backend/.env
+./scripts/doctor.sh       # read-only check of Mongo, Ollama, toolchains
+</code></pre>
+<p><code>setup.sh</code> prefers <code>backend/requirements-dev-macos.txt</code> — despite the name it
+is simply the <strong>portable</strong> dependency set (no GPU/ML stack) and works on Linux.
+If you want the exact container dependency set instead, including the
+HuggingFace stack used by the offline confidence engine:</p>
+<pre><code class="language-bash">./.venv/bin/python -m pip install -r backend/requirements.txt
+</code></pre>
+<p><code>setup.sh</code> writes <code>backend/.env</code> with a generated JWT secret. Review it and
+add your provider key. Then, in two terminals:</p>
+<pre><code class="language-bash">./scripts/run-backend.sh      # API → http://127.0.0.1:8000/api/health
+</code></pre>
+<pre><code class="language-bash">./scripts/run-frontend.sh     # UI  → http://localhost:3000
+</code></pre>
+<p>One line in the scripts is macOS-flavoured: when MongoDB is unreachable they
+suggest <code>brew services start mongodb-community@8.0</code>. On Linux the equivalent
+is <code>sudo systemctl start mongod</code>. The check itself is correct on both.</p>
+<h2>5.7 Running LAMA as a server for a team</h2>
+<p>If this Linux box is a shared server rather than a workstation:</p>
+<pre><code class="language-bash"># start on boot, survive reboots — already set by the compose file
+docker compose up -d           # restart: unless-stopped
+
+# confirm it comes back
+sudo systemctl enable docker
+</code></pre>
+<p>Then tighten these, which are permissive by default for local use:</p>
+<table>
+<thead>
+<tr>
+<th>Setting</th>
+<th>Default</th>
+<th>Change to</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>LAMA_JWT_SECRET</code></td>
+<td>a placeholder in the committed <code>.env</code></td>
+<td>a real random secret</td>
+</tr>
+<tr>
+<td>Superadmin password</td>
+<td><code>lama-admin-2026</code></td>
+<td>set <code>LAMA_SUPERADMIN_PASS</code> before first boot</td>
+</tr>
+<tr>
+<td><code>CORS_ORIGINS</code></td>
+<td><code>*</code></td>
+<td>your actual UI origin</td>
+</tr>
+<tr>
+<td>Port <code>8382</code></td>
+<td>bound to all interfaces</td>
+<td>put a TLS-terminating reverse proxy in front, or bind to <code>127.0.0.1:8382</code> in the <code>ports:</code> mapping</td>
+</tr>
+</tbody>
+</table>
+<p>Both the JWT secret and the superadmin password need a small edit to
+<code>docker-compose.yml</code> to reach the container at all — see
+<a href="#64-securing-the-login">6.4 Securing the login</a>.</p>
+<h2>5.8 Linux-specific troubleshooting</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>permission denied while trying to connect to the Docker daemon socket</code></td>
+<td>Your user is not in the <code>docker</code> group. <code>sudo usermod -aG docker "$USER"</code> then <code>newgrp docker</code>.</td>
+</tr>
+<tr>
+<td><code>docker compose</code> → "is not a docker command"</td>
+<td>You have Compose v1. Install the Compose plugin, or use Docker's own repository (5.1).</td>
+</tr>
+<tr>
+<td>Container cannot reach Ollama on the host</td>
+<td>Ollama is bound to loopback. See 5.4 — set <code>OLLAMA_HOST=0.0.0.0</code>.</td>
+</tr>
+<tr>
+<td><code>nc: command not found</code> from <code>doctor.sh</code></td>
+<td><code>sudo apt install netcat-openbsd</code>.</td>
+</tr>
+<tr>
+<td><code>frontend/build</code> owned by root after the container build</td>
+<td>Rootful Docker daemon. <code>sudo chown -R "$USER:$USER" frontend/build frontend/node_modules</code>.</td>
+</tr>
+<tr>
+<td><code>mongod</code> won't start, <code>Permission denied</code> on <code>/var/lib/mongodb</code></td>
+<td>SELinux or a stale data directory. <code>sudo chown -R mongodb:mongodb /var/lib/mongodb</code> and check <code>journalctl -u mongod</code>.</td>
+</tr>
+<tr>
+<td>Blank page at :8382, container healthy</td>
+<td><code>frontend/build</code> is empty. Build the bundle (5.3), then <code>docker compose restart lama</code>.</td>
+</tr>
+<tr>
+<td>Port 8382 already bound</td>
+<td>Change the <strong>host</strong> side only: <code>ports: - "9382:8382"</code>.</td>
+</tr>
+</tbody>
+</table>
+
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 6</div><h1>First boot and sign-in</h1></div>
+<h2>6.1 Confirm it is alive</h2>
+<table>
+<thead>
+<tr>
+<th>Path</th>
+<th>Health check</th>
+<th>Application</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Docker</strong></td>
+<td><a href="http://localhost:8382/health">http://localhost:8382/health</a> → <code>{"ok":true}</code></td>
+<td><a href="http://localhost:8382">http://localhost:8382</a></td>
+</tr>
+<tr>
+<td><strong>Local terminal</strong></td>
+<td><a href="http://127.0.0.1:8000/api/health">http://127.0.0.1:8000/api/health</a> → <code>{"ok":true}</code></td>
+<td><a href="http://localhost:3000">http://localhost:3000</a></td>
+</tr>
+</tbody>
+</table>
+<p>On the Docker path, first boot takes about 40 seconds. <code>docker compose ps</code>
+shows the container's health; until it reports <code>healthy</code>, a browser may see a
+connection refused, which is expected.</p>
+<p>Two more endpoints are worth bookmarking:</p>
+<table>
+<thead>
+<tr>
+<th>URL</th>
+<th>What it tells you</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>…/api/health/providers</code></td>
+<td>Which LLM provider is actually live — the first thing to check when generation fails</td>
+</tr>
+<tr>
+<td><code>…/docs</code> <em>(local path only)</em></td>
+<td>The interactive API reference</td>
+</tr>
+</tbody>
+</table>
+<h2>6.2 Sign in</h2>
+<p>LAMA is multi-tenant and every request is authenticated. The first boot seeds
+a super-admin account:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Default</th>
+<th>Override with</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Username</td>
+<td><code>superadmin</code></td>
+<td><code>LAMA_SUPERADMIN_USER</code></td>
+</tr>
+<tr>
+<td>Password</td>
+<td><code>lama-admin-2026</code></td>
+<td><code>LAMA_SUPERADMIN_PASS</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>This is a published default. Change it before anyone else can reach the
+install</strong> — see 6.4.</p>
+<p>A super-admin can see every tenant and reach the Admin pages (tenant, user and
+dashboard management). Ordinary users are scoped to one tenant.</p>
+<h2>6.3 What the first boot created</h2>
+<p>The seed is idempotent — it runs on every backend start and never overwrites
+what is already there. On an empty database it creates:</p>
+<ul>
+<li>The <strong>PMIS Migration Pilot</strong> reference project (PHP 8 / CodeIgniter 4 / MariaDB → FastAPI / Python 3.12 / PostgreSQL). Use it to learn the UI without importing your own code.</li>
+<li>The prompt library.</li>
+<li>The agent configuration and its routing tiers.</li>
+</ul>
+<h2>6.4 Securing the login</h2>
+<p>Two settings are documented as <code>.env</code> values but <strong>do not reach the container
+through <code>.env</code> alone</strong>. Compose only forwards variables it names explicitly in
+its <code>environment:</code> block, and neither <code>LAMA_JWT_SECRET</code> nor the
+<code>LAMA_SUPERADMIN_*</code> family is listed there. Setting them in the repository-root
+<code>.env</code> has no effect on a Docker install: the backend falls back to a shared
+development JWT secret and the published default password.</p>
+<p><strong>On the Docker path</strong>, add them to the <code>environment:</code> block of
+<code>docker-compose.yml</code>, alongside the keys already there:</p>
+<pre><code class="language-yaml">    environment:
+      # … existing keys …
+      LAMA_JWT_SECRET:       ${LAMA_JWT_SECRET:-}
+      LAMA_SUPERADMIN_USER:  ${LAMA_SUPERADMIN_USER:-}
+      LAMA_SUPERADMIN_PASS:  ${LAMA_SUPERADMIN_PASS:-}
+      LAMA_SUPERADMIN_RESET: ${LAMA_SUPERADMIN_RESET:-}
+</code></pre>
+<p>Then put the values in <code>.env</code> and recreate the container:</p>
+<pre><code class="language-bash"># .env
+LAMA_JWT_SECRET=&lt;a random string, 32+ characters&gt;
+LAMA_SUPERADMIN_USER=youradmin
+LAMA_SUPERADMIN_PASS=&lt;a real password&gt;
+</code></pre>
+<pre><code class="language-bash">docker compose up -d        # recreates with the new environment
+</code></pre>
+<p><strong>On the local-terminal path</strong> this is simpler: <code>backend/.env</code> is loaded
+straight into the process environment, so putting the same four keys there is
+enough. <code>./scripts/setup.sh</code> already generates a strong <code>LAMA_JWT_SECRET</code> for
+you.</p>
+<h3>Resetting a forgotten superadmin password</h3>
+<p>The seed will not overwrite an existing account, so changing
+<code>LAMA_SUPERADMIN_PASS</code> alone does nothing once the user exists. Opt in to the
+reset explicitly:</p>
+<pre><code class="language-bash">LAMA_SUPERADMIN_RESET=1 LAMA_SUPERADMIN_PASS=&lt;new password&gt; docker compose up -d
+</code></pre>
+<p>The reset applies on the next backend start and logs
+<code>Super-admin password reset via LAMA_SUPERADMIN_RESET=1</code>. <strong>Remove
+<code>LAMA_SUPERADMIN_RESET</code> afterwards</strong>, or every subsequent restart re-applies
+that password.</p>
+<h2>6.5 Configure an LLM provider — do this before anything else</h2>
+<p>Nothing in LAMA generates without a provider. There are no hard-coded vendor
+defaults: an unconfigured install raises an error rather than guessing.</p>
+<ol>
+<li>Open <strong>Console</strong> from the sidebar.</li>
+<li>On the <strong>Providers</strong> tab, click <strong>Add Provider</strong>. Presets exist for OpenRouter, Anthropic, OpenAI, Azure, Gemini, Groq and Ollama, plus a generic OpenAI-compatible option.</li>
+<li>Paste your API key and click <strong>Fetch Models</strong> to populate the catalogue.</li>
+<li>Click <strong>Test</strong>. A green result means the key and base URL are correct.</li>
+<li>Set the <strong>routing tiers</strong>. This is the step people skip, and generation fails without it.</li>
+</ol>
+<h3>Routing tiers</h3>
+<p>Every agent in LAMA declares a complexity tier. The Console maps each tier to
+an actual model, so one provider row serves the whole product.</p>
+<table>
+<thead>
+<tr>
+<th>Tier</th>
+<th>Typical use</th>
+<th>Pick a model that is</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>trivial</code></td>
+<td>tiny classifications, routing decisions</td>
+<td>cheapest available</td>
+</tr>
+<tr>
+<td><code>low</code></td>
+<td>chat, sequence diagrams, small edits</td>
+<td>fast and cheap</td>
+</tr>
+<tr>
+<td><code>medium</code></td>
+<td>SRS generation, service code, most work</td>
+<td>balanced</td>
+</tr>
+<tr>
+<td><code>high</code></td>
+<td>architecture recommendation, SRS regeneration, gap recovery</td>
+<td>strong</td>
+</tr>
+<tr>
+<td><code>critical</code></td>
+<td>the agents that <strong>write and judge code</strong> — Transformer coder/verifier/planner, CodeGen backend/frontend coders, the regenerator</td>
+<td>your best coding model</td>
+</tr>
+<tr>
+<td><code>reasoning</code></td>
+<td>diagnosis when something is stuck</td>
+<td>a reasoning model — this is a <em>sideways</em> step from <code>critical</code>, not a rung above it</td>
+</tr>
+</tbody>
+</table>
+<p>A provider row written before the six-tier model existed (with only
+<code>low</code>/<code>medium</code>/<code>high</code>) still routes: missing tiers fall back down a defined
+chain. But filling in <code>critical</code> explicitly is worth it, because that is the
+tier doing your actual code generation.</p>
+<ol start="6">
+<li>Confirm on <strong>Console → Providers</strong> that the provider shows as active, then
+   reload <code>…/api/health/providers</code> and check it reports a healthy generation
+   provider.</li>
+</ol>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>A saved provider with a bad key does not announce itself.</strong> It stays
+<code>is_active</code> and every call returns 401, which surfaces downstream as empty
+sections rather than an auth error. If generation produces nothing, click
+<strong>Test</strong> before debugging anything else.</p>
+</div>
+<h2>6.6 Optional: enable semantic search</h2>
+<p>Without a vector store, LAMA falls back to plain-text context — everything
+works, retrieval is just less precise, and it degrades <strong>silently</strong>.</p>
+<p><strong>Embedded, no server</strong> (local path, simplest): set in <code>backend/.env</code></p>
+<pre><code class="language-bash">QDRANT_PATH=./.qdrant_local
+</code></pre>
+<p><strong>A real Qdrant server</strong>: set <code>QDRANT_URL</code> (and <code>QDRANT_API_KEY</code>). <code>QDRANT_URL</code>
+wins over <code>QDRANT_PATH</code>.</p>
+<p>Set <strong>one or the other</strong>. With neither, the whole subsystem is inert.</p>
+<h2>6.7 Behind a corporate TLS-intercepting proxy</h2>
+<p>If your organisation runs Zscaler, Netskope or similar, unmodified TLS
+verification will fail and the error usually surfaces as something misleading
+— <code>CERTIFICATE_VERIFY_FAILED</code>, or even "no provider configured".</p>
+<p>Prefer a real CA bundle over disabling verification:</p>
+<ol>
+<li>Drop your corporate root certificate at <code>certs/corp-ca.pem</code>. Compose
+   already bind-mounts it and points Node at it via <code>NODE_EXTRA_CA_CERTS</code>.</li>
+<li>For the Python side, set <code>LAMA_CA_BUNDLE</code> to the same certificate.</li>
+<li>Only as a development last resort: <code>LAMA_DISABLE_SSL_VERIFY=true</code>. Never in
+   production — it is a trust decision, not a convenience flag.</li>
+</ol>
+
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 7</div><h1>Using LAMA</h1></div>
+<h2>7.1 The workspace</h2>
+<table>
+<thead>
+<tr>
+<th>Area</th>
+<th>What is there</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Left sidebar</strong></td>
+<td>The project switcher at the top, then the stages of the active project, then the admin and tool pages. Collapse it with the chevron; the state is remembered.</td>
+</tr>
+<tr>
+<td><strong>Main panel</strong></td>
+<td>The active stage. Most stage pages are split into resizable panels — drag the thin divider to give more room to chat, artifacts, diagrams or code.</td>
+</tr>
+<tr>
+<td><strong>MiniConsole</strong></td>
+<td>A live tail of backend logs, shown on long-running pages. Follow/Pause controls the scroll; <strong>Copy</strong> puts the buffer on your clipboard, which is the single most useful thing to attach to a support request.</td>
+</tr>
+<tr>
+<td><strong>Floating chat</strong></td>
+<td>A chat overlay, available on the stage pages, grounded in the project's knowledge base.</td>
+</tr>
+</tbody>
+</table>
+<h3>Stage badges</h3>
+<p>Each stage in the sidebar carries a badge: <strong>locked</strong>, <strong>ready/available</strong>,
+<strong>frozen</strong>, or <strong>skipped</strong>. Clicking a locked stage shows a message and does
+not open it — that is the pipeline gate doing its job, not a bug.</p>
+<h3>Skipping a stage</h3>
+<p>Data Model, Architecture and Living have a <strong>Skip</strong> option in their overflow
+menu. Skipping records a skip context and unlocks the next stage. Discovery
+and Code Generation cannot be skipped.</p>
+<h2>7.2 Creating a project</h2>
+<p>Click <strong>New Project</strong> in the sidebar. You pick a <strong>type</strong> first, then a name.
+The type decides which stages appear.</p>
+<table>
+<thead>
+<tr>
+<th>Type</th>
+<th>What it runs</th>
+<th>Landing page</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Legacy Modernization</strong></td>
+<td>The full 5-stage pipeline</td>
+<td>Discovery</td>
+</tr>
+<tr>
+<td><strong>Gap Analyzer</strong></td>
+<td>Input Files → Knowledge Base → Gap Report</td>
+<td>Gap Analyzer</td>
+</tr>
+<tr>
+<td><strong>Technology Transformer</strong></td>
+<td>Input Files → Knowledge Base → Transformed</td>
+<td>Transformer</td>
+</tr>
+<tr>
+<td><strong>Direct Transform</strong></td>
+<td>Configure → Transform → Output</td>
+<td>Direct Transform</td>
+</tr>
+</tbody>
+</table>
+<p><a href="#14-the-four-project-types">Part 1.4</a> describes what each type is for and
+what it can do; this section covers the mechanics of creating one.</p>
+<p>For the first three types the form asks for a name only — the target stack is
+chosen later, once LAMA has seen the code. Direct Transform asks for its
+folders and stacks on its own first stage.</p>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>Direct Transform has no Knowledge Base stage.</strong> It is folder-path driven
+and builds no KB, so that stage would never become active. Its three stages
+are <strong>Configure → Transform → Output</strong>.</p>
+</div>
+<h3>Learning on the reference pilot</h3>
+<p>The seeded <strong>PMIS Migration Pilot</strong> project is there so you can walk the whole
+pipeline before importing anything of your own. Switch to it, configure a
+provider, and follow 7.3 onward.</p>
+<h2>7.3 Stage 1 — Discovery</h2>
+<p>Discovery turns legacy evidence into a knowledge base and a frozen SRS. This
+is where architects and SMEs spend most of their review time, and the quality
+of everything downstream is decided here.</p>
+<h3>Step 1 — Import the legacy evidence</h3>
+<p>Four ways in, all on the Discovery page:</p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Use when</th>
+<th>Note</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Upload Files</strong></td>
+<td>You have a folder or ZIP to hand</td>
+<td>ZIPs are parsed in memory. Uploads are <strong>additive</strong>.</td>
+</tr>
+<tr>
+<td><strong>Scan Local Folder</strong></td>
+<td>The code is on the machine running LAMA</td>
+<td>Takes an absolute path. <strong>Replaces</strong> the existing KB by default. In Docker, the path must be one the container can see.</td>
+</tr>
+<tr>
+<td><strong>Clone Git Repository</strong></td>
+<td>The code is in Git</td>
+<td>HTTPS URL, branch, optional username/token. Ingest continues in the background; the UI polls.</td>
+</tr>
+<tr>
+<td><strong>Live Data Sources</strong></td>
+<td>You can reach the running system</td>
+<td>Connect a database, or register an application URL, to add schema and endpoint evidence.</td>
+</tr>
+</tbody>
+</table>
+<p>Some paths are skipped deliberately and will not appear in your file count:</p>
+<pre><code>node_modules   .git   vendor   __pycache__
+*.bak   *.save   *_bkp   *_old   *_backup   *.php_*
+</code></pre>
+<p>If a file you expected is missing, check that pattern list before assuming an
+ingest failure.</p>
+<p><strong>Target Stack.</strong> Also on Discovery: review the suggested target stacks and
+apply one. That choice is saved to the project and shapes every downstream
+prompt.</p>
+<h3>Step 2 — Build the Knowledge Base</h3>
+<p>Click <strong>Build Knowledge Base</strong>. A progress dialog opens and reports each phase.</p>
+<table>
+<thead>
+<tr>
+<th>Phase</th>
+<th>Produces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Parsers</td>
+<td>File records and text chunks</td>
+</tr>
+<tr>
+<td>Tech detection</td>
+<td>The stack fingerprint (language, framework, database)</td>
+</tr>
+<tr>
+<td>OWL extraction</td>
+<td>Entities — classes, routes, tables, columns, roles</td>
+</tr>
+<tr>
+<td>TOON serialization</td>
+<td>The compact context format used by chat and SRS</td>
+</tr>
+<tr>
+<td>Business ontology / graph</td>
+<td>Business domains, entities and relationships</td>
+</tr>
+<tr>
+<td>Vector store</td>
+<td>RAG-ready embedded chunks (only if Qdrant is configured)</td>
+</tr>
+</tbody>
+</table>
+<p>When it finishes, the metrics row updates: <strong>Files</strong>, <strong>Entities</strong>, <strong>Chunks</strong>.
+All three should be non-zero. If it fails, read the phase name in the dialog
+before closing it, and copy the MiniConsole buffer.</p>
+<h3>Step 3 — Interrogate the KB with chat</h3>
+<p>Open the floating chat and ask questions grounded in what was ingested —
+<em>"What are the main workflows?"</em>, <em>"Which roles can approve a claim?"</em></p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Model dropdown</strong></td>
+<td>Picks the model for Discovery chat <strong>and SRS generation</strong>. Leave it on Auto to use Console routing. The choice is remembered across reloads.</td>
+</tr>
+<tr>
+<td><strong>SRS Edit toggle</strong></td>
+<td>Turns chat replies into proposed section edits you can apply to the SRS.</td>
+</tr>
+<tr>
+<td><strong>New session / End session</strong></td>
+<td>Starts or archives a rolling-memory session that survives a page refresh.</td>
+</tr>
+</tbody>
+</table>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p>The model you pick here drives SRS generation too. If SRS output looks
+unexpectedly weak, check what is selected in the chat dropdown.</p>
+</div>
+<h3>Step 4 — Generate the SRS</h3>
+<p>Click <strong>Generate SRS</strong>. LAMA streams twelve IEEE-830 sections, sometimes
+several in parallel.</p>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Section</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Introduction</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Overall Description</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Actors and Use Case Inventory</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Specific Requirements</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Detailed Use Cases</td>
+</tr>
+<tr>
+<td>6</td>
+<td>External Interfaces</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Non-Functional Requirements</td>
+</tr>
+<tr>
+<td>8</td>
+<td>Integration Requirements</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Validation and Verification</td>
+</tr>
+<tr>
+<td>10</td>
+<td>Traceability Matrix</td>
+</tr>
+<tr>
+<td>11</td>
+<td>Appendices</td>
+</tr>
+<tr>
+<td>12</td>
+<td>Entity Relationship Model</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Pause / Resume / Cancel</strong> control a long run. Pause takes effect at the next section checkpoint.</li>
+<li>A network interruption is recoverable — the UI polls the backend job and refreshes when it completes.</li>
+<li><strong>Regenerate</strong> one section when only that section is weak, rather than rerunning all twelve.</li>
+<li><strong>Edit</strong> a section to correct it by hand. Saving increments the SRS version.</li>
+<li><strong>Export PDF</strong> from the SRS action menu.</li>
+</ul>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p>Treat any section containing <strong><code>⚠ EVIDENCE GAP</code></strong> or <strong><code>NOT_EVIDENCED</code></strong> as a
+review item. It means the model declined to invent something the source did
+not support — which is the behaviour you want, and a signal that the KB is
+missing evidence.</p>
+</div>
+<h3>Step 5 — Check confidence</h3>
+<p>The <strong>Confidence</strong> pill sits near the freeze controls. Click it to open a
+per-section breakdown; for Discovery the rows line up with the twelve SRS
+sections.</p>
+<table>
+<thead>
+<tr>
+<th>Column</th>
+<th>How to read it</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Score</strong></td>
+<td>≥95 is freeze-friendly. Lower rows need inspection.</td>
+</tr>
+<tr>
+<td><strong>Route</strong></td>
+<td>How the score was reached — see below.</td>
+</tr>
+<tr>
+<td><strong>Rationale / gaps</strong></td>
+<td>A short explanation of what is missing.</td>
+</tr>
+</tbody>
+</table>
+<table>
+<thead>
+<tr>
+<th>Route</th>
+<th>Meaning</th>
+<th>What to do</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>hf_accept</code></td>
+<td>Coverage is high and no contradictions found; typically scores 96</td>
+<td>Usually safe. Still read business-critical sections yourself.</td>
+</tr>
+<tr>
+<td><code>hf_reject</code></td>
+<td>Coverage is low or middling</td>
+<td>Open the section, add evidence-backed content or regenerate, then Recompute.</td>
+</tr>
+<tr>
+<td><code>hf_reject_hardstop</code></td>
+<td>Contradictions exceeded the hard-stop threshold</td>
+<td><strong>Do not freeze.</strong> Resolve the contradiction in the SRS or the KB first.</td>
+</tr>
+<tr>
+<td><code>engine_unavailable</code></td>
+<td>The scoring engine could not load</td>
+<td>An installation problem, not a content problem — see 9.3.</td>
+</tr>
+<tr>
+<td>Every row at 55%</td>
+<td>The offline encoders are unavailable</td>
+<td>See 9.3.</td>
+</tr>
+<tr>
+<td>Every row at 0%</td>
+<td>The scoring engine is missing entirely</td>
+<td>See 9.3.</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Recompute</strong> after: the first SRS generation, any manual edit, any section
+regeneration, any KB rebuild — and always before freezing.</p>
+<p>Confidence scoring is deliberately <strong>token-free</strong> in the default
+configuration: it uses two small local encoders, not your LLM budget.</p>
+<h3>Step 6 — Freeze</h3>
+<p>When every section is populated and the low-confidence rows have been
+reviewed, click <strong>Freeze</strong> and type <code>FREEZE</code> exactly. That writes the Discovery
+Stage Context and unlocks Data Model.</p>
+<p>The typed confirmation is intentional friction. Freezing is what downstream
+stages build on.</p>
+<p>To go back, use Unfreeze / Reset and type <code>RESET</code> where asked.</p>
+<h2>7.4 Stage 2 — Data Model</h2>
+<p>Turns the frozen SRS and KB into the target database design. If Discovery is
+not frozen, the page shows a locked banner and generation refuses.</p>
+<table>
+<thead>
+<tr>
+<th>Action</th>
+<th>Produces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Generate Entity Graph</strong></td>
+<td>The ER diagram at the top of the page</td>
+</tr>
+<tr>
+<td><strong>Generate OLTP</strong></td>
+<td>Normalised PostgreSQL DDL for the operational schema</td>
+</tr>
+<tr>
+<td><strong>Generate OLAP</strong></td>
+<td>A star schema for BI and natural-language-to-SQL</td>
+</tr>
+<tr>
+<td><strong>Generate Bus Matrix</strong></td>
+<td>The fact × dimension matrix</td>
+</tr>
+<tr>
+<td><strong>Generate All Scripts</strong></td>
+<td>Three migration scripts: legacy→OLTP, OLTP→OLAP, and a migration test</td>
+</tr>
+</tbody>
+</table>
+<p>Each artifact supports <strong>Edit</strong>, <strong>Save</strong>, <strong>Freeze</strong> and <strong>Download</strong>
+individually. Freezing OLTP and OLAP is what drives the cascade into
+Architecture.</p>
+<p>The Data Model chat understands change requests: ask for a schema change and,
+when it detects a DDL change, it offers an <strong>Apply</strong> button that writes it into
+the OLTP or OLAP artifact.</p>
+<h2>7.5 Stage 3 — Architecture</h2>
+<p>Consumes the Data Model context and produces the service design.</p>
+<table>
+<thead>
+<tr>
+<th>Tab</th>
+<th>Action</th>
+<th>Produces</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Service Map</strong></td>
+<td>Recommend</td>
+<td>A proposed service decomposition</td>
+</tr>
+<tr>
+<td><strong>Service Map</strong></td>
+<td>Approve / Merge / Unmerge</td>
+<td>The approved service set that CodeGen will build</td>
+</tr>
+<tr>
+<td><strong>HLD</strong></td>
+<td>Generate</td>
+<td>High-level design, with rendered Mermaid diagrams</td>
+</tr>
+<tr>
+<td><strong>LLD</strong></td>
+<td>Generate</td>
+<td>Low-level design per service</td>
+</tr>
+<tr>
+<td><strong>Sequence Diagrams</strong></td>
+<td>Generate</td>
+<td>Mermaid sequence diagrams per use case</td>
+</tr>
+<tr>
+<td><strong>API Contracts</strong></td>
+<td>Generate</td>
+<td>OpenAPI 3.1 YAML per service</td>
+</tr>
+</tbody>
+</table>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>Architecture does not stream.</strong> It runs background jobs and polls every 2
+seconds, because production ingress commonly times out at 60 seconds and a
+long-lived stream would be cut. A progress bar that updates every couple of
+seconds is the expected behaviour, not a stall.</p>
+</div>
+<p>Get the <strong>Service Map right before generating anything else</strong> — HLD, LLD,
+contracts and all of CodeGen are built from the approved service set.</p>
+<p>The Architecture chat recognises change requests for the HLD, the architecture
+as a whole, and service addition or removal, and offers to apply them.</p>
+<h2>7.6 Stage 4 — Code Generation</h2>
+<p>Turns the frozen architecture into target source trees. This is the deliverable
+stage; review before you push.</p>
+<table>
+<thead>
+<tr>
+<th>Control</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Generate All</strong></td>
+<td>Generates every approved service</td>
+</tr>
+<tr>
+<td><strong>Generate selected service</strong></td>
+<td>Regenerates one service only</td>
+</tr>
+<tr>
+<td><strong>Gap Recovery (Backend / Frontend)</strong></td>
+<td>Finds and repairs legacy-parity gaps in already-generated files</td>
+</tr>
+<tr>
+<td><strong>Auto-Validate &amp; Improve</strong></td>
+<td>Scores generated files across six axes, repairs the worst, and loops until a threshold is met</td>
+</tr>
+<tr>
+<td><strong>File tree → Monaco editor</strong></td>
+<td>Read and hand-edit any generated file; Save persists it</td>
+</tr>
+<tr>
+<td><strong>Download ZIP</strong></td>
+<td>The whole generated tree as a ZIP</td>
+</tr>
+<tr>
+<td><strong>Export to Disk</strong></td>
+<td>Writes the tree to a host folder — by default a sibling of the LAMA repository</td>
+</tr>
+<tr>
+<td><strong>Push to GitHub</strong></td>
+<td>Pushes using the credentials saved in GitHub Settings</td>
+</tr>
+<tr>
+<td><strong>Freeze</strong></td>
+<td>Writes the CodeGen context and unlocks Living</td>
+</tr>
+</tbody>
+</table>
+<p>Notes worth knowing:</p>
+<ul>
+<li>An <strong>empty ZIP</strong> almost always means the Architecture service map was never approved and frozen. Go back to Stage 3.</li>
+<li><strong>Export to Disk</strong> writes to whatever host directory is mapped to <code>/lama-export</code>. By default that is the parent of the LAMA repository; override with <code>LAMA_EXPORT_HOST_DIR</code> in <code>.env</code>.</li>
+<li>The file tree is <strong>deliberately flattened</strong> rather than deeply recursive. That is a known workaround, not a display bug.</li>
+<li>GitHub push needs a personal access token configured under <strong>GitHub Settings</strong> first.</li>
+</ul>
+<h2>7.7 Stage 5 — Living System</h2>
+<p>The "keep the SRS honest" stage. Less generative, more operational.</p>
+<table>
+<thead>
+<tr>
+<th>Feature</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Selenium Tests</strong></td>
+<td>Generates JUnit 5 + Selenium acceptance tests from the use cases</td>
+</tr>
+<tr>
+<td><strong>JMeter Plans</strong></td>
+<td>Generates performance test plans per persona</td>
+</tr>
+<tr>
+<td><strong>Drift Detector</strong></td>
+<td>Paste live signals from the running system; get a report on where it has drifted from the frozen SRS</td>
+</tr>
+<tr>
+<td><strong>SRS Diff</strong></td>
+<td>Compare two SRS snapshots; get added/removed/modified requirements plus a recommendation of what to regenerate downstream</td>
+</tr>
+<tr>
+<td><strong>Accuracy Report</strong></td>
+<td>Scores the KB, SRS and artifacts, with deep links back to whatever needs regenerating</td>
+</tr>
+</tbody>
+</table>
+<p>Treat Living as an evolving capability: it generates and manages these
+artifacts well, but it is not a full APM product.</p>
+<h2>7.8 The three non-pipeline project types</h2>
+<p>None of these requires a frozen upstream stage, and none of them uses the
+five-stage sidebar. <a href="#14-the-four-project-types">Part 1.4</a> covers what each is
+for; this section is the operating detail.</p>
+<h3>Gap Analyzer</h3>
+<p><em>Create a project of type "Gap Analyzer", or open it from the sidebar.</em></p>
+<ol>
+<li><strong>Input Files</strong> — upload the source code plus the SRS/FRS document to check it against.</li>
+<li><strong>Knowledge Base</strong> — LAMA extracts UI → API → DB traceability and a requirement list.</li>
+<li><strong>Gap Report</strong> — a coverage matrix and a severity-ranked list of requirements the code does not implement.</li>
+</ol>
+<p>Has its own freeze/unfreeze and its own export, independent of the pipeline.</p>
+<h3>Technology Transformer</h3>
+<p><em>Create a project of type "Technology Transformer", or open it from the sidebar.</em></p>
+<p>A code-transform super-agent. Point it at a source tree, pick a target stack,
+and it generates the migrated code, then compiles it and repairs what fails.</p>
+<p>The repair loop escalates through four rungs — coder, then a DevOps expert,
+then the DevOps expert with the raw build log, then a full regenerator — capped
+at five iterations.</p>
+<div class="callout c-note"><span class="lbl">Note</span>
+<p><strong>The build gate is a report, not a permission.</strong> <code>compile_green</code>,
+<code>production_ready</code> and the DevOps audit panel tell you the state of the
+build. They do <strong>not</strong> block download or GitHub push. You can always collect
+your own code, whether or not the loop reached a green build.</p>
+</div>
+<h3>Direct Transform</h3>
+<p><em>Create a project of type "Direct Transform".</em></p>
+<p>Its three stages are <strong>Configure → Transform → Output</strong> — there is no Knowledge
+Base stage, because it builds none.</p>
+<ol>
+<li><strong>Configure</strong> — pick the source folder and destination with the server-side picker, then pick a <strong>source stack</strong> and a <strong>target stack</strong> independently.</li>
+<li><strong>Transform</strong> — run the job and watch the engine and agent event stream. You can pause, resume, or roll back.</li>
+<li><strong>Output</strong> — the reports and the per-file transform record.</li>
+</ol>
+<table>
+<thead>
+<tr>
+<th>Family</th>
+<th>Available stacks</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Backend</td>
+<td>Helidon MicroProfile, Helidon SE, Spring Boot 4.1 (Java 25 LTS), Spring Boot 3.x (Java 21), .NET 10 LTS, JSP / Jakarta Pages 4.0, Apache Struts, EJB 3.x</td>
+</tr>
+<tr>
+<td>Frontend</td>
+<td>React 19, Angular 22, jQuery</td>
+</tr>
+<tr>
+<td>Database</td>
+<td>Oracle (SQL/PL-SQL), PostgreSQL 18, PostgreSQL 15</td>
+</tr>
+</tbody>
+</table>
+<p>Some pairs have a <strong>deterministic</strong> transformer (a hand-written plugin — for
+example Helidon MP → Spring Boot 3, or Oracle → PostgreSQL); the rest go
+through a generic AI pass. The UI tells you which one your chosen pair will
+get before you start.</p>
+<div class="callout c-warn"><span class="lbl">Watch out</span>
+<p><strong>The folder picker browses the <em>container's</em> filesystem, not yours.</strong> On a
+Docker install it opens on the image's own <code>$HOME</code> by default and will never
+show your code. Point it at something bind-mounted — Compose already maps
+the parent of the LAMA repository to <code>/lama-export</code>:
+```ini</p>
+<h1>.env</h1>
+<p>LAMA_DCTE_WORKSPACE=/lama-export
+```</p>
+</div>
+<h2>7.9 The admin pages</h2>
+<table>
+<thead>
+<tr>
+<th>Page</th>
+<th>What it is for</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Console</strong></td>
+<td>Providers, routing tiers, per-agent configuration and budgets, prompt preview/test, and token-spend reporting. See 6.5.</td>
+</tr>
+<tr>
+<td><strong>Prompt Library</strong></td>
+<td>Every seeded prompt, editable. Direct Transform's prompts are the <code>dcte.*</code> entries — note that only the fixed half is editable; the stack-specific half is computed per source/target pair.</td>
+</tr>
+<tr>
+<td><strong>Ontology Studio</strong></td>
+<td>The business-domain graph, available once the KB is built.</td>
+</tr>
+<tr>
+<td><strong>GitHub Settings</strong></td>
+<td>The credentials CodeGen and Transformer use to push.</td>
+</tr>
+<tr>
+<td><strong>Audit Log</strong></td>
+<td>Every state-changing action, with who and when.</td>
+</tr>
+<tr>
+<td><strong>Integrations</strong></td>
+<td>The integration catalogue and templates.</td>
+</tr>
+<tr>
+<td><strong>Admin Dashboard</strong> <em>(super-admin only)</em></td>
+<td>Tenants, users, and the cross-tenant view.</td>
+</tr>
+</tbody>
+</table>
+<h3>Console → Usage</h3>
+<p>Worth checking regularly. It groups token spend by provider, model, stage and
+agent over a date window, which is how you find the agent that is quietly
+costing you the most.</p>
+
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 8</div><h1>Day-to-day operations</h1></div>
+<h2>8.1 Lifecycle — Docker</h2>
+<pre><code class="language-bash">docker compose up -d           # start, or apply .env / compose changes
+docker compose stop            # stop, keep containers and data
+docker compose start           # start again
+docker compose restart lama    # restart in place
+docker compose ps              # what is running, and its health
+docker compose down            # remove the container, KEEP the volumes
+docker compose down -v         # remove the container AND DELETE ALL DATA
+</code></pre>
+<div class="callout c-crit"><span class="lbl">Important</span>
+<p><code>docker compose down -v</code> destroys every project, knowledge base, SRS and
+generated file. Back up first — see 8.5.</p>
+</div>
+<h2>8.2 Lifecycle — local terminal</h2>
+<p>Both processes run in the foreground; <code>Ctrl-C</code> stops them.</p>
+<pre><code class="language-bash">./scripts/run-backend.sh       # API on :8000
+./scripts/run-frontend.sh      # UI on :3000
+./scripts/doctor.sh            # read-only environment check
+./scripts/clear-caches.sh      # clear build and dependency caches
+</code></pre>
+<p>MongoDB is managed separately:</p>
+<table>
+<thead>
+<tr>
+<th>Platform</th>
+<th>Start</th>
+<th>Stop</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>macOS</td>
+<td><code>brew services start mongodb-community@8.0</code></td>
+<td><code>brew services stop mongodb-community@8.0</code></td>
+</tr>
+<tr>
+<td>Linux</td>
+<td><code>sudo systemctl start mongod</code></td>
+<td><code>sudo systemctl stop mongod</code></td>
+</tr>
+<tr>
+<td>Windows</td>
+<td><code>Start-Service MongoDB</code></td>
+<td><code>Stop-Service MongoDB</code></td>
+</tr>
+</tbody>
+</table>
+<h2>8.3 Logs</h2>
+<pre><code class="language-bash">docker compose logs -f lama                  # everything, following
+docker compose logs --tail=200 lama          # last 200 lines
+docker compose logs --since=10m lama         # last 10 minutes
+</code></pre>
+<p>Per-process, inside the container:</p>
+<pre><code class="language-bash">docker compose exec lama tail -f /var/log/backend.out.log
+docker compose exec lama tail -f /var/log/backend.err.log
+docker compose exec lama tail -f /var/log/mongodb.err.log
+docker compose exec lama tail -f /var/log/nginx.err.log
+</code></pre>
+<p>In the UI, the <strong>MiniConsole</strong> shows the same backend stream with a Copy
+button — the fastest way to capture context for a support request.</p>
+<h2>8.4 Applying changes</h2>
+<p><code>./backend</code> and <code>./frontend/build</code> are bind-mounted, so most edits need no
+image rebuild.</p>
+<pre><code class="language-bash"># after a Python change under backend/
+docker compose restart lama
+
+# after a React change — rebuild the bundle, then restart
+docker run --rm -v &quot;$(pwd)/frontend:/app&quot; -w /app -e CI=true -e DISABLE_ESLINT_PLUGIN=true \
+  node:24-bookworm-slim sh -c 'corepack enable &amp;&amp; yarn build'
+docker compose restart lama
+</code></pre>
+<p>Only a change to <code>requirements.txt</code>, the <code>Dockerfile</code>, or the bundled
+toolchains needs a real image rebuild.</p>
+<h2>8.5 Backup and restore</h2>
+<p>All of your work lives in one MongoDB volume.</p>
+<pre><code class="language-bash"># back up
+docker compose exec lama mongodump --db lama --archive=/tmp/lama.archive
+docker compose cp lama:/tmp/lama.archive ./lama-backup.archive
+
+# restore
+docker compose cp ./lama-backup.archive lama:/tmp/lama.archive
+docker compose exec lama mongorestore --archive=/tmp/lama.archive --drop
+</code></pre>
+<p>Do this before any image upgrade.</p>
+<h3>What lives where</h3>
+<table>
+<thead>
+<tr>
+<th>Volume</th>
+<th>Holds</th>
+<th>Survives <code>down</code></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>lama_mongo_data</code></td>
+<td>Every project, KB, SRS, artifact, audit log</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>lama_hf_cache</code></td>
+<td>Offline models for confidence scoring</td>
+<td>Yes</td>
+</tr>
+<tr>
+<td><code>lama_wheels</code></td>
+<td>Offline LangGraph wheels, seeded on first boot</td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-bash">docker volume ls | grep lama
+docker volume rm lama_hf_cache     # drop just the model cache; re-seeds next boot
+</code></pre>
+<h2>8.6 Upgrading</h2>
+<pre><code class="language-bash"># 1. back up (8.5)
+# 2. pull the new image
+LAMA_IMAGE=mishramesh/lama:latest LAMA_PULL_POLICY=always docker compose pull
+# 3. rebuild the UI bundle (8.4)
+# 4. recreate
+docker compose up -d
+</code></pre>
+<p>Named volumes survive image upgrades, so your projects come back untouched.</p>
+<h2>8.7 Inside the container</h2>
+<pre><code class="language-bash">docker compose exec lama bash                     # a shell
+docker compose exec lama supervisorctl status     # process states
+docker compose exec lama supervisorctl restart backend
+docker compose exec lama mongosh lama             # the Mongo shell
+
+# which toolchains are present
+docker compose exec lama sh -c 'javac -version; dotnet --version; node -v; mvn -v | head -1'
+</code></pre>
+
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 9</div><h1>Troubleshooting</h1></div>
+<p>Platform-specific problems are in each OS section — <a href="#39-windows-specific-troubleshooting">Windows 3.9</a>,
+<a href="#48-macos-specific-troubleshooting">macOS 4.8</a>, <a href="#58-linux-specific-troubleshooting">Linux 5.8</a>.
+What follows applies everywhere.</p>
+<h2>9.1 It will not start</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause and fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Blank page, container reports healthy</td>
+<td><code>frontend/build</code> is empty. Build the bundle, then <code>docker compose restart lama</code>.</td>
+</tr>
+<tr>
+<td><code>pull access denied for lama</code></td>
+<td><code>.env</code> pins <code>LAMA_IMAGE=lama:local</code> and you have not built it. Override with <code>LAMA_IMAGE=mishramesh/lama:latest LAMA_PULL_POLICY=always</code>.</td>
+</tr>
+<tr>
+<td>Port 8382 already in use</td>
+<td>Change the <strong>host</strong> side only in <code>docker-compose.yml</code>: <code>ports: - "9382:8382"</code>.</td>
+</tr>
+<tr>
+<td><code>KeyError: 'MONGO_URL'</code> (local path)</td>
+<td><code>backend/.env</code> is missing, or is not sitting next to <code>server.py</code>.</td>
+</tr>
+<tr>
+<td>Backend starts then hangs (local path)</td>
+<td>MongoDB is unreachable; the startup seed is waiting for it. Start MongoDB.</td>
+</tr>
+<tr>
+<td><code>Something is already running on port 3000</code></td>
+<td>A previous dev server survived. <code>lsof -nP -iTCP:3000 -sTCP:LISTEN</code>, then kill the PID.</td>
+</tr>
+</tbody>
+</table>
+<h2>9.2 Nothing generates</h2>
+<p>Work down this list in order — it is ordered by how often each one is the
+cause.</p>
+<ol>
+<li><strong>Is a provider configured?</strong> Open <code>…/api/health/providers</code>. If it reports no healthy provider, go to Console → Providers.</li>
+<li><strong>Does the key actually work?</strong> Click <strong>Test</strong> on the provider. A saved provider with a bad key stays marked active and returns 401 on every call, which surfaces as empty output rather than an auth error.</li>
+<li><strong>Are the routing tiers filled in?</strong> A provider with no tier mapping cannot answer a request for a tier.</li>
+<li><strong>Is <code>LAMA_DEFAULT_MODEL</code> empty?</strong> Any value there overrides per-agent routing for <em>every</em> call.</li>
+<li><strong>Is <code>LAMA_FACTORY_MODE</code> blank?</strong> The committed default is <code>cli</code>, which needs the optional <code>droid</code> binary inside the container. Without it, every call fails.</li>
+<li><strong>Empty content from a local model?</strong> Thinking models (the Qwen3 family) spend 300–1600 tokens reasoning before emitting anything. Give them a budget of 2000+, or use a non-thinking model such as <code>qwen2.5-coder:7b</code> for short calls.</li>
+<li><strong><code>CERTIFICATE_VERIFY_FAILED</code>?</strong> You are behind a TLS-intercepting proxy. See 6.7.</li>
+</ol>
+<h2>9.3 Confidence scores look wrong</h2>
+<table>
+<thead>
+<tr>
+<th>Pattern</th>
+<th>Meaning</th>
+<th>Fix</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Every row at <strong>55%</strong></td>
+<td>The offline encoders could not load</td>
+<td>Check that <code>hf_cache</code> is populated and mounted; refresh the <code>lama_hf_cache</code> volume</td>
+</tr>
+<tr>
+<td>Every row at <strong>0%</strong>, route <code>engine_unavailable</code></td>
+<td>The LangGraph scoring engine is missing</td>
+<td>Refresh the <code>lama_wheels</code> volume and restart the container</td>
+</tr>
+<tr>
+<td>Scores vary run to run</td>
+<td>Expected</td>
+<td>Coverage depends on section wording, KB completeness and contradictions. Recompute after content changes.</td>
+</tr>
+<tr>
+<td>A single low row</td>
+<td>Working as designed</td>
+<td>Open that section, add evidence-backed detail or regenerate it, then Recompute</td>
+</tr>
+</tbody>
+</table>
+<p>To force a re-seed of either cache:</p>
+<pre><code class="language-bash">docker volume rm lama_hf_cache      # or lama_wheels
+docker compose up -d
+</code></pre>
+<h2>9.4 Stage and pipeline problems</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>A stage will not open</td>
+<td>The stage before it is not frozen. That is the gate working. Freeze upstream, or skip it if the option is offered.</td>
+</tr>
+<tr>
+<td>HTTP 400 from a generation call</td>
+<td>Same cause — the upstream stage context does not exist.</td>
+</tr>
+<tr>
+<td>Downloaded ZIP is empty</td>
+<td>The Architecture service map was never approved and frozen.</td>
+</tr>
+<tr>
+<td>Direct Transform's folder picker shows nothing familiar</td>
+<td>It browses the container filesystem. Set <code>LAMA_DCTE_WORKSPACE</code> to a bind-mounted path.</td>
+</tr>
+<tr>
+<td>Semantic search returns nothing</td>
+<td>No vector store configured. Set <code>QDRANT_PATH</code> or <code>QDRANT_URL</code>. It degrades silently by design.</td>
+</tr>
+<tr>
+<td><code>toolchain missing on PATH: mvn</code></td>
+<td>Install the toolchain. A missing binary fails the job deliberately, so a build cannot report success without compiling.</td>
+</tr>
+<tr>
+<td>A generated Java build fails with syntax errors on modern constructs</td>
+<td>Your JDK is older than the target requires. The <code>spring-boot-4</code> target emits Java 25.</td>
+</tr>
+</tbody>
+</table>
+<h2>9.5 Authentication</h2>
+<table>
+<thead>
+<tr>
+<th>Symptom</th>
+<th>Cause</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>401 Unauthorized</code></td>
+<td>Expected when not signed in — LAMA is multi-tenant with JWT auth.</td>
+</tr>
+<tr>
+<td>Logged out on every restart</td>
+<td><code>LAMA_JWT_SECRET</code> is not reaching the backend, so it regenerates a fallback. See 6.4.</td>
+</tr>
+<tr>
+<td>Forgot the superadmin password</td>
+<td>Reset it explicitly — see 6.4.</td>
+</tr>
+</tbody>
+</table>
+<h2>9.6 Getting help</h2>
+<p>Collect these before asking:</p>
+<pre><code class="language-bash">docker compose ps                        # health
+docker compose logs --tail=200 lama      # recent logs
+curl http://127.0.0.1:8382/health
+</code></pre>
+<p>Plus the <strong>MiniConsole → Copy</strong> buffer from the page where it failed, and the
+stage and artifact you were generating.</p>
+
+</section>
+<section class="part"><div class="kicker"><div class="eyebrow">Part 10</div><h1>Reference</h1></div>
+<h2>10.1 Settings you are most likely to change</h2>
+<p>These go in the repository-root <code>.env</code> for the Docker path, or <code>backend/.env</code>
+for the local path.</p>
+<table>
+<thead>
+<tr>
+<th>Variable</th>
+<th>What it does</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>OPENROUTER_API_KEY</code></td>
+<td>Your LLM key. Not needed if you configure providers in the Console instead.</td>
+</tr>
+<tr>
+<td><code>LAMA_JWT_SECRET</code></td>
+<td>Signs login tokens. <strong>Needs a compose edit on Docker</strong> — see 6.4.</td>
+</tr>
+<tr>
+<td><code>LAMA_DEFAULT_MODEL</code></td>
+<td><strong>Leave empty.</strong> A value here overrides per-agent tier routing for every call.</td>
+</tr>
+<tr>
+<td><code>LAMA_FACTORY_MODE</code></td>
+<td>Leave <strong>blank</strong> unless you use the Factory <code>droid</code> CLI. The committed default is <code>cli</code>.</td>
+</tr>
+<tr>
+<td><code>QDRANT_PATH</code></td>
+<td>Embedded on-disk vector store — no server needed</td>
+</tr>
+<tr>
+<td><code>QDRANT_URL</code> / <code>QDRANT_API_KEY</code></td>
+<td>A real Qdrant server. <code>QDRANT_URL</code> wins over <code>QDRANT_PATH</code>.</td>
+</tr>
+<tr>
+<td><code>LAMA_OLLAMA_BASE_URL</code></td>
+<td>Your Ollama endpoint. From a container: <code>http://host.docker.internal:11434/v1</code></td>
+</tr>
+<tr>
+<td><code>LAMA_DCTE_WORKSPACE</code></td>
+<td>Where Direct Transform's folder picker opens. Must be a path the container can see.</td>
+</tr>
+<tr>
+<td><code>LAMA_EXPORT_HOST_DIR</code></td>
+<td>Host directory that CodeGen's "Export to Disk" writes into</td>
+</tr>
+<tr>
+<td><code>LAMA_CONFIDENCE_ENGINE</code></td>
+<td><code>langgraph</code>, <code>fabric</code>, or blank for automatic. Pin it explicitly to keep scoring deterministic.</td>
+</tr>
+<tr>
+<td><code>MONGO_URL</code> / <code>DB_NAME</code></td>
+<td>The database. Defaults are correct for both paths.</td>
+</tr>
+<tr>
+<td><code>CORS_ORIGINS</code></td>
+<td>Wide open (<code>*</code>) by default. Tighten for a shared server.</td>
+</tr>
+<tr>
+<td><code>LAMA_CA_BUNDLE</code></td>
+<td>Corporate root CA for the Python side</td>
+</tr>
+<tr>
+<td><code>LAMA_DISABLE_SSL_VERIFY</code></td>
+<td>Development last resort only. Never in production.</td>
+</tr>
+</tbody>
+</table>
+<h2>10.2 Ports</h2>
+<table>
+<thead>
+<tr>
+<th>Port</th>
+<th>Used by</th>
+<th>Path</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>8382</code></td>
+<td>The whole application behind Nginx</td>
+<td>Docker</td>
+</tr>
+<tr>
+<td><code>8000</code></td>
+<td>The FastAPI backend</td>
+<td>Local terminal</td>
+</tr>
+<tr>
+<td><code>3000</code></td>
+<td>The React dev server</td>
+<td>Local terminal</td>
+</tr>
+<tr>
+<td><code>27017</code></td>
+<td>MongoDB</td>
+<td>Local terminal (bundled in Docker)</td>
+</tr>
+<tr>
+<td><code>11434</code></td>
+<td>Ollama, if you use it</td>
+<td>Both</td>
+</tr>
+<tr>
+<td><code>6333</code></td>
+<td>Qdrant, if you run a server</td>
+<td>Both</td>
+</tr>
+</tbody>
+</table>
+<h2>10.3 Glossary</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Artifact</strong></td>
+<td>Any generated, versioned, freezable output — an SRS section, a DDL file, a service map, a generated source file</td>
+</tr>
+<tr>
+<td><strong>Bus Matrix</strong></td>
+<td>The fact × dimension grid that shows which dimensions each fact table shares</td>
+</tr>
+<tr>
+<td><strong>Confidence</strong></td>
+<td>A score, per artifact section, of how well the generated content is supported by the ingested evidence</td>
+</tr>
+<tr>
+<td><strong>DCTE / Direct Transform</strong></td>
+<td>The folder-driven, project-free transformation engine</td>
+</tr>
+<tr>
+<td><strong>Deterministic plugin</strong></td>
+<td>A hand-written transformer for a specific stack pair, as opposed to a generic AI pass</td>
+</tr>
+<tr>
+<td><strong>Drift</strong></td>
+<td>Divergence between the frozen SRS and what the running system actually does</td>
+</tr>
+<tr>
+<td><strong>Freeze</strong></td>
+<td>Locking a stage's artifacts and writing the Stage Context that the next stage builds on</td>
+</tr>
+<tr>
+<td><strong>KB (Knowledge Base)</strong></td>
+<td>Everything LAMA extracted from your legacy source: files, chunks, entities, relationships</td>
+</tr>
+<tr>
+<td><strong>OLAP</strong></td>
+<td>The analytical star schema</td>
+</tr>
+<tr>
+<td><strong>OLTP</strong></td>
+<td>The operational, normalised schema</td>
+</tr>
+<tr>
+<td><strong>Ontology</strong></td>
+<td>The business-domain model extracted from the code</td>
+</tr>
+<tr>
+<td><strong>Parity gap</strong></td>
+<td>Legacy behaviour that the generated code does not yet implement</td>
+</tr>
+<tr>
+<td><strong>Routing tier</strong></td>
+<td>The complexity band (<code>trivial</code> … <code>reasoning</code>) that decides which model serves a given agent</td>
+</tr>
+<tr>
+<td><strong>SRS</strong></td>
+<td>Software Requirements Specification — the 12-section IEEE-830 document Discovery produces</td>
+</tr>
+<tr>
+<td><strong>Stage Context</strong></td>
+<td>The frozen handoff record between one stage and the next</td>
+</tr>
+<tr>
+<td><strong>Tenant</strong></td>
+<td>An isolated organisation within one LAMA install</td>
+</tr>
+<tr>
+<td><strong>TOON</strong></td>
+<td>The compact context format LAMA feeds to models in place of raw source</td>
+</tr>
+</tbody>
+</table>
+<h2>10.4 Further reading</h2>
+<table>
+<thead>
+<tr>
+<th>Document</th>
+<th>Covers</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>docs/DOCKER.md</code></td>
+<td>The Docker-only path in more depth, macOS and Windows</td>
+</tr>
+<tr>
+<td><code>docs/RUNNING.md</code></td>
+<td>Every command for both paths, and the test suites</td>
+</tr>
+<tr>
+<td><code>docs/ARCHITECTURE.md</code></td>
+<td>How LAMA is built internally</td>
+</tr>
+<tr>
+<td><code>docker/README.md</code></td>
+<td>Deploying to a server</td>
+</tr>
+</tbody>
+</table>
+<h2>Verification notes</h2>
+<p>Honest reporting of what was checked against this build, so you know which
+parts to trust without re-testing:</p>
+<p><strong>Verified against the repository and a running macOS install:</strong> the Docker
+path end to end, including the container-based frontend build; the behaviour
+of a missing bind-mount source; the seeded superadmin credentials and the
+<code>LAMA_SUPERADMIN_RESET</code> logic; the stage sequence and freeze gates; the Direct
+Transform stack catalogue; the routing tiers; the helper scripts' behaviour;
+and every port, endpoint and environment variable named above.</p>
+<p><strong>Found and corrected while writing this guide:</strong> <code>LAMA_JWT_SECRET</code> and the
+<code>LAMA_SUPERADMIN_*</code> variables appear in the repository-root <code>.env</code> but in
+<strong>neither</strong> <code>docker-compose.yml</code>'s <code>environment:</code> block nor either container
+entrypoint — so on the Docker path, setting them in <code>.env</code> alone has no
+effect. Section 6.4 gives the instruction that actually works. Other documents
+in this repository still describe the <code>.env</code>-only method; prefer 6.4.</p>
+<p><strong>Derived rather than executed on that platform:</strong> the Windows PowerShell
+commands and the Linux <code>apt</code> sequences. Both follow from the same Compose and
+script behaviour reproduced on macOS — specifically, the CRLF entrypoint
+failure and the unset-<code>HOME</code> mount resolution were reproduced deliberately —
+but the package-manager invocations themselves were not run on a Windows or
+Linux host. The Linux Ollama loopback note reflects Ollama's documented
+default bind address.</p>
+</section>
 </body>
 </html>

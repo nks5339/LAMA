@@ -43,13 +43,21 @@ curl http://127.0.0.1:8382/health
 
 ### 📘 Full guides
 
+**[docs/LAMA-USER-GUIDE.md](docs/LAMA-USER-GUIDE.md)** — **the guide to hand to
+end users.** Prerequisites, installation for **Windows, macOS and Linux** (both
+the Docker and local-terminal paths), then the full user manual: every stage,
+every tool, troubleshooting and a glossary. Self-contained — no other document
+needed. Also rendered as a branded PDF in the app's own theme:
+**[docs/LAMA-Setup-Guide.pdf](docs/LAMA-Setup-Guide.pdf)** — rebuild it with
+`./scripts/build-docs-pdf.sh`, which regenerates the HTML from the markdown
+first, so the PDF cannot lag behind the source.
+
 **[docs/DOCKER.md](docs/DOCKER.md)** — **Docker-only** setup, macOS and Windows
 separately. No Python, Node or MongoDB needed on your machine; includes the
 one-liner that builds the UI bundle in a container.
 
 **[docs/RUNNING.md](docs/RUNNING.md)** — every command, both paths, troubleshooting.
-Also available as a formatted PDF: **[docs/LAMA-Setup-Guide.pdf](docs/LAMA-Setup-Guide.pdf)**
-(rebuild it with `./scripts/build-docs-pdf.sh`).
+The developer-facing companion to the user guide above.
 
 ---
 
@@ -78,8 +86,8 @@ actually blocks you.
 |---|---|
 | `backend/` | FastAPI app — 20 routers, 59 collections, `server.py` is the entrypoint |
 | `frontend/` | React 19 + CRACO + Tailwind + shadcn/ui |
-| `scripts/` | `setup.sh` · `doctor.sh` · `run-backend.sh` · `run-frontend.sh` · `build-docs-pdf.sh` |
-| `docs/` | `DOCKER.md` (Docker-only, Mac + Windows), `RUNNING.md`, the setup PDF, `ARCHITECTURE.md`, `USER_MANUAL.md` |
+| `scripts/` | `setup.sh` · `doctor.sh` · `run-backend.sh` · `run-frontend.sh` · `build-docs-pdf.sh` (+ `build-user-guide-html.py`) |
+| `docs/` | `LAMA-USER-GUIDE.md` (the shareable end-user guide — Windows/macOS/Linux, both paths, plus the manual), `DOCKER.md` (Docker-only, Mac + Windows), `RUNNING.md`, the setup PDF, `ARCHITECTURE.md`, `USER_MANUAL.md` |
 | `backend/requirements.txt` | **Container** dependency set — direct deps only, pinned for Linux / Python 3.11 |
 | `backend/requirements-dev-macos.txt` | **Local** dependency set — portable, no GPU/ML stack |
 | `CLAUDE.md` / `AGENTS.md` | Architectural contracts and rules of engagement |
