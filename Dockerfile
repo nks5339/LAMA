@@ -115,24 +115,52 @@ RUN set -eux; \
 # This block installs a real toolchain for every entry in
 # `BUILD_TOOL_NATIVE_SUPPORT` so every combination the operator can
 # pick actually runs a real build:
-#   - Java/Maven/Gradle → default-jdk (OpenJDK 17) + maven + Gradle
+#   - Java/Maven/Gradle → Temurin 25 JDK + maven + Gradle
 #     (official binary distribution — bookworm's apt Gradle is stale)
 #   - Node/npm/yarn/pnpm → NodeSource Node 24 (matches frontend-build
 #     stage) + corepack (ships yarn/pnpm without extra global installs).
 #     Node 20 reached end-of-life on 2026-04-30; 24 is the Active LTS
 #     line until 2026-10-20 and is supported to 2028-04-30.
 #   - Python/pip/poetry → poetry via pip (python3 is already the base image)
-#   - .NET → Microsoft's apt feed, dotnet-sdk-8.0
+#   - .NET → Microsoft's apt feed, dotnet-sdk-10.0
 #   - Go → official upstream tarball (bookworm's golang-go is too old
 #     for modern go.mod toolchain directives)
 #
 # This intentionally trades image size for correctness — see
 # memory/PRD.md iter-15.6x for the size delta and rationale.
+#
+# ── iter-22 — JDK 17 → Temurin 25 ───────────────────────────────────
+# `default-jdk` on bookworm is OpenJDK 17, and `dcte/stacks.py` pins
+# `spring-boot-4` to **Java 25 LTS**. So the image could not compile the
+# output of its own recommended target: every record pattern and sealed
+# type in a Java 25 migration became a syntax error, and DCTE's compile-fix
+# loop then "repaired" correct source — each round making the migration
+# worse. (iter-22 also stopped `build_agent` forcing `-Dmaven.compiler
+# .release=17`, which was the other half of that.)
+#
+# One JDK is enough and is cleaner than two fighting over
+# update-alternatives: `javac --release` cross-compiles down. Verified in a
+# throwaway bookworm container before this change — `--release 25`,
+# `--release 21` and `--release 17` all compile, and Maven 3.8.7 picks up
+# Java 25 from JAVA_HOME.
+#
+# JAVA_HOME is a stable symlink because Adoptium's install path carries the
+# architecture (`temurin-25-jdk-arm64` / `-amd64`) and this image is built
+# for more than one.
 RUN set -eux; \
     apt-get update; \
-    apt-get install -y --no-install-recommends default-jdk maven; \
-    rm -rf /var/lib/apt/lists/*; \
-    mvn -v
+    apt-get install -y --no-install-recommends curl ca-certificates gnupg; \
+    curl -fsSL https://packages.adoptium.net/artifactory/api/gpg/key/public \
+        | gpg --dearmor -o /usr/share/keyrings/adoptium.gpg; \
+    echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb bookworm main" \
+        > /etc/apt/sources.list.d/adoptium.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends temurin-25-jdk maven; \
+    ln -s "/usr/lib/jvm/temurin-25-jdk-$(dpkg --print-architecture)" /opt/java; \
+    rm -rf /var/lib/apt/lists/*
+ENV JAVA_HOME=/opt/java
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+RUN javac -version && mvn -v
 
 ENV GRADLE_VERSION=8.10.2 \
     GRADLE_HOME=/opt/gradle
@@ -151,13 +179,20 @@ RUN set -eux; \
     rm -rf /var/lib/apt/lists/*; \
     node -v && npm -v
 
+# iter-22 — was `dotnet-sdk-8.0`, which **no longer exists on this feed**:
+# .NET 8 LTS ended in Nov 2026 and Microsoft's debian-12 repo now publishes
+# only `dotnet-sdk-10.0`. The image could not be built at all until this was
+# changed — verified with `apt-cache search '^dotnet-sdk'` against the live
+# feed, which returns exactly one package. 10.0 is also what
+# `dcte/stacks.py` pins for the `dotnet-10` target, so the image and the
+# catalogue now agree.
 RUN set -eux; \
     curl -fsSL -o /tmp/packages-microsoft-prod.deb \
         https://packages.microsoft.com/config/debian/12/packages-microsoft-prod.deb; \
     dpkg -i /tmp/packages-microsoft-prod.deb; \
     rm -f /tmp/packages-microsoft-prod.deb; \
     apt-get update; \
-    apt-get install -y --no-install-recommends dotnet-sdk-8.0; \
+    apt-get install -y --no-install-recommends dotnet-sdk-10.0; \
     rm -rf /var/lib/apt/lists/*; \
     dotnet --version
 

@@ -84,7 +84,38 @@ for pair in "mvn:Maven" "gradle:Gradle" "go:Go" "dotnet:.NET" "npm:npm" "yarn:ya
   bin="${pair%%:*}"; label="${pair##*:}"
   command -v "$bin" >/dev/null 2>&1 && ok "$label" "$(command -v "$bin")" || warn "$label" "missing — see docs/RUNNING.md"
 done
-command -v java >/dev/null 2>&1 && ok "Java" "$(java -version 2>&1 | head -1)" || warn "Java" "missing (needed with Maven/Gradle)"
+# iter-22 — check the JDK *version*, not just its presence. `dcte/stacks.py`
+# pins `spring-boot-4` (the recommended Java target) to Java 25, and
+# compiling Java 25 output at an older language level turns every modern
+# construct into a syntax error — which DCTE's fix loop then "repairs",
+# making the migration worse each round. The container ships Temurin 25; a
+# local JDK 17 silently cannot validate the same migration.
+if command -v javac >/dev/null 2>&1; then
+  jdk_raw="$(javac -version 2>&1 | head -1)"
+  jdk_major="$(printf '%s' "$jdk_raw" | sed -n 's/^javac \([0-9][0-9]*\).*/\1/p')"
+  if [ -n "$jdk_major" ] && [ "$jdk_major" -ge 25 ] 2>/dev/null; then
+    ok "Java (JDK)" "$jdk_raw"
+  elif [ -n "$jdk_major" ] && [ "$jdk_major" -ge 17 ] 2>/dev/null; then
+    warn "Java (JDK)" "$jdk_raw — compiles spring-boot-3 targets; Java 25 (spring-boot-4) needs JDK 25+"
+  else
+    warn "Java (JDK)" "$jdk_raw — below JDK 17; most Java targets will not compile"
+  fi
+elif command -v java >/dev/null 2>&1; then
+  warn "Java (JDK)" "only a JRE found — Maven/Gradle need a full JDK"
+else
+  warn "Java (JDK)" "missing (needed with Maven/Gradle)"
+fi
+
+# The .NET SDK has the same shape of problem: `stacks.py` pins the
+# `dotnet-10` target to net10.0, which SDK 8 cannot build.
+if command -v dotnet >/dev/null 2>&1; then
+  net_major="$(dotnet --version 2>/dev/null | cut -d. -f1)"
+  if [ -n "$net_major" ] && [ "$net_major" -ge 10 ] 2>/dev/null; then
+    ok ".NET SDK" "$(dotnet --version 2>/dev/null)"
+  else
+    warn ".NET SDK" "$(dotnet --version 2>/dev/null) — the dotnet-10 target needs SDK 10+"
+  fi
+fi
 
 # ── Optional ───────────────────────────────────────────────────────────────
 head_ "Optional"

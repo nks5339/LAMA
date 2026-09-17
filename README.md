@@ -53,10 +53,15 @@ Also available as a formatted PDF: **[docs/LAMA-Setup-Guide.pdf](docs/LAMA-Setup
 
 | Required | Optional but recommended |
 |---|---|
-| Python 3.11+ (3.14 works) | Maven · Gradle · Go · .NET — CodeGen compile agent |
-| MongoDB 7/8 — system of record | Poetry · pnpm — extra build tools |
-| Node 20+ with yarn 1.22 (`corepack enable`) — image builds on Node 24 LTS | Qdrant — semantic search (embedded mode needs no server) |
-| An LLM provider — Ollama or an OpenRouter key | Docker Desktop — for the container path |
+| Python 3.11+ (3.14 works) | Maven · Gradle · Go — CodeGen / Direct Transform compile agents |
+| MongoDB 7/8 — system of record | **JDK 25** — the `spring-boot-4` target emits Java 25; JDK 17 cannot compile it (image ships Temurin 25) |
+| Node 20+ with yarn 1.22 (`corepack enable`) — image builds on Node 24 LTS | **.NET SDK 10** — the `dotnet-10` target emits `net10.0`; SDK 8 cannot build it |
+| An LLM provider — Ollama or an OpenRouter key | Qdrant — semantic search (embedded mode needs no server) · Docker Desktop — for the container path |
+
+Only the compile/verify agents need the build toolchains; the pipeline itself
+runs without them. `doctor.sh` checks the JDK and .NET **versions**, not just
+their presence, because a too-old toolchain fails in a way that looks like a
+bad migration rather than a missing dependency.
 
 `./scripts/doctor.sh` tells you exactly which of these are missing and whether it
 actually blocks you.
@@ -82,5 +87,19 @@ actually blocks you.
 ./.venv/bin/python -m pytest backend/tests/ -q
 ```
 
-Suites written before multi-tenant auth call the API without a bearer token and
-fail with `401` — that is the API behaving correctly, not a regression.
+A bare run is **fully offline and reproducible** — no Mongo, no Qdrant, no
+network, and the same pass/skip counts on every run. Two opt-in groups are
+skipped by default, with the reason printed by `-rs`:
+
+```bash
+# the eight legacy suites that drive the API over HTTP (start uvicorn first)
+./.venv/bin/python -m pytest backend/tests/ --run-integration
+
+# the two tests that query Maven Central over the public internet
+./.venv/bin/python -m pytest backend/tests/ --run-network
+```
+
+Both are real coverage and are gated, not deleted — see the reasoning in
+`backend/tests/conftest.py`. The network pair can fail when Maven Central is
+slow; that is a property of the endpoint, which is why it is not in the
+default run.

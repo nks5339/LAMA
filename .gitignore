@@ -57,6 +57,33 @@ hf_cache/
 backend/.qdrant_local/
 
 # ---------------------------------------------------------------------------
+# Runtime output (iter-22)
+# ---------------------------------------------------------------------------
+# Droid slim-mode KB. `LAMA_FACTORY_CLI_SLIM=1` strips the fat KB/TOON blocks
+# out of every droid prompt and materialises them here on the agent's cwd at
+# Build KB time (see docker-compose.yml). When that cwd is the repo root —
+# which it is for a local `uvicorn server:app` — the whole KB lands in the
+# working tree.
+/.lama/
+
+# Direct Transform job output. `TransformationEngine._prep_output_root`
+# creates these five directories under whatever `output_root` the job names,
+# and `output_root` is resolved against LAMA_DCTE_WORKSPACE, which defaults
+# to $HOME. Pointing a job at the repo is an easy mistake to make and lands
+# a whole migrated codebase in `git status`.
+#
+# Root-anchored on purpose: `backend/dcte/samples/` IS tracked (the Helidon
+# and Oracle fixtures the tests run against), and bare names would swallow it.
+/converted-source/
+/database-scripts/
+/documentation/
+/cicd/
+/out/
+/output/
+# `engine.rollback()` moves output_root aside as `<name>.rollback.<ts>`.
+*.rollback.[0-9]*
+
+# ---------------------------------------------------------------------------
 # Editor / OS
 # ---------------------------------------------------------------------------
 .DS_Store
