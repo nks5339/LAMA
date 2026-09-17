@@ -1,16 +1,21 @@
-// Direct Transform — the fourth Tools section, after Console,
-// Integrations and Prompt Library.
+// Direct Transform — a PROJECT TYPE, chosen in New Project → Choose project
+// type, beside Legacy Modernization / Gap Analyzer / Technology Transformer.
+//
+// iter-22 moved it here from the Tools sidebar. It owns a source tree, a
+// stack pair and a run history, which is a project rather than a utility you
+// visit: two Direct Transform projects have to keep their jobs apart, which
+// a global Tools page cannot do.
 //
 // iter-18's Direct Code Transformation Engine (DCTE). Folder-path driven
-// and plugin-based: no project_id, no KB, no SRS, no stage_context. It
-// sits beside the Transformer (multi-agent LLM) and the Gap Analyzer as a
-// third standalone track, and shares no state with either.
+// and plugin-based: no KB, no SRS, no stage_context. Jobs are scoped to the
+// project (iter-22) so two Direct Transform projects keep their runs apart.
 //
 // Three panes: configure services on the left, watch the job and its
 // event stream in the middle, read reports and per-file transforms on
 // the right. Everything talks to /api/dcte via the dcte* helpers in
 // lib/api.js.
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { toast } from "sonner";
 import { ArrowRightLeft, Trash2 } from "lucide-react";
 import {
@@ -32,6 +37,7 @@ import {
 } from "@/lib/api";
 import { FACTORY_MODEL_OPTIONS } from "@/lib/factoryModels";
 import HelpIcon from "@/components/HelpIcon";
+import { useProjects } from "@/state/ProjectContext";
 
 // iter-18.2 — server-side folder picker. The browser can only see the
 // backend filesystem (inside the container for Docker deploys), so we
@@ -165,6 +171,9 @@ const DEFAULT_SERVICE = () => ({
 });
 
 export default function DirectTransformPage() {
+  const { active, loading: projectsLoading } = useProjects();
+  const projectId = active?.id || "";
+  const { hash } = useLocation();
   const [plugins, setPlugins] = useState([]);
   const [jobs, setJobs] = useState([]);
   const [activeJobId, setActiveJobId] = useState(null);
@@ -211,6 +220,43 @@ export default function DirectTransformPage() {
   const [stacksLoading, setStacksLoading] = useState(true);
   const [stacksError, setStacksError] = useState(false);
 
+  // iter-22 — scoped to this project. Unscoped, every Direct Transform
+  // project would list every other one's jobs.
+  const refreshJobs = useCallback(() => {
+    if (!projectId) return Promise.resolve();
+    return dcteListJobs(null, projectId)
+      .then((d) => setJobs(d.jobs || []))
+      .catch(() => toast.error("Could not load Direct Transform jobs"));
+  }, [projectId]);
+
+  // iter-22 — the sidebar's three stages are links to #input / #transform /
+  // #output. On a wide screen all three panes are already visible, so the
+  // hash scrolls the matching one into view and rings it briefly; on a
+  // narrow screen, where the grid stacks, it does the real work of getting
+  // you there. Without this the stage rail would be decorative.
+  const paneRefs = {
+    input: useRef(null),
+    transform: useRef(null),
+    output: useRef(null),
+  };
+  const [focusedPane, setFocusedPane] = useState("");
+  useEffect(() => {
+    const key = (hash || "").replace("#", "");
+    const node = paneRefs[key]?.current;
+    if (!node) return undefined;
+    node.scrollIntoView({ block: "nearest", inline: "nearest" });
+    setFocusedPane(key);
+    const t = setTimeout(() => setFocusedPane(""), 1400);
+    return () => clearTimeout(t);
+    // paneRefs is rebuilt every render but each `.current` is stable, and
+    // depending on it would re-run this on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hash]);
+
+  const paneRing = (key) =>
+    focusedPane === key ? " ring-2 ring-brand ring-inset" : "";
+
+  // The catalogue and the plugin list are global, so they load once.
   useEffect(() => {
     dcteListPlugins()
       .then((d) => { setPlugins(d.plugins || []); setPluginsError(false); })
@@ -228,8 +274,19 @@ export default function DirectTransformPage() {
         toast.error("Could not load the stack catalogue");
       })
       .finally(() => setStacksLoading(false));
-    refreshJobs();
   }, []);
+
+  // The job list is per-project, so it reloads when the project changes.
+  // Switching projects also clears the selection: an activeJobId from the
+  // previous project would keep polling a job this one does not own.
+  useEffect(() => {
+    setActiveJobId(null);
+    setActiveJob(null);
+    setEvents([]);
+    setReports([]);
+    setTransforms([]);
+    refreshJobs();
+  }, [refreshJobs]);
 
   // `plugins` is the list of pairs with a hand-written transformer. Anything
   // else runs through the generic AI plugin — stated under the selects before
@@ -255,7 +312,7 @@ export default function DirectTransformPage() {
           dcteGetEvents(activeJobId, 200),
           dcteGetReports(activeJobId),
           dcteGetTransforms(activeJobId),
-          dcteListJobs().catch(() => ({ jobs: null })),
+          dcteListJobs(null, projectId).catch(() => ({ jobs: null })),
         ]);
         if (cancelled) return;
         setActiveJob(j);
@@ -270,12 +327,7 @@ export default function DirectTransformPage() {
     tick();
     const iv = setInterval(tick, 1500);  // iter-18.10 — faster tick for live feel
     return () => { cancelled = true; clearInterval(iv); };
-  }, [activeJobId]);
-
-  const refreshJobs = () =>
-    dcteListJobs()
-      .then((d) => setJobs(d.jobs || []))
-      .catch(() => toast.error("Could not load Direct Transform jobs"));
+  }, [activeJobId, projectId]);
 
   const onDetect = async (idx) => {
     const svc = services[idx];
@@ -319,6 +371,7 @@ export default function DirectTransformPage() {
       const first = services[0];
       const job = await dcteCreateJob({
         name,
+        project_id: projectId,
         source_root: first.source_path,
         output_root: first.destination_path,
         services,
@@ -347,27 +400,46 @@ export default function DirectTransformPage() {
   const removeService = (idx) =>
     setServices((prev) => prev.filter((_, i) => i !== idx));
 
+  // iter-22 — same header shell as every other project page.
+  const header = (
+    <header className="bg-surface border-b border-border px-6 py-3">
+      <div className="text-micro uppercase tracking-widest text-fg-subtle">Direct Transform</div>
+      <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2"
+          data-testid="dcte-title">
+        <ArrowRightLeft className="w-4 h-4 text-brand" />
+        {active?.name || "Direct Transform"}
+        <HelpIcon
+          text="Point it at a folder on the server and it migrates the code in place. Deterministic plugins first (Helidon MicroProfile → Spring Boot, Oracle → PostgreSQL), with an AI pass for every other stack pair. Needs no KB and no frozen stage."
+          testId="help-direct-transform"
+        />
+      </h1>
+    </header>
+  );
+
+  // Jobs belong to a project, so without one there is nothing to show and
+  // nothing that could be created. Same shape the Integrations page uses.
+  if (!projectsLoading && !projectId) {
+    return (
+      <div className="flex-1 flex flex-col min-w-0 min-h-0" data-testid="dcte-page">
+        {header}
+        <div className="flex-1 overflow-y-auto mos-scroll p-6 bg-bg">
+          <div className="text-fg-subtle text-sm" data-testid="dcte-no-project">
+            Select a Direct Transform project, or create one from
+            New Project → Choose project type → Direct Transform.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 flex flex-col min-w-0 min-h-0" data-testid="dcte-page">
-      {/* Same header shell as the three sibling Tools pages (Console,
-          Integrations, Prompt Library): kicker / display h1 with a brand
-          icon / HelpIcon, on a surface bar over the bg ground. */}
-      <header className="bg-surface border-b border-border px-6 py-3">
-        <div className="text-micro uppercase tracking-widest text-fg-subtle">Tools · Standalone</div>
-        <h1 className="font-display text-lg font-bold tracking-tight text-fg flex items-center gap-2"
-            data-testid="dcte-title">
-          <ArrowRightLeft className="w-4 h-4 text-brand" />
-          Direct Transform
-          <HelpIcon
-            text="Point it at a folder on the server and it migrates the code in place — Helidon MicroProfile → Spring Boot 3, Oracle → PostgreSQL. Plugin-driven and deterministic first, with an optional AI pass on top. Needs no project, no KB and no frozen stage."
-            testId="help-direct-transform"
-          />
-        </h1>
-      </header>
+      {header}
 
       <div className="flex-1 grid grid-cols-12 min-h-0 overflow-hidden">
         {/* LEFT — configuration */}
-        <section className="col-span-5 border-r border-border overflow-y-auto mos-scroll p-4 space-y-4"
+        <section ref={paneRefs.input}
+                 className={`col-span-5 border-r border-border overflow-y-auto mos-scroll p-4 space-y-4${paneRing("input")}`}
                  data-testid="dcte-config">
           <fieldset className="bg-surface border border-border rounded-sm p-3 space-y-2">
             <legend className="text-micro font-semibold text-fg-muted uppercase">Job</legend>
@@ -545,7 +617,8 @@ export default function DirectTransformPage() {
         </section>
 
         {/* CENTER — job progress + events */}
-        <section className="col-span-4 border-r border-border overflow-y-auto mos-scroll p-4"
+        <section ref={paneRefs.transform}
+                 className={`col-span-4 border-r border-border overflow-y-auto mos-scroll p-4${paneRing("transform")}`}
                  data-testid="dcte-progress">
           <div className="mb-3">
             <div className="text-micro font-semibold text-fg-muted uppercase mb-1">Jobs</div>
@@ -795,7 +868,9 @@ export default function DirectTransformPage() {
         </section>
 
         {/* RIGHT — reports + traceability */}
-        <section className="col-span-3 overflow-y-auto mos-scroll p-4" data-testid="dcte-reports">
+        <section ref={paneRefs.output}
+                 className={`col-span-3 overflow-y-auto mos-scroll p-4${paneRing("output")}`}
+                 data-testid="dcte-reports">
           <div className="text-micro font-semibold text-fg-muted uppercase mb-1">Reports</div>
           {reports.length === 0 && <div className="text-micro text-fg-muted">No reports yet.</div>}
           {reports.map((r) => (

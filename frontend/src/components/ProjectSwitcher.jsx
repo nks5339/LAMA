@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import {
   ChevronRight, Plus, Trash2, CheckCircle2,
   ArrowRight, Loader2, AlertTriangle, History, X,
-  GitBranch, ScanSearch, Wand2, ArrowLeft,
+  GitBranch, ScanSearch, Wand2, ArrowLeft, ArrowRightLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useProjects } from "@/state/ProjectContext";
@@ -43,6 +43,18 @@ const PROJECT_TYPES = [
     accent: "from-violet-500 to-violet-600",
     landing: "/transformer",
   },
+  // iter-22 — Direct Transform moved here from the Tools sidebar. It owns a
+  // source tree, a stack pair and a run history, which is a project rather
+  // than a utility you visit.
+  {
+    key: "direct_transform",
+    label: "Direct Transform",
+    tagline: "Folder → migrated tree, no KB",
+    desc: "Point it at a folder on the server: deterministic plugins first (Helidon → Spring Boot, Oracle → PostgreSQL), AI pass for every other stack pair.",
+    icon: ArrowRightLeft,
+    accent: "from-sky-500 to-sky-600",
+    landing: "/direct-transform",
+  },
 ];
 
 const STAGE_PATHS = {
@@ -55,22 +67,28 @@ const STAGE_PATHS = {
   Input: "",         // resolved per-project below
   KnowledgeBase: "", // resolved per-project below
   Report: "",        // gap-analysis final stage
-  Output: "",        // tech-transformer final stage
+  Output: "",        // tech-transformer / direct-transform final stage
+  Transform: "",     // direct-transform middle stage
 };
 const STAGE_ORDER = ["Discovery", "DataModel", "Architecture", "CodeGen", "Living"];
 const TOOL_STAGE_ORDER = {
   gap_analysis: ["Input", "KnowledgeBase", "Report"],
   tech_transformer: ["Input", "KnowledgeBase", "Output"],
+  // iter-22 — Direct Transform has no KnowledgeBase stage: it is folder-path
+  // driven and builds no KB, so that stage could never become active.
+  direct_transform: ["Input", "Transform", "Output"],
 };
 const TOOL_LANDING = {
   gap_analysis: "/gap-analyzer",
   tech_transformer: "/transformer",
+  direct_transform: "/direct-transform",
 };
 const TOOL_HASH = {
   Input: "#input",
   KnowledgeBase: "#kb",
   Report: "#report",
   Output: "#output",
+  Transform: "#transform",
 };
 
 const lsKey = (pid) => `lama:lastStage:${pid}`;

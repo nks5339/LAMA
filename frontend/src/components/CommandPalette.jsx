@@ -12,7 +12,6 @@ import {
   FileText,
   Settings,
   ChevronRight,
-  ArrowRightLeft,
 } from "lucide-react";
 
 /**
@@ -79,7 +78,6 @@ export default function CommandPalette({ isOpen, onClose }) {
     { type: "tool", label: "Console", icon: Terminal, path: "/console", keywords: ["models", "agents", "usage"] },
     { type: "tool", label: "Ontology Studio", icon: Library, path: "/ontology-studio", keywords: ["owl", "kb", "knowledge"] },
     { type: "tool", label: "Prompt Library", icon: FileText, path: "/prompts", keywords: ["templates"] },
-    { type: "tool", label: "Direct Transform", icon: ArrowRightLeft, path: "/direct-transform", keywords: ["dcte", "migrate", "helidon", "spring", "oracle", "postgres"] },
     { type: "tool", label: "Audit Log", icon: FileText, path: "/audit", keywords: ["history", "changes"] },
     { type: "tool", label: "Settings", icon: Settings, path: "/settings", keywords: ["github", "config"] },
   ], []);

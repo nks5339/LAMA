@@ -1,6 +1,6 @@
 import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Lock, CheckCircle2, Library, BookOpen, Database, Boxes, Code2, Activity, Settings as SettingsIcon, ChevronLeft, ChevronRight, Terminal, Network, MoreHorizontal, Plug, SkipForward, LogOut, ShieldCheck, Building2, X as CloseIcon, Info, FolderOpen, FileSearch, ArrowRightLeft } from "lucide-react";
+import { Lock, CheckCircle2, Library, BookOpen, Database, Boxes, Code2, Activity, Settings as SettingsIcon, ChevronLeft, ChevronRight, Terminal, Network, MoreHorizontal, Plug, SkipForward, LogOut, ShieldCheck, Building2, X as CloseIcon, Info, FolderOpen, FileSearch, ArrowRightLeft, Wand2 } from "lucide-react";
 import { useProjects } from "@/state/ProjectContext";
 import { useAuth } from "@/state/AuthContext";
 import { getPipelineStatus, factoryReset, getProjectSettings, updateProjectSettings, cancelSRSGeneration, skipStage, unskipStage, getJourneySettings, updateJourneySettings } from "@/lib/api";
@@ -49,10 +49,19 @@ const TRANSFORMER_STAGES = [
   { key: "Output",        label: "3. Transformed",    icon: ArrowRightLeft, desc: "Per-file transformed source tree + downloads.", path: "/transformer#output" },
 ];
 
+// iter-22 — Direct Transform. Three stages mirroring its three panes; no
+// KnowledgeBase, because it is folder-path driven and builds no KB.
+const DIRECT_TRANSFORM_STAGES = [
+  { key: "Input",     label: "1. Configure",  icon: FolderOpen,     desc: "Pick the source folder, the source and target stacks, and the destination.", path: "/direct-transform#input" },
+  { key: "Transform", label: "2. Transform",  icon: Wand2,          desc: "Run the job and watch the engine + agent event stream.",                    path: "/direct-transform#transform" },
+  { key: "Output",    label: "3. Output",     icon: ArrowRightLeft, desc: "Reports and the per-file transform record.",                                path: "/direct-transform#output" },
+];
+
 const STAGES_BY_TYPE = {
   legacy_migration:  LEGACY_STAGES,
   gap_analysis:      GAP_ANALYSIS_STAGES,
   tech_transformer:  TRANSFORMER_STAGES,
+  direct_transform:  DIRECT_TRANSFORM_STAGES,
 };
 
 // iter-13.89 — Responsive Sidebar.
@@ -95,10 +104,12 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
   // progression (URL hash). We derive an effective status here so the sidebar
   // reflects the user's actual position instead of the never-updated
   // stage_status doc.
-  const isToolProject = active?.project_type === "gap_analysis" || active?.project_type === "tech_transformer";
+  const isToolProject = ["gap_analysis", "tech_transformer", "direct_transform"]
+    .includes(active?.project_type);
   const isTransformer = active?.project_type === "tech_transformer";
   const currentHash = (location.hash || "").replace("#", "");
-  const HASH_TO_KEY = { input: "Input", kb: "KnowledgeBase", report: "Report", output: "Output" };
+  const HASH_TO_KEY = { input: "Input", kb: "KnowledgeBase", report: "Report",
+                       output: "Output", transform: "Transform" };
   const toolCurrentKey = HASH_TO_KEY[currentHash] || "Input";
   const toolCurrentIdx = STAGES.findIndex(s => s.key === toolCurrentKey);
 
@@ -751,7 +762,7 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
             </AccordionContent>
           </AccordionItem>
 
-          {/* ── Tools (Console / Integrations / Prompts / Direct Transform) ── */}
+          {/* ── Tools (Console / Integrations / Prompts) ───────── */}
           <AccordionItem value="tools" className="border-b border-border">
             <AccordionTrigger
               data-testid="sidebar-acc-tools"
@@ -797,17 +808,6 @@ export default function Sidebar({ mobileOpen = false, onMobileClose = () => {} }
                 <Library className="w-4 h-4" />
                 Prompt Library
                 <HelpIcon text="Global system prompts (admin) and per-project overrides for each stage." testId="help-prompts" />
-              </button>
-              <button
-                data-testid="nav-direct-transform"
-                onClick={() => navigate("/direct-transform")}
-                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-sm text-[13px] ${
-                  location.pathname === "/direct-transform" ? "bg-bg text-fg font-semibold" : "text-fg-muted hover:bg-surface-2"
-                }`}
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                Direct Transform
-                <HelpIcon text="Point it at a folder on the server and it migrates the code in place — Helidon MicroProfile → Spring Boot 3, Oracle → PostgreSQL. Deterministic plugins first, with an optional AI pass on top. Needs no project, no KB and no frozen stage." testId="help-direct-transform" />
               </button>
             </AccordionContent>
           </AccordionItem>

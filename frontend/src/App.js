@@ -238,6 +238,9 @@ function HomeDispatcher() {
   if (loading || !active) return <DiscoveryPage />;
   if (ptype === "gap_analysis") return <Navigate to="/gap-analyzer#input" replace />;
   if (ptype === "tech_transformer") return <Navigate to="/transformer#input" replace />;
+  // iter-22 — Direct Transform is a project type, so selecting such a project
+  // lands on its own page rather than on Discovery, which it has no use for.
+  if (ptype === "direct_transform") return <Navigate to="/direct-transform#input" replace />;
   return <DiscoveryPage />;
 }
 

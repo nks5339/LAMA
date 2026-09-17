@@ -46,10 +46,18 @@ const TRANSFORMER_STAGES = [
   { key: "Output",        n: 3, label: "Transformed", short: "Output", path: "/transformer#output" },
 ];
 
+// iter-22 — Direct Transform: three panes, three stages, no KnowledgeBase.
+const DIRECT_TRANSFORM_STAGES = [
+  { key: "Input",     n: 1, label: "Configure", short: "Config",    path: "/direct-transform#input"     },
+  { key: "Transform", n: 2, label: "Transform", short: "Transform", path: "/direct-transform#transform" },
+  { key: "Output",    n: 3, label: "Output",    short: "Output",    path: "/direct-transform#output"    },
+];
+
 const STAGES_BY_TYPE = {
   legacy_migration: LEGACY_STAGES,
   gap_analysis: GAP_ANALYSIS_STAGES,
   tech_transformer: TRANSFORMER_STAGES,
+  direct_transform: DIRECT_TRANSFORM_STAGES,
 };
 
 // iter-14.94 — tool project types resolve their stage from the URL hash.
@@ -58,6 +66,7 @@ const HASH_TO_STAGE = {
   kb: "KnowledgeBase",
   report: "Report",
   output: "Output",
+  transform: "Transform",
 };
 
 // iter-15.14 — phase-driven active-stage override for tech_transformer.
@@ -105,7 +114,7 @@ export default function StageProgress() {
   const ptype = active.project_type || "legacy_migration";
   const STAGES = STAGES_BY_TYPE[ptype] || LEGACY_STAGES;
 
-  const isToolProject = ptype === "gap_analysis" || ptype === "tech_transformer";
+  const isToolProject = ["gap_analysis", "tech_transformer", "direct_transform"].includes(ptype);
   const isTransformer = ptype === "tech_transformer";
 
   let currentStage = null;

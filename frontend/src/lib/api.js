@@ -1129,8 +1129,15 @@ export const dcteBrowseFs = (path = "") =>
   api.get("/dcte/fs/browse", { params: { path } }).then((r) => r.data);
 export const dcteCreateJob = (payload) =>
   api.post("/dcte/jobs", payload).then((r) => r.data);
-export const dcteListJobs = (tenantId = null) =>
-  api.get("/dcte/jobs", { params: tenantId ? { tenant_id: tenantId } : {} }).then((r) => r.data);
+// iter-22 — `projectId` scopes the list to one Direct Transform project.
+// The page always passes it; omitting it lists every job (operator view).
+export const dcteListJobs = (tenantId = null, projectId = null) =>
+  api.get("/dcte/jobs", {
+    params: {
+      ...(tenantId ? { tenant_id: tenantId } : {}),
+      ...(projectId ? { project_id: projectId } : {}),
+    },
+  }).then((r) => r.data);
 export const dcteGetJob = (jobId) =>
   api.get(`/dcte/jobs/${jobId}`).then((r) => r.data);
 export const dcteDeleteJob = (jobId) =>

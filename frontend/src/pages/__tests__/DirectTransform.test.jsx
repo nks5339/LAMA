@@ -72,6 +72,13 @@ jest.mock("sonner", () => ({
 
 jest.mock("@/components/HelpIcon", () => () => <span data-testid="help-icon" />);
 
+// iter-22 — Direct Transform is a project type, so the page reads the active
+// project and scopes its jobs to it.
+let mockActive = { id: "p-dt-1", name: "PMIS Direct", project_type: "direct_transform" };
+jest.mock("@/state/ProjectContext", () => ({
+  useProjects: () => ({ active: mockActive, loading: false }),
+}));
+
 // iter-21 — the stack catalogue behind the two dropdowns. Mirrors the shape
 // of GET /api/dcte/stacks (dcte/stacks.py).
 const STACKS = {
@@ -123,6 +130,7 @@ const renderPage = () =>
 beforeEach(() => {
   jest.clearAllMocks();
   window.localStorage.clear();
+  mockActive = { id: "p-dt-1", name: "PMIS Direct", project_type: "direct_transform" };
   mockApi.dcteListPlugins.mockResolvedValue({ plugins: PLUGINS });
   mockApi.dcteListStacks.mockResolvedValue(STACKS);
   mockApi.dcteListJobs.mockResolvedValue({ jobs: [] });
@@ -132,9 +140,9 @@ beforeEach(() => {
 });
 
 describe("Direct Transform page", () => {
-  it("renders the shared Tools page shell and loads the stack catalogue", async () => {
+  it("renders the project page shell and loads the stack catalogue", async () => {
     renderPage();
-    expect(await screen.findByTestId("dcte-title")).toHaveTextContent("Direct Transform");
+    expect(await screen.findByTestId("dcte-title")).toHaveTextContent("PMIS Direct");
     await waitFor(() => expect(mockApi.dcteListStacks).toHaveBeenCalled());
 
     const source = await screen.findByTestId("dcte-select-source-0");
@@ -240,6 +248,7 @@ describe("Direct Transform page", () => {
     await waitFor(() => expect(mockApi.dcteCreateJob).toHaveBeenCalled());
     const payload = mockApi.dcteCreateJob.mock.calls[0][0];
     expect(payload).toMatchObject({
+      project_id: "p-dt-1",
       source_root: "/srv/in",
       output_root: "/srv/out",
       ai_refactor: true,
@@ -283,6 +292,37 @@ describe("Direct Transform page", () => {
       expect(mockToastError).toHaveBeenCalledWith("Could not load Direct Transform jobs"),
     );
     expect(screen.getByTestId("dcte-page")).toBeInTheDocument();
+  });
+
+  it("scopes the job list to the active project", async () => {
+    // Unscoped, every Direct Transform project would list every other
+    // project's jobs — which is why this is a project type, not a Tools page.
+    renderPage();
+    await waitFor(() =>
+      expect(mockApi.dcteListJobs).toHaveBeenCalledWith(null, "p-dt-1"));
+  });
+
+  it("reloads and clears the selection when the project changes", async () => {
+    const { rerender } = renderPage();
+    await waitFor(() => expect(mockApi.dcteListJobs).toHaveBeenCalledWith(null, "p-dt-1"));
+
+    mockActive = { id: "p-dt-2", name: "Other", project_type: "direct_transform" };
+    rerender(
+      <MemoryRouter initialEntries={["/direct-transform"]}>
+        <DirectTransform />
+      </MemoryRouter>,
+    );
+    await waitFor(() =>
+      expect(mockApi.dcteListJobs).toHaveBeenCalledWith(null, "p-dt-2"));
+  });
+
+  it("asks for a project instead of rendering an unusable form when none is active", async () => {
+    mockActive = null;
+    renderPage();
+    expect(await screen.findByTestId("dcte-no-project")).toHaveTextContent(
+      /New Project/);
+    // Nothing is fetched for a project that does not exist.
+    expect(mockApi.dcteListJobs).not.toHaveBeenCalled();
   });
 
   it("surfaces a backend failure as a toast, not an unhandled rejection", async () => {
