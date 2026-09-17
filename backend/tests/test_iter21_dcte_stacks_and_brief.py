@@ -396,15 +396,21 @@ def test_build_devops_tester_receive_the_destination_path(tmp_path):
     )
 
     seen: dict[str, Path] = {}
+    seen_pair: dict[str, tuple] = {}
 
-    def _build(dest_root, service_id):
+    # iter-22 — the build agent now takes the stack pair too, for the same
+    # reason `ai_refactor_fn` does: its triage prompt, the compiler release
+    # level and its residue reject list are all pair-specific.
+    def _build(dest_root, service_id, source_stack="", target_stack=""):
         seen["build"] = Path(dest_root)
+        seen_pair["build"] = (source_stack, target_stack)
         return {"skipped": True, "success": True, "attempted": False, "notes": [],
                 "attempts": 0, "fixes_applied": 0, "errors": [], "tool": None,
                 "final_output_tail": ""}
 
-    def _devops(dest_root, service_id, build_result):
+    def _devops(dest_root, service_id, build_result, source_stack="", target_stack=""):
         seen["devops"] = Path(dest_root)
+        seen_pair["devops"] = (source_stack, target_stack)
         return {"attempted": True, "fixes_applied": 0, "gaps_found": [],
                 "fixes": [], "unresolved": [], "notes": []}
 
@@ -423,6 +429,11 @@ def test_build_devops_tester_receive_the_destination_path(tmp_path):
 
     # Every one of the three ran, and got the real destination tree.
     assert set(seen) == {"build", "devops", "tester"}, f"never invoked: {seen}"
+    # ...and the build and DevOps agents were told which pair they are
+    # working on, so their prompts are not Spring Boot 3 essays on a
+    # JSP → React job.
+    assert seen_pair["build"] == ("jsp", "react-19")
+    assert seen_pair["devops"] == ("jsp", "react-19")
     expected = (out / "converted-source" / "svc").resolve()
     for agent, got in seen.items():
         assert got.resolve() == expected, f"{agent} got {got}, expected {expected}"

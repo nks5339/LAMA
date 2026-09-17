@@ -154,7 +154,7 @@ def client(monkeypatch):
 
 
 def test_list_agents_returns_the_full_roster_with_global_default(client):
-    """The roster is ten agents.
+    """The roster is eleven agents.
 
     History of this assertion -- each expansion was deliberate:
       • six  -> seven (iter-15.62) `devops_expert`, the stagnation-triggered
@@ -173,6 +173,14 @@ def test_list_agents_returns_the_full_roster_with_global_default(client):
         iterations" the operator reported. Rungs 0-2 all EDIT a file that
         may be past saving; this one rewrites it from the legacy original
         against the target stack's playbook.
+      • ten -> eleven (iter-22): `diagnostician`, which reads a wall of raw
+        build output and works out what actually broke. Same defect shape as
+        `validator` above, one layer along: iter-19 gave it an
+        AGENT_COMPLEXITY tier (`reasoning`, for the o-series) but no prompt
+        and no entry in AGENT_PROMPT_KEYS, so it ran on the PLANNER's 9.5 KB
+        wave-ordering plan rubric — a planning prompt doing a diagnosis job.
+        Its own call site said so: "it kept the Planner's key only because
+        there was no better one".
     """
     res = client.get("/tools/transformer/tx-1/agents")
     assert res.status_code == 200
@@ -180,6 +188,7 @@ def test_list_agents_returns_the_full_roster_with_global_default(client):
     assert set(agents.keys()) == {
         "super_agent", "context_manager", "planner", "coder", "verifier",
         "tester", "devops_expert", "validator", "devops_audit", "regenerator",
+        "diagnostician",
     }
     assert agents["validator"]["llm_backed"] is True
     assert agents["regenerator"]["llm_backed"] is True

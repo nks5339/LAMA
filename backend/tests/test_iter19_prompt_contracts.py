@@ -172,27 +172,113 @@ def test_retired_prompts_are_actively_pruned_from_mongo():
     assert "await prune_retired_prompts_19()" in SEED, "prune is never called"
 
 
+# Tiers that exist WITHOUT an invoking call site, on purpose. Every entry
+# needs a reason, because this list is how a genuine orphan hides.
+_TIER_ONLY_BY_DESIGN = {
+    # Console renders one row per orchestrator so an operator can pin a model
+    # per stage; the orchestration itself is Python, not an LLM call.
+    "orchestrator.discovery", "orchestrator.datamodel",
+    "orchestrator.architecture", "orchestrator.codegen", "orchestrator.living",
+    # iter-14.x replaced these three Architecture sub-stages with the
+    # deterministic generators in `arch_deterministic.py`. The tiers stay so a
+    # Console row does not vanish from under an operator who had pinned one.
+    "arch.hld", "arch.lld", "arch.api_contracts",
+    # Super-agents are pure orchestration: they log a run, they do not call a
+    # model. `AGENT_LLM_BACKED` in routes/tools.py says so explicitly.
+    "tools.transformer.super_agent", "codegen.super_agent",
+    # Prompt-library keys whose call sites pass a different agent_key on
+    # purpose — the tier belongs to the prompt, not the call.
+    "tools.gap_verifier", "tools.gap_analyzer.doc_parser",
+    "srs.edit", "srs.diff", "codegen.docs", "codegen.regenerate",
+    "datamodel.bus_matrix",
+    # iter-22 — `dcte.devops` gained its call site; `dcte.tester` has not.
+    # The TESTING phase is real and fully deterministic (subprocess + regex),
+    # and two incoming suites assert the registration. See HUMAN_INTERVENTION
+    # DT-1: building it or dropping it is an open product decision.
+    "dcte.tester",
+}
+
+# Keys that ARE invoked, but are assembled at the call site so no literal
+# appears anywhere for the scan to find. Each names where, because "the
+# regex cannot see it" and "nothing calls it" look identical from here and
+# only one of them is a bug.
+_ASSEMBLED_AT_CALL_SITE = {
+    # routes/codegen.py:9965 — `agent_key = f"codegen.{assigned}"`, where
+    # `assigned` comes from `_route_task_to_coder` and is one of these two.
+    "codegen.coder_be", "codegen.coder_fe",
+    # routes/chat.py — `agent_key=(intent or f"{stage}.chat")`, where `stage`
+    # is the LOWERCASED project stage. iter-22 added the three spellings that
+    # produces and nobody had declared; `living.chat` and `srs.chat` escape
+    # this list only because they also appear as literals in
+    # `agent_memory.AGENT_MEMORY` and `models.AgentSession`.
+    "discovery.chat", "architecture.chat",
+}
+
+
 def test_no_agent_tier_survives_without_a_call_site():
     """`arch.decompose` held an AGENT_COMPLEXITY tier with no invoking
     code — the same defect shape as the Validator before iter-18, which
     sat seeded and unreachable for two iterations. This catches the next
-    one."""
+    one.
+
+    iter-22 — this test could not fail. Its haystack included
+    `backend/fabric/`, which contains the AGENT_COMPLEXITY map itself, so
+    every key matched its own definition and `orphans` was always []. It had
+    been passing since iter-19 while `dcte.devops` and `dcte.tester` sat
+    exactly as `arch.decompose` had. The map's own file is now excluded, and
+    `backend/dcte/` plus the top-level modules are included — without those
+    the real call sites for `dcte.transformer`, `agent_memory.rollover` and
+    friends are invisible and the test fails for the wrong reason.
+    """
     import re as _re
     from pathlib import Path as _P
     from fabric.model_fabric import AGENT_COMPLEXITY
 
     backend = _P(__file__).resolve().parent.parent
-    haystack = "\n".join(
+    tier_map_file = (backend / "fabric" / "model_fabric.py").resolve()
+    parts = [
         p.read_text(errors="replace")
-        for d in ("routes", "kb", "codegen", "fabric")
+        for d in ("routes", "kb", "codegen", "fabric", "dcte", "datamodel",
+                  "integrations")
         for p in (backend / d).rglob("*.py")
-    ) + (backend / "llm.py").read_text() + (backend / "confidence.py").read_text()
+        # The file that DEFINES the map cannot be evidence that the map's
+        # keys are used. This single line is what made the test vacuous.
+        if p.resolve() != tier_map_file
+    ]
+    parts += [
+        (backend / f).read_text(errors="replace")
+        for f in ("llm.py", "confidence.py", "confidence_langgraph.py",
+                  "agent_memory.py", "onboarding.py", "factory_orchestrator.py",
+                  "context_bundler.py", "tools_kb_builder.py")
+        if (backend / f).is_file()
+    ]
+    haystack = "\n".join(parts)
 
+    known = _TIER_ONLY_BY_DESIGN | _ASSEMBLED_AT_CALL_SITE
     orphans = [
         k for k in AGENT_COMPLEXITY
-        if not _re.search(r'["\']' + _re.escape(k) + r'["\']', haystack)
+        if k not in known
+        and not _re.search(r'["\']' + _re.escape(k) + r'["\']', haystack)
     ]
     assert orphans == [], f"agent tiers with no call site: {orphans}"
+
+
+def test_the_orphan_guard_can_actually_fail():
+    """The guard above silently passed for three iterations because it
+    searched a haystack containing its own subject. A guard that cannot fail
+    is worse than no guard: it reads as coverage. This proves it fails."""
+    import re as _re
+    from pathlib import Path as _P
+
+    backend = _P(__file__).resolve().parent.parent
+    tier_map_file = (backend / "fabric" / "model_fabric.py").resolve()
+    haystack = "\n".join(
+        p.read_text(errors="replace")
+        for d in ("routes", "kb", "codegen", "fabric", "dcte")
+        for p in (backend / d).rglob("*.py")
+        if p.resolve() != tier_map_file
+    )
+    assert not _re.search(r'["\']zzz\.invented\.agent["\']', haystack)
 
 
 # ── every prompt parsed as JSON declares its shape ────────────────────

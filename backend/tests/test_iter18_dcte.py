@@ -386,14 +386,19 @@ if __name__ == "__main__":
 # ─── iter-18.11 — Build agent tests ─────────────────────────────────
 
 def test_build_agent_skips_when_no_pom(tmp_path):
-    """No pom.xml / no build.gradle → skipped=True, attempted=False, no crash."""
+    """No build manifest at all → skipped=True, attempted=False, no crash.
+
+    iter-22 — the note names every manifest the agent now looks for, not
+    just the two Java ones, because .NET and Node targets reach here too.
+    """
     from dcte.build_agent import build_and_fix
     import asyncio
     res = asyncio.run(build_and_fix(tmp_path, max_attempts=1))
     assert res.skipped is True
     assert res.attempted is False
     assert res.success is False
-    assert any("no pom.xml" in n for n in res.notes)
+    assert any("no build manifest" in n for n in res.notes)
+    assert any("pom.xml" in n and "package.json" in n for n in res.notes)
 
 
 def test_build_agent_parses_javac_errors(tmp_path):
@@ -417,10 +422,74 @@ def test_build_agent_parses_javac_errors(tmp_path):
 
 
 def test_build_agent_detect_maven(tmp_path):
+    """iter-22 — detection returns (tool, manifest_dir): the directory
+    matters because the manifest is not always at the destination root."""
     from dcte.build_agent import _detect_build_tool
     assert _detect_build_tool(tmp_path) is None
     (tmp_path / "pom.xml").write_text("<project/>", encoding="utf-8")
-    assert _detect_build_tool(tmp_path) == "maven"
+    assert _detect_build_tool(tmp_path) == ("maven", tmp_path)
+
+
+def test_build_agent_detects_the_non_java_toolchains(tmp_path):
+    """iter-22 — root-only Maven/Gradle detection meant every .NET, React
+    and Angular target the iter-21 catalogue added reported "build
+    validation skipped" and the job carried on as if there were nothing to
+    build."""
+    from dcte.build_agent import _detect_build_tool
+    node = tmp_path / "web"
+    node.mkdir()
+    (node / "package.json").write_text('{"name":"x"}', encoding="utf-8")
+    assert _detect_build_tool(tmp_path) == ("npm", node)
+
+    net = tmp_path / "api"
+    net.mkdir()
+    (net / "Api.csproj").write_text("<Project/>", encoding="utf-8")
+    # Both exist now; the first match in _MANIFEST_TOOLS order wins per dir,
+    # and dirs are walked root-first then sorted, so `api/` precedes `web/`.
+    tool, where = _detect_build_tool(tmp_path)
+    assert (tool, where) == ("dotnet", net)
+
+
+def test_build_agent_finds_a_nested_manifest(tmp_path):
+    """A multi-module tree keeps its own nesting under converted-source/,
+    and the root-only check missed every one of those."""
+    from dcte.build_agent import _detect_build_tool
+    deep = tmp_path / "services" / "orders"
+    deep.mkdir(parents=True)
+    (deep / "pom.xml").write_text("<project/>", encoding="utf-8")
+    assert _detect_build_tool(tmp_path) == ("maven", deep)
+
+
+def test_build_agent_does_not_force_a_release_below_the_target(monkeypatch):
+    """iter-22 — the release level was hardcoded to 17. `spring-boot-4`
+    pins Java 25, so a Java 25 codebase was compiled at language level 17,
+    every modern construct became a syntax error, and the fix loop
+    "repaired" correct source."""
+    from dcte import build_agent as BA
+    monkeypatch.setattr(BA, "_installed_jdk_major", lambda: 17)
+    release, note = BA._release_for("spring-boot-4")
+    assert release == ""          # never silently downgrade
+    assert "Java 25" in note and "17" in note
+
+    # A target the installed JDK can satisfy may be forced.
+    monkeypatch.setattr(BA, "_installed_jdk_major", lambda: 25)
+    release, note = BA._release_for("spring-boot-4")
+    assert release == "25"
+    assert note == ""
+
+    # Non-Java targets never get a -Dmaven.compiler flag.
+    assert BA._release_for("react-19") == ("", "")
+
+
+def test_maven_runs_with_dash_u(tmp_path):
+    """iter-21 contract: Maven caches a FAILED resolution for 24h, so after
+    a pom repair the next build can still report the artifact missing."""
+    import shutil as _sh
+    from dcte.build_agent import _maven_cmd
+    if not _sh.which("mvn"):
+        import pytest as _pt
+        _pt.skip("mvn not on PATH")
+    assert "-U" in _maven_cmd(tmp_path)
 
 
 def test_build_agent_registered_in_fabric():

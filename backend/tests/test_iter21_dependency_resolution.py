@@ -430,26 +430,127 @@ def test_the_coder_prompt_lists_the_jdk_packages():
     assert "com.itextpdf.kernel" in tpl
 
 
-# ── Live (network) ────────────────────────────────────────────────────
+# ── One slow query must not abort the ladder (offline) ────────────────
+#
+# This is the durable protection. The live tests below are a canary whose
+# verdict depends on a third party's latency; THIS one pins the behaviour.
+
+@pytest.mark.asyncio
+async def test_a_failing_query_does_not_abandon_the_remaining_prefixes(monkeypatch):
+    """iter-22 — reproduced live: `g:"org.apache.commons.text" AND fc:"…"`
+    read-timed out while `g:"org.apache.commons"` answered in under a
+    second. One outer `try` wrapped the whole prefix ladder AND the broad
+    fallback, so that timeout returned None and the answer — one cheap
+    query away — was never asked for. In production that is a resolvable
+    dependency reported as missing, and the build failure blamed on the
+    migration."""
+    calls: list[str] = []
+
+    class _Boom(Exception):
+        pass
+
+    async def _fake_query(_client, q, rows=20):
+        calls.append(q)
+        if 'g:"org.apache.commons.text"' in q:
+            raise _Boom("read timeout")       # the narrowest, priciest query
+        if 'g:"org.apache.commons"' in q:
+            return [{"g": "org.apache.commons", "a": "commons-text",
+                     "latestVersion": "1.15.0"}]
+        return []
+
+    # Patch the transport, not _query: _query's own swallow is the fix.
+    monkeypatch.setattr(DR, "_query", DR._query.__wrapped__
+                        if hasattr(DR._query, "__wrapped__") else DR._query)
+
+    async def _client_get(_self, _url, params=None, **_kw):
+        raise AssertionError("should not be reached")
+
+    # Drive _query for real, with a client whose .get raises for one query.
+    class _FakeResp:
+        def __init__(self, docs): self.status_code = 200; self._d = docs
+        def json(self): return {"response": {"docs": self._d}}
+
+    class _FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, _url, params=None, **_kw):
+            q = (params or {}).get("q", "")
+            calls.append(q)
+            if 'g:"org.apache.commons.text"' in q:
+                raise _Boom("read timeout")
+            if 'g:"org.apache.commons"' in q:
+                return _FakeResp([{"g": "org.apache.commons", "a": "commons-text",
+                                   "latestVersion": "1.15.0"}])
+            return _FakeResp([])
+
+    import httpx
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: _FakeClient())
+
+    got = await DR.search_artifact_for_class("org.apache.commons.text.WordUtils")
+    assert got == ("org.apache.commons", "commons-text"), (
+        f"one failing query abandoned the ladder; queries made: {calls}"
+    )
+    assert any('g:"org.apache.commons"' in c for c in calls), (
+        "the next prefix was never tried"
+    )
+
+
+@pytest.mark.asyncio
+async def test_every_prefix_failing_still_reaches_the_broad_fallback(monkeypatch):
+    """"Only if every prefix misses do we fall back" has to mean every
+    prefix was TRIED, including the ones that errored."""
+    seen: list[str] = []
+
+    class _FakeResp:
+        def __init__(self, docs): self.status_code = 200; self._d = docs
+        def json(self): return {"response": {"docs": self._d}}
+
+    class _FakeClient:
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): return False
+        async def get(self, _url, params=None, **_kw):
+            q = (params or {}).get("q", "")
+            seen.append(q)
+            if q.startswith("g:"):
+                raise RuntimeError("timeout")
+            return _FakeResp([{"g": "org.jsoup", "a": "jsoup",
+                               "latestVersion": "1.18.1"}])
+
+    import httpx
+    monkeypatch.setattr(httpx, "AsyncClient", lambda **kw: _FakeClient())
+
+    got = await DR.search_artifact_for_class("org.jsoup.nodes.Document")
+    assert got == ("org.jsoup", "jsoup")
+    assert any(c.startswith('fc:"') for c in seen), "the broad fallback never ran"
+
+
+# ── Live (public internet) ────────────────────────────────────────────
+#
+# Gated by `--run-integration` in conftest.py — see the note there for why
+# these cannot run by default. They are the endpoint canary: the offline
+# tests above prove our logic, these prove Maven Central still behaves the
+# way that logic assumes. Neither replaces the other.
+#
+# On a genuine failure here, check the shape of the API before the resolver:
+# `curl 'https://search.maven.org/solrsearch/select?q=fc:"org.jsoup.Jsoup"&rows=1&wt=json'`
 
 @pytest.mark.asyncio
 async def test_live_maven_central_resolves_an_uncurated_package():
-    """The IDE behaviour, end to end, for something not in the table.
-
-    Skipped rather than failed when Maven Central is unreachable: this
-    suite must stay green on a machine with no network.
-    """
+    """The IDE behaviour, end to end, for something not in the table."""
     got = await DR.search_artifact_for_class("org.apache.commons.text.WordUtils")
-    if got is None:
-        pytest.skip("Maven Central unreachable")
+    assert got is not None, (
+        "Maven Central returned nothing for WordUtils. Either the endpoint "
+        "is slow (an fc: query for a 23k-match class read-times out) or the "
+        "prefix ladder / _rank_candidates / the broad fallback has regressed. "
+        "Re-run to tell them apart."
+    )
     assert got[0].startswith("org.apache.commons")
 
 
 @pytest.mark.asyncio
 async def test_live_version_lookup_skips_prereleases():
     v = await DR.latest_stable_version("org.jsoup", "jsoup")
-    if not v:
-        pytest.skip("Maven Central unreachable")
+    assert v, "maven-metadata.xml lookup returned nothing for org.jsoup:jsoup"
     assert not DR._PRERELEASE_RE.search(v), v
 
 

@@ -62,6 +62,12 @@ def pytest_addoption(parser):
         default=False,
         help="Run the suites that require a live backend over HTTP.",
     )
+    parser.addoption(
+        "--run-network",
+        action="store_true",
+        default=False,
+        help="Run the tests that reach the public internet (Maven Central).",
+    )
 
 
 def _integration_requested(config) -> bool:
@@ -74,11 +80,57 @@ def _integration_requested(config) -> bool:
     return "integration" in expr and "not integration" not in expr
 
 
+# iter-22 — individual tests that reach the PUBLIC INTERNET, gated the same
+# way and for a sharper reason than the eight suites above.
+#
+# The two live Maven Central tests in `test_iter21_dependency_resolution.py`
+# used to run by default and skip themselves on a falsy result with the
+# message "Maven Central unreachable". `search_artifact_for_class` documents
+# itself as "returns None on any failure", so that message asserted a CAUSE
+# the test had not established: None meant either the endpoint was slow or
+# the prefix ladder / `_rank_candidates` / the fallback had regressed. A real
+# regression in the only live exercise of that resolver would have shown up
+# as a green run with a skip line.
+#
+# Measured on this tree: consecutive identical runs gave `1349 passed, 129
+# skipped` and `1348 passed, 130 skipped` — the suite's own result was not
+# reproducible. The cause is latency, not reachability: an `fc:` full-class
+# query for a 23k-match class read-times out while a cheap query on the same
+# host answers in under a second, so no probe cheaper than the real query can
+# tell the two apart.
+#
+# Gated, not discarded — the conftest rule at the top of this file. The
+# behaviour they were really protecting is now pinned offline in that same
+# suite ("a failing query does not abandon the remaining prefixes"), which is
+# where a correctness claim belongs.
+_LIVE_NETWORK_TESTS = frozenset({
+    "test_live_maven_central_resolves_an_uncurated_package",
+    "test_live_version_lookup_skips_prereleases",
+})
+
+_SKIP_NETWORK_REASON = (
+    "reaches Maven Central over the public internet; pass --run-network "
+    "(see backend/tests/conftest.py)"
+)
+
+
 def pytest_collection_modifyitems(config, items):
     run_integration = _integration_requested(config)
     skip = pytest.mark.skip(reason=_SKIP_REASON)
+    skip_net = pytest.mark.skip(reason=_SKIP_NETWORK_REASON)
+
+    run_network = config.getoption("--run-network")
 
     for item in items:
+        if item.name in _LIVE_NETWORK_TESTS:
+            # Deliberately NOT the `integration` marker: that one means "needs
+            # the LAMA backend on :8382", and the session-autouse auth fixture
+            # below skips the whole run when it is absent. These need the
+            # public internet and nothing else, so they get their own flag.
+            item.add_marker(pytest.mark.network)
+            if not run_network:
+                item.add_marker(skip_net)
+            continue
         module = item.module.__name__.rsplit(".", 1)[-1] if item.module else ""
         if module not in _LIVE_SERVER_SUITES:
             continue
