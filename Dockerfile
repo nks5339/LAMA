@@ -11,6 +11,22 @@
 # Persisted state: /data/db   (mount a host volume for MongoDB)
 # External services: Qdrant (HTTP)  — pass QDRANT_URL/QDRANT_API_KEY env-vars
 # Push: docker push mishramesh/lama:latest
+#
+# BUILD FOR linux/amd64 — on Apple Silicon you must say so:
+#
+#     docker build --platform linux/amd64 -t lama:local .
+#
+# A native arm64 build fails at the MongoDB layer with
+# `E: Unable to locate package mongodb-org-server`, because MongoDB
+# publishes no arm64 Debian packages on the mongodb-org/7.0 channel. The
+# message names the package, not the cause, so it reads as a broken
+# Dockerfile rather than a wrong architecture. Everything else in the image
+# does build on arm64 — verified iter-22.
+#
+# The platform is NOT pinned with `FROM --platform=...` on purpose: that
+# would force QEMU emulation on amd64 CI as well, and this image compiles a
+# full ML stack. The runtime is amd64 anyway — see the droid-binary note in
+# docker-compose.yml, which has the same constraint for the same reason.
 # ---------------------------------------------------------------
 
 # ===============================================================

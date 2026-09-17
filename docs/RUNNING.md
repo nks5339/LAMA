@@ -191,6 +191,18 @@ Runs the whole stack — nginx, MongoDB, and the API — in one container on
 >
 > **Apple Silicon:** the published image is `linux/amd64`, so it runs under
 > emulation on M-series Macs. It works — verified — but is slower than native.
+>
+> If you *build* the image yourself on Apple Silicon, pass the platform:
+>
+> ```bash
+> docker build --platform linux/amd64 -t lama:local .
+> ```
+>
+> A native arm64 build dies at the MongoDB layer with
+> `E: Unable to locate package mongodb-org-server` — MongoDB publishes no
+> arm64 Debian packages on the `mongodb-org/7.0` channel. The message names
+> the package rather than the cause, so it reads as a broken Dockerfile.
+> Every other layer builds fine on arm64.
 
 ### 1. Build the UI bundle
 
