@@ -21,18 +21,24 @@ Design
 ------
 * Runs AFTER ``build_agent.build_and_fix`` — its job is to close
   *runtime* gaps that a green compile doesn't guarantee.
-* Fully deterministic today: every gap it handles has a canonical
-  shape and is patched by template, with no LLM call. The design
-  anticipates delegating novel / ambiguous gaps to the fabric under
-  ``agent_key="dcte.devops"``, and that key is registered and tiered
-  ready for it, but no such call site exists yet -- so this module
-  makes no network request at all. See HUMAN_INTERVENTION.md DT-1.
+* Deterministic first, model second (iter-22, resolving HUMAN_INTERVENTION
+  DT-1). Every gap with a canonical shape is patched by template, with no
+  LLM call — a template is reproducible, free, and cannot invent a database
+  URL. Gaps the templates cannot close used to land in ``unresolved``, get
+  printed in the report, and stop there: ``agent_key="dcte.devops"`` was
+  registered, tiered and seeded for an escalation that had never been
+  written, so this phase resolved nothing it did not already have a
+  template for. Those gaps now go to the fabric under that key
+  (``_escalate_gaps_to_llm``), bounded by ``_MAX_LLM_GAP_FIXES``, with the
+  reply written back through ``ai_refactor._safe_apply`` and confined to
+  the service tree. ``escalate=False`` restores the old behaviour.
 * Non-blocking: any gap it can't patch is emitted as a diagnostic
   event and passed to the Tester agent's report; the job continues.
 * Runs INSIDE the LAMA container — no external tools required.
 """
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass, field
@@ -464,6 +470,155 @@ def apply_deterministic_fixes(
     return fixes, unresolved
 
 
+# ── LLM escalation (iter-22) ──────────────────────────────────────
+#
+# This is the call site DT-1 asked about. `dcte.devops` has been registered
+# in AGENT_COMPLEXITY and seeded as an `agent_configs` row since iter-18,
+# and the docstring above described an LLM path that had never been written:
+# every gap without a template landed in `unresolved`, was printed in the
+# report, and that was the end of it. The phase ran, emitted events and
+# resolved nothing it did not already have a template for.
+#
+# Scope is deliberately narrow. The deterministic patchers keep first
+# refusal — a template is reproducible and free, and a model asked to invent
+# an `application.yml` will invent one. The model only sees what the
+# templates could not close.
+_MAX_LLM_GAP_FIXES = 4          # per run; these are whole-file writes
+_MAX_LLM_FILE_CHARS = 20000
+
+
+async def _escalate_gaps_to_llm(
+    dest_root: Path,
+    unresolved: list[dict[str, Any]],
+    *,
+    source_stack: str = "",
+    target_stack: str = "",
+    agent_key: str = "dcte.devops",
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Ask the model to close the gaps no template could. (fixed, still_open)."""
+    if not unresolved:
+        return [], []
+    try:
+        from llm import fabric_call
+    except Exception as e:  # noqa: BLE001
+        logger.warning("devops escalation unavailable: %s", e)
+        return [], [{**g, "reason": f"{g.get('reason') or ''} (no LLM: {e})".strip()}
+                    for g in unresolved]
+
+    from .prompt_builder import build_devops_brief
+    from .ai_refactor import _strip_json_fence, _safe_apply
+    from .stacks import residue_markers
+
+    from .prompt_builder import stack_sections
+    from .prompt_store import compose, get_dcte_prompt
+    system_prompt = compose(
+        await get_dcte_prompt("dcte.devops"),
+        stack_sections(source_stack, target_stack),
+        build_devops_brief(source_stack, target_stack),
+    )
+    markers = residue_markers(source_stack, target_stack) or None
+    fixed: list[dict[str, Any]] = []
+    still_open: list[dict[str, Any]] = []
+
+    for gap in unresolved[:_MAX_LLM_GAP_FIXES]:
+        target = gap.get("file") or gap.get("path") or ""
+        path = Path(target) if target else None
+        current = ""
+        if path and path.is_file():
+            try:
+                current = path.read_text(encoding="utf-8", errors="ignore")[:_MAX_LLM_FILE_CHARS]
+            except Exception:  # noqa: BLE001
+                current = ""
+        user = (
+            f"---GAP: {gap.get('kind')}---\n"
+            f"{gap.get('detail') or gap.get('reason') or ''}\n\n"
+            f"---SERVICE ROOT: {dest_root}---\n"
+            f"---TREE (up to 60 entries)---\n"
+            + "\n".join(sorted(
+                str(p.relative_to(dest_root))
+                for p in list(dest_root.rglob("*"))[:400] if p.is_file()
+            )[:60])
+            + (f"\n\n---CURRENT CONTENT OF {target}---\n```\n{current}\n```"
+               if current else "")
+        )
+        try:
+            resp = await fabric_call(
+                messages=[{"role": "system", "content": system_prompt},
+                          {"role": "user", "content": user}],
+                agent_key=agent_key,
+                temperature=0.1,
+                max_tokens=4000,
+                response_format={"type": "json_object"},
+            )
+        except Exception as e:  # noqa: BLE001
+            still_open.append({**gap, "reason": f"escalation failed: {e}"})
+            continue
+        text = (resp or {}).get("content") if isinstance(resp, dict) else str(resp or "")
+        try:
+            data = json.loads(_strip_json_fence(text or ""))
+        except Exception:  # noqa: BLE001
+            still_open.append({**gap, "reason": "escalation returned non-JSON"})
+            continue
+        if not isinstance(data, dict) or str(data.get("action") or "") != "write":
+            still_open.append({
+                **gap,
+                "reason": str((data or {}).get("why") or "model declined to patch"),
+            })
+            continue
+        out_rel = str(data.get("file") or "").strip()
+        content = data.get("content") or ""
+        if not out_rel or not content:
+            still_open.append({**gap, "reason": "escalation returned no file"})
+            continue
+        out_path = (dest_root / out_rel).resolve()
+        # The model names the path, so it must be constrained to the service
+        # tree. Without this a `../../etc/x` reply writes outside the job.
+        try:
+            out_path.relative_to(dest_root.resolve())
+        except ValueError:
+            still_open.append({**gap, "reason": f"escalation named a path outside the service: {out_rel}"})
+            continue
+        try:
+            out_path.parent.mkdir(parents=True, exist_ok=True)
+        except Exception as e:  # noqa: BLE001
+            still_open.append({**gap, "reason": f"mkdir failed: {e}"})
+            continue
+        existing = ""
+        if out_path.is_file():
+            try:
+                existing = out_path.read_text(encoding="utf-8", errors="ignore")
+            except Exception:  # noqa: BLE001
+                existing = ""
+        if existing:
+            ok, reason = _safe_apply(out_path, existing, content, markers)
+        else:
+            # A new file has no original to size-check against, so the
+            # guardrail cannot apply; still refuse source-stack residue.
+            bad = next((m for m in (markers or ()) if m in content), "")
+            if bad:
+                ok, reason = False, f"rejected: new file carries legacy marker '{bad}'"
+            else:
+                try:
+                    out_path.write_text(content, encoding="utf-8")
+                    ok, reason = True, "created"
+                except Exception as e:  # noqa: BLE001
+                    ok, reason = False, f"write failed: {e}"
+        if ok:
+            fixed.append({
+                "kind": gap.get("kind"), "resolved": True, "by": "llm",
+                "file": str(out_path),
+                "reason": str(data.get("why") or "patched by the DevOps agent"),
+            })
+        else:
+            still_open.append({**gap, "reason": f"escalation rejected: {reason}"})
+
+    # Anything past the per-run cap was never looked at — say so rather than
+    # letting it read as "the model could not fix it".
+    for gap in unresolved[_MAX_LLM_GAP_FIXES:]:
+        still_open.append({**gap, "reason": "not escalated (per-run cap reached)"})
+    return fixed, still_open
+
+
 # ── Public entrypoint ─────────────────────────────────────────────
 async def run_devops(
     dest_root: Path,
@@ -471,10 +626,17 @@ async def run_devops(
     source_root: Path | None = None,
     build_result: dict[str, Any] | None = None,
     progress_cb=None,
+    source_stack: str = "",
+    target_stack: str = "",
+    escalate: bool = True,
 ) -> DevopsResult:
     """Scan the destination tree for structural migration gaps and
     apply the deterministic fixes.  Non-blocking: unresolved gaps are
     returned in the result for the Tester agent / report to surface.
+
+    iter-22 — gaps the templates cannot close are escalated to the model
+    under ``agent_key="dcte.devops"`` before being reported as unresolved.
+    Pass ``escalate=False`` for a purely deterministic run.
     """
     result = DevopsResult(attempted=True)
     gaps = detect_structural_gaps(
@@ -491,11 +653,28 @@ async def run_devops(
             pass
     result.notes.append(f"detected {len(gaps)} structural gap(s)")
     fixes, unresolved = apply_deterministic_fixes(dest_root, gaps)
+
+    if unresolved and escalate:
+        if progress_cb:
+            try:
+                progress_cb("escalate", len(unresolved))
+            except Exception:
+                pass
+        result.notes.append(
+            f"escalating {len(unresolved)} gap(s) with no deterministic fix to the model"
+        )
+        llm_fixes, unresolved = await _escalate_gaps_to_llm(
+            dest_root, unresolved,
+            source_stack=source_stack, target_stack=target_stack,
+        )
+        fixes = fixes + llm_fixes
+
     result.fixes = fixes
     result.fixes_applied = len(fixes)
     result.unresolved = unresolved
     for fix in fixes:
-        result.notes.append(f"fixed [{fix.get('kind')}]: {fix.get('reason')}")
+        via = " (model)" if fix.get("by") == "llm" else ""
+        result.notes.append(f"fixed{via} [{fix.get('kind')}]: {fix.get('reason')}")
     for u in unresolved:
         result.notes.append(
             f"UNRESOLVED [{u.get('kind')}]: {u.get('detail') or u.get('reason', '')}"

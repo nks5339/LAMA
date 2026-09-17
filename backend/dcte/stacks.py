@@ -41,6 +41,17 @@ class Stack:
     `idioms` / `manifest` / `api_docs` are consumed when this stack is the
     TARGET; `forbidden` when it is the SOURCE — they become the "no residue"
     clause of the brief, which is what stops a half-migrated file passing.
+
+    `suffixes` is consumed in BOTH roles: the union over the selected pair is
+    what the AI pass actually reads off disk. Until iter-22 the engine
+    hardcoded `(".java", ".sql")`, so every pair that was not Java or SQL —
+    JSP, React, Angular, .NET, jQuery — staged its files and then had nothing
+    converted, while the job still reported COMPLETED.
+
+    Source-code extensions only. Build manifests (pom.xml, package.json,
+    *.csproj) are deliberately absent: they are owned by
+    `dependency_migrator` and `devops_agent`, and handing the same file to
+    two writers is how a repaired pom gets un-repaired.
     """
     id: str
     label: str
@@ -51,7 +62,14 @@ class Stack:
     aliases: tuple[str, ...] = ()
     idioms: tuple[str, ...] = ()
     forbidden: tuple[str, ...] = ()
+    # Markers this stack legitimately uses that a SOURCE stack lists as
+    # forbidden. `jakarta.ws.rs.` is Helidon residue under Spring and the
+    # house style under Quarkus; without this, adding a Quarkus row would
+    # make every correct Quarkus file scan as half-migrated. Empty for every
+    # current row — see `residue_markers`.
+    permitted: tuple[str, ...] = ()
     manifest: tuple[str, ...] = ()
+    suffixes: tuple[str, ...] = ()
     api_docs: str = ""
     build_cmd: str = ""
     notes: str = ""
@@ -77,6 +95,7 @@ _BACKEND: tuple[Stack, ...] = (
         forbidden=("io.helidon.", "org.eclipse.microprofile.", "jakarta.ws.rs.",
                    "@ApplicationScoped", "@ConfigProperty", "@Inject"),
         notes="MicroProfile Config/Health/Metrics/OpenAPI + JAX-RS resources.",
+        suffixes=(".java",),
     ),
     Stack(
         id="helidon-se", label="Helidon SE", family="backend",
@@ -84,6 +103,7 @@ _BACKEND: tuple[Stack, ...] = (
         aliases=("helidon-reactive",),
         forbidden=("io.helidon.",),
         notes="Reactive WebServer routing built with Routing.builder().",
+        suffixes=(".java",),
     ),
     Stack(
         id="spring-boot-4", label="Spring Boot 4.1 (Java 25 LTS)", family="backend",
@@ -113,6 +133,7 @@ _BACKEND: tuple[Stack, ...] = (
                   "annotate controllers with @Tag/@Operation. /swagger-ui.html "
                   "must resolve on a running app."),
         build_cmd="mvn -q -DskipTests compile",
+        suffixes=(".java",),
     ),
     Stack(
         id="spring-boot-3", label="Spring Boot 3.x (Java 21) — legacy target",
@@ -138,6 +159,7 @@ _BACKEND: tuple[Stack, ...] = (
         notes=("Spring Boot 3.5 left OSS support on 30 Jun 2026. Kept selectable "
                "so jobs created before iter-21 still resolve; new work should "
                "target spring-boot-4."),
+        suffixes=(".java",),
     ),
     Stack(
         id="dotnet-10", label=".NET 10 LTS (C# / ASP.NET Core)", family="backend",
@@ -160,6 +182,7 @@ _BACKEND: tuple[Stack, ...] = (
         api_docs=("Expose OpenAPI via Swashbuckle (AddSwaggerGen/UseSwaggerUI) "
                   "or the built-in AddOpenApi. /swagger must resolve."),
         build_cmd="dotnet build",
+        suffixes=(".cs", ".cshtml", ".razor"),
     ),
     Stack(
         id="jsp", label="JSP / Jakarta Pages 4.0 (Servlet)", family="backend",
@@ -169,18 +192,21 @@ _BACKEND: tuple[Stack, ...] = (
         notes=("Server-rendered pages with scriptlets/JSTL, usually behind "
                "servlets. Migrating to a SPA means the JSP becomes a component "
                "and the servlet becomes a REST endpoint."),
+        suffixes=(".jsp", ".jspx", ".tag", ".java"),
     ),
     Stack(
         id="struts", label="Apache Struts (Action/ActionForm)", family="backend",
         language="Java", version="1.x/2.x", role="source",
         aliases=("struts-1", "struts-2"),
         forbidden=("org.apache.struts", "ActionForm", "struts-config.xml"),
+        suffixes=(".java", ".jsp"),
     ),
     Stack(
         id="ejb", label="EJB 3.x (Session Beans)", family="backend",
         language="Java", version="3.x", role="source",
         aliases=("ejb-3", "jee"),
         forbidden=("@Stateless", "@Stateful", "javax.ejb.", "jakarta.ejb."),
+        suffixes=(".java",),
     ),
 )
 
@@ -206,6 +232,7 @@ _FRONTEND: tuple[Stack, ...] = (
         api_docs=("Document the REST endpoints the UI consumes in the README; "
                   "OpenAPI lives on the backend, not in the SPA."),
         build_cmd="npm run build",
+        suffixes=(".js", ".jsx", ".ts", ".tsx", ".css", ".scss"),
     ),
     Stack(
         id="angular-22", label="Angular 22 (TypeScript, Node 26 LTS)", family="frontend",
@@ -227,11 +254,13 @@ _FRONTEND: tuple[Stack, ...] = (
         api_docs=("Document the REST endpoints the UI consumes in the README; "
                   "OpenAPI lives on the backend, not in the SPA."),
         build_cmd="npm run build",
+        suffixes=(".ts", ".html", ".scss", ".css"),
     ),
     Stack(
         id="jquery", label="jQuery (legacy DOM scripting)", family="frontend",
         language="JavaScript", version="1.x/2.x/3.x", role="source",
         forbidden=("$(document).ready", "jQuery(", "$.ajax("),
+        suffixes=(".js", ".html"),
     ),
 )
 
@@ -243,6 +272,7 @@ _DATABASE: tuple[Stack, ...] = (
         aliases=("plsql", "oracle-db"),
         forbidden=("VARCHAR2", "NVL(", "SYSDATE", "DECODE(", "FROM DUAL",
                    ".NEXTVAL", "TO_DATE(", "TO_CHAR(", "MINUS ", "PRAGMA "),
+        suffixes=(".sql", ".pks", ".pkb", ".prc", ".fnc"),
     ),
     Stack(
         id="postgres-18", label="PostgreSQL 18", family="database",
@@ -258,6 +288,7 @@ _DATABASE: tuple[Stack, ...] = (
         ),
         manifest=("a migration tool (Flyway or Liquibase) if the source had versioned DDL",),
         build_cmd="psql -f schema.sql",
+        suffixes=(".sql",),
     ),
     Stack(
         id="postgres-15", label="PostgreSQL 15 — legacy target", family="database",
@@ -268,6 +299,7 @@ _DATABASE: tuple[Stack, ...] = (
             "CASE WHEN instead of DECODE; drop FROM DUAL entirely",
         ),
         notes="Kept selectable so jobs created before iter-21 still resolve.",
+        suffixes=(".sql",),
     ),
 )
 
@@ -305,6 +337,90 @@ def sources() -> list[Stack]:
 
 def targets() -> list[Stack]:
     return [s for s in STACKS if s.role in ("target", "both")]
+
+
+# Fallback when neither side of the pair is in the catalogue. Broad enough
+# that an unknown pair still gets its code looked at, narrow enough to stay
+# off binaries and lockfiles. Mirrors `plugins/generic_ai._SOURCE_SUFFIXES`
+# minus the config/markup formats that no transformer should rewrite blind.
+_FALLBACK_SUFFIXES: frozenset[str] = frozenset({
+    ".java", ".kt", ".scala", ".groovy", ".cs", ".vb",
+    ".js", ".jsx", ".ts", ".tsx", ".vue", ".svelte",
+    ".py", ".rb", ".go", ".php",
+    ".jsp", ".jspx", ".tag", ".ftl", ".vm",
+    ".sql", ".pks", ".pkb", ".prc", ".fnc",
+})
+
+# Never handed to the AI pass even when a suffix would otherwise match: these
+# are owned by `dependency_migrator` / `devops_agent`, and two writers on one
+# manifest is how a repaired pom gets un-repaired.
+MANIFEST_BASENAMES: frozenset[str] = frozenset({
+    "pom.xml", "build.gradle", "build.gradle.kts", "settings.gradle",
+    "package.json", "package-lock.json", "yarn.lock", "tsconfig.json",
+    "angular.json", "requirements.txt", "pyproject.toml", "go.mod",
+})
+
+
+def ai_sweep_suffixes(source_stack: str, target_stack: str) -> frozenset[str]:
+    """File extensions the AI pass should read for this pair.
+
+    iter-22 — the engine used to hardcode `(".java", ".sql")`. The catalogue
+    had grown to 14 sources × 7 targets by then, so a JSP → React job staged
+    its `.jsp` files, handed the model an empty list, converted nothing, and
+    still finished `COMPLETED`. Everything that is not Java or SQL was in
+    that state.
+
+    The union of both sides is deliberate. The SOURCE's extensions are the
+    files that need converting; the TARGET's are the files a previous pass
+    (or a deterministic plugin) may already have emitted in the new
+    language, which still have to be swept for residue and finished off.
+    """
+    src, tgt = get_stack(source_stack), get_stack(target_stack)
+    out: set[str] = set()
+    for st in (src, tgt):
+        if st:
+            out.update(st.suffixes)
+    return frozenset(out) or _FALLBACK_SUFFIXES
+
+
+def residue_markers(source_stack: str, target_stack: str) -> tuple[str, ...]:
+    """Markers that must NOT appear in a file reported as migrated.
+
+    Before iter-22 the scanner used a hardcoded Helidon+Oracle constant, so
+    the gate that is supposed to stop a half-migrated file passing was inert
+    for every pair the catalogue added: leftover `org.apache.struts` or
+    `<jsp:` scanned clean.
+
+    `Stack.forbidden` reads "must not appear in a file of THIS stack", which
+    is why the two sides are UNIONED rather than subtracted:
+
+      * the SOURCE's list is what the migration is supposed to remove
+        (`io.helidon.`, `org.apache.struts`, `<%`);
+      * the TARGET's list is what must not appear in its output anyway
+        (`ReactDOM.render(` in React 19, `System.Web.` in .NET).
+
+    A JSP → React job needs both halves: the first catches a scriptlet that
+    survived, the second catches a React-18 idiom the model reached for.
+
+    `Stack.permitted` is the escape hatch for a marker that is residue for
+    one target and correct for another — `jakarta.ws.rs.` is Helidon residue
+    under Spring and the house style under Quarkus. Setting it is one
+    catalogue entry, the same bar as everything else here.
+    """
+    src, tgt = get_stack(source_stack), get_stack(target_stack)
+    markers: list[str] = []
+    for st in (src, tgt):
+        if st:
+            markers.extend(st.forbidden)
+    allowed = set(tgt.permitted) if tgt else set()
+    seen: set[str] = set()
+    out: list[str] = []
+    for m in markers:
+        if m in allowed or m in seen:
+            continue
+        seen.add(m)
+        out.append(m)
+    return tuple(out)
 
 
 def describe_catalogue() -> dict[str, Any]:

@@ -13,6 +13,7 @@ from .models import (
 from .plugin_base import TransformContext
 from .plugin_registry import get_registry
 from .project_detector import ProjectDetector
+from .stacks import MANIFEST_BASENAMES, ai_sweep_suffixes
 from .cicd_generator import CicdGenerator
 from .report_generator import ReportGenerator
 from .impact_analyzer import ImpactAnalyzer
@@ -20,6 +21,15 @@ from .impact_analyzer import ImpactAnalyzer
 logger = logging.getLogger("lama.dcte.engine")
 
 EmitFn = Callable[..., None]
+
+# Never handed to the AI pass even when a plugin emitted one, because the
+# model would be rewriting a file another agent owns or a file that is not
+# source at all. Manifests are excluded by BASENAME in `MANIFEST_BASENAMES`;
+# these are excluded by extension.
+_NEVER_SWEPT_SUFFIXES: frozenset[str] = frozenset({
+    ".md", ".txt", ".lock", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico",
+    ".jar", ".war", ".class", ".zip", ".gz",
+})
 
 
 class TransformationEngine:
@@ -42,8 +52,11 @@ class TransformationEngine:
         # brief is built for the pair the user actually selected, instead of
         # the Helidon -> Spring essay every job used to receive.
         ai_refactor_fn: Callable[[list[Path], str, str], list[dict[str, Any]]] | None = None,
-        build_fix_fn: Callable[[Path, str], dict[str, Any]] | None = None,
-        devops_fn: Callable[[Path, str, dict[str, Any] | None], dict[str, Any]] | None = None,
+        # iter-22 — takes the service's (source_stack, target_stack) for the
+        # same reason `ai_refactor_fn` does: the triage prompt, the compiler
+        # release level and the residue reject list are all pair-specific.
+        build_fix_fn: Callable[[Path, str, str, str], dict[str, Any]] | None = None,
+        devops_fn: Callable[[Path, str, dict[str, Any] | None, str, str], dict[str, Any]] | None = None,
         tester_fn: Callable[[Path, str, str | None], dict[str, Any]] | None = None,
         # iter-19 — Optional autonomous droid callable. Signature:
         #   droid_agent_fn(dest_root: Path, service_id: str, model: str | None) -> dict
@@ -228,11 +241,40 @@ class TransformationEngine:
                         # emitted into dest so the LLM sees the full picture
                         # (Helidon SE files that had no MP markers were
                         # invisible to the pre-18.6 handoff).
+                        # iter-22 — the suffix set comes from the selected
+                        # pair, not a hardcoded (".java", ".sql").
+                        #
+                        # That constant was the single biggest accuracy hole
+                        # in this track: the iter-21 catalogue offers 14
+                        # sources × 7 targets, the generic plugin stages ~35
+                        # file types, and every one that was not Java or SQL
+                        # arrived here and was never shown to the model. A
+                        # JSP → React job copied its .jsp files, converted
+                        # nothing, and still finished COMPLETED.
+                        #
+                        # Union the catalogue's suffixes with whatever the
+                        # plugin actually wrote, so a file type the catalogue
+                        # has not anticipated is still swept — that is the
+                        # case iter-18.6 widened this for originally.
+                        # Manifests are excluded: `dependency_migrator` and
+                        # `devops_agent` own those, and two writers on one
+                        # pom is how a repaired pom gets un-repaired.
                         dest_root = Path(ctx.destination_path)
+                        sweep_suffixes = set(
+                            ai_sweep_suffixes(svc.source_stack, svc.target_stack)
+                        )
+                        for tf in result.files:
+                            suf = Path(tf.target or "").suffix
+                            if suf:
+                                sweep_suffixes.add(suf)
+                        sweep_suffixes -= _NEVER_SWEPT_SUFFIXES
                         ai_targets: list[Path] = []
                         if dest_root.exists():
-                            for suf in (".java", ".sql"):
-                                ai_targets.extend(dest_root.rglob(f"*{suf}"))
+                            for suf in sorted(sweep_suffixes):
+                                ai_targets.extend(
+                                    p for p in dest_root.rglob(f"*{suf}")
+                                    if p.name not in MANIFEST_BASENAMES
+                                )
                         # de-dup while preserving order
                         seen: set[str] = set()
                         deduped: list[Path] = []
@@ -293,6 +335,15 @@ class TransformationEngine:
                 # and asks for a targeted fix, then rebuilds. Loops up to
                 # 5 attempts. Non-blocking: a missing mvn / no pom.xml
                 # returns skipped=True so downstream stages continue.
+                # iter-22 — `br` is read unconditionally by the DevOps phase
+                # below whenever `build_fix_fn` is set. It used to be bound
+                # only INSIDE the try, so a build agent that raised (a bad
+                # path, a killed subprocess) left it unbound; the DevOps
+                # phase then died on `NameError: br` inside its own
+                # try/except and reported "DevOps agent errored" — the one
+                # phase that could have repaired the damage, silently
+                # skipped, with a message that named the wrong cause.
+                br: dict[str, Any] = {}
                 if build_fix_fn is not None and not droid_took_over:
                     job.status = DcteJobStatus.BUILDING
                     status_sink(job.status.value,
@@ -300,7 +351,8 @@ class TransformationEngine:
                     try:
                         emit("info", "build",
                              "Compile-and-fix agent starting", service_id=svc.id)
-                        br = build_fix_fn(Path(ctx.destination_path), svc.id) or {}
+                        br = build_fix_fn(Path(ctx.destination_path), svc.id,
+                                          svc.source_stack, svc.target_stack) or {}
                         if br.get("skipped"):
                             emit("warn", "build",
                                  f"Build skipped: {'; '.join(br.get('notes', [])[-2:])}",
@@ -336,7 +388,8 @@ class TransformationEngine:
                              "DevOps agent scanning for structural gaps",
                              service_id=svc.id)
                         dv = devops_fn(Path(ctx.destination_path), svc.id,
-                                       br if build_fix_fn is not None else None) or {}
+                                       br if build_fix_fn is not None else None,
+                                       svc.source_stack, svc.target_stack) or {}
                         emit("info", "devops",
                              f"DevOps: {dv.get('fixes_applied', 0)} gap(s) fixed, "
                              f"{len(dv.get('unresolved') or [])} unresolved",

@@ -56,10 +56,16 @@ async def _summarise(events: list[dict[str, Any]], progress_pct: int) -> str:
         f"Recent events:\n" + "\n".join(lines) +
         "\n\nWhat is the tool doing right now? One sentence."
     )
+    # iter-22 (DT-2) — prefer the operator-editable `dcte.narrator` row.
+    try:
+        from .prompt_store import get_dcte_prompt
+        system = await get_dcte_prompt("dcte.narrator") or _SYSTEM
+    except Exception:  # noqa: BLE001 — narration must never block the job
+        system = _SYSTEM
     try:
         resp = await fabric_call(
             messages=[
-                {"role": "system", "content": _SYSTEM},
+                {"role": "system", "content": system},
                 {"role": "user", "content": user},
             ],
             agent_key="dcte.narrator",

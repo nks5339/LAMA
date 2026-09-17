@@ -40,6 +40,9 @@ from .prompt_builder import (
     build_transformer_brief,
     build_fixup_directive,
 )
+from .prompt_builder import stack_sections
+from .prompt_store import compose, get_dcte_prompt
+from .stacks import ai_sweep_suffixes, residue_markers
 
 logger = logging.getLogger("lama.dcte.ai_refactor")
 
@@ -60,13 +63,30 @@ logger = logging.getLogger("lama.dcte.ai_refactor")
 # a prompt for a different job.
 _RESPONSE_CONTRACT = """
 
-RESPONSE FORMAT — STRICT JSON, no prose, no code fences around the outer array.
-Emit exactly one JSON array. Each element:
-  {"file": "<path exactly as given in the FILE header>",
-   "action": "rewrite" | "leave",
-   "content": "<full replacement file source, only when action==rewrite>",
-   "changes": ["one short bullet per material change"],
-   "risk": "low" | "medium" | "high"}
+RESPONSE FORMAT — STRICT JSON, no prose, no code fences around the object.
+Emit exactly one JSON OBJECT with a single key "files" holding an array:
+  {"files": [
+    {"file": "<path exactly as given in the FILE header>",
+     "action": "rewrite" | "leave",
+     "content": "<full replacement file source, only when action==rewrite>",
+     "changes": ["one short bullet per material change"],
+     "risk": "low" | "medium" | "high"}
+  ]}
+
+WORKED EXAMPLE — the shape, not the content. Note that "content" is a single
+JSON string: newlines are \\n and every embedded quote is escaped.
+  {"files": [
+    {"file": "/work/src/main/java/com/acme/OrderResource.java",
+     "action": "rewrite",
+     "content": "package com.acme;\\n\\nimport org.springframework...;\\n\\n@RestController\\npublic class OrderResource {\\n}\\n",
+     "changes": ["JAX-RS @Path -> @RestController + @RequestMapping",
+                 "field @Inject -> constructor injection"],
+     "risk": "low"},
+    {"file": "/work/src/main/java/com/acme/OrderDto.java",
+     "action": "leave",
+     "changes": ["already valid for the target stack"],
+     "risk": "low"}
+  ]}
 
 SPEED (iter-18.13 — added at user request)
   Migrate FAST. Respond in a single turn. Do NOT explore the workspace,
@@ -80,16 +100,26 @@ SPEED (iter-18.13 — added at user request)
 """
 
 
-def _system_prompt(source_stack: str, target_stack: str) -> str:
-    """Migration brief for this pair + the JSON contract the parser needs."""
-    return build_transformer_brief(source_stack, target_stack) + _RESPONSE_CONTRACT
+def _system_prompt(source_stack: str, target_stack: str, template: str = "") -> str:
+    """Migration brief for this pair + the JSON contract the parser needs.
+
+    iter-22 — ``template`` is the seeded `dcte.transformer` row when one
+    exists (DT-2). The pair-specific sections are spliced into it; the
+    module-built brief below is the floor when no row is reachable.
+    """
+    fallback = build_transformer_brief(source_stack, target_stack) + _RESPONSE_CONTRACT
+    return compose(template, stack_sections(source_stack, target_stack), fallback)
 
 
-def _fixup_prompt(source_stack: str, target_stack: str) -> str:
-    """Stricter variant for a second pass over a file that still has residue."""
-    return (build_transformer_brief(source_stack, target_stack)
-            + build_fixup_directive(source_stack, target_stack)
-            + _RESPONSE_CONTRACT)
+def _fixup_prompt(source_stack: str, target_stack: str, template: str = "") -> str:
+    """Stricter variant for a second pass over a file that still has residue.
+
+    The fix-up directive is appended AFTER the (possibly operator-edited)
+    base prompt, so a weakened edit cannot remove the no-escape clause that
+    exists because the base prompt already had its chance on this file.
+    """
+    return (_system_prompt(source_stack, target_stack, template)
+            + build_fixup_directive(source_stack, target_stack))
 
 
 # ── Guardrails against mangled rewrites ─────────────────────────────
@@ -105,14 +135,18 @@ _MAX_BATCH_FILES = 1     # iter-18.8 — one file per prompt. Batching three
                          # sometimes emit one file's content under another
                          # file's path; the strict-JSON contract survived
                          # but the output was garbage.
-_MAX_CHARS_PER_FILE = 16000  # iter-18.8 — raised from 4000. Truncated
-                         # inputs were the root cause of the user's
-                         # "inaccuracy" complaint: a 8k-char Java file was
-                         # rewritten from its first 4k only, losing the
-                         # bottom half.
 # Files larger than this are NOT sent to the LLM — they're marked for
 # manual review instead of risking silent truncation.
 _MAX_FILE_SIZE_FOR_LLM = 40000
+# iter-22 — was 16000, i.e. BELOW the eligibility ceiling, so every file
+# between 16 KB and 40 KB was sent truncated with nothing in the prompt
+# saying so, and then size-checked against its full length. iter-18.8 had
+# already raised this once (4000 → 16000) for exactly this reason and left
+# the same bug one band higher. Matching the ceiling closes it: a file is
+# either sent whole or not sent at all. Any residual truncation (a caller
+# passing a smaller budget) is now STATED in the prompt and makes
+# `_safe_apply` refuse the reply rather than write back a half file.
+_MAX_CHARS_PER_FILE = _MAX_FILE_SIZE_FOR_LLM
 
 # iter-18.15 — Max number of fix-up rounds after the primary sweep.
 # Each round re-runs the LLM against every file that still carries
@@ -203,8 +237,18 @@ _SQL_RESIDUE_MARKERS: tuple[str, ...] = (
 # Comments become spaces rather than vanishing, so any offset arithmetic
 # downstream still lines up. Quote-aware, so a `"http://x"` literal or an
 # SQL string containing `--` is not mistaken for a comment opener.
+# iter-22 — line-comment opener per suffix. Was `"--" if .sql else "//"`,
+# which is wrong for every language the catalogue added: `#` in Python/Ruby,
+# `<%--` in JSP. A wrong opener does not just miss comments, it leaves prose
+# in the scanned text and produces residue findings on a clean file.
+_LINE_COMMENT: dict[str, str] = {
+    ".sql": "--", ".pks": "--", ".pkb": "--", ".prc": "--", ".fnc": "--",
+    ".py": "#", ".rb": "#",
+}
+
+
 def _blank_comments(body: str, suffix: str) -> str:
-    line_marker = "--" if suffix == ".sql" else "//"
+    line_marker = _LINE_COMMENT.get(suffix, "//")
     out: list[str] = []
     i, n = 0, len(body)
     quote = ""
@@ -234,38 +278,70 @@ def _blank_comments(body: str, suffix: str) -> str:
     return "".join(out)
 
 
-def _scan_residue_in_file(path: Path) -> list[str]:
+def _scan_residue_in_file(
+    path: Path,
+    markers: "tuple[str, ...] | None" = None,
+    suffixes: "frozenset[str] | None" = None,
+) -> list[str]:
     """iter-18.15 — Return the list of legacy markers still present in
     ``path`` after the AI sweep.  Empty list = clean.  Silent on I/O
     error (returns empty).
 
     iter-20 — scans with comments blanked; see :func:`_blank_comments`.
+
+    iter-22 — ``markers`` and ``suffixes`` now come from the selected stack
+    pair (``stacks.residue_markers`` / ``stacks.ai_sweep_suffixes``). They
+    used to be the module constants below, which are Helidon and Oracle
+    only, so this gate — the thing that decides whether a file is reported
+    as migrated or as needing manual work — was inert for every other pair
+    the iter-21 catalogue offers. A `.jsx` file was not even opened.
+
+    The constants remain as the fallback for a caller with no pair in hand.
     """
     try:
         body = path.read_text(encoding="utf-8", errors="ignore")
     except Exception:
         return []
-    if path.suffix not in (".java", ".sql"):
+    suffixes = suffixes if suffixes is not None else frozenset({".java", ".sql"})
+    if path.suffix not in suffixes:
         return []
     body = _blank_comments(body, path.suffix)
-    markers = _JAVA_RESIDUE_MARKERS if path.suffix == ".java" else _SQL_RESIDUE_MARKERS
+    if markers is None:
+        markers = (_SQL_RESIDUE_MARKERS if path.suffix in _LINE_COMMENT
+                   else _JAVA_RESIDUE_MARKERS)
     return [m for m in markers if m in body]
 
 
-def scan_residual(root: Path, *, suffixes: tuple[str, ...] = (".java", ".sql")) -> list[dict[str, Any]]:
+def scan_residual(
+    root: Path,
+    *,
+    suffixes: "tuple[str, ...] | None" = None,
+    source_stack: str = "",
+    target_stack: str = "",
+) -> list[dict[str, Any]]:
     """iter-18.15 — Public helper: walk ``root`` and return every file
     that still carries legacy markers.  Shape::
 
         [{"file": "<abs path>", "markers": ["io.helidon.", "@Inject", ...]}]
+
+    iter-22 — pass ``source_stack``/``target_stack`` to scan the extensions
+    and markers the selected pair actually implies. Omitting them keeps the
+    historical Java+SQL behaviour so existing callers are unchanged.
     """
     out: list[dict[str, Any]] = []
     if not root or not root.exists():
         return out
-    for suf in suffixes:
+    if source_stack or target_stack:
+        sufs = ai_sweep_suffixes(source_stack, target_stack)
+        marks: tuple[str, ...] | None = residue_markers(source_stack, target_stack) or None
+    else:
+        sufs = frozenset(suffixes or (".java", ".sql"))
+        marks = None
+    for suf in sorted(sufs):
         for p in root.rglob(f"*{suf}"):
             if not p.is_file():
                 continue
-            hits = _scan_residue_in_file(p)
+            hits = _scan_residue_in_file(p, marks, sufs)
             if hits:
                 out.append({"file": str(p), "markers": hits})
     return out
@@ -282,6 +358,33 @@ def _strip_json_fence(text: str) -> str:
         if s.lstrip().lower().startswith("json"):
             s = s.split("\n", 1)[1] if "\n" in s else s
     return s.strip()
+
+
+def _coerce_file_entries(payload: Any) -> "list | None":
+    """Normalise a parsed reply into the list of per-file entries.
+
+    iter-22 — the contract became `{"files":[...]}` so that it satisfies
+    `llm.parses_as_json_object`, which is what gates the ONE bounded JSON
+    repair re-ask inside `fabric_call`. DCTE was the only LLM subsystem in
+    the app that never passed `response_format`, so a model that answered in
+    prose simply lost the file; every other track got a free retry.
+
+    A bare array is still accepted: older prompts, cached replies, and small
+    local models that ignore the wrapper all produce one, and rejecting them
+    would trade a working path for a stricter one.
+    """
+    if isinstance(payload, list):
+        return payload
+    if isinstance(payload, dict):
+        for key in ("files", "results", "entries"):
+            val = payload.get(key)
+            if isinstance(val, list):
+                return val
+        # A single un-wrapped entry, which small models emit when the batch
+        # is one file — which it always is (`_MAX_BATCH_FILES == 1`).
+        if "file" in payload and "action" in payload:
+            return [payload]
+    return None
 
 
 def _extract_json_array(text: str) -> str | None:
@@ -322,22 +425,60 @@ def _extract_json_array(text: str) -> str | None:
     return None
 
 
-def _safe_apply(path: Path, original: str, new_content: str) -> tuple[bool, str]:
-    """Return (applied, reason)."""
+def _safe_apply(
+    path: Path,
+    original: str,
+    new_content: str,
+    markers: "tuple[str, ...] | None" = None,
+    sent_len: int = 0,
+) -> tuple[bool, str]:
+    """Return (applied, reason).
+
+    ``sent_len`` — how many characters of ``original`` the model was actually
+    shown. iter-22: the size ratio used to be measured against the FULL
+    original while the prompt had been silently truncated to 16 000 chars, so
+    a faithful rewrite of a 30 KB file scored 0.55 and was either rejected as
+    "too small" or — worse — accepted at just over the floor, writing back a
+    file whose bottom half had been deleted. The ratio is now measured
+    against what the model could see.
+
+    ``markers`` — the residue reject list for the selected pair. Defaults to
+    the Helidon constants for callers with no pair in hand.
+    """
     if not new_content or not new_content.strip():
         return False, "empty content"
-    orig_len = max(1, len(original))
+    # A truncated prompt cannot produce a complete file: writing the reply
+    # back would delete everything past the cut. Checked BEFORE the size
+    # bounds because it is categorical, not a size judgment — a short reply
+    # to a truncated prompt would otherwise be reported as "too small",
+    # which reads as a model failure when the cause was ours.
+    was_truncated = 0 < sent_len < len(original)
+    if was_truncated:
+        return False, (
+            f"rejected: only the first {sent_len} of {len(original)} chars were "
+            "shown to the model, so its reply cannot be a complete file"
+        )
+    baseline = sent_len if sent_len > 0 else len(original)
+    orig_len = max(1, baseline)
     new_len = len(new_content)
     ratio = new_len / orig_len
     if ratio < _MIN_SIZE_RATIO:
         return False, f"content too small ({ratio:.2f}× original)"
     if ratio > _MAX_SIZE_RATIO:
         return False, f"content too large ({ratio:.2f}× original)"
+    # Blank comments before the marker check, for the reason iter-20
+    # documented on the residue scan: `bootstrap_writer` and the plugins emit
+    # correct code whose comments legitimately NAME the annotation they
+    # replaced ("// TODO(dcte): was @Path(...)"). A raw substring check calls
+    # that residue and sends a clean file round the fix-up loop to reword a
+    # sentence.
+    _scan_text = _blank_comments(new_content, path.suffix)
+    for marker in (markers if markers is not None else _JAVA_HALF_MIGRATED):
+        if marker in _scan_text:
+            return False, f"rejected: still contains legacy marker '{marker}'"
     if path.suffix == ".java":
-        for marker in _JAVA_HALF_MIGRATED:
-            if marker in new_content:
-                return False, f"rejected: still contains legacy marker '{marker}'"
-        # class name / file name sanity
+        # class name / file name sanity. Java only: it is the one language
+        # here that *requires* the public type to match the file name.
         stem = path.stem
         if re.search(rf"\b(class|interface|enum|record)\s+{re.escape(stem)}\b", new_content) is None:
             return False, f"rejected: no top-level type named '{stem}'"
@@ -401,6 +542,19 @@ async def transform_files(
     # iter-18.8 — split into "LLM-eligible" and "too-large-for-LLM". Silently
     # truncating a big file corrupts business logic, so we NEVER pass files
     # over _MAX_FILE_SIZE_FOR_LLM to the model. They surface as diagnostics.
+    # iter-22 — resolved once for the whole sweep from the selected pair.
+    # Everything downstream (the leave-gate, the guardrail reject list, the
+    # post-sweep residue report) used module constants that only described
+    # Helidon and Oracle, so those gates did nothing on any other pair.
+    _pair_markers: tuple[str, ...] | None = (
+        residue_markers(source_stack, target_stack) or None
+    )
+    _pair_suffixes: frozenset[str] = ai_sweep_suffixes(source_stack, target_stack)
+    # iter-22 (DT-2) — the operator-editable half of the prompt, fetched
+    # once per sweep. Empty on a fresh database or a Mongo blip, which
+    # `_system_prompt` handles by falling back to the module brief.
+    _template: str = await get_dcte_prompt("dcte.transformer")
+
     real_files: list[Path] = []
     oversized: list[Path] = []
     for f in real_files_raw:
@@ -469,11 +623,12 @@ async def transform_files(
         knows exactly what to eradicate.
         """
         is_fixup = bool(fixup_hints)
-        system_prompt = (_fixup_prompt(source_stack, target_stack) if is_fixup
-                         else _system_prompt(source_stack, target_stack))
+        system_prompt = (_fixup_prompt(source_stack, target_stack, _template)
+                         if is_fixup
+                         else _system_prompt(source_stack, target_stack, _template))
         async with sem:
             await _emit(batch_i, batch, "start" if not is_fixup else "fixup-start")
-            originals: dict[str, tuple[Path, str]] = {}
+            originals: dict[str, tuple[Path, str, int]] = {}
             user_blocks: list[str] = []
             for f in batch:
                 try:
@@ -481,7 +636,7 @@ async def transform_files(
                 except Exception:
                     continue
                 trimmed = body[:max_chars_per_file]
-                originals[str(f)] = (f, body)
+                originals[str(f)] = (f, body, len(trimmed))
                 header = f"---FILE: {f}---"
                 if is_fixup and fixup_hints:
                     hits = fixup_hints.get(str(f)) or []
@@ -491,6 +646,20 @@ async def transform_files(
                             + ", ".join(hits)
                             + " ---"
                         )
+                # iter-22 — say it when we cut. `_MAX_CHARS_PER_FILE` now
+                # matches the eligibility ceiling so this should never fire
+                # in the normal path, but a caller can still pass a smaller
+                # budget, and a model that is not told the file was cut will
+                # confidently return a "complete" rewrite of the visible
+                # half. routes/tools.py does the same for the Coder.
+                if len(trimmed) < len(body):
+                    header += (
+                        f"\n---!!! TRUNCATED: you are seeing the first "
+                        f"{len(trimmed)} of {len(body)} characters. This is "
+                        "NOT the whole file. Return \"action\":\"leave\" — a "
+                        "partial rewrite cannot be merged and will be "
+                        "discarded. ---"
+                    )
                 user_blocks.append(f"{header}\n```\n{trimmed}\n```")
             if not user_blocks:
                 await _emit(batch_i, batch, "skipped_read")
@@ -506,6 +675,14 @@ async def transform_files(
                     agent_key=agent_key,
                     temperature=0.1,
                     max_tokens=8000,
+                    # iter-22 — DCTE was the ONLY LLM subsystem in the app
+                    # that never asked for JSON mode, despite having the
+                    # strictest contract of any of them (whole file bodies
+                    # embedded as JSON strings). Asking for it also arms the
+                    # one bounded repair re-ask in `llm.fabric_call`, which
+                    # fires when the reply does not parse as a JSON object —
+                    # hence the `{"files": [...]}` wrapper on the contract.
+                    response_format={"type": "json_object"},
                     **fc_model_kwargs,
                 )
             except Exception as e:
@@ -527,24 +704,24 @@ async def transform_files(
                 await _emit(batch_i, batch, "done rewrote=0 skipped=0")
                 return
 
-            try:
-                payload = _extract_json_array(text) or _strip_json_fence(text)
-                data = json.loads(payload)
-            except Exception:
+            parsed: Any = None
+            # Try the object contract first, then the historical bare array.
+            for candidate in (_strip_json_fence(text), _extract_json_array(text)):
+                if not candidate:
+                    continue
+                try:
+                    parsed = json.loads(candidate)
+                    break
+                except Exception:
+                    continue
+            data = _coerce_file_entries(parsed)
+            if data is None:
                 logger.debug("AI transform response not valid JSON, skipping batch")
                 preview = (text or "")[:180].replace("\n", " ")
                 notes.append(f"batch skipped: non-JSON model response ({preview!r})")
                 if not is_fixup:
                     for f in batch:
                         needs_fixup.setdefault(str(f), []).append("primary-non-json")
-                await _emit(batch_i, batch, "done rewrote=0 skipped=0")
-                return
-
-            if not isinstance(data, list):
-                notes.append("batch skipped: response was not a JSON array")
-                if not is_fixup:
-                    for f in batch:
-                        needs_fixup.setdefault(str(f), []).append("primary-non-array")
                 await _emit(batch_i, batch, "done rewrote=0 skipped=0")
                 return
 
@@ -569,13 +746,13 @@ async def transform_files(
                     skipped.append({"file": fpath, "reason": "unknown file in response"})
                     batch_skipped += 1
                     continue
-                target, original_body = match
+                target, original_body, sent_len = match
                 if action != "rewrite":
                     # iter-18.15 — ``leave`` gate: if the model said the
                     # file is fine but it STILL carries legacy markers,
                     # queue it for a fix-up pass (we can't trust the
                     # verdict).
-                    residue = _scan_residue_in_file(target)
+                    residue = _scan_residue_in_file(target, _pair_markers, _pair_suffixes)
                     if residue and not is_fixup:
                         needs_fixup[str(target)] = residue
                         notes.append(
@@ -589,6 +766,7 @@ async def transform_files(
                 # batches are hammering it in tandem.
                 ok, reason = await _asyncio.to_thread(
                     _safe_apply, target, original_body, content,
+                    _pair_markers, sent_len,
                 )
                 if ok:
                     rewritten.append({"file": str(target), "changes": changes, "risk": risk})
@@ -605,7 +783,7 @@ async def transform_files(
                         # Queue the guardrail-rejected file for a fix-up
                         # attempt with the stricter prompt.  The reason
                         # doubles as the marker hint.
-                        residue = _scan_residue_in_file(target) or [reason]
+                        residue = _scan_residue_in_file(target, _pair_markers, _pair_suffixes) or [reason]
                         needs_fixup[str(target)] = residue
             phase_tag = "done" if not is_fixup else "fixup-done"
             await _emit(batch_i, batch, f"{phase_tag} rewrote={batch_rewritten} skipped={batch_skipped}")
@@ -651,7 +829,7 @@ async def transform_files(
         for f in real_files:
             if str(f) in queue:
                 continue
-            residue = _scan_residue_in_file(f)
+            residue = _scan_residue_in_file(f, _pair_markers, _pair_suffixes)
             if residue:
                 queue[str(f)] = residue
         if not queue:
@@ -665,7 +843,7 @@ async def transform_files(
     # Final residue report.
     residual: list[dict[str, Any]] = []
     for f in real_files:
-        hits = _scan_residue_in_file(f)
+        hits = _scan_residue_in_file(f, _pair_markers, _pair_suffixes)
         if hits:
             residual.append({"file": str(f), "markers": hits})
             # Also add to notes so the engine's ai_refactor summary

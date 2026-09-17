@@ -99,6 +99,25 @@ def _header(source_id: str, target_id: str) -> tuple[Stack | None, Stack | None,
     return src, tgt, stack_label(source_id), stack_label(target_id)
 
 
+def stack_sections(source_stack: str, target_stack: str) -> str:
+    """The pair-specific half of every DCTE brief, as one block.
+
+    iter-22 — extracted so a seeded Prompt Library row can mark where it
+    goes with `{stack_sections}` (see `dcte/prompt_store.py`). This is the
+    part that CANNOT live in the library: it is derived from the operator's
+    own source/target selection, and there are 98 selectable pairs.
+    """
+    src, tgt = get_stack(source_stack), get_stack(target_stack)
+    return (
+        "TARGET CONVENTIONS\n"
+        f"{_target_section(tgt, target_stack)}"
+        "NO SOURCE RESIDUE\n"
+        f"{_residue_section(src, source_stack)}"
+        "API DOCUMENTATION\n"
+        f"{_api_docs_section(tgt)}"
+    )
+
+
 def build_migration_brief(source_stack: str, target_stack: str) -> str:
     """The whole-service brief handed to an agent with a shell (droid)."""
     src, tgt, src_label, tgt_label = _header(source_stack, target_stack)
@@ -166,6 +185,114 @@ NO SOURCE RESIDUE
 {_residue_section(src, source_stack)}
 API DOCUMENTATION
 {_api_docs_section(tgt)}"""
+
+
+def build_build_fixer_brief(source_stack: str, target_stack: str,
+                            release_note: str = "") -> str:
+    """Brief for the compile-error triage agent (`dcte/build_agent.py`).
+
+    iter-22 — `build_agent._SYSTEM` was a hardcoded essay opening "You are a
+    Senior Backend Developer and Spring Boot 3.x / Java 17-21 build-error
+    triage expert", listing Spring Boot 3 starters, and forbidding Helidon
+    symbols. Every pair received it. With `spring-boot-4` (Java 25) now the
+    catalogue's recommended target, the agent repairing those builds was
+    being told to target Java 17-21 — so it "fixed" valid Java 25 source.
+
+    `release_note` carries the toolchain reality when it differs from what
+    the target pins (the image ships JDK 17; the catalogue pins Java 25).
+    Saying so is the difference between the model rewriting good code to
+    please an old compiler and the model leaving it alone.
+    """
+    src, tgt, src_label, tgt_label = _header(source_stack, target_stack)
+    build_cmd = tgt.build_cmd if tgt and tgt.build_cmd else "the project's build command"
+
+    parts = [
+        f"{_ROLE} You are triaging BUILD ERRORS for a {tgt_label} project "
+        f"that was just migrated from {src_label}.",
+        "",
+        "TASK",
+        "  You are given ONE source file and the exact compiler/build errors it",
+        "  produced. Return the FULL corrected source of that file so that",
+        f"  `{build_cmd}` no longer reports those errors.",
+        "",
+        "STRICT RULES",
+        f"  1. {_STRICT_RULES[0]}",
+        "  2. Do NOT truncate. Return the file from its first line through its",
+        "     last. Never end with `...` or \"rest of file omitted\".",
+        "  3. Fix only what the compiler complained about, plus any imports or",
+        "     types that fix requires. Do not restructure unrelated code.",
+        "  4. A wall of 'cannot find symbol' under ONE 'package does not exist'",
+        "     is ONE fault, not fifty. Fix the cause, not each symptom.",
+        "  5. If a fix needs a class you cannot see, add a reasonable",
+        f"     {tgt_label} equivalent, preserving the field names.",
+        "",
+        "TARGET CONVENTIONS",
+        _target_section(tgt, target_stack),
+        "NO SOURCE RESIDUE",
+        _residue_section(src, source_stack),
+    ]
+    if release_note:
+        parts += ["TOOLCHAIN", f"  {release_note}", ""]
+    parts += [
+        "RESPONSE FORMAT — STRICT JSON, one object, no prose, no code fences:",
+        '  {"file": "<absolute path echoed back exactly>",',
+        '   "action": "rewrite" | "leave",',
+        '   "content": "<full corrected file source when action==rewrite>",',
+        '   "changes": ["short bullet", "short bullet"],',
+        '   "risk": "low" | "medium" | "high"}',
+        "",
+        '  If you genuinely cannot fix the file without more context, return',
+        '  "action":"leave" with empty "content" and one line in "changes"',
+        "  saying what you would need. A guess that compiles but changes",
+        "  behaviour is worse than an honest 'leave'.",
+    ]
+    return "\n".join(parts)
+
+
+def build_devops_brief(source_stack: str, target_stack: str) -> str:
+    """Brief for the DevOps agent's escalation pass (iter-22).
+
+    It is shown ONE structural gap that no template could close, the service
+    tree, and the current contents of the file the gap names. Its job is to
+    return one file. It is not a migration agent and must not become one:
+    the deterministic patchers keep first refusal precisely because a model
+    asked to invent an `application.yml` will invent one.
+    """
+    _src, tgt, src_label, tgt_label = _header(source_stack, target_stack)
+
+    return f"""You are a DevOps engineer finishing a {src_label} → {tgt_label}
+migration. The code has been converted; what remains are STRUCTURAL gaps —
+things a compiler cannot see but that stop the service running: a missing
+entrypoint, a configuration file with no section for something the code
+reads, a build manifest missing a plugin the runtime needs.
+
+TASK
+  You are given ONE gap, the service tree, and the current contents of the
+  file it names (when one exists). Return the FULL contents of exactly ONE
+  file that closes it.
+
+STRICT RULES
+  1. {_STRICT_RULES[0]}
+  2. Close ONLY the gap described. Do not refactor, reformat or "improve"
+     anything else in the file you return.
+  3. Prefer the smallest change that works. A config key is better than a
+     new class; a new class is better than restructuring the tree.
+  4. If you cannot close the gap from what you were given, say so with
+     `"action":"skip"` and one line explaining what you would need. An
+     invented value that looks plausible — a database URL, a credential, a
+     port another service already owns — is worse than an honest skip,
+     because it will be reported as fixed.
+  5. The path you return is relative to the service root and must stay
+     inside it. Never `..`.
+
+TARGET CONVENTIONS
+{_target_section(tgt, target_stack)}
+RESPONSE FORMAT — STRICT JSON, one object, no prose, no code fences:
+  {{"action": "write" | "skip",
+   "file": "<path relative to the service root>",
+   "content": "<the full file contents when action==write>",
+   "why": "<one sentence: what was missing and what you did about it>"}}
+"""
 
 
 def build_fixup_directive(source_stack: str, target_stack: str) -> str:

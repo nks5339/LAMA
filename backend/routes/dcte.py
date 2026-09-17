@@ -750,7 +750,7 @@ async def _run_job_background(job_id: str) -> None:
                 "suggested_change": f"wrapper error: {type(e).__name__}: {e}",
             }]
 
-    def _build_fix_wrapper(dest_root, service_id):
+    def _build_fix_wrapper(dest_root, service_id, source_stack="", target_stack=""):
         """iter-18.11 — Compile the dest tree with mvn/gradle; on failure,
         let the LLM patch each failing file's errors and retry (max 5
         attempts). Returns a plain dict so the engine event payload is
@@ -782,7 +782,9 @@ async def _run_job_background(job_id: str) -> None:
 
         try:
             result = asyncio.run_coroutine_threadsafe(
-                build_and_fix(Path(dest_root), progress_cb=_bpcb), loop,
+                build_and_fix(Path(dest_root), progress_cb=_bpcb,
+                              source_stack=source_stack,
+                              target_stack=target_stack), loop,
             ).result(timeout=1800)  # 5 attempts × ~6 min max
             return result.as_dict() if hasattr(result, "as_dict") else dict(result)
         except concurrent.futures.TimeoutError:
@@ -802,7 +804,8 @@ async def _run_job_background(job_id: str) -> None:
     # closes structural gaps (missing @SpringBootApplication, missing
     # application.yml sections, missing spring-boot-maven-plugin,
     # unresolved compile errors) that javac itself can't see.
-    def _devops_wrapper(dest_root, service_id, build_result):
+    def _devops_wrapper(dest_root, service_id, build_result,
+                        source_stack="", target_stack=""):
         try:
             from dcte.devops_agent import run_devops
             from dcte.models import DcteEvent as _DoEvt
@@ -834,15 +837,22 @@ async def _run_job_background(job_id: str) -> None:
                 source_root=src_root,
                 build_result=build_result,
                 progress_cb=_dcb,
+                # iter-22 — the escalation brief and the residue reject
+                # list are pair-specific, same as the other agents'.
+                source_stack=source_stack,
+                target_stack=target_stack,
             )
             fut = asyncio.run_coroutine_threadsafe(coro, loop)
-            result = fut.result(timeout=180)
+            # iter-22 — raised from 180s: the phase can now make up to
+            # _MAX_LLM_GAP_FIXES model calls, and a 180s budget would time
+            # the escalation out more often than not.
+            result = fut.result(timeout=600)
             return result.as_dict() if hasattr(result, "as_dict") else dict(result)
         except concurrent.futures.TimeoutError:
             logger.warning("DevOps agent wrapper timed out")
             return {"attempted": True, "fixes_applied": 0, "gaps_found": [],
                     "fixes": [], "unresolved": [],
-                    "notes": ["devops wrapper timed out after 180s"]}
+                    "notes": ["devops wrapper timed out after 600s"]}
         except Exception as e:
             logger.warning("DevOps agent wrapper failed: %s", e)
             return {"attempted": True, "fixes_applied": 0, "gaps_found": [],

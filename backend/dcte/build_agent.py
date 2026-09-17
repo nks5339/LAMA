@@ -6,15 +6,18 @@ with a "fix these errors" prompt. Loops up to ``max_attempts`` times.
 
 Design notes
 ------------
-* Runs INSIDE the LAMA container (Maven 3.8 + JDK 17 are pre-installed in
-  the runtime image). Java 21 is not present, so we override
-  ``maven.compiler.{source,target,release}=17`` on the command line to
-  keep the validation compile working while the emitted pom targets 21
-  for the final artefact.
-* Non-blocking: if no build tool is detected (no ``pom.xml`` /
-  ``build.gradle``) or the tool binary is not on ``PATH``, the agent
-  emits a diagnostic and returns ``{"skipped": True, ...}`` so the
-  overall job does NOT fail.
+* Runs INSIDE the LAMA container (Maven + Temurin **25** are pre-installed;
+  iter-22 raised the image from JDK 17 because `stacks.py` pins
+  `spring-boot-4` to Java 25 and the image could not compile the output of
+  its own recommended target). The release level is no longer forced on the
+  command line: `_release_for` takes it from the target stack and forces
+  nothing when the installed JDK is older, because compiling Java 25 source
+  at level 17 turns every modern construct into a syntax error that the fix
+  loop then "repairs".
+* Non-blocking: if no build manifest is detected (no ``pom.xml`` /
+  ``build.gradle`` / ``package.json`` / ``*.csproj``) or the tool binary is
+  not on ``PATH``, the agent emits a diagnostic and returns
+  ``{"skipped": True, ...}`` so the overall job does NOT fail.
 * Fix loop is bounded (``max_attempts``, default 5) so a truly broken
   service cannot burn tokens forever.
 * Every LLM rewrite goes through the same ``_safe_apply`` guardrails as
@@ -27,53 +30,81 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import re
 import shutil
+import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable
 
 from .ai_refactor import _safe_apply, _strip_json_fence, _extract_json_array
+from .prompt_builder import build_build_fixer_brief, stack_sections
+from .prompt_store import compose, get_dcte_prompt
+from .stacks import get_stack, residue_markers
+
+logger = logging.getLogger("lama.dcte.build_agent")
 
 # ── Config ──────────────────────────────────────────────────────────
 _DEFAULT_MAX_ATTEMPTS = 5
 _BUILD_TIMEOUT_S = 480                # single mvn/gradle invocation
 _MAX_FIXES_PER_ATTEMPT = 12           # cap fabric calls per attempt
-_MAX_CHARS_PER_FILE = 16000
 _MAX_FILE_SIZE_FOR_LLM = 40000
+# iter-22 — matched to the eligibility ceiling for the same reason as
+# `ai_refactor._MAX_CHARS_PER_FILE`: at 16 000 every file in the 16–40 KB
+# band was sent truncated with nothing saying so, and the reply was then
+# size-checked against the full body. A file is now either sent whole or
+# not sent at all.
+_MAX_CHARS_PER_FILE = _MAX_FILE_SIZE_FOR_LLM
+# iter-22 — the extension is a group rather than a literal `\.java`, so the
+# same two patterns pick up tsc/dotnet diagnostics. Without this, an npm or
+# dotnet build could fail and `_parse_errors` would attribute nothing, which
+# `build_and_fix` reads as "no fixable errors" and gives up after one attempt.
+_SRC_EXT = r"(?:java|kt|ts|tsx|js|jsx|cs|vb)"
 _JAVAC_ERR_RE = re.compile(
-    r"(?P<path>[/A-Za-z0-9_\-.\\ ]+\.java):\[(?P<line>\d+),(?P<col>\d+)\]\s+(?P<msg>.+)",
+    rf"(?P<path>[/A-Za-z0-9_\-.\\ ]+\.{_SRC_EXT}):\[(?P<line>\d+),(?P<col>\d+)\]\s+(?P<msg>.+)",
 )
-# Fallback pattern for javac -Xdiags plain output
+# javac -Xdiags plain output, and tsc's `file.ts(12,5): error TS2345: …`
 _JAVAC_ERR_RE_ALT = re.compile(
-    r"(?P<path>[/A-Za-z0-9_\-.\\ ]+\.java):(?P<line>\d+):\s+error:\s+(?P<msg>.+)",
+    rf"(?P<path>[/A-Za-z0-9_\-.\\ ]+\.{_SRC_EXT}):(?P<line>\d+):\s+error[^:]*:\s+(?P<msg>.+)",
+)
+_TSC_ERR_RE = re.compile(
+    rf"(?P<path>[/A-Za-z0-9_\-.\\ ]+\.{_SRC_EXT})\((?P<line>\d+),(?P<col>\d+)\):\s+error\s+(?P<msg>.+)",
 )
 
+# Language level the target stack asks for, read off `Stack.manifest` /
+# `Stack.language` rather than hardcoded. Only Java has a compiler flag we
+# would want to force; everything else takes its level from its own manifest.
+_JAVA_RELEASE_RE = re.compile(r"(?:release|Java)\s*[=\s]\s*(\d{2})", re.IGNORECASE)
 
-_SYSTEM = """You are a Senior Backend Developer and Spring Boot 3.x / Java 17-21 build-error triage expert.
 
-TASK
-  You are given ONE Java source file and the exact javac / Maven compile errors it produced.
-  Return the FULL corrected source of the file so it compiles cleanly on Spring Boot 3.3+ under Java 17-21 with these starters on the classpath: spring-boot-starter-web, spring-boot-starter-data-jpa, spring-boot-starter-security, spring-boot-starter-actuator, springdoc-openapi-starter-webmvc-ui, postgresql, flyway-core, micrometer-core, lombok.
+# iter-22 — the hardcoded Spring Boot 3.x / Java 17-21 essay that used to
+# live here is gone; the brief is built per (source, target) in
+# `prompt_builder.build_build_fixer_brief`. See that function for why.
+# Kept as the floor for a caller with no pair in hand.
+_SYSTEM_FALLBACK = """You are a Senior Backend Developer triaging BUILD ERRORS.
 
-STRICT RULES
-  1. Do NOT alter business logic — variable names, branch semantics, HTTP verbs, URL paths, DB column names, DTO field names must be preserved.
-  2. Do NOT truncate. Return the FULL file from the `package` line through the final closing brace. Never end with `...` or "rest of file omitted".
-  3. Do NOT reintroduce Helidon / MicroProfile symbols: no `jakarta.ws.rs.*`, no `io.helidon.*`, no `@ApplicationScoped`, no `@ConfigProperty`, no `org.eclipse.microprofile.*`.
-  4. Fix only what the compiler complained about, plus any transitive imports/types that fix requires. Do not restructure unrelated code.
-  5. If a fix requires a class you cannot see, add a reasonable Spring equivalent (e.g., missing DTO → keep the field names, add getters/setters or `record`).
-  6. Response is STRICT JSON. Exactly one object:
+You are given ONE source file and the exact compiler errors it produced.
+Return the FULL corrected source so those errors go away.
 
-     {
-       "file": "<absolute path echoed back>",
-       "action": "rewrite" | "leave",
-       "content": "<full corrected file source if action=='rewrite'>",
-       "changes": ["short bullet", "short bullet"],
-       "risk": "low" | "medium" | "high"
-     }
+  1. Do NOT alter business logic — variable names, branch semantics, HTTP
+     verbs, URL paths, DB column names and DTO field names are preserved.
+  2. Do NOT truncate. Return the file from its first line through its last.
+  3. Fix only what the compiler complained about, plus the imports or types
+     that fix requires. Do not restructure unrelated code.
+  4. A wall of "cannot find symbol" under ONE "package does not exist" is
+     ONE fault, not fifty. Fix the cause, not each symptom.
 
-  7. If you genuinely cannot fix the file without more context, return `"action":"leave"` with an empty `content` and a `changes` array explaining why in one line.
-"""
+RESPONSE FORMAT — STRICT JSON, one object, no prose, no code fences:
+  {"file": "<absolute path echoed back exactly>",
+   "action": "rewrite" | "leave",
+   "content": "<full corrected file source when action==rewrite>",
+   "changes": ["short bullet", "short bullet"],
+   "risk": "low" | "medium" | "high"}
+
+If you genuinely cannot fix it without more context, return
+`"action":"leave"` with empty `content` and one line in `changes` saying
+what you would need."""
 
 
 @dataclass
@@ -104,32 +135,81 @@ class BuildResult:
 
 # ── Build tool detection & invocation ───────────────────────────────
 
-def _detect_build_tool(dest_root: Path) -> str | None:
-    if (dest_root / "pom.xml").is_file():
-        return "maven"
-    if (dest_root / "build.gradle").is_file() or (dest_root / "build.gradle.kts").is_file():
-        return "gradle"
+# iter-22 — manifest → tool. Was root-only Maven/Gradle, so every .NET,
+# React and Angular target the iter-21 catalogue added reported
+# "no pom.xml or build.gradle found — build validation skipped" and the job
+# carried on as though there were nothing to build. The LAMA image already
+# ships Node and the dotnet SDK (see Dockerfile), so these really can run.
+#
+# Order matters: a polyglot tree with both a pom and a package.json is a
+# backend with a bundled UI, and the backend is what the compile gate is
+# for. `_MANIFEST_TOOLS` is checked in sequence.
+_MANIFEST_TOOLS: tuple[tuple[str, str], ...] = (
+    ("pom.xml", "maven"),
+    ("build.gradle", "gradle"),
+    ("build.gradle.kts", "gradle"),
+    ("package.json", "npm"),
+)
+
+# How deep to look for a manifest below the destination root. A plugin that
+# lands the service under `converted-source/<svc>/` puts the pom at depth 0,
+# but a multi-module source tree carried across keeps its own nesting and
+# the root-only check missed every one of those.
+_MANIFEST_SEARCH_DEPTH = 3
+
+
+def _detect_build_tool(dest_root: Path) -> tuple[str, Path] | None:
+    """Return (tool, directory-holding-the-manifest) or None."""
+    for depth_dir in _candidate_dirs(dest_root):
+        for name, tool in _MANIFEST_TOOLS:
+            if (depth_dir / name).is_file():
+                return tool, depth_dir
+        if any(depth_dir.glob("*.csproj")) or any(depth_dir.glob("*.sln")):
+            return "dotnet", depth_dir
     return None
 
 
-def _maven_cmd(_dest_root: Path) -> list[str] | None:
+def _candidate_dirs(root: Path) -> list[Path]:
+    """`root` first, then subdirectories up to `_MANIFEST_SEARCH_DEPTH`."""
+    out = [root]
+    if not root.is_dir():
+        return out
+    for d in sorted(root.rglob("*")):
+        if not d.is_dir() or d.name in {"node_modules", "target", "build", ".git"}:
+            continue
+        try:
+            if len(d.relative_to(root).parts) <= _MANIFEST_SEARCH_DEPTH:
+                out.append(d)
+        except ValueError:  # pragma: no cover — defensive
+            continue
+    return out
+
+
+def _maven_cmd(_dest_root: Path, release: str = "") -> list[str] | None:
     exe = shutil.which("mvn")
     if not exe:
         return None
-    # Force JDK-17 compile flags so a container without JDK 21 can still
-    # validate. This does NOT alter the pom on disk.
-    return [
-        exe, "-B", "-q",
-        "-DskipTests=true",
-        "-Dmaven.compiler.source=17",
-        "-Dmaven.compiler.target=17",
-        "-Dmaven.compiler.release=17",
-        "-Dmaven.test.skip=true",
-        "compile",
-    ]
+    # iter-22 — the release level used to be hardcoded to 17 regardless of
+    # the target. With `spring-boot-4` (Java 25) in the catalogue that meant
+    # compiling Java 25 source against a Java 17 language level: every
+    # record pattern and sealed type became a syntax error, the fix loop
+    # dutifully "repaired" correct code, and the migration got worse each
+    # round. Pass nothing when we do not know — the pom's own setting is a
+    # better answer than a guess.
+    #
+    # `-U` per the iter-21 contract: Maven caches a FAILED resolution as a
+    # negative entry for 24h, so after a pom repair the very next build can
+    # still report the artifact missing.
+    cmd = [exe, "-B", "-q", "-U", "-DskipTests=true", "-Dmaven.test.skip=true"]
+    if release:
+        cmd += [f"-Dmaven.compiler.source={release}",
+                f"-Dmaven.compiler.target={release}",
+                f"-Dmaven.compiler.release={release}"]
+    cmd.append("compile")
+    return cmd
 
 
-def _gradle_cmd(dest_root: Path) -> list[str] | None:
+def _gradle_cmd(dest_root: Path, _release: str = "") -> list[str] | None:
     wrap = dest_root / "gradlew"
     if wrap.is_file():
         return [str(wrap), "--no-daemon", "-x", "test", "compileJava"]
@@ -137,6 +217,46 @@ def _gradle_cmd(dest_root: Path) -> list[str] | None:
     if not exe:
         return None
     return [exe, "--no-daemon", "-x", "test", "compileJava"]
+
+
+def _npm_cmd(dest_root: Path, _release: str = "") -> list[str] | None:
+    """`npm run build` when the project declares one, else a type-check.
+
+    A React/Angular migration that emits no build script is not buildable,
+    and saying "skipped" there would hide exactly the gap the operator needs
+    to see — so we fall back to `tsc --noEmit`, which still catches the
+    import and type errors a half-finished migration leaves behind.
+    """
+    exe = shutil.which("npm")
+    if not exe:
+        return None
+    try:
+        pkg = json.loads((dest_root / "package.json").read_text(encoding="utf-8"))
+        scripts = pkg.get("scripts") or {}
+    except Exception:  # noqa: BLE001
+        scripts = {}
+    if "build" in scripts:
+        return [exe, "run", "--silent", "build"]
+    if (dest_root / "tsconfig.json").is_file():
+        npx = shutil.which("npx")
+        if npx:
+            return [npx, "--yes", "tsc", "--noEmit"]
+    return None
+
+
+def _dotnet_cmd(_dest_root: Path, _release: str = "") -> list[str] | None:
+    exe = shutil.which("dotnet")
+    if not exe:
+        return None
+    return [exe, "build", "--nologo", "-v", "quiet"]
+
+
+_TOOL_CMD_BUILDERS = {
+    "maven": _maven_cmd,
+    "gradle": _gradle_cmd,
+    "npm": _npm_cmd,
+    "dotnet": _dotnet_cmd,
+}
 
 
 async def _run_build(cmd: list[str], cwd: Path) -> tuple[int, str]:
@@ -164,7 +284,7 @@ async def _run_build(cmd: list[str], cwd: Path) -> tuple[int, str]:
 def _parse_errors(output: str, dest_root: Path) -> list[dict[str, Any]]:
     errs: list[dict[str, Any]] = []
     seen: set[tuple[str, int, str]] = set()
-    for rx in (_JAVAC_ERR_RE, _JAVAC_ERR_RE_ALT):
+    for rx in (_JAVAC_ERR_RE, _JAVAC_ERR_RE_ALT, _TSC_ERR_RE):
         for m in rx.finditer(output):
             raw_path = m.group("path").strip()
             try:
@@ -198,11 +318,92 @@ def _group_errors_by_file(errs: list[dict[str, Any]]) -> dict[str, list[dict[str
     return out
 
 
+def _release_for(target_stack: str) -> tuple[str, str]:
+    """(release-level-to-force, note-for-the-operator-and-the-model).
+
+    Returns ("", "") when we should not force anything — which is the right
+    answer whenever the target is not Java, or when the installed JDK
+    already satisfies what the target pins.
+
+    The note exists because the LAMA image ships JDK 17 while the catalogue
+    pins Java 25 for `spring-boot-4`. Compiling Java 25 source at release 17
+    turns every modern language feature into a syntax error, and the fix
+    loop then "repairs" correct code — each round making the migration
+    worse. Telling both the operator and the triage model that the
+    validating compiler is older than the target is the honest alternative
+    to silently forcing a level.
+    """
+    tgt = get_stack(target_stack)
+    if tgt is None or "java" not in (tgt.language or "").lower():
+        return "", ""
+    wanted = ""
+    m = _JAVA_RELEASE_RE.search(tgt.language or "")
+    if m:
+        wanted = m.group(1)
+    if not wanted:
+        for entry in tgt.manifest:
+            m = _JAVA_RELEASE_RE.search(entry)
+            if m:
+                wanted = m.group(1)
+                break
+    if not wanted:
+        return "", ""
+    installed = _installed_jdk_major()
+    if installed and int(wanted) > installed:
+        return "", (
+            f"target pins Java {wanted} but the JDK on PATH is {installed}; "
+            "compiling at the pom's own level and reporting the mismatch "
+            "rather than forcing a lower release — a feature this JDK cannot "
+            "parse is a TOOLCHAIN gap, not a defect in the migrated source"
+        )
+    return wanted, ""
+
+
+def _installed_jdk_major() -> int | None:
+    """Major version of the `javac` on PATH, or None."""
+    exe = shutil.which("javac")
+    if not exe:
+        return None
+    try:
+        out = subprocess.run(  # noqa: S603 — fixed argv, no shell
+            [exe, "-version"], capture_output=True, text=True, timeout=20,
+        )
+        blob = f"{out.stdout} {out.stderr}"
+        m = re.search(r"javac\s+(\d+)", blob)
+        return int(m.group(1)) if m else None
+    except Exception:  # noqa: BLE001
+        return None
+
+
+async def _build_fixer_prompt(source_stack: str, target_stack: str,
+                              release_note: str = "") -> str:
+    """Per-pair triage brief.
+
+    iter-22 (DT-2) — prefers the operator-editable `dcte.build_fixer` row
+    from Prompt Library, splicing the pair-specific sections into it, and
+    falls back to the module-built brief and then to `_SYSTEM_FALLBACK`.
+    """
+    if not source_stack and not target_stack:
+        return _SYSTEM_FALLBACK
+    try:
+        built = build_build_fixer_brief(source_stack, target_stack, release_note)
+    except Exception:  # noqa: BLE001 — a prompt bug must not kill the build
+        logger.warning("build-fixer brief could not be built; using the fallback")
+        return _SYSTEM_FALLBACK
+    template = await get_dcte_prompt("dcte.build_fixer")
+    prompt = compose(template, stack_sections(source_stack, target_stack), built)
+    # The toolchain note is appended AFTER any operator edit: it is a fact
+    # about this run, not guidance, and must not be editable away.
+    return f"{prompt}\n\nTOOLCHAIN\n  {release_note}" if release_note else prompt
+
+
 # ── LLM fix loop ────────────────────────────────────────────────────
 
 async def _fix_one_file(
     fabric_call, path: Path, errors: list[dict[str, Any]],
     agent_key: str,
+    system_prompt: str = "",
+    markers: "tuple[str, ...] | None" = None,
 ) -> tuple[bool, str, list[str]]:
     """Ask the LLM to rewrite `path` given `errors`. Returns (applied, reason, changes)."""
     try:
@@ -213,21 +414,36 @@ async def _fix_one_file(
         return False, f"file > {_MAX_FILE_SIZE_FOR_LLM // 1000}KB — needs manual fix", []
     trimmed = body[:_MAX_CHARS_PER_FILE]
     err_lines = "\n".join(f"  line {e['line']}: {e['message']}" for e in errors[:30])
+    # iter-22 — same silent-truncation defect the AI sweep had: the file was
+    # cut to 16 000 chars with nothing in the prompt saying so, and the reply
+    # was then size-checked against the FULL body. `_MAX_CHARS_PER_FILE` now
+    # matches the eligibility ceiling so this should not fire, and if it ever
+    # does the model is told, and `_safe_apply` refuses the reply rather than
+    # writing back a half file.
+    trunc_note = ""
+    if len(trimmed) < len(body):
+        trunc_note = (
+            f"\n---!!! TRUNCATED: you are seeing the first {len(trimmed)} of "
+            f"{len(body)} characters. This is NOT the whole file. Return "
+            '"action":"leave" — a partial rewrite cannot be merged. ---'
+        )
+    lang_tag = path.suffix.lstrip(".") or ""
     user = (
-        f"---FILE: {path}---\n"
+        f"---FILE: {path}---{trunc_note}\n"
         f"---COMPILE ERRORS ({len(errors)} total, showing up to 30)---\n"
         f"{err_lines}\n\n"
-        f"---CURRENT SOURCE---\n```java\n{trimmed}\n```"
+        f"---CURRENT SOURCE---\n```{lang_tag}\n{trimmed}\n```"
     )
     try:
         resp = await fabric_call(
             messages=[
-                {"role": "system", "content": _SYSTEM},
+                {"role": "system", "content": system_prompt or _SYSTEM_FALLBACK},
                 {"role": "user", "content": user},
             ],
             agent_key=agent_key,
             temperature=0.1,
             max_tokens=8000,
+            response_format={"type": "json_object"},
         )
     except Exception as e:
         return False, f"fabric_call failed: {e}", []
@@ -249,7 +465,7 @@ async def _fix_one_file(
         return False, "model chose to leave file unchanged", []
     new_content = data.get("content") or ""
     changes = [str(c) for c in (data.get("changes") or [])]
-    ok, reason = _safe_apply(path, body, new_content)
+    ok, reason = _safe_apply(path, body, new_content, markers, len(trimmed))
     return ok, reason, changes
 
 
@@ -259,22 +475,47 @@ async def build_and_fix(
     max_attempts: int = _DEFAULT_MAX_ATTEMPTS,
     agent_key: str = "dcte.build_fixer",
     progress_cb: Callable[[int, int, str, str], None] | None = None,
+    source_stack: str = "",
+    target_stack: str = "",
 ) -> BuildResult:
     """Compile ``dest_root``; on failure, ask the LLM to fix each failing
     file and retry. Returns a :class:`BuildResult` describing the outcome.
+
+    iter-22 — takes the selected stack pair. The triage prompt, the
+    compiler release level and the residue reject list are all built from
+    it; before this they were hardcoded to Spring Boot 3 / Java 17 / Helidon
+    regardless of what the operator actually chose.
     """
     res = BuildResult()
-    tool = _detect_build_tool(dest_root)
-    res.tool = tool
-    if tool is None:
+    detected = _detect_build_tool(dest_root)
+    if detected is None:
         res.skipped = True
-        res.notes.append("no pom.xml or build.gradle found — build validation skipped")
+        res.notes.append(
+            "no build manifest (pom.xml / build.gradle / package.json / *.csproj) "
+            f"found under {dest_root.name} — build validation skipped"
+        )
         return res
-    cmd = _maven_cmd(dest_root) if tool == "maven" else _gradle_cmd(dest_root)
+    tool, manifest_dir = detected
+    res.tool = tool
+    release, release_note = _release_for(target_stack)
+    builder = _TOOL_CMD_BUILDERS.get(tool)
+    cmd = builder(manifest_dir, release) if builder else None
     if not cmd:
         res.skipped = True
-        res.notes.append(f"{tool} binary not on PATH — build validation skipped")
+        res.notes.append(
+            f"{tool} has no runnable build command here "
+            "(binary missing from PATH, or no build script declared) "
+            "— build validation skipped"
+        )
         return res
+    # Everything below compiles in the directory that holds the manifest,
+    # which is not necessarily `dest_root` on a multi-module tree.
+    dest_root = manifest_dir
+    if release_note:
+        res.notes.append(release_note)
+
+    system_prompt = await _build_fixer_prompt(source_stack, target_stack, release_note)
+    markers = residue_markers(source_stack, target_stack) or None
 
     res.attempted = True
 
@@ -339,6 +580,7 @@ async def build_and_fix(
                     pass
             applied, reason, changes = await _fix_one_file(
                 fabric_call, Path(fpath), ferrs, agent_key=agent_key,
+                system_prompt=system_prompt, markers=markers,
             )
             if applied:
                 fixed_this_round += 1
@@ -357,6 +599,27 @@ async def build_and_fix(
                     pass
             return res
 
-    # Final compile check after last fix pass (max_attempts exhausted)
+    # Final compile check after the last fix pass.
+    #
+    # iter-22 — this comment described a check that was never written: the
+    # loop applied fixes on its final attempt and then returned
+    # `success=False` without ever recompiling. A build that the last round
+    # actually repaired was reported red, the engine emitted "Build did NOT
+    # go green … manual intervention required", and the operator was sent to
+    # debug a green build.
+    rc, output = await _run_build(cmd, dest_root)
+    res.final_output_tail = output[-4000:]
+    if rc == 0:
+        res.success = True
+        res.notes.append(
+            f"build succeeded on the final check after {max_attempts} fix round(s)"
+        )
+        if progress_cb:
+            try:
+                progress_cb(max_attempts, max_attempts, "", "build succeeded")
+            except Exception:
+                pass
+        return res
+    res.errors = _parse_errors(output, dest_root)
     res.notes.append(f"max_attempts={max_attempts} reached without a green build")
     return res
