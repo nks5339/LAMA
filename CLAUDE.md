@@ -46,16 +46,35 @@ that is the only sanctioned bypass.)
 **Two tracks exist besides the pipeline** — don't assume all work flows
 through the 5 stages:
 
-- **Tools** — three standalone utilities, none of which requires a frozen
+- **Tools** — two standalone utilities, neither of which requires a frozen
   upstream stage. **Gap Analyzer** (`/api/tools/gap-analyzer/*`, has its own
   freeze/unfreeze + export) and **Transformer** (`/api/tools/transformer/*`,
   a code-transform super-agent) both live in `routes/tools.py`.
-  **Direct Transform / DCTE** (iter-18, `routes/dcte.py`, `/api/dcte/*`) is a
-  *third* track with its own module and its own four collections: it is
-  folder-path driven, takes no `project_id` at all, and runs a deterministic
-  plugin layer (Helidon MP → Spring Boot 3, Oracle → PostgreSQL) with an
-  optional AI pass on top. Do **not** fold it into `routes/tools.py` — it
-  shares no state with either of the other two.
+  The sidebar's **Tools accordion** holds Console / Integrations / Prompt
+  Library — global utilities that own no data.
+- **Direct Transform / DCTE** (iter-18, `routes/dcte.py`, `/api/dcte/*`) is a
+  **PROJECT TYPE**, not a Tool. It has its own module and its own four
+  collections, is folder-path driven, needs no KB / SRS / stage_context, and
+  runs a deterministic plugin layer (Helidon MP → Spring Boot, Oracle →
+  PostgreSQL) with an AI pass for every other pair. Do **not** fold it into
+  `routes/tools.py` — it shares no state with either of the other two.
+  **iter-22 moved it out of the Tools accordion into New Project → Choose
+  project type.** It owns a source tree, a stack pair and a run history, and
+  two Direct Transform projects must keep their runs apart — which a global
+  Tools page cannot do, so `dcte_jobs.project_id` scopes the list. A job with
+  an empty `project_id` is a pre-iter-22 row and is visible only in the
+  unscoped (operator/script) listing. Registering a project type means ALL of:
+  `models.py` + `routes/projects.py` (stage_status), `ProjectSwitcher.jsx`
+  (`PROJECT_TYPES` / `TOOL_STAGE_ORDER` / `TOOL_LANDING` / `TOOL_HASH`),
+  `Sidebar.jsx` **and** `StageProgress.jsx` (`STAGES_BY_TYPE` + the
+  `isToolProject` list — a type missing from the latter is stuck on stage 1
+  forever), and `App.js`'s `HomeDispatcher`. Its stages are
+  **Input → Transform → Output**; there is deliberately no KnowledgeBase,
+  because it builds no KB and that stage could never become active.
+  `tools-nav-registration.test.js` asserts its ABSENCE from the Tools
+  accordion, the command palette and the breadcrumb map as hard as its
+  presence as a project type — landing it in both would give it two front
+  doors with different behaviour.
   **iter-21:** source and target are picked **independently** from
   `backend/dcte/stacks.py` (`GET /api/dcte/stacks`) — JSP, React 19,
   Angular 22, .NET 10 LTS, Spring Boot 4.1/Java 25, PostgreSQL 18 and the
@@ -228,7 +247,9 @@ frontend/src/
   state/ProjectContext.jsx   # The one active project within the signed-in tenant
   pages/                     # DiscoveryV2 (NOT Discovery.jsx) + the pages listed above.
                              #   Tools pages, in sidebar order: Console, Integrations,
-                             #   PromptLibrary, DirectTransform
+                             #   PromptLibrary. DirectTransform is a PROJECT TYPE
+                             #   page (iter-22), not a Tool — reached by selecting a
+                             #   direct_transform project, like Transformer/GapAnalyzer
 memory/PRD.md                # Append-only iteration log — the "why" behind every contract
 AGENTS.md                    # Exhaustive operational rules (this file is the summary)
 ```
@@ -491,6 +512,7 @@ build time so production env comes from `-e` flags / compose `environment:`.
 | Debug "which model actually ran" | `llm.py::fabric_call` → `llm_traces` collection + `token_usage_log` |
 | Work on the agentic CodeGen flow | `routes/codegen.py` multi-agent section + iter-17 PRD entry |
 | Work on Direct Transform | `routes/dcte.py` + `backend/dcte/` + `docs/direct-transform/` |
+| Add a project type | `models.py`, `routes/projects.py`, then ProjectSwitcher + Sidebar + StageProgress + App.js — `tools-nav-registration.test.js` pins the set |
 | Add a Direct Transform stack | one entry in `backend/dcte/stacks.py`. Fill in `suffixes` (or its files never reach the AI pass) and `forbidden` (or nothing detects a half-migrated file); `build_cmd` if it is a target |
 | Tune a Direct Transform prompt | Prompt Library `dcte.*` — the fixed half only; the pair-specific half is computed and spliced at `{stack_sections}` |
 | Give a Direct Transform pair a deterministic transformer | new plugin under `backend/dcte/plugins/`, registered in `plugin_registry.get_registry()` |
