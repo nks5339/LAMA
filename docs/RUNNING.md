@@ -270,7 +270,7 @@ docker compose exec lama bash               # shell inside
 
 ## Tests
 
-### Backend — 1,055 tests
+### Backend — 1,479 tests
 
 ```bash
 ./.venv/bin/python -m pytest backend/tests/ -q
@@ -279,6 +279,32 @@ docker compose exec lama bash               # shell inside
 ./.venv/bin/python -m pyflakes backend/routes/codegen.py                      # lint
 ruff check backend                                                            # the waste bar
 ```
+
+A bare run is offline and **reproducible** — same pass/skip counts every
+time, no Mongo, no Qdrant, no network. Two groups are skipped by default;
+`-rs` prints the reason for each:
+
+```bash
+--run-integration   # the 8 legacy suites that drive the API over HTTP
+                    # (start uvicorn first — see "Run it" above)
+--run-network       # the 2 tests that query Maven Central
+```
+
+Both are real coverage and are gated rather than deleted — the reasoning is
+in `backend/tests/conftest.py`. The network pair can fail when Maven Central
+is slow: an `fc:` full-class query for a 23k-match class read-times out while
+a cheap query on the same host answers instantly. That is a property of the
+endpoint, which is why it is not in the default run; the behaviour it
+protects is pinned offline in the same suite.
+
+### Build toolchains the compile agents need
+
+The image ships **Temurin 25** and **.NET SDK 10**, because
+`backend/dcte/stacks.py` pins `spring-boot-4` to Java 25 and `dotnet-10` to
+`net10.0`. An older local toolchain does not fail cleanly — it turns valid
+generated code into syntax errors, which reads as a bad migration rather
+than a missing dependency. `./scripts/doctor.sh` checks the **versions**, not
+just that the binaries exist.
 
 ### Frontend — 221 tests
 
