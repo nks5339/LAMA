@@ -189,6 +189,9 @@ Runs the whole stack — nginx, MongoDB, and the API — in one container on
 > cp backend/.env backend/.env.mine     # restore with: cp backend/.env.mine backend/.env
 > ```
 >
+> Running **Docker only**, with no local Python/Node/Mongo? That path has its
+> own guide, split by platform: **[DOCKER.md](DOCKER.md)**.
+>
 > **Apple Silicon:** the published image is `linux/amd64`, so it runs under
 > emulation on M-series Macs. It works — verified — but is slower than native.
 >

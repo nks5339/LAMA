@@ -1,0 +1,41 @@
+# Line-ending policy.
+#
+# Why this file exists: docker-compose.yml bind-mounts shell scripts from the
+# working tree straight into the container —
+#
+#     ./docker/entrypoint-with-wheels.sh:/entrypoint-with-wheels.sh:ro
+#
+# and the container runs it with `/bin/sh`. On a Windows checkout with the
+# default `core.autocrlf=true`, git rewrites that file to CRLF on disk. The
+# shebang then reads `#!/bin/sh\r`, and Linux reports:
+#
+#     exec /entrypoint-with-wheels.sh: no such file or directory
+#
+# which names the script rather than the carriage return, so it reads as a
+# missing file. Same class of failure for every script under docker/ and
+# scripts/, and for the Dockerfile's own RUN-invoked helpers.
+#
+# `text=auto eol=lf` normalises to LF in the repository and checks out LF on
+# every platform, so a Windows clone produces scripts Linux can execute.
+
+* text=auto eol=lf
+
+# Binary — never touch these.
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.whl   binary
+*.zip   binary
+*.gz    binary
+*.jar   binary
+*.woff  binary
+*.woff2 binary
+*.ttf   binary
+
+# Batch files are the one thing that genuinely needs CRLF: cmd.exe can
+# mis-parse an LF-only .bat/.cmd.
+*.bat text eol=crlf
+*.cmd text eol=crlf
