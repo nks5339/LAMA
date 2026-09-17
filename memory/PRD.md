@@ -12829,3 +12829,229 @@ suites, lint 0 errors, build succeeds.
 **Not yet proven:** the operator's own service end to end. This is verified
 on a constructed reproduction of their failure modes, not on
 `negotiation-service` or `dsc-service`.
+
+---
+
+## iter-22 — The catalogue drives the engine, not just the prompt
+
+**The operator's instruction:** *"run a deep test of the whole application
+and analyse the prompts and if the prompt is weak then make it stronger so
+that the accuracy increases, add prompt wherever missing, add implementation
+where you think it is missing."*
+
+The suite was green when this started — 1349 passed, 0 failed, ruff clean —
+and it stayed green through every defect below. None of these were
+regressions. They were behaviour the tests had never been pointed at.
+
+### The shape of the problem
+
+iter-21 built a 14-source × 7-target stack catalogue and made the migration
+BRIEF generic. It stopped there. `dcte/stacks.py` remained a **prompt-only
+artefact**: nothing outside `prompt_builder.py` read `suffixes`, `forbidden`
+or `build_cmd`. The engine, the residue scanner, the rewrite guardrail, the
+build agent, the DevOps agent and the Tester all kept the Helidon→Spring /
+Oracle→PG constants they were born with.
+
+The consequence was not subtle. `engine.py` swept `(".java", ".sql")` while
+the generic plugin staged 35 file types, so for 96 of the 98 selectable
+pairs the AI pass was handed an **empty file list**. A JSP → React job
+copied its tree, converted nothing, and wrote `COMPLETED`.
+
+What makes this worth recording is where the iter-21 suite stopped. It
+proves the catalogue renders, the brief names the right pair, and the plugin
+stages the files — every link in the chain except the handoff between the
+last two. And all fifteen DCTE end-to-end tests used `helidon-mp →
+spring-boot-3`, the one pair that happened to work.
+
+### What the catalogue now drives
+
+`Stack.suffixes` (new) decides which files reach the model; the union of
+both sides, because the source's extensions are what needs converting and
+the target's are what a previous pass may already have emitted. Build
+manifests are excluded by name — `dependency_migrator` and `devops_agent`
+own those, and two writers on one pom is how a repaired pom gets
+un-repaired.
+
+`residue_markers()` derives the no-residue gate from `Stack.forbidden`,
+unioning both sides. `forbidden` reads "must not appear in a file of THIS
+stack", so a JSP → React job needs both halves: the source's `<%` catches a
+surviving scriptlet, the target's `ReactDOM.render(` catches a React-18
+idiom the model reached for. `Stack.permitted` is the escape hatch for the
+one case a union gets wrong — `jakarta.ws.rs.` is Helidon residue under
+Spring and the house style under Quarkus.
+
+`Stack.build_cmd` now runs. The build agent detects Maven, Gradle, npm and
+dotnet, searches three levels deep instead of the root only, and stops
+forcing `-Dmaven.compiler.release=17`. That last one mattered: with
+`spring-boot-4` (Java 25) in the catalogue, every modern construct became a
+syntax error and the fix loop "repaired" correct source — each round making
+the migration worse. When the installed JDK is older than the target, we now
+say so in the build note and in the triage prompt rather than silently
+compiling at the wrong level.
+
+### Three defects in the loop itself
+
+**Silent truncation.** `_MAX_CHARS_PER_FILE` was 16 000 and the eligibility
+ceiling 40 000, so every file in that band was cut with nothing in the
+prompt saying so — and then size-checked against its *full* length. A
+faithful rewrite of the visible half scored 0.55 and either failed the
+guardrail or squeaked past it, writing back a file whose bottom had been
+deleted. iter-18.8 fixed exactly this one band lower (4 000 → 16 000) and
+left it. The budget now matches the ceiling: a file is sent whole or not at
+all. Residual truncation is stated in the prompt and makes `_safe_apply`
+refuse the reply outright — checked before the size bounds, because it is
+categorical, and a short reply to a truncated prompt otherwise reads as a
+model failure when the cause was ours.
+
+**No JSON mode.** DCTE was the only LLM subsystem in the app that never
+passed `response_format`, despite having the strictest contract of any of
+them. The one bounded repair re-ask in `fabric_call` fires when a reply
+fails `parses_as_json_object` — which requires a JSON *object*, and DCTE's
+contract was a bare array, so it could never have qualified. The contract is
+now `{"files": [...]}` with a worked example, and the parser still accepts
+the bare array that older prompts and small local models emit.
+
+**`br` unbound.** `engine.py` bound the build result inside the build
+`try` and read it unconditionally in the DevOps phase. A build agent that
+raised left it unbound, DevOps died on `NameError: br` inside its own
+`except`, and the operator was told "DevOps agent errored" — the one phase
+that could have repaired the damage, skipped, with a message naming the
+wrong cause.
+
+### DT-1 and DT-2, both resolved
+
+**DT-1** asked whether the DevOps agent's LLM escalation should be built.
+`dcte.devops` had been registered, tiered and seeded since iter-18 for a
+call site that was never written; the module docstring described it in the
+present tense. Gaps the templates could not close landed in `unresolved`,
+were printed, and that was the end of it. They now go to the model, bounded
+at four per run, confined to the service tree, written back through
+`_safe_apply`. The deterministic patchers keep first refusal — a template is
+reproducible and cannot invent a database URL — and a `skip` is recorded as
+unresolved, never as a fix.
+
+**DT-2** asked whether the DCTE prompts should be seeded. They are, as a
+hybrid: the fixed half (role, strict rules, JSON contract) is an editable
+library row; the pair-specific half stays computed, because there are 98
+pairs; the guardrails stay in code, where an edit cannot weaken them. A row
+marks where the computed half goes with `{stack_sections}`. Delete the
+placeholder and the sections are appended rather than dropped — losing the
+target's conventions is worse than an oddly-ordered prompt.
+
+### Outside Direct Transform
+
+Seven fixes in the mature tracks, each verified directly before it was
+touched:
+
+- **`kb/deep_analyzer.py` had never once succeeded.** `chat_completion` is
+  `fabric_call`, which returns a dict; `(response or "").strip()` raised
+  `AttributeError` on every run, the surrounding `except` turned it into
+  `{"error": ...}`, and nobody noticed because the failure looked like a
+  normal LLM error.
+- **`compilation_ready` was true with nothing compiled.** `failed == 0 and
+  (passed > 0 or skipped > 0)` — so a run where every component skipped (no
+  manifest emitted, or a tool outside the native set) printed "COMPILATION
+  READY ✔" at score 0, set `compile_green`, and could reach
+  `production_ready=True`. Green now requires evidence.
+- **Angular and Vue were handed React's idioms.** `_PLAYBOOK_ALIASES` mapped
+  `angular-17` and `vue-3` to `react-18`, and `_playbook_for` renders what
+  it resolves under "authoritative for idiom choices" with "the playbook
+  wins" appended. Both now have their own entries. The version policy is
+  written down: a key that pins a version describes that version; a key that
+  does not tracks the current release.
+- **The Gap Analyzer never got its tier.** The call site passed the bare
+  string `gap_analyzer` while the map declared `tools.gap_analyzer: high` —
+  three names for one agent, since iter-16.
+- **Regenerate ran on the first-pass tier.** `fabric_call` consults the
+  contextvar only when `agent_key` is falsy, and the CodeGen and
+  Architecture call sites pass one, so `set_current_agent_key("...regenerate")`
+  was discarded. `routes/srs.py` already had the idiom for this.
+- **The test generator ignored its own prompt.** A seeded 4.4 KB
+  `tools.transformer.tester` template sat unread behind five inline lines.
+  Resolved once per run now, not per file.
+- **`_looks_like_placeholder` discarded valid files.** `"TODO" in text` over
+  the whole file, case-sensitive: a legacy domain whose status enum is
+  literally `"TODO"` lost every file that mentioned it, and
+  `catch (UnsupportedOperationException e)` — correct code that *handles*
+  the exception — was rejected as a stub. String literals are blanked before
+  the scan (comments deliberately kept: `// TODO: implement` is the signal),
+  markers match on word boundaries, and the two exception names are matched
+  as throw-expressions.
+
+### The guard that could not fail
+
+`test_no_agent_tier_survives_without_a_call_site` had been passing since
+iter-19 while proving nothing: its haystack included `backend/fabric/`,
+which contains the `AGENT_COMPLEXITY` map under test, so every key matched
+its own definition and `orphans` was always `[]`. It was written to catch
+the next `arch.decompose` and would not have.
+
+Excluding the map's own file — one line — surfaced the real set. Most are
+deliberate (Console-visible orchestrators, the three Architecture sub-stages
+that went deterministic in iter-14) and are now an explicit allowlist with a
+reason each; two are assembled at the call site and are listed with the file
+and line that builds them, because "the regex cannot see it" and "nothing
+calls it" look identical from here and only one is a bug.
+
+The mirror guard did not exist at all, and that is the direction the real
+defects were in: `resolve_model` falls back to `"medium"` on an unknown key,
+silently and forever. It now walks every backend module with `ast` — not a
+regex, so a key in a comment cannot masquerade as a call site — and asserts
+every literal `agent_key` has a tier. It immediately found `srs.chat` (the
+default on `AgentSession`), and chasing `routes/chat.py`'s
+`f"{stage}.chat"` found three more: `discovery.chat`, `architecture.chat`
+and `living.chat`, i.e. three of the five chat stages had been routing at
+the default tier.
+
+### The suite's own result was not reproducible
+
+Two consecutive runs of the same command on the same tree gave `1349 passed,
+129 skipped` and `1348 passed, 130 skipped`. The variance was one test:
+`test_live_maven_central_resolves_an_uncurated_package`, which reached the
+public internet by default and skipped itself on a falsy result with the
+message "Maven Central unreachable".
+
+`search_artifact_for_class` documents itself as "returns None on any
+failure", so that message asserted a **cause the test had not established**.
+None meant either the endpoint was slow or the prefix ladder,
+`_rank_candidates`, or the broad fallback had regressed — and the test
+reported the benign one. Same defect class as the vacuous orphan guard: a
+green run with a skip line, where the skip line is the regression.
+
+Making it distinguish the two found a **real product bug**. One `try`
+wrapped the entire prefix ladder AND the broad fallback, so a transport
+error on any single query abandoned the whole resolution. Reproduced live:
+`g:"org.apache.commons.text" AND fc:"…WordUtils"` read-timed out while
+`g:"org.apache.commons"` answered ten docs in under a second. The answer was
+one cheap query away and the resolver returned None — in production, a
+resolvable dependency reported as missing and the build failure blamed on
+the migration. `_query` now swallows per-query, so "only if every prefix
+misses do we fall back" means every prefix was actually tried.
+
+The test itself could not be salvaged in place. The failure mode is
+**latency, not reachability**: an `fc:` query for a 23k-match class times out
+while a cheap query on the same host answers instantly, so no probe cheaper
+than the real query can tell "slow" from "broken" — three successive probe
+designs each failed on that. So the correctness claim moved offline (two new
+tests pin that a failing query does not abandon the ladder, and that the
+broad fallback is still reached), and the live pair is gated behind a new
+`--run-network` flag. Deliberately NOT the `integration` marker: that one
+means "needs the LAMA backend on :8382", and its session-autouse auth
+fixture would skip them when no server is listening. Gated, not discarded —
+the rule `conftest.py` already sets for the eight live-server suites.
+
+### Verified
+
+**1479 passed / 131 skipped, identical across three consecutive runs** — the
+suite is reproducible again, which it was not when this started. Up from
+1349 / 129; 130 new tests. `ruff check backend` clean, `pyflakes
+routes/codegen.py` clean, frontend lint unchanged at 0 errors / 19 warnings.
+
+With `--run-network` the live Maven pair runs and can still fail when Maven
+Central is slow (observed: 1 failed / 1480 passed). That is the honest
+result rather than a hidden one — it now fails loudly, naming both possible
+causes, instead of skipping with a claim it had not checked.
+
+**Not yet proven:** no live migration was run. Every claim here is verified
+by reading the code, by the new suites, or by a direct offline reproduction
+— the same bar iter-21 set for itself, and the same caveat.

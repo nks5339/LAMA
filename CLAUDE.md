@@ -5,11 +5,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 > Project memory for **Claude Code** working on the LAMA repository.
 > **Reflects the tree as of iter-20.** `memory/PRD.md` is append-only and
 > always newer than this file — when the two disagree, PRD.md wins.
-> Auto-discovered (root-level `CLAUDE.md`). Keep this file under ~430 lines
+> Auto-discovered (root-level `CLAUDE.md`). Keep this file under ~510 lines
 > (250 → 350 at iter-17 for multi-tenancy / Factory modes / the Tools
 > track; → 430 at iter-20 for the Transformer's export gate and escalation
-> ladder. All are load-bearing and none are discoverable by skimming the
-> tree).
+> ladder; the file had already drifted to 482 by iter-21, and → 510 at
+> iter-22 for the two `agent_key` routing rules and the DCTE catalogue
+> contract — both are silent-failure modes that cost a full audit to find
+> and would be re-broken by anyone working from the tree alone. All are
+> load-bearing and none are discoverable by skimming the tree).
 > For exhaustive operational rules see `AGENTS.md`; for iteration history
 > see `memory/PRD.md`; for deep architecture see `docs/ARCHITECTURE.md`.
 
@@ -68,6 +71,21 @@ through the 5 stages:
   fallback would be selectable and dead on start. Use `resolve_exact` to ask
   whether a pair is genuinely deterministic (that is what drives the UI's
   "deterministic vs AI pass" hint, via `/plugins`).
+  **iter-22: the catalogue drives the ENGINE, not just the prompt.** iter-21
+  made the brief generic and stopped, so the engine swept a hardcoded
+  `(".java",".sql")` while the generic plugin staged 35 file types — 96 of
+  98 pairs got an **empty file list**, converted nothing, wrote `COMPLETED`.
+  Three `Stack` fields are now read by code, not only by the prompt:
+  `suffixes` → `ai_sweep_suffixes()` picks the files the model sees (union
+  of both sides; manifests excluded — `dependency_migrator`/`devops_agent`
+  own those); `forbidden` → `residue_markers()` is the no-residue gate
+  (union, because `forbidden` means "must not appear in a file of THIS
+  stack"; `permitted` is the escape hatch for `jakarta.ws.rs.` under
+  Quarkus); `build_cmd` → Maven/Gradle/npm/dotnet, and it **never forces a
+  compiler release below what the target pins** (forcing 17 on Java 25 made
+  every modern construct a syntax error the fix loop then "repaired").
+  Prompts are seeded and splice the computed half in at `{stack_sections}`
+  (`dcte/prompt_store.py`); guardrails stay in code. DT-1/DT-2 resolved.
   **iter-20:** the compile-fix loop escalates through FOUR rungs —
   `coder → devops_expert → devops_expert +raw build log → regenerator`
   (`_ESCALATION_LADDER`), capped at 5 iterations. Target-stack idioms live
@@ -242,6 +260,19 @@ AGENTS.md                    # Exhaustive operational rules (this file is the su
    2026-09 — no code had read it since iter-14.31 (verified in
    `docs/RECON.md` §D3), and it is no longer exported by compose or `.env`
    either. The behaviour it described is unconditional.
+   **iter-22 — two `agent_key` rules that bite silently.** `resolve_model`
+   falls back to `"medium"` on a key that is in no tier map, with no warning,
+   forever: `agent_key="gap_analyzer"` meant the Gap Analyzer never once used
+   the `high` it declares as `tools.gap_analyzer`. **A new call site must add
+   its key to `AGENT_COMPLEXITY`** — `test_iter22_agent_key_contract.py`
+   walks every module with `ast` and fails otherwise. And `fabric_call` reads
+   the `set_current_agent_key` contextvar **only when `agent_key` is falsy**,
+   so a route pinning `codegen.regenerate` while the call site passes an
+   explicit key gets the pin discarded; use
+   `agent_key=(get_current_agent_key() or "<default>")`, as `routes/srs.py`
+   does. The mirror guard in `test_iter19_prompt_contracts.py` must never
+   include `fabric/model_fabric.py` in its own haystack — it did until
+   iter-22, matching every key against its own definition, and could not fail.
    **Three execution modes** resolve inside `fabric_call` — know which one is
    live before debugging a prompt:
    a. **Console routing** (default) — `AGENT_COMPLEXITY[agent_key]` picks a
@@ -460,7 +491,8 @@ build time so production env comes from `-e` flags / compose `environment:`.
 | Debug "which model actually ran" | `llm.py::fabric_call` → `llm_traces` collection + `token_usage_log` |
 | Work on the agentic CodeGen flow | `routes/codegen.py` multi-agent section + iter-17 PRD entry |
 | Work on Direct Transform | `routes/dcte.py` + `backend/dcte/` + `docs/direct-transform/` |
-| Add a Direct Transform stack | one entry in `backend/dcte/stacks.py` — it appears in the dropdowns and the brief, and runs on the generic AI plugin |
+| Add a Direct Transform stack | one entry in `backend/dcte/stacks.py`. Fill in `suffixes` (or its files never reach the AI pass) and `forbidden` (or nothing detects a half-migrated file); `build_cmd` if it is a target |
+| Tune a Direct Transform prompt | Prompt Library `dcte.*` — the fixed half only; the pair-specific half is computed and spliced at `{stack_sections}` |
 | Give a Direct Transform pair a deterministic transformer | new plugin under `backend/dcte/plugins/`, registered in `plugin_registry.get_registry()` |
 | See latest known-working state | `test_reports/iteration_<N>.json` |
 | Understand container boot order | `docker/supervisord.conf` + `docker/entrypoint.sh` |

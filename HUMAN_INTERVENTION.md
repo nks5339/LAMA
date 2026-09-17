@@ -325,7 +325,9 @@ the merge.
 
 ### DT-1 — `dcte.devops` and `dcte.tester` are registered agents with no call site
 
-**Raised:** Phase 4 audit.
+**Raised:** Phase 4 audit. **Half-resolved in iter-22** — see the note at the
+end of this entry. `dcte.devops` now has a call site; `dcte.tester` still
+does not, and that half remains open.
 
 Five `dcte.*` agent keys are registered in `AGENT_COMPLEXITY` and seeded as
 `agent_configs` rows. Three of them are genuinely invoked:
@@ -358,9 +360,30 @@ dropped from the fabric map and the seed?
 *Recommendation: build it later, keep the registration now. Dropping the keys
 means editing two of the author's tests, and the phases are real.*
 
+**Resolved (iter-22) for `dcte.devops`.** The operator chose "build the
+escalation". `devops_agent._escalate_gaps_to_llm` is the call site: gaps the
+deterministic templates cannot close now go to the model under
+`agent_key="dcte.devops"` instead of being reported as unresolved. Bounded
+at `_MAX_LLM_GAP_FIXES` (4) per run, written back through
+`ai_refactor._safe_apply`, and confined to the service tree — the model
+names the path, so a `../../etc/x` reply has to be refused. The templates
+keep first refusal: a template is reproducible and cannot invent a database
+URL, and an `action: "skip"` is recorded as unresolved rather than as a fix.
+`escalate=False` restores the deterministic-only behaviour. The module
+docstring, which described this path in the present tense while it did not
+exist, now describes what is there.
+
+**Still open for `dcte.tester`.** The TESTING phase is real and fully
+deterministic (subprocess boot smoke + regex parity), so there is nothing it
+needs a model for today. The tier is registered, two suites assert it, and
+iter-22 added it to `_TIER_ONLY_BY_DESIGN` in the orphan guard with that
+reason — so it is now *declared* dead rather than silently dead. Dropping it
+or giving it a narration role is still your call.
+
 ### DT-2 — The DCTE agents carry inline prompts, not Prompt Library entries
 
-**Raised:** Phase 0 intake.
+**Raised:** Phase 0 intake. **Resolved in iter-22** — see the note at the end
+of this entry.
 
 Every other LLM agent in LAMA reads its system prompt from the `prompts`
 collection, seeded in `seed.py` with `force_update: True` for rev-bumps, and
@@ -382,6 +405,30 @@ weaken)?
 *Recommendation: seed them. The inconsistency will surprise the first
 operator who goes looking for them in Prompt Library and finds four tools'
 prompts and not the fifth's.*
+
+**Resolved (iter-22) as a hybrid**, which is what the concern in the question
+actually called for — the guardrails are real and an edit should not be able
+to weaken them, but that is not a reason to hide the whole prompt.
+
+Three layers, split by who owns each:
+
+| Layer | Where it lives | Why |
+|---|---|---|
+| Role, strict rules, JSON contract | seeded `dcte.*` rows, `force_update: True` | This is what an operator wants to tune, and it is what every other agent already exposes. |
+| Target idioms, no-residue clause, API-docs clause | computed from `stacks.py` at call time | There are 98 selectable pairs. This half is derived from the operator's own selection and cannot be written down in a row. |
+| Size ratios, residue reject list, path confinement | code (`_safe_apply`, `residue_markers`, the DevOps escalation) | An edit to a prompt must not be able to turn a guardrail off. |
+
+A seeded row marks where the computed half goes with the literal
+`{stack_sections}` placeholder (`dcte/prompt_store.py`). A row that has had
+the placeholder deleted still works — the computed sections are appended
+rather than dropped, because losing the target's conventions is a worse
+outcome than an oddly-ordered prompt. Every lookup degrades to the module
+constant: DCTE runs in a worker thread off the main loop and its agents must
+not fail because Mongo blinked or because `run_seed` has not been reached.
+
+Four rows are seeded (`dcte.transformer`, `dcte.build_fixer`, `dcte.devops`,
+`dcte.narrator`). `dcte.tester` has no row because it has no LLM call — see
+DT-1.
 
 ### DT-3 — Two working endpoints have no UI
 
